@@ -1,0 +1,192 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
+import 'package:knx_core/knx_core.dart';
+
+import 'zip_reader.dart';
+
+class EtsItem {
+  final String address;
+  final String name;
+  final String dpt;
+  const EtsItem(this.address, this.name, this.dpt);
+}
+
+class EtsResult {
+  final List<EtsItem> items;
+  final String projectName;
+  const EtsResult(this.items, [this.projectName = '']);
+}
+
+class EtsException implements Exception {
+  final String message;
+  EtsException(this.message);
+  @override
+  String toString() => message;
+}
+
+/// Decodes text from bytes: UTF-8 first, falling back to Latin-1.
+String decodeText(List<int> bytes) {
+  var b = bytes;
+  if (b.length >= 3 && b[0] == 0xEF && b[1] == 0xBB && b[2] == 0xBF) b = b.sublist(3);
+  try {
+    return utf8.decode(b);
+  } on FormatException {
+    return latin1.decode(b);
+  }
+}
+
+String _gaFromInt(int n, {bool twoLevel = false}) =>
+    twoLevel ? '${(n >> 11) & 31}/${n & 2047}' : '${(n >> 11) & 31}/${(n >> 8) & 7}/${n & 255}';
+
+String _attr(String tag, String name) {
+  final m = RegExp('\\b$name="([^"]*)"').firstMatch(tag);
+  return m == null ? '' : _unescape(m.group(1)!);
+}
+
+String _unescape(String s) => s
+    .replaceAll('&lt;', '<')
+    .replaceAll('&gt;', '>')
+    .replaceAll('&quot;', '"')
+    .replaceAll('&apos;', "'")
+    .replaceAllMapped(RegExp(r'&#(\d+);'), (m) => String.fromCharCode(int.parse(m[1]!)))
+    .replaceAllMapped(RegExp(r'&#x([0-9a-fA-F]+);'), (m) => String.fromCharCode(int.parse(m[1]!, radix: 16)))
+    .replaceAll('&amp;', '&');
+
+List<EtsItem> _parseXml(String xml, {bool twoLevel = false}) {
+  final out = <EtsItem>[];
+  for (final m in RegExp(r'<GroupAddress\b[^>]*>').allMatches(xml)) {
+    final tag = m.group(0)!;
+    var a = _attr(tag, 'Address');
+    if (RegExp(r'^\d+$').hasMatch(a)) a = _gaFromInt(int.parse(a), twoLevel: twoLevel);
+    if (!GroupAddress.isValid(a)) continue;
+    final dpt = _attr(tag, 'DPTs').isNotEmpty ? _attr(tag, 'DPTs') : _attr(tag, 'DatapointType');
+    out.add(EtsItem(a, _attr(tag, 'Name').trim(), normalizeDpt(dpt)));
+  }
+  return out;
+}
+
+List<List<String>> parseCsv(String text) {
+  final first = text.split(RegExp(r'\r?\n')).first;
+  var d = ';';
+  var best = -1;
+  for (final c in [';', ',', '\t']) {
+    final n = first.split(c).length;
+    if (n > best) {
+      best = n;
+      d = c;
+    }
+  }
+  final rows = <List<String>>[];
+  var row = <String>[];
+  final f = StringBuffer();
+  var q = false;
+  for (var i = 0; i < text.length; i++) {
+    final ch = text[i];
+    if (q) {
+      if (ch == '"') {
+        if (i + 1 < text.length && text[i + 1] == '"') {
+          f.write('"');
+          i++;
+        } else {
+          q = false;
+        }
+      } else {
+        f.write(ch);
+      }
+    } else if (ch == '"') {
+      q = true;
+    } else if (ch == d) {
+      row.add(f.toString());
+      f.clear();
+    } else if (ch == '\n') {
+      row.add(f.toString());
+      f.clear();
+      rows.add(row);
+      row = <String>[];
+    } else if (ch != '\r') {
+      f.write(ch);
+    }
+  }
+  if (f.isNotEmpty || row.isNotEmpty) {
+    row.add(f.toString());
+    rows.add(row);
+  }
+  return rows.where((r) => r.any((c) => c.trim().isNotEmpty)).toList();
+}
+
+List<EtsItem> _parseCsvItems(String text) {
+  final rows = parseCsv(text);
+  if (rows.isEmpty) return const [];
+  final head = rows.first.map((c) => c.trim().toLowerCase()).toList();
+  final hasHead = head.any((h) => h == 'address' || h == 'địa chỉ');
+  final iAddr = hasHead ? head.indexWhere((h) => h == 'address' || h == 'địa chỉ') : -1;
+  final iName = hasHead ? head.indexWhere((h) => h == 'group name' || h == 'name' || h == 'tên') : -1;
+  final iDpt = hasHead ? head.indexWhere((h) => h.startsWith('datapoint') || h.startsWith('dpt')) : -1;
+  final out = <EtsItem>[];
+  for (final r in hasHead ? rows.skip(1) : rows) {
+    final cells = r.map((c) => c.trim()).toList();
+    var ai = iAddr >= 0 ? iAddr : cells.indexWhere(GroupAddress.isValid);
+    if (ai < 0 || ai >= cells.length || !GroupAddress.isValid(cells[ai])) continue;
+    var name = iName >= 0 && iName < cells.length ? cells[iName] : '';
+    if (name.isEmpty) {
+      for (var k = ai - 1; k >= 0; k--) {
+        if (cells[k].isNotEmpty && !GroupAddress.isValid(cells[k])) {
+          name = cells[k];
+          break;
+        }
+      }
+    }
+    final dptCell = iDpt >= 0 && iDpt < cells.length ? cells[iDpt] : cells.firstWhere((c) => RegExp(r'DPS?T-\d', caseSensitive: false).hasMatch(c), orElse: () => '');
+    out.add(EtsItem(cells[ai], name, normalizeDpt(dptCell)));
+  }
+  return out;
+}
+
+/// Parses an ETS export: .knxproj (zip), XML or CSV. Duplicates are removed.
+EtsResult parseEts(Uint8List bytes, {String fileName = ''}) {
+  final isZip = bytes.length > 2 && bytes[0] == 0x50 && bytes[1] == 0x4B;
+  EtsResult res;
+  if (isZip || fileName.toLowerCase().endsWith('.knxproj')) {
+    res = _parseKnxproj(bytes);
+  } else {
+    final text = decodeText(bytes);
+    res = EtsResult(text.trimLeft().startsWith('<') ? _parseXml(text) : _parseCsvItems(text));
+  }
+  final seen = <String>{};
+  final items = res.items.where((i) => seen.add(i.address)).toList();
+  if (items.isEmpty) throw EtsException('Không tìm thấy địa chỉ nhóm trong file. Hãy dùng file .knxproj, hoặc xuất địa chỉ nhóm từ ETS dạng CSV/XML.');
+  return EtsResult(items, res.projectName);
+}
+
+EtsResult _parseKnxproj(Uint8List bytes) {
+  final ZipReader zip;
+  try {
+    zip = ZipReader(bytes);
+  } on FormatException {
+    throw EtsException('File .knxproj bị hỏng hoặc không đúng định dạng.');
+  }
+  final names = zip.names.toList();
+  final xmlName = names.firstWhere((n) => RegExp(r'^P-[0-9A-F]+/0\.xml$', caseSensitive: false).hasMatch(n), orElse: () => '');
+  if (xmlName.isEmpty) {
+    if (names.any((n) => RegExp(r'^P-[0-9A-F]+\.zip$', caseSensitive: false).hasMatch(n))) {
+      throw EtsException('Project ETS này có đặt mật khẩu nên chưa đọc được. Hãy xuất lại từ ETS không đặt mật khẩu, hoặc xuất danh sách địa chỉ nhóm ra CSV.');
+    }
+    throw EtsException('Không tìm thấy dữ liệu project trong file .knxproj.');
+  }
+  final dir = xmlName.split('/').first;
+  var twoLevel = false;
+  var pname = '';
+  final pj = zip.read('$dir/project.xml');
+  if (pj != null) {
+    final x = decodeText(pj);
+    final m = RegExp(r'<ProjectInformation\b[^>]*>').firstMatch(x);
+    if (m != null) {
+      twoLevel = _attr(m.group(0)!, 'GroupAddressStyle') == 'TwoLevel';
+      pname = _attr(m.group(0)!, 'Name').trim();
+    }
+  }
+  final data = zip.read(xmlName);
+  if (data == null) throw EtsException('Không đọc được dữ liệu project (file có thể bị mã hoá).');
+  return EtsResult(_parseXml(decodeText(data), twoLevel: twoLevel), pname);
+}
