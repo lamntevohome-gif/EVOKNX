@@ -1,0 +1,436 @@
+import 'package:flutter/material.dart';
+import 'package:knx_config/knx_config.dart';
+
+import 'icons.dart';
+import 'model.dart';
+
+/// Colours of the simulated app screen (light/dark like the real app).
+class AppPalette {
+  final Color screen, tile, tileEdge, panel, ink, muted, line, lineStrong, accent, accentSoft, led, ledSoft, danger;
+  const AppPalette({
+    required this.screen,
+    required this.tile,
+    required this.tileEdge,
+    required this.panel,
+    required this.ink,
+    required this.muted,
+    required this.line,
+    required this.lineStrong,
+    required this.accent,
+    required this.accentSoft,
+    required this.led,
+    required this.ledSoft,
+    required this.danger,
+  });
+
+  static const light = AppPalette(
+    screen: Color(0xFFD8DBDF),
+    tile: Color(0xFFFFFFFF),
+    tileEdge: Color(0xFFCDD1D6),
+    panel: Color(0xFFFFFFFF),
+    ink: Color(0xFF1B2320),
+    muted: Color(0xFF66716C),
+    line: Color(0xFFDEE3E0),
+    lineStrong: Color(0xFFC3CBC7),
+    accent: Color(0xFF1E7F57),
+    accentSoft: Color(0xFFE2F1E9),
+    led: Color(0xFFEE9B2A),
+    ledSoft: Color(0xFFFDF1DC),
+    danger: Color(0xFFC2412D),
+  );
+
+  static const dark = AppPalette(
+    screen: Color(0xFF191E20),
+    tile: Color(0xFF242A2C),
+    tileEdge: Color(0xFF323A3C),
+    panel: Color(0xFF1C2123),
+    ink: Color(0xFFE7ECE9),
+    muted: Color(0xFF9AA59F),
+    line: Color(0xFF2E3537),
+    lineStrong: Color(0xFF434C4F),
+    accent: Color(0xFF3DAA7A),
+    accentSoft: Color(0xFF1D3328),
+    led: Color(0xFFF2AA45),
+    ledSoft: Color(0xFF3A2D17),
+    danger: Color(0xFFE7735E),
+  );
+}
+
+Color? hexColor(Object? s) {
+  final t = (s ?? '').toString().replaceAll('#', '');
+  if (t.length != 6) return null;
+  final v = int.tryParse(t, radix: 16);
+  return v == null ? null : Color(0xFF000000 | v);
+}
+
+String fmtNum(num v, int d) => v.toStringAsFixed(d).replaceAll('.', ',');
+
+/// Renders one component tile (except grid frames, drawn by the canvas).
+class TileView extends StatelessWidget {
+  const TileView({super.key, required this.w, required this.pal, required this.gas, this.sim = const {}, this.selected = false, this.flagged = false});
+  final Json w;
+  final AppPalette pal;
+  final List<Json> gas;
+  final Map<String, dynamic> sim;
+  final bool selected, flagged;
+
+  @override
+  Widget build(BuildContext context) {
+    final type = w['type'] as String? ?? '';
+    final style = jsonMap(w['style']);
+    final on = type == 'switch' ? sim['on'] == true : (type == 'dimmer' ? ((sim['val'] as num?) ?? 0) > 0 : false);
+    final colorOn = hexColor(style['colorOn']) ?? pal.led;
+    final colorOff = hexColor(style['colorOff']) ?? pal.muted;
+    final bg = on ? Color.alphaBlend(colorOn.withValues(alpha: 0.16), pal.tile) : pal.tile;
+    return Container(
+      decoration: BoxDecoration(
+        color: type == 'webview' ? pal.tile : bg,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: on ? colorOn.withValues(alpha: 0.45) : pal.tileEdge),
+        boxShadow: const [BoxShadow(color: Color(0x0A000000), blurRadius: 2, offset: Offset(0, 1))],
+      ),
+      foregroundDecoration: selected
+          ? BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: pal.accent, width: 2),
+            )
+          : null,
+      padding: EdgeInsets.fromLTRB(12, 10, 12, 10),
+      child: ClipRect(
+        child: Stack(
+          children: [
+            Positioned.fill(child: _content(type, on, colorOn, colorOff)),
+            if (flagged) Positioned(right: -2, bottom: -2, child: Icon(Icons.warning_amber_rounded, size: 15, color: pal.danger)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _label({double? size}) => Text(
+    (w['label'] ?? '').toString(),
+    maxLines: w['type'] == 'shutter' || w['type'] == 'value' || w['type'] == 'ac' ? 1 : 2,
+    overflow: TextOverflow.ellipsis,
+    style: TextStyle(fontSize: size ?? fs(w, 'labelSize'), fontWeight: FontWeight.w400, color: pal.ink, height: 1.2),
+  );
+
+  Widget _state(String s) => Text(
+    s,
+    maxLines: 1,
+    overflow: TextOverflow.ellipsis,
+    style: TextStyle(fontSize: fs(w, 'stateSize'), color: pal.muted, fontFeatures: const [FontFeature.tabularFigures()]),
+  );
+
+  Widget _icon(Color color) => Icon(iconOf(w['icon'] as String?), size: fs(w, 'iconSize'), color: color);
+
+  Widget _head(Color iconColor, {Widget? trailing}) => Row(
+    crossAxisAlignment: CrossAxisAlignment.center,
+    children: [
+      _icon(iconColor),
+      const SizedBox(width: 8),
+      Expanded(child: _label()),
+      if (trailing != null) ...[const SizedBox(width: 6), trailing],
+    ],
+  );
+
+  Widget _led(bool on, Color c) => Container(
+    width: 7,
+    height: 7,
+    decoration: BoxDecoration(
+      color: on ? c : pal.lineStrong,
+      shape: BoxShape.circle,
+      boxShadow: on ? [BoxShadow(color: c, blurRadius: 6)] : null,
+    ),
+  );
+
+  Json? _ga(String key) => byId(gas, jsonMap(w['bind'])[key] as String?);
+
+  Widget _content(String type, bool on, Color colorOn, Color colorOff) {
+    final style = jsonMap(w['style']);
+    switch (type) {
+      case 'switch':
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            _head(on ? colorOn : colorOff, trailing: _led(on, colorOn)),
+            _state(on ? (style['textOn'] ?? 'Đang bật').toString() : (style['textOff'] ?? 'Đang tắt').toString()),
+          ],
+        );
+      case 'dimmer':
+        final v = ((sim['val'] as num?) ?? 0).toInt();
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            _head(on ? colorOn : colorOff, trailing: _led(on, colorOn)),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _state(on ? '${style['textOn'] ?? 'Đang bật'} $v%' : (style['textOff'] ?? 'Đang tắt').toString()),
+                const SizedBox(height: 6),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(2),
+                  child: LinearProgressIndicator(value: v / 100, minHeight: 4, backgroundColor: pal.line, color: colorOn),
+                ),
+              ],
+            ),
+          ],
+        );
+      case 'value':
+        final g = _ga('status');
+        final dpt = (g?['dpt'] ?? '').toString();
+        const samples = {'9.001': 24.5, '9.004': 320, '9.007': 62, '14.056': 1250, '13.010': 8420, '5.001': 45};
+        final raw = sim['val'] ?? samples[dpt];
+        final f = jsonMap(w['format']);
+        final dec = (f['decimals'] as num?)?.toInt() ?? 0;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            _head(pal.muted),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
+              children: [
+                Text(
+                  raw is num ? fmtNum(raw, dec) : '–',
+                  style: TextStyle(fontSize: fs(w, 'valueSize'), fontWeight: FontWeight.w400, color: pal.ink, height: 1),
+                ),
+                const SizedBox(width: 3),
+                Text(
+                  (f['unit'] ?? '').toString(),
+                  style: TextStyle(fontSize: fs(w, 'valueSize') * 0.5, color: pal.muted),
+                ),
+              ],
+            ),
+          ],
+        );
+      case 'button':
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [_head(pal.muted), _state('Nhấn để gửi')],
+        );
+      case 'scene':
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [_head(pal.muted), _state('Cảnh ${w['sceneNumber'] ?? 1}')],
+        );
+      case 'link':
+        final host = Uri.tryParse((w['url'] ?? '').toString())?.host ?? '';
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [_head(pal.muted), _state(host.isEmpty ? 'Chưa có địa chỉ web' : host)],
+        );
+      case 'webview':
+        final host = Uri.tryParse((w['url'] ?? '').toString())?.host ?? '';
+        final showHead = jsonMap(w['web'])['showHeader'] != false;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (showHead) ...[_head(pal.muted), const SizedBox(height: 8)],
+            Expanded(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: pal.panel,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: pal.tileEdge),
+                ),
+                child: Column(
+                  children: [
+                    Container(
+                      height: 24,
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      decoration: BoxDecoration(
+                        border: Border(bottom: BorderSide(color: pal.tileEdge)),
+                      ),
+                      child: Row(
+                        children: [
+                          for (var i = 0; i < 3; i++)
+                            Container(
+                              width: 6,
+                              height: 6,
+                              margin: const EdgeInsets.only(right: 4),
+                              decoration: BoxDecoration(color: pal.lineStrong, shape: BoxShape.circle),
+                            ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              host.isEmpty ? 'Chưa có địa chỉ web' : host,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(fontSize: 11, color: pal.muted),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.language, size: 26, color: pal.muted),
+                            const SizedBox(height: 6),
+                            Text(
+                              host.isEmpty ? 'Nhập địa chỉ web trong thuộc tính' : 'Trang web hiển thị tại đây trong App',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(fontSize: 12, color: pal.muted),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        );
+      case 'shutter':
+        final curtain = w['shStyle'] == 'curtain';
+        final ctrl = (w['shCtrl'] ?? 'buttons').toString();
+        final p = ((sim['pos'] as num?) ?? 0).toInt();
+        final b = jsonMap(w['bind']);
+        final showPct = b['status'] != null || b['position'] != null;
+        final bi = fs(w, 'btnIcon');
+        Widget btn(IconData i) => Expanded(
+          child: Container(
+            height: bi + 12,
+            margin: const EdgeInsets.symmetric(horizontal: 3),
+            decoration: BoxDecoration(
+              color: pal.panel,
+              border: Border.all(color: pal.tileEdge),
+              borderRadius: BorderRadius.circular(bi * 0.5 + 2),
+            ),
+            child: Icon(i, size: bi, color: pal.ink),
+          ),
+        );
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            _head(
+              pal.muted,
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (showPct) _state(curtain ? 'Mở ${100 - p}%' : 'Đóng $p%'),
+                  if (ctrl != 'buttons') ...[const SizedBox(width: 6), Icon(Icons.tune, size: 16, color: pal.muted)],
+                ],
+              ),
+            ),
+            if (ctrl == 'slider')
+              ClipRRect(
+                borderRadius: BorderRadius.circular(2),
+                child: LinearProgressIndicator(value: (curtain ? 100 - p : p) / 100, minHeight: 4, backgroundColor: pal.line, color: pal.accent),
+              )
+            else
+              Row(
+                children: [
+                  btn(curtain ? Icons.open_in_full : Icons.keyboard_arrow_up),
+                  if (w['showStop'] != false) btn(Icons.stop_outlined),
+                  btn(curtain ? Icons.close_fullscreen : Icons.keyboard_arrow_down),
+                ],
+              ),
+          ],
+        );
+      case 'ac':
+        final ac = jsonMap(w['ac']);
+        final acOn = sim['on'] == true;
+        final sp = (sim['sp'] as num?) ?? 24;
+        final step = (ac['step'] as num?) == 1 ? 1 : 0.5;
+        final mode = (sim['mode'] ?? 'cool').toString();
+        final modes = jsonMap(ac['modes']);
+        final names = jsonMap(ac['names']);
+        final ab = fs(w, 'acBtn'), am = fs(w, 'acMode');
+        final showCur = ac['showCur'] != false && jsonMap(w['bind'])['current'] != null;
+        Widget round(IconData i) => Container(
+          width: ab * 2.2,
+          height: ab * 2.2,
+          decoration: BoxDecoration(
+            color: pal.panel,
+            shape: BoxShape.circle,
+            border: Border.all(color: pal.tileEdge),
+          ),
+          child: Icon(i, size: ab, color: pal.ink),
+        );
+        Widget modeBtn(String key, String name, String icon, bool active) => Expanded(
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 2),
+            padding: EdgeInsets.symmetric(vertical: am * 0.35),
+            decoration: BoxDecoration(
+              color: active ? pal.ink : pal.panel,
+              border: Border.all(color: active ? pal.ink : pal.tileEdge),
+              borderRadius: BorderRadius.circular(am * 0.62),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(iconOf(icon), size: am, color: active ? pal.screen : pal.muted),
+                const SizedBox(height: 2),
+                Text(
+                  name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: am * 0.7, color: active ? pal.screen : pal.muted),
+                ),
+              ],
+            ),
+          ),
+        );
+        String nm(String k, String d) => ((names[k] ?? '').toString().trim().isEmpty) ? d : names[k].toString();
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _head(
+              pal.muted,
+              trailing: showCur
+                  ? Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.thermostat, size: fs(w, 'stateSize') * 1.25, color: pal.muted),
+                        _state('${fmtNum((sim['cur'] as num?) ?? 26.5, 1)}°C'),
+                      ],
+                    )
+                  : null,
+            ),
+            Expanded(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  round(Icons.remove),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.baseline,
+                    textBaseline: TextBaseline.alphabetic,
+                    children: [
+                      Text(
+                        fmtNum(sp, step == 1 ? 0 : 1),
+                        style: TextStyle(fontSize: fs(w, 'valueSize') * 1.3, color: acOn ? pal.ink : pal.muted, height: 1),
+                      ),
+                      Text(
+                        '°C',
+                        style: TextStyle(fontSize: fs(w, 'valueSize') * 0.55, color: pal.muted),
+                      ),
+                    ],
+                  ),
+                  round(Icons.add),
+                ],
+              ),
+            ),
+            Row(
+              children: [
+                modeBtn('off', nm('off', 'Tắt'), 'power', !acOn),
+                for (final m in kAcModes)
+                  if (modes.containsKey(m.key) ? modes[m.key] == true : m.key != 'heat') modeBtn(m.key, nm(m.key, m.name), m.icon, acOn && mode == m.key),
+              ],
+            ),
+          ],
+        );
+    }
+    return _head(pal.muted);
+  }
+}
