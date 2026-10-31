@@ -67,19 +67,40 @@ String fmtNum(num v, int d) => v.toStringAsFixed(d).replaceAll('.', ',');
 
 /// Renders one component tile (except grid frames, drawn by the canvas).
 class TileView extends StatelessWidget {
-  const TileView({super.key, required this.w, required this.pal, required this.gas, this.sim = const {}, this.selected = false, this.flagged = false});
+  const TileView({
+    super.key,
+    required this.w,
+    required this.pal,
+    required this.gas,
+    this.sim = const {},
+    this.selected = false,
+    this.flagged = false,
+    this.act,
+  });
   final Json w;
   final AppPalette pal;
   final List<Json> gas;
   final Map<String, dynamic> sim;
   final bool selected, flagged;
 
+  /// Test mode: called for control actions (up, down, stop, tune, plus, minus, off, mode).
+  final void Function(String action, [Object? arg])? act;
+
+  Widget _tap(String action, Widget child, [Object? arg]) => act == null
+      ? child
+      : GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => act!(action, arg),
+          child: MouseRegion(cursor: SystemMouseCursors.click, child: child),
+        );
+
   @override
   Widget build(BuildContext context) {
     final type = w['type'] as String? ?? '';
     final style = jsonMap(w['style']);
     final on = type == 'switch' ? sim['on'] == true : (type == 'dimmer' ? ((sim['val'] as num?) ?? 0) > 0 : false);
-    final colorOn = hexColor(style['colorOn']) ?? pal.led;
+    final rgb = type == 'dimmer' ? hexColor(sim['rgb']) : null;
+    final colorOn = rgb ?? hexColor(style['colorOn']) ?? pal.led;
     final colorOff = hexColor(style['colorOff']) ?? pal.muted;
     final bg = on ? Color.alphaBlend(colorOn.withValues(alpha: 0.16), pal.tile) : pal.tile;
     return Container(
@@ -95,7 +116,7 @@ class TileView extends StatelessWidget {
               border: Border.all(color: pal.accent, width: 2),
             )
           : null,
-      padding: EdgeInsets.fromLTRB(12, 10, 12, 10),
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
       child: ClipRect(
         child: Stack(
           children: [
@@ -107,11 +128,11 @@ class TileView extends StatelessWidget {
     );
   }
 
-  Widget _label({double? size}) => Text(
+  Widget _label() => Text(
     (w['label'] ?? '').toString(),
     maxLines: w['type'] == 'shutter' || w['type'] == 'value' || w['type'] == 'ac' ? 1 : 2,
     overflow: TextOverflow.ellipsis,
-    style: TextStyle(fontSize: size ?? fs(w, 'labelSize'), fontWeight: FontWeight.w400, color: pal.ink, height: 1.2),
+    style: TextStyle(fontSize: fs(w, 'labelSize'), fontWeight: FontWeight.w400, color: pal.ink, height: 1.2),
   );
 
   Widget _state(String s) => Text(
@@ -124,7 +145,6 @@ class TileView extends StatelessWidget {
   Widget _icon(Color color) => Icon(iconOf(w['icon'] as String?), size: fs(w, 'iconSize'), color: color);
 
   Widget _head(Color iconColor, {Widget? trailing}) => Row(
-    crossAxisAlignment: CrossAxisAlignment.center,
     children: [
       _icon(iconColor),
       const SizedBox(width: 8),
@@ -145,39 +165,47 @@ class TileView extends StatelessWidget {
 
   Json? _ga(String key) => byId(gas, jsonMap(w['bind'])[key] as String?);
 
+  Widget _bar(double v, Color c) => ClipRRect(
+    borderRadius: BorderRadius.circular(2),
+    child: LinearProgressIndicator(value: v.clamp(0, 1).toDouble(), minHeight: 4, backgroundColor: pal.line, color: c),
+  );
+
+  Widget _col(List<Widget> children) =>
+      Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisAlignment: MainAxisAlignment.spaceBetween, children: children);
+
   Widget _content(String type, bool on, Color colorOn, Color colorOff) {
     final style = jsonMap(w['style']);
+    final textOn = (style['textOn'] ?? 'Đang bật').toString(), textOff = (style['textOff'] ?? 'Đang tắt').toString();
     switch (type) {
       case 'switch':
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            _head(on ? colorOn : colorOff, trailing: _led(on, colorOn)),
-            _state(on ? (style['textOn'] ?? 'Đang bật').toString() : (style['textOff'] ?? 'Đang tắt').toString()),
-          ],
-        );
+        return _col([_head(on ? colorOn : colorOff, trailing: _led(on, colorOn)), _state(on ? textOn : textOff)]);
       case 'dimmer':
         final v = ((sim['val'] as num?) ?? 0).toInt();
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            _head(on ? colorOn : colorOff, trailing: _led(on, colorOn)),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+        return _col([
+          _head(
+            on ? colorOn : colorOff,
+            trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                _state(on ? '${style['textOn'] ?? 'Đang bật'} $v%' : (style['textOff'] ?? 'Đang tắt').toString()),
-                const SizedBox(height: 6),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(2),
-                  child: LinearProgressIndicator(value: v / 100, minHeight: 4, backgroundColor: pal.line, color: colorOn),
-                ),
+                if (act != null)
+                  _tap(
+                    'tune',
+                    Padding(
+                      padding: const EdgeInsets.all(2),
+                      child: Icon(Icons.tune, size: 18, color: pal.muted),
+                    ),
+                  ),
+                const SizedBox(width: 4),
+                _led(on, colorOn),
               ],
             ),
-          ],
-        );
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [_state(on ? '$textOn $v%' : textOff), const SizedBox(height: 6), _bar(v / 100, colorOn)],
+          ),
+        ]);
       case 'value':
         final g = _ga('status');
         final dpt = (g?['dpt'] ?? '').toString();
@@ -185,47 +213,31 @@ class TileView extends StatelessWidget {
         final raw = sim['val'] ?? samples[dpt];
         final f = jsonMap(w['format']);
         final dec = (f['decimals'] as num?)?.toInt() ?? 0;
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            _head(pal.muted),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.baseline,
-              textBaseline: TextBaseline.alphabetic,
-              children: [
-                Text(
-                  raw is num ? fmtNum(raw, dec) : '–',
-                  style: TextStyle(fontSize: fs(w, 'valueSize'), fontWeight: FontWeight.w400, color: pal.ink, height: 1),
-                ),
-                const SizedBox(width: 3),
-                Text(
-                  (f['unit'] ?? '').toString(),
-                  style: TextStyle(fontSize: fs(w, 'valueSize') * 0.5, color: pal.muted),
-                ),
-              ],
-            ),
-          ],
-        );
+        return _col([
+          _head(pal.muted),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Text(
+                raw is num ? fmtNum(raw, dec) : '–',
+                style: TextStyle(fontSize: fs(w, 'valueSize'), color: pal.ink, height: 1),
+              ),
+              const SizedBox(width: 3),
+              Text(
+                (f['unit'] ?? '').toString(),
+                style: TextStyle(fontSize: fs(w, 'valueSize') * 0.5, color: pal.muted),
+              ),
+            ],
+          ),
+        ]);
       case 'button':
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [_head(pal.muted), _state('Nhấn để gửi')],
-        );
+        return _col([_head(pal.muted), _state('Nhấn để gửi')]);
       case 'scene':
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [_head(pal.muted), _state('Cảnh ${w['sceneNumber'] ?? 1}')],
-        );
+        return _col([_head(pal.muted), _state('Cảnh ${w['sceneNumber'] ?? 1}')]);
       case 'link':
         final host = Uri.tryParse((w['url'] ?? '').toString())?.host ?? '';
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [_head(pal.muted), _state(host.isEmpty ? 'Chưa có địa chỉ web' : host)],
-        );
+        return _col([_head(pal.muted), _state(host.isEmpty ? 'Chưa có địa chỉ web' : host)]);
       case 'webview':
         final host = Uri.tryParse((w['url'] ?? '').toString())?.host ?? '';
         final showHead = jsonMap(w['web'])['showHeader'] != false;
@@ -297,47 +309,43 @@ class TileView extends StatelessWidget {
         final b = jsonMap(w['bind']);
         final showPct = b['status'] != null || b['position'] != null;
         final bi = fs(w, 'btnIcon');
-        Widget btn(IconData i) => Expanded(
-          child: Container(
-            height: bi + 12,
-            margin: const EdgeInsets.symmetric(horizontal: 3),
-            decoration: BoxDecoration(
-              color: pal.panel,
-              border: Border.all(color: pal.tileEdge),
-              borderRadius: BorderRadius.circular(bi * 0.5 + 2),
+        Widget btn(IconData i, String a) => Expanded(
+          child: _tap(
+            a,
+            Container(
+              height: bi + 12,
+              margin: const EdgeInsets.symmetric(horizontal: 3),
+              decoration: BoxDecoration(
+                color: pal.panel,
+                border: Border.all(color: pal.tileEdge),
+                borderRadius: BorderRadius.circular(bi * 0.5 + 2),
+              ),
+              child: Icon(i, size: bi, color: pal.ink),
             ),
-            child: Icon(i, size: bi, color: pal.ink),
           ),
         );
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            _head(
-              pal.muted,
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (showPct) _state(curtain ? 'Mở ${100 - p}%' : 'Đóng $p%'),
-                  if (ctrl != 'buttons') ...[const SizedBox(width: 6), Icon(Icons.tune, size: 16, color: pal.muted)],
-                ],
-              ),
+        return _col([
+          _head(
+            pal.muted,
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (showPct) _state(curtain ? 'Mở ${100 - p}%' : 'Đóng $p%'),
+                if (ctrl != 'buttons') ...[const SizedBox(width: 6), _tap('tune', Icon(Icons.tune, size: 18, color: pal.muted))],
+              ],
             ),
-            if (ctrl == 'slider')
-              ClipRRect(
-                borderRadius: BorderRadius.circular(2),
-                child: LinearProgressIndicator(value: (curtain ? 100 - p : p) / 100, minHeight: 4, backgroundColor: pal.line, color: pal.accent),
-              )
-            else
-              Row(
-                children: [
-                  btn(curtain ? Icons.open_in_full : Icons.keyboard_arrow_up),
-                  if (w['showStop'] != false) btn(Icons.stop_outlined),
-                  btn(curtain ? Icons.close_fullscreen : Icons.keyboard_arrow_down),
-                ],
-              ),
-          ],
-        );
+          ),
+          if (ctrl == 'slider')
+            _bar((curtain ? 100 - p : p) / 100, pal.accent)
+          else
+            Row(
+              children: [
+                btn(curtain ? Icons.open_in_full : Icons.keyboard_arrow_up, 'up'),
+                if (w['showStop'] != false) btn(Icons.stop_outlined, 'stop'),
+                btn(curtain ? Icons.close_fullscreen : Icons.keyboard_arrow_down, 'down'),
+              ],
+            ),
+        ]);
       case 'ac':
         final ac = jsonMap(w['ac']);
         final acOn = sim['on'] == true;
@@ -348,38 +356,45 @@ class TileView extends StatelessWidget {
         final names = jsonMap(ac['names']);
         final ab = fs(w, 'acBtn'), am = fs(w, 'acMode');
         final showCur = ac['showCur'] != false && jsonMap(w['bind'])['current'] != null;
-        Widget round(IconData i) => Container(
-          width: ab * 2.2,
-          height: ab * 2.2,
-          decoration: BoxDecoration(
-            color: pal.panel,
-            shape: BoxShape.circle,
-            border: Border.all(color: pal.tileEdge),
+        Widget round(IconData i, String a) => _tap(
+          a,
+          Container(
+            width: ab * 2.2,
+            height: ab * 2.2,
+            decoration: BoxDecoration(
+              color: pal.panel,
+              shape: BoxShape.circle,
+              border: Border.all(color: pal.tileEdge),
+            ),
+            child: Icon(i, size: ab, color: pal.ink),
           ),
-          child: Icon(i, size: ab, color: pal.ink),
         );
         Widget modeBtn(String key, String name, String icon, bool active) => Expanded(
-          child: Container(
-            margin: const EdgeInsets.symmetric(horizontal: 2),
-            padding: EdgeInsets.symmetric(vertical: am * 0.35),
-            decoration: BoxDecoration(
-              color: active ? pal.ink : pal.panel,
-              border: Border.all(color: active ? pal.ink : pal.tileEdge),
-              borderRadius: BorderRadius.circular(am * 0.62),
+          child: _tap(
+            key == 'off' ? 'off' : 'mode',
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 2),
+              padding: EdgeInsets.symmetric(vertical: am * 0.35),
+              decoration: BoxDecoration(
+                color: active ? pal.ink : pal.panel,
+                border: Border.all(color: active ? pal.ink : pal.tileEdge),
+                borderRadius: BorderRadius.circular(am * 0.62),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(iconOf(icon), size: am, color: active ? pal.screen : pal.muted),
+                  const SizedBox(height: 2),
+                  Text(
+                    name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: am * 0.7, color: active ? pal.screen : pal.muted),
+                  ),
+                ],
+              ),
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(iconOf(icon), size: am, color: active ? pal.screen : pal.muted),
-                const SizedBox(height: 2),
-                Text(
-                  name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: am * 0.7, color: active ? pal.screen : pal.muted),
-                ),
-              ],
-            ),
+            key,
           ),
         );
         String nm(String k, String d) => ((names[k] ?? '').toString().trim().isEmpty) ? d : names[k].toString();
@@ -402,7 +417,7 @@ class TileView extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  round(Icons.remove),
+                  round(Icons.remove, 'minus'),
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.baseline,
                     textBaseline: TextBaseline.alphabetic,
@@ -417,7 +432,7 @@ class TileView extends StatelessWidget {
                       ),
                     ],
                   ),
-                  round(Icons.add),
+                  round(Icons.add, 'plus'),
                 ],
               ),
             ),

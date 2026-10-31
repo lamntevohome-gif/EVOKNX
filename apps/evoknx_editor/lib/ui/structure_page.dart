@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:knx_config/knx_config.dart';
 
 import '../app/theme.dart';
+import '../state/bus_controller.dart';
 import '../state/project_controller.dart';
 import 'common.dart';
 import 'designer/canvas.dart';
@@ -14,15 +15,19 @@ import 'designer/tree.dart';
 
 /// "Cấu trúc" workspace: structure tree, phone canvas and properties.
 class StructurePage extends StatefulWidget {
-  const StructurePage({super.key, required this.project});
+  const StructurePage({super.key, required this.project, required this.bus});
   final ProjectController project;
+  final BusController bus;
 
   @override
   State<StructurePage> createState() => _StructurePageState();
 }
 
 class _StructurePageState extends State<StructurePage> {
-  late final Designer d = Designer(widget.project);
+  late final Designer d = Designer(widget.project, widget.bus)
+    ..onMessage = (m) {
+      if (mounted) toast(context, m);
+    };
   final FocusNode _focus = FocusNode(debugLabel: 'designer');
   bool issuesOpen = false;
 
@@ -80,7 +85,7 @@ class _StructurePageState extends State<StructurePage> {
       focusNode: _focus,
       onKeyEvent: _onKey,
       child: ListenableBuilder(
-        listenable: Listenable.merge([widget.project, d]),
+        listenable: Listenable.merge([widget.project, d, widget.bus]),
         builder: (context, _) {
           final issues = computeIssues(d.doc);
           return Row(
@@ -119,7 +124,7 @@ class _StructurePageState extends State<StructurePage> {
                   color: c.panel,
                   border: Border(left: BorderSide(color: c.line)),
                 ),
-                child: PropsPanel(d: d),
+                child: d.test ? _testPanel(context) : PropsPanel(d: d),
               ),
             ],
           );
@@ -163,18 +168,37 @@ class _StructurePageState extends State<StructurePage> {
         runSpacing: 6,
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
-          Text('Thành phần', style: TextStyle(fontSize: 12.5, color: c.muted)),
-          const SizedBox(width: 4),
-          for (final t in kWidgetTypes.values)
-            Tooltip(
-              message: 'Kéo vào màn hình, hoặc bấm để thêm',
-              child: Draggable<DragItem>(
-                data: DragItem.palette(t.type),
-                feedback: Material(type: MaterialType.transparency, child: chip(iconOf(t.icon), t.name)),
-                child: chip(iconOf(t.icon), t.name, onTap: () => _add(t.type)),
-              ),
+          Seg<bool>(items: const [(false, 'Thiết kế'), (true, 'Chạy thử')], value: d.test, onChanged: d.setTest),
+          if (_devices().length > 1) ...[
+            const SizedBox(width: 6),
+            Seg<String>(items: [for (final dv in _devices()) (dv, _devName(dv))], value: (d.doc['activeDev'] ?? 'mobile').toString(), onChanged: d.setDevice),
+          ],
+          const SizedBox(width: 10),
+          if (d.test) ...[
+            Seg<bool>(items: const [(false, 'Giả lập'), (true, 'Live (KNX)')], value: d.live, onChanged: d.setLive),
+            const SizedBox(width: 8),
+            Text(
+              d.live
+                  ? (widget.bus.connected
+                        ? 'Live: lệnh gửi lên bus KNX thật, trạng thái lấy từ bus.'
+                        : 'Live cần kết nối bus: mở màn hình Kiểm tra và bấm Kết nối.')
+                  : 'Giả lập: bấm vào thành phần để xem App phản ứng và lệnh sẽ gửi.',
+              style: TextStyle(fontSize: 12.5, color: d.live && !widget.bus.connected ? c.danger : c.muted),
             ),
-          if (d.clip != null)
+          ],
+          if (!d.test) Text('Thành phần', style: TextStyle(fontSize: 12.5, color: c.muted)),
+          if (!d.test) const SizedBox(width: 4),
+          if (!d.test)
+            for (final t in kWidgetTypes.values)
+              Tooltip(
+                message: 'Kéo vào màn hình, hoặc bấm để thêm',
+                child: Draggable<DragItem>(
+                  data: DragItem.palette(t.type),
+                  feedback: Material(type: MaterialType.transparency, child: chip(iconOf(t.icon), t.name)),
+                  child: chip(iconOf(t.icon), t.name, onTap: () => _add(t.type)),
+                ),
+              ),
+          if (d.clip != null && !d.test)
             chip(
               Icons.content_paste,
               'Dán “${d.clip!['label'] ?? ''}”',
@@ -186,6 +210,66 @@ class _StructurePageState extends State<StructurePage> {
             ),
         ],
       ),
+    );
+  }
+
+  List<String> _devices() {
+    final m = jsonMap(d.doc['devices']);
+    return ['mobile', 'tabletP', 'tabletL'].where((k) => k == 'mobile' ? m['mobile'] != false : m[k] == true).toList();
+  }
+
+  String _devName(String k) => switch (k) {
+    'tabletP' => 'Tablet dọc',
+    'tabletL' => 'Tablet ngang',
+    _ => 'Mobile',
+  };
+
+  Widget _testPanel(BuildContext context) {
+    final c = context.evo;
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        Row(
+          children: [
+            Icon(Icons.play_circle_outline, size: 20, color: c.accent),
+            const SizedBox(width: 8),
+            const Expanded(
+              child: Text('Chạy thử', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+            ),
+            if (d.log.isNotEmpty) TextButton(onPressed: () => setState(d.log.clear), child: const Text('Xoá')),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Text(
+          d.live && widget.bus.connected
+              ? 'Đang điều khiển bus KNX thật. Mọi thay đổi trên bus cũng hiện ngay trên màn hình mô phỏng.'
+              : 'Lệnh được ghi lại dưới đây, chưa gửi xuống bus.',
+          style: TextStyle(fontSize: 12.5, color: c.muted),
+        ),
+        const SizedBox(height: 12),
+        const SectionTitle('Lệnh gửi'),
+        if (d.log.isEmpty) Text('Chưa có lệnh nào. Bấm vào các thành phần trên màn hình.', style: TextStyle(color: c.muted, fontSize: 13)),
+        for (final e in d.log)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 5),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  width: 70,
+                  child: Text(
+                    e.address,
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: e.missing ? c.danger : c.ink),
+                  ),
+                ),
+                Expanded(
+                  child: Text(e.text, style: TextStyle(fontSize: 13, color: e.missing ? c.danger : c.ink)),
+                ),
+                if (e.live) Icon(Icons.bolt, size: 15, color: c.accent),
+              ],
+            ),
+          ),
+      ],
     );
   }
 

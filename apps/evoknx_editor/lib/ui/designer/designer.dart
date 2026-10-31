@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:knx_config/knx_config.dart';
 
+import '../../state/bus_controller.dart';
 import '../../state/project_controller.dart';
 import 'model.dart';
 
@@ -18,9 +19,29 @@ class DragItem {
 /// Selection + editing commands for the Structure workspace.
 /// All edits go through [ProjectController.mutate] (undo/redo, autosave) and
 /// look objects up by id inside the callback, so they stay valid after undo.
+class LogEntry {
+  final String address, text;
+  final bool missing, live;
+  final DateTime time;
+  LogEntry(this.address, this.text, {this.missing = false, this.live = false}) : time = DateTime.now();
+}
+
 class Designer extends ChangeNotifier {
-  Designer(this.p);
+  Designer(this.p, [this.bus]) {
+    bus?.valueListeners.add(_onBusValue);
+  }
   final ProjectController p;
+  final BusController? bus;
+
+  // test mode
+  bool test = false;
+  bool live = false;
+  final Map<String, Map<String, dynamic>> sim = {};
+  final List<LogEntry> log = [];
+  void Function(String message)? onMessage;
+
+  // splash preview
+  bool splashPreview = false;
 
   String view = 'room'; // overview | floor | room
   String? floorId, roomId, subId, widgetId;
@@ -396,5 +417,236 @@ class Designer extends ChangeNotifier {
       w['pos'] = {'x': x, 'y': y, 'w': ww, 'h': hh};
       (tmp['widgets'] as List).add(w);
     }
+  }
+
+  // ------------------------------------------------------------ modes
+
+  void setTest(bool v) {
+    test = v;
+    widgetId = null;
+    cell = null;
+    if (v && bus?.connected == true) live = true;
+    _n();
+  }
+
+  void setLive(bool v) {
+    live = v;
+    _n();
+  }
+
+  void setDevice(String dev) {
+    if ((doc['activeDev'] ?? 'mobile') == dev) return;
+    p.mutate((d) => swapDevice(d, dev));
+    widgetId = null;
+    cell = null;
+    _n();
+  }
+
+  Future<void> previewSplash(int ms) async {
+    splashPreview = true;
+    _n();
+    await Future<void>.delayed(Duration(milliseconds: ms));
+    splashPreview = false;
+    _n();
+  }
+
+  void skipSplash() {
+    splashPreview = false;
+    _n();
+  }
+
+  // ------------------------------------------------------------ simulation
+
+  Map<String, dynamic> st(String id) => sim.putIfAbsent(id, () => <String, dynamic>{});
+
+  /// Records (and in Live mode sends) a command for slot [slot] of widget [w].
+  void send(Json w, String slot, Object value, String text) {
+    final gid = jsonMap(w['bind'])[slot] as String?;
+    final ga = byId(jsonList(doc['groupAddresses']), gid);
+    final label = (w['label'] ?? '').toString();
+    if (ga == null) {
+      final sl = slotsFor(w).where((s) => s.key == slot);
+      log.insert(0, LogEntry('—', '$label: chưa gán ${sl.isEmpty ? slot : sl.first.label.toLowerCase()}', missing: true));
+    } else {
+      final isLive = live && bus?.connected == true;
+      log.insert(0, LogEntry(ga['address'].toString(), text, live: isLive));
+      if (isLive) {
+        bus!.write(ga, value).then((err) {
+          if (err != null) onMessage?.call(err);
+        });
+      }
+    }
+    if (log.length > 60) log.removeRange(60, log.length);
+  }
+
+  /// Handles a tap/control action on a tile in test mode.
+  void act(Json w, String action, [Object? arg]) {
+    final id = w['id'] as String;
+    final s = st(id);
+    final label = (w['label'] ?? '').toString();
+    switch (w['type']) {
+      case 'switch':
+        final on = !(s['on'] == true);
+        s['on'] = on;
+        send(w, 'write', on, on ? '1 (Bật)' : '0 (Tắt)');
+        break;
+      case 'dimmer':
+        if (action == 'set') {
+          final v = (arg as num).round();
+          s['val'] = v;
+          send(w, 'value', v, '$v %');
+        } else if (action == 'ct') {
+          s['ct'] = arg;
+          send(w, 'ctWrite', arg as num, '$arg K');
+        } else if (action == 'rgb') {
+          s['rgb'] = arg;
+          send(w, 'rgbWrite', arg as String, '$arg');
+        } else {
+          final cur = ((s['val'] as num?) ?? 0) > 0;
+          s['val'] = cur ? 0 : 100;
+          if (jsonMap(w['bind'])['write'] != null) {
+            send(w, 'write', !cur, cur ? '0 (Tắt)' : '1 (Bật)');
+          } else {
+            send(w, 'value', cur ? 0 : 100, cur ? '0 %' : '100 %');
+          }
+        }
+        break;
+      case 'button':
+        final v = (w['sendValue'] ?? '1').toString();
+        send(w, 'write', num.tryParse(v) ?? 1, v);
+        break;
+      case 'scene':
+        final n = ((w['sceneNumber'] as num?) ?? 1).toInt();
+        send(w, 'write', n - 1, 'Cảnh $n');
+        break;
+      case 'shutter':
+        final inv = w['udInvert'] == true;
+        if (action == 'up' || action == 'down') {
+          final down = action == 'down';
+          final v = inv ? !down : down;
+          s['pos'] = down ? 100 : 0;
+          final curtain = w['shStyle'] == 'curtain';
+          send(w, 'upDown', v, '${v ? 1 : 0} (${curtain ? (down ? 'Đóng' : 'Mở') : (down ? 'Xuống' : 'Lên')})');
+        } else if (action == 'stop') {
+          send(w, 'stop', true, '1 (Dừng)');
+        } else if (action == 'set') {
+          final v = (arg as num).round();
+          s['pos'] = v;
+          send(w, 'position', v, '$v %');
+        }
+        break;
+      case 'ac':
+        final ac = jsonMap(w['ac']);
+        final mn = ((ac['min'] as num?) ?? 16).toDouble(), mx = ((ac['max'] as num?) ?? 30).toDouble();
+        final step = (ac['step'] as num?) == 1 ? 1.0 : 0.5;
+        if (action == 'plus' || action == 'minus') {
+          final sp = (((s['sp'] as num?) ?? 24) + (action == 'plus' ? step : -step)).clamp(mn, mx).toDouble();
+          s['sp'] = sp;
+          send(w, 'setpoint', sp, '${sp.toStringAsFixed(1).replaceAll('.', ',')} °C');
+        } else if (action == 'off') {
+          if (s['on'] == true) {
+            s['on'] = false;
+            send(w, 'power', false, '0 (Tắt)');
+          }
+        } else if (action == 'mode') {
+          final k = arg as String;
+          if (s['on'] != true) {
+            s['on'] = true;
+            send(w, 'power', true, '1 (Bật)');
+          }
+          s['mode'] = k;
+          final names = jsonMap(ac['names']);
+          final m = kAcModes.firstWhere((x) => x.key == k);
+          final name = (names[k] ?? '').toString().trim().isEmpty ? m.name : names[k].toString();
+          if (ac['modeAddr'] == 'separate') {
+            send(w, 'mode_$k', true, '1 ($name)');
+          } else {
+            final v = (jsonMap(ac['values'])[k] as num?) ?? m.value;
+            send(w, 'mode', v, '$v ($name)');
+          }
+        }
+        break;
+      case 'link':
+      case 'webview':
+        onMessage?.call('Trên App sẽ mở ${w['url'] ?? ''}');
+        break;
+      default:
+        onMessage?.call(label);
+    }
+    _n();
+  }
+
+  /// Applies a value seen on the bus to every widget bound to that address.
+  void _onBusValue(String address, Object? value) {
+    if (value == null) return;
+    String? gid;
+    for (final g in jsonList(doc['groupAddresses'])) {
+      if (g['address'] == address) gid = g['id'] as String?;
+    }
+    if (gid == null) return;
+    final num? n = value is bool ? (value ? 1 : 0) : (value is num ? value : num.tryParse(value.toString().replaceAll(',', '.')));
+    var hit = false;
+    for (final r in jsonList(doc['pages'])) {
+      for (final sb in subsOf(r)) {
+        final ws = <Json>[];
+        for (final w in jsonList(sb['widgets'])) {
+          ws.add(w);
+          if (w['type'] == 'group') ws.addAll(jsonList(w['widgets']));
+        }
+        for (final w in ws) {
+          jsonMap(w['bind']).forEach((k, id) {
+            if (id != gid) return;
+            hit = true;
+            final s = st(w['id'] as String);
+            switch (w['type']) {
+              case 'switch':
+                s['on'] = (n ?? 0) != 0;
+                break;
+              case 'dimmer':
+                if (k == 'write') {
+                  s['val'] = (n ?? 0) != 0 ? (((s['val'] as num?) ?? 0) > 0 ? s['val'] : 100) : 0;
+                } else if (k == 'value' || k == 'status') {
+                  s['val'] = n;
+                } else if (k == 'ctWrite' || k == 'ctStatus') {
+                  s['ct'] = n;
+                } else if (k == 'rgbWrite' || k == 'rgbStatus') {
+                  s['rgb'] = value.toString();
+                }
+                break;
+              case 'value':
+                s['val'] = n;
+                break;
+              case 'shutter':
+                if (k == 'status' || k == 'position') s['pos'] = n;
+                break;
+              case 'ac':
+                final ac = jsonMap(w['ac']);
+                if (k == 'power' || k == 'powerSt') s['on'] = (n ?? 0) != 0;
+                if (k == 'setpoint' || k == 'setpointSt') s['sp'] = n;
+                if (k == 'current') s['cur'] = n;
+                if (k == 'mode' || k == 'modeSt') {
+                  for (final m in kAcModes) {
+                    if (((jsonMap(ac['values'])[m.key] as num?) ?? m.value) == n) s['mode'] = m.key;
+                  }
+                }
+                if (k.startsWith('mode_') || k.startsWith('modeSt_')) {
+                  if ((n ?? 0) != 0) {
+                    s['mode'] = k.substring(k.indexOf('_') + 1);
+                    s['on'] = true;
+                  }
+                }
+                break;
+            }
+          });
+        }
+      }
+    }
+    if (hit && test) _n();
+  }
+
+  @override
+  void dispose() {
+    bus?.valueListeners.remove(_onBusValue);
+    super.dispose();
   }
 }

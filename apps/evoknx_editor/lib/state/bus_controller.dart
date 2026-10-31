@@ -49,6 +49,9 @@ class BusController extends ChangeNotifier {
   final Map<String, Object?> values = {}; // address -> decoded value
   Timer? _notifyTimer;
 
+  /// Called for every write/response telegram: (group address, decoded value).
+  final List<void Function(String address, Object? value)> valueListeners = [];
+
   bool get connected => state == KnxConnectionState.connected;
 
   Json? get connection {
@@ -116,6 +119,11 @@ class BusController extends ChangeNotifier {
       } else {
         value = t.data.map((b) => b.toRadixString(16).padLeft(2, '0').toUpperCase()).join(' ');
         values[addr] = value;
+      }
+    }
+    if (t.type != TelegramType.read) {
+      for (final l in List.of(valueListeners)) {
+        l(addr, values[addr]);
       }
     }
     if (paused) return;

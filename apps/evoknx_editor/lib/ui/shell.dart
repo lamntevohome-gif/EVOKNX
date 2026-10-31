@@ -67,7 +67,7 @@ class _ShellState extends State<Shell> {
                   child: IndexedStack(
                     index: ws,
                     children: [
-                      StructurePage(project: p),
+                      StructurePage(project: p, bus: widget.bus),
                       ConnectionsPage(project: p),
                       TestPage(project: p, bus: widget.bus),
                     ],

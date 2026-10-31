@@ -430,6 +430,9 @@ Object? _deepCopy(Object? v) {
   return v;
 }
 
+/// Switches the active device layout of [proj] (mobile, tabletP, tabletL).
+void swapDevice(Json proj, String nd) => _swapDevice(proj, nd);
+
 void _swapDevice(Json proj, String nd) {
   final cur = (proj['activeDev'] as String?) ?? 'mobile';
   if (cur == nd) return;
@@ -455,7 +458,8 @@ void _swapDevice(Json proj, String nd) {
     }
     if (need.isNotEmpty) {
       final src = need.every((w) => jsonMap(w['posBy'])['mobile'] != null) ? 'mobile' : cur;
-      final placed = jsonList(s['widgets']).where((w) => !need.contains(w)).toList();
+      final needIds = need.map((w) => w['id']).toSet();
+      final placed = jsonList(s['widgets']).where((w) => !needIds.contains(w['id'])).toList();
       final tmp = <String, dynamic>{'layout': l, 'widgets': placed};
       Json sp(Json w) => jsonMap(jsonMap(w['posBy'])[src] ?? w['pos']);
       need.sort((a, b) {

@@ -1,4 +1,7 @@
+import 'dart:convert';
 import 'dart:math';
+
+import 'package:file_selector/file_selector.dart';
 
 import 'package:flutter/material.dart';
 import 'package:knx_config/knx_config.dart';
@@ -290,6 +293,311 @@ class _WidgetPropsState extends State<_WidgetProps> {
                 onChanged: (v) => set('url', v.trim(), coalesce: 'url-$id'),
               ),
             ),
+            if (type == 'link')
+              FieldLabel(
+                'Cách mở',
+                EvoDropdown<String>(
+                  value: (w['openIn'] ?? 'inApp').toString(),
+                  items: const [('inApp', 'Mở trong App'), ('external', 'Mở bằng trình duyệt')],
+                  onChanged: (v) => set('openIn', v),
+                ),
+              ),
+            if (type == 'webview') ...[
+              for (final o in const [
+                ('showHeader', 'Hiện tên và biểu tượng phía trên'),
+                ('interactive', 'Cho phép thao tác trên trang'),
+                ('fullscreen', 'Cho phép mở toàn màn hình'),
+              ])
+                _Check(
+                  o.$2,
+                  jsonMap(w['web'])[o.$1] != false,
+                  (v) => d.editWidget(id, (x) {
+                    final m = jsonMap(x['web']);
+                    m[o.$1] = v;
+                    x['web'] = m;
+                  }),
+                ),
+              FieldLabel(
+                'Tự làm mới',
+                EvoDropdown<int>(
+                  value: ((jsonMap(w['web'])['refresh'] as num?) ?? 0).toInt(),
+                  items: const [(0, 'Không'), (30, 'Mỗi 30 giây'), (60, 'Mỗi phút'), (300, 'Mỗi 5 phút'), (900, 'Mỗi 15 phút')],
+                  onChanged: (v) => d.editWidget(id, (x) {
+                    final m = jsonMap(x['web']);
+                    m['refresh'] = v;
+                    x['web'] = m;
+                  }),
+                ),
+              ),
+            ],
+          ]),
+        ];
+      case 'switch':
+      case 'dimmer':
+        final st = jsonMap(w['style']);
+        final feat = jsonMap(w['features']);
+        final tw = jsonMap(w['tw']);
+        void setStyle(String k, Object v, {String? co}) => d.editWidget(id, (x) {
+          final m = jsonMap(x['style']);
+          m[k] = v;
+          x['style'] = m;
+        }, coalesce: co);
+        return [
+          _Section('Màu và trạng thái', [
+            FieldLabel(
+              'Màu khi bật',
+              _ColorPicker(
+                value: (st['colorOn'] ?? '#EE9B2A').toString(),
+                onChanged: (v) => setStyle('colorOn', v, co: 'con-$id'),
+              ),
+            ),
+            FieldLabel(
+              'Màu khi tắt',
+              _ColorPicker(
+                value: (st['colorOff'] ?? '#8A938F').toString(),
+                onChanged: (v) => setStyle('colorOff', v, co: 'coff-$id'),
+              ),
+            ),
+            Row(
+              children: [
+                Expanded(
+                  child: FieldLabel(
+                    'Chữ khi bật',
+                    SyncedField(
+                      value: (st['textOn'] ?? 'Đang bật').toString(),
+                      onChanged: (v) => setStyle('textOn', v, co: 'ton-$id'),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: FieldLabel(
+                    'Chữ khi tắt',
+                    SyncedField(
+                      value: (st['textOff'] ?? 'Đang tắt').toString(),
+                      onChanged: (v) => setStyle('textOff', v, co: 'toff-$id'),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ]),
+          if (type == 'dimmer')
+            _Section('Tính năng đèn', [
+              _Check(
+                'Nhiệt độ màu (Tunable White, DPT 7.600)',
+                feat['tw'] == true,
+                (v) => d.editWidget(id, (x) {
+                  final m = jsonMap(x['features']);
+                  m['tw'] = v;
+                  x['features'] = m;
+                }),
+              ),
+              if (feat['tw'] == true)
+                Row(
+                  children: [
+                    Expanded(
+                      child: FieldLabel(
+                        'Ấm nhất (K)',
+                        SyncedField(
+                          value: '${tw['min'] ?? 2700}',
+                          number: true,
+                          onChanged: (v) => d.editWidget(id, (x) {
+                            final m = jsonMap(x['tw']);
+                            m['min'] = int.tryParse(v) ?? 2700;
+                            x['tw'] = m;
+                          }, coalesce: 'twmin-$id'),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: FieldLabel(
+                        'Lạnh nhất (K)',
+                        SyncedField(
+                          value: '${tw['max'] ?? 6500}',
+                          number: true,
+                          onChanged: (v) => d.editWidget(id, (x) {
+                            final m = jsonMap(x['tw']);
+                            m['max'] = int.tryParse(v) ?? 6500;
+                            x['tw'] = m;
+                          }, coalesce: 'twmax-$id'),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              _Check(
+                'Màu RGB (DPT 232.600 / 251.600)',
+                feat['rgb'] == true,
+                (v) => d.editWidget(id, (x) {
+                  final m = jsonMap(x['features']);
+                  m['rgb'] = v;
+                  x['features'] = m;
+                }),
+              ),
+            ]),
+        ];
+      case 'shutter':
+        return [
+          _Section('Rèm', [
+            FieldLabel(
+              'Kiểu rèm',
+              Seg<String>(
+                items: const [('roller', 'Rèm cuốn'), ('curtain', 'Rèm vải')],
+                value: (w['shStyle'] ?? 'roller').toString(),
+                onChanged: (v) => d.editWidget(id, (x) {
+                  x['shStyle'] = v;
+                  x['icon'] = v == 'curtain' ? 'curtain' : 'blind';
+                }),
+              ),
+            ),
+            FieldLabel(
+              'Cách điều khiển',
+              EvoDropdown<String>(
+                value: (w['shCtrl'] ?? 'buttons').toString(),
+                items: const [('buttons', 'Nút lên / dừng / xuống'), ('slider', 'Thanh kéo vị trí'), ('both', 'Cả nút và thanh kéo')],
+                onChanged: (v) => set('shCtrl', v),
+              ),
+            ),
+            _Check('Hiện nút dừng', w['showStop'] != false, (v) => set('showStop', v)),
+            _Check('Đảo chiều lên/xuống (gửi 1 khi lên, 0 khi xuống)', w['udInvert'] == true, (v) => set('udInvert', v)),
+          ]),
+        ];
+      case 'ac':
+        final ac = jsonMap(w['ac']);
+        final modes = jsonMap(ac['modes']);
+        final names = jsonMap(ac['names']);
+        final values = jsonMap(ac['values']);
+        final sep = ac['modeAddr'] == 'separate';
+        void setAc(String k, Object? v, {String? co}) => d.editWidget(id, (x) {
+          final m = jsonMap(x['ac']);
+          m[k] = v;
+          x['ac'] = m;
+        }, coalesce: co);
+        void setAcMap(String k, String key, Object? v, {String? co}) => d.editWidget(id, (x) {
+          final m = jsonMap(x['ac']);
+          final mm = jsonMap(m[k]);
+          if (v == null || (v is String && v.trim().isEmpty)) {
+            mm.remove(key);
+          } else {
+            mm[key] = v;
+          }
+          m[k] = mm;
+          x['ac'] = m;
+        }, coalesce: co);
+        return [
+          _Section('Máy lạnh', [
+            Row(
+              children: [
+                Expanded(
+                  child: FieldLabel(
+                    'Nhiệt độ thấp nhất',
+                    SyncedField(
+                      value: '${ac['min'] ?? 16}',
+                      number: true,
+                      onChanged: (v) => setAc('min', num.tryParse(v.replaceAll(',', '.')) ?? 16, co: 'acmin-$id'),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: FieldLabel(
+                    'Nhiệt độ cao nhất',
+                    SyncedField(
+                      value: '${ac['max'] ?? 30}',
+                      number: true,
+                      onChanged: (v) => setAc('max', num.tryParse(v.replaceAll(',', '.')) ?? 30, co: 'acmax-$id'),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            FieldLabel(
+              'Bước tăng giảm',
+              EvoDropdown<num>(value: (ac['step'] as num?) == 1 ? 1 : 0.5, items: const [(0.5, '0,5 °C'), (1, '1 °C')], onChanged: (v) => setAc('step', v)),
+            ),
+            _Check('Hiện nhiệt độ phòng (cần gán ô Nhiệt độ phòng)', ac['showCur'] != false, (v) => setAc('showCur', v)),
+            FieldLabel(
+              'Cách gửi chế độ',
+              EvoDropdown<String>(
+                value: sep ? 'separate' : 'single',
+                items: const [('single', 'Một địa chỉ chung, mỗi chế độ một giá trị'), ('separate', 'Mỗi chế độ một địa chỉ riêng (1 bit)')],
+                onChanged: (v) => d.editWidget(id, (x) {
+                  final m = jsonMap(x['ac']);
+                  m['modeAddr'] = v;
+                  x['ac'] = m;
+                  final b = jsonMap(x['bind']);
+                  if (v == 'separate') {
+                    b.remove('mode');
+                    b.remove('modeSt');
+                  } else {
+                    b.removeWhere((k, _) => k.startsWith('mode_') || k.startsWith('modeSt_'));
+                  }
+                  x['bind'] = b;
+                }),
+              ),
+            ),
+            Text('Chế độ: đánh dấu để hiện, đặt tên và giá trị gửi', style: TextStyle(fontSize: 12.5, color: context.evo.muted)),
+            Row(
+              children: [
+                const SizedBox(width: 40),
+                Icon(Icons.power_settings_new, size: 16, color: context.evo.muted),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: SyncedField(
+                    value: (names['off'] ?? '').toString(),
+                    hint: 'Tắt',
+                    onChanged: (v) => setAcMap('names', 'off', v, co: 'acn-off-$id'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                SizedBox(
+                  width: 64,
+                  child: Text(
+                    'Bật/tắt',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 12, color: context.evo.muted),
+                  ),
+                ),
+              ],
+            ),
+            for (final m in kAcModes)
+              Row(
+                children: [
+                  SizedBox(
+                    width: 40,
+                    child: Checkbox(
+                      value: modes.containsKey(m.key) ? modes[m.key] == true : m.key != 'heat',
+                      onChanged: (v) => setAcMap('modes', m.key, v ?? false),
+                    ),
+                  ),
+                  Icon(iconOf(m.icon), size: 16, color: context.evo.muted),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: SyncedField(
+                      value: (names[m.key] ?? '').toString(),
+                      hint: m.name,
+                      onChanged: (v) => setAcMap('names', m.key, v, co: 'acn-${m.key}-$id'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  SizedBox(
+                    width: 64,
+                    child: sep
+                        ? Text(
+                            'Gửi 1',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(fontSize: 12, color: context.evo.muted),
+                          )
+                        : SyncedField(
+                            value: '${values[m.key] ?? m.value}',
+                            number: true,
+                            onChanged: (v) => setAcMap('values', m.key, int.tryParse(v) ?? m.value, co: 'acv-${m.key}-$id'),
+                          ),
+                  ),
+                ],
+              ),
           ]),
         ];
       case 'scene':
@@ -546,7 +854,7 @@ class _RoomProps extends StatelessWidget {
                       'Số hàng',
                       EvoDropdown<int>(
                         value: rows(s),
-                        items: [for (var i = 6; i <= 24; i++) (i, '$i')],
+                        items: [for (var i = devRange(d.doc)[0]; i <= devRange(d.doc)[1]; i++) (i, '$i')],
                         onChanged: (v) => d.editSub((x) => jsonMap(x['layout'])['rows'] = v),
                       ),
                     ),
@@ -557,7 +865,7 @@ class _RoomProps extends StatelessWidget {
                       'Số cột',
                       EvoDropdown<int>(
                         value: cols(s),
-                        items: [for (var i = 3; i <= 12; i++) (i, '$i')],
+                        items: [for (var i = devRange(d.doc)[2]; i <= devRange(d.doc)[3]; i++) (i, '$i')],
                         onChanged: (v) => d.editSub((x) => Designer.repackCols(x, v)),
                       ),
                     ),
@@ -693,7 +1001,36 @@ class _OverviewProps extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 16),
+        _Section('Thiết bị sử dụng', [
+          for (final dv in const [('mobile', 'Mobile', '12 × 4'), ('tabletP', 'Tablet dọc', '16 × 6'), ('tabletL', 'Tablet ngang', '10 × 8')])
+            _Check('${dv.$2}   (${dv.$3})', dv.$1 == 'mobile' ? jsonMap(d.doc['devices'])['mobile'] != false : jsonMap(d.doc['devices'])[dv.$1] == true, (v) {
+              final devs = jsonMap(d.doc['devices']);
+              final on = ['mobile', 'tabletP', 'tabletL'].where((k) => k == 'mobile' ? devs['mobile'] != false : devs[k] == true).toList();
+              if (!v && on.length <= 1) {
+                toast(context, 'Cần dùng ít nhất một thiết bị.');
+                return;
+              }
+              d.p.mutate((doc) {
+                final m = jsonMap(doc['devices']);
+                m[dv.$1] = v;
+                doc['devices'] = m;
+                if (!v && doc['activeDev'] == dv.$1) {
+                  swapDevice(doc, on.firstWhere((k) => k != dv.$1));
+                }
+              });
+            }),
+        ]),
+        _SplashSettings(d: d),
         _Section('Giao diện App', [
+          StepRow(
+            label: 'Tỉ lệ hiển thị trên tablet',
+            unit: '%',
+            step: 5,
+            value: ((theme['tabletScale'] as num?) ?? 120).toInt(),
+            min: 100,
+            max: 150,
+            onChanged: (v) => editTheme((x) => x['tabletScale'] = v, coalesce: 'tscale'),
+          ),
           for (final t in kTfs)
             StepRow(
               label: t.name,
@@ -719,8 +1056,240 @@ class _OverviewProps extends StatelessWidget {
             title: const Text('Ẩn tiêu đề phòng (dùng thanh chọn phòng làm tiêu đề)'),
           ),
         ]),
-        Text('Màn hình chào, logo và thiết kế cho tablet sẽ có ở đợt cập nhật tiếp theo.', style: TextStyle(fontSize: 12.5, color: context.evo.muted)),
       ],
     );
+  }
+}
+
+/// Row/column ranges per device: [minRows, maxRows, minCols, maxCols].
+List<int> devRange(Json doc) => switch (doc['activeDev']) {
+  'tabletP' => const [8, 24, 4, 10],
+  'tabletL' => const [6, 16, 4, 12],
+  _ => const [6, 18, 3, 6],
+};
+
+class _Check extends StatelessWidget {
+  const _Check(this.label, this.value, this.onChanged);
+  final String label;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+  @override
+  Widget build(BuildContext context) => InkWell(
+    onTap: () => onChanged(!value),
+    child: Row(
+      children: [
+        SizedBox(
+          width: 32,
+          child: Checkbox(value: value, onChanged: (v) => onChanged(v ?? false)),
+        ),
+        Expanded(child: Text(label, style: const TextStyle(fontSize: 13.5))),
+      ],
+    ),
+  );
+}
+
+const _kSwatches = ['#EE9B2A', '#F5C542', '#FF6B4A', '#E84A8A', '#8B6BF2', '#3E8EF7', '#2BB3C0', '#1E7F57', '#8A938F', '#1B2320'];
+
+Color? _hex(String s) {
+  final t = s.replaceAll('#', '');
+  final v = t.length == 6 ? int.tryParse(t, radix: 16) : null;
+  return v == null ? null : Color(0xFF000000 | v);
+}
+
+class _ColorPicker extends StatelessWidget {
+  const _ColorPicker({required this.value, required this.onChanged});
+  final String value;
+  final ValueChanged<String> onChanged;
+  @override
+  Widget build(BuildContext context) {
+    final c = context.evo;
+    return Row(
+      children: [
+        Expanded(
+          child: Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              for (final h in _kSwatches)
+                InkWell(
+                  customBorder: const CircleBorder(),
+                  onTap: () => onChanged(h),
+                  child: Container(
+                    width: 22,
+                    height: 22,
+                    decoration: BoxDecoration(
+                      color: _hex(h),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: value.toUpperCase() == h ? c.ink : c.line, width: value.toUpperCase() == h ? 2 : 1),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 8),
+        SizedBox(
+          width: 92,
+          child: SyncedField(
+            value: value.toUpperCase(),
+            onChanged: (v) {
+              final t = v.trim().startsWith('#') ? v.trim() : '#${v.trim()}';
+              if (_hex(t) != null) onChanged(t.toUpperCase());
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SplashSettings extends StatelessWidget {
+  const _SplashSettings({required this.d});
+  final Designer d;
+
+  void _set(String k, Object? v, {String? co}) => d.p.mutate((doc) {
+    final m = jsonMap(doc['splash']);
+    if (v == null) {
+      m.remove(k);
+    } else {
+      m[k] = v;
+    }
+    doc['splash'] = m;
+  }, coalesce: co);
+
+  Future<void> _pickLogo(BuildContext context) async {
+    final f = await openFile(
+      acceptedTypeGroups: const [
+        XTypeGroup(label: 'Logo PNG', extensions: ['png']),
+      ],
+      confirmButtonText: 'Chọn logo',
+    );
+    if (f == null) return;
+    final bytes = await f.readAsBytes();
+    if (!context.mounted) return;
+    if (bytes.length > 300 * 1024) {
+      toast(context, 'File nặng ${bytes.length ~/ 1024} KB, vượt quá 300 KB. Hãy nén lại rồi thử lại.');
+      return;
+    }
+    try {
+      final img = await decodeImageFromList(bytes);
+      final longSide = max(img.width, img.height);
+      if (!context.mounted) return;
+      if (longSide < 256) {
+        toast(context, 'Logo ${img.width} × ${img.height} px quá nhỏ, sẽ bị mờ. Cạnh dài cần tối thiểu 256 px (nên dùng 512 × 512 px).');
+        return;
+      }
+      if (longSide > 2048) {
+        toast(context, 'Logo ${img.width} × ${img.height} px quá lớn. Cạnh dài tối đa 2048 px.');
+        return;
+      }
+    } catch (_) {
+      if (context.mounted) toast(context, 'Không đọc được hình trong file.');
+      return;
+    }
+    _set('logo', 'data:image/png;base64,${base64Encode(bytes)}');
+    if (context.mounted) toast(context, 'Đã cập nhật logo.');
+    d.previewSplash(2000);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.evo;
+    final sp = jsonMap(d.doc['splash']);
+    final logo = (sp['logo'] ?? '').toString();
+    final custom = sp['greetMode'] == 'custom';
+    final dur = ((sp['duration'] as num?) ?? 2).toDouble();
+    return _Section('Màn hình chào', [
+      _Check('Hiện màn hình chào khi mở App', sp['enabled'] != false, (v) => _set('enabled', v)),
+      Row(
+        children: [
+          Container(
+            width: 84,
+            height: 84,
+            decoration: BoxDecoration(
+              color: _hex((sp['bg'] ?? '#1B2320').toString()) ?? const Color(0xFF1B2320),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: c.line),
+            ),
+            alignment: Alignment.center,
+            child: logo.startsWith('data:image/png;base64,')
+                ? Padding(
+                    padding: const EdgeInsets.all(8),
+                    child: Image.memory(base64Decode(logo.substring(22)), fit: BoxFit.contain),
+                  )
+                : Text(logo.isEmpty ? 'Chưa có' : 'SVG', style: const TextStyle(color: Color(0xFF9AA59F), fontSize: 12)),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                EvoButton(label: logo.isEmpty ? 'Tải logo lên' : 'Đổi logo', icon: Icons.upload_outlined, small: true, onPressed: () => _pickLogo(context)),
+                if (logo.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  EvoButton(label: 'Bỏ logo', icon: Icons.delete_outline, small: true, danger: true, onPressed: () => _set('logo', null)),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+      Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(color: c.paper, borderRadius: BorderRadius.circular(8)),
+        child: Text(
+          'PNG nền trong suốt. Logo vuông 512 × 512 px, logo ngang 1024 × 512 px. Dung lượng dưới 300 KB.',
+          style: TextStyle(fontSize: 12.5, color: c.muted),
+        ),
+      ),
+      FieldLabel(
+        'Lời chào',
+        EvoDropdown<String>(
+          value: custom ? 'custom' : 'auto',
+          items: const [('auto', 'Tự động theo giờ (sáng / trưa / chiều / tối)'), ('custom', 'Tự đặt lời chào')],
+          onChanged: (v) => _set('greetMode', v),
+        ),
+      ),
+      if (custom)
+        FieldLabel(
+          'Nội dung lời chào',
+          SyncedField(
+            value: (sp['greet'] ?? 'Chào mừng về nhà').toString(),
+            onChanged: (v) => _set('greet', v, co: 'sp-greet'),
+          ),
+        )
+      else
+        FieldLabel(
+          'Tên chủ nhà (không bắt buộc)',
+          SyncedField(
+            value: (sp['owner'] ?? '').toString(),
+            hint: 'Ví dụ: anh Nam',
+            onChanged: (v) => _set('owner', v, co: 'sp-owner'),
+          ),
+        ),
+      FieldLabel(
+        'Dòng phụ (không bắt buộc)',
+        SyncedField(
+          value: (sp['sub'] ?? '').toString(),
+          hint: 'Ví dụ: Biệt thự Ecopark',
+          onChanged: (v) => _set('sub', v, co: 'sp-sub'),
+        ),
+      ),
+      FieldLabel(
+        'Màu nền',
+        _ColorPicker(
+          value: (sp['bg'] ?? '#1B2320').toString(),
+          onChanged: (v) => _set('bg', v, co: 'sp-bg'),
+        ),
+      ),
+      FieldLabel(
+        'Thời gian hiển thị',
+        EvoDropdown<double>(
+          value: [1.0, 1.5, 2.0, 2.5, 3.0].contains(dur) ? dur : 2.0,
+          items: const [(1.0, '1 giây'), (1.5, '1,5 giây'), (2.0, '2 giây'), (2.5, '2,5 giây'), (3.0, '3 giây')],
+          onChanged: (v) => _set('duration', v),
+        ),
+      ),
+    ], trailing: EvoButton(label: 'Xem thử', icon: Icons.play_arrow_outlined, small: true, onPressed: () => d.previewSplash((dur * 1000).round())));
   }
 }
