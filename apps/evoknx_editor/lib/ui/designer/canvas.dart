@@ -697,6 +697,16 @@ class _GridAreaState extends State<_GridArea> {
 
   Designer get d => widget.d;
 
+  /// How much the phone preview is scaled on screen, so the drag feedback
+  /// (drawn in the overlay, unscaled) keeps the same size as the tile.
+  double _screenScale() {
+    final rb = context.findRenderObject();
+    if (rb is! RenderBox || !rb.attached) return 1;
+    final a = rb.localToGlobal(Offset.zero), b = rb.localToGlobal(const Offset(100, 0));
+    final k = (b.dx - a.dx) / 100;
+    return k > 0 ? k : 1;
+  }
+
   void _drop(DragItem it, int x, int y) {
     setState(() => ghost = null);
     final err = d.drop(it, widget.groupId, x, y);
@@ -799,13 +809,25 @@ class _GridAreaState extends State<_GridArea> {
                 child: Draggable<DragItem>(
                   data: DragItem.widget(id),
                   onDragEnd: (_) => setState(() => ghost = null),
-                  feedback: Opacity(
-                    opacity: 0.85,
-                    child: SizedBox(
-                      width: rc.width,
-                      height: rc.height,
-                      child: Material(type: MaterialType.transparency, child: tile),
-                    ),
+                  feedback: Builder(
+                    builder: (_) {
+                      final k = _screenScale();
+                      return Opacity(
+                        opacity: 0.85,
+                        child: SizedBox(
+                          width: rc.width * k,
+                          height: rc.height * k,
+                          child: FittedBox(
+                            alignment: Alignment.topLeft,
+                            child: SizedBox(
+                              width: rc.width,
+                              height: rc.height,
+                              child: Material(type: MaterialType.transparency, child: tile),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
                   ),
                   childWhenDragging: Opacity(opacity: 0.35, child: tile),
                   child: MouseRegion(cursor: SystemMouseCursors.grab, child: tile),

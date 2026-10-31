@@ -418,6 +418,7 @@ class TileView extends StatelessWidget {
         final modes = jsonMap(ac['modes']);
         final names = jsonMap(ac['names']);
         final ab = fs(w, 'acBtn'), am = fs(w, 'acMode');
+        final modeLabel = (ac['modeLabel'] ?? 'both').toString();
         final showCur = ac['showCur'] != false && jsonMap(w['bind'])['current'] != null;
         Widget round(IconData i, String a) => _tap(
           a,
@@ -446,14 +447,15 @@ class TileView extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(iconOf(icon), size: am, color: active ? pal.screen : pal.muted),
-                  const SizedBox(height: 2),
-                  Text(
-                    name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: am * 0.7, color: active ? pal.screen : pal.muted),
-                  ),
+                  if (modeLabel != 'text') Icon(iconOf(icon), size: am, color: active ? pal.screen : pal.muted),
+                  if (modeLabel == 'both') const SizedBox(height: 2),
+                  if (modeLabel != 'icon')
+                    Text(
+                      name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: modeLabel == 'text' ? am * 0.85 : am * 0.7, color: active ? pal.screen : pal.muted),
+                    ),
                 ],
               ),
             ),

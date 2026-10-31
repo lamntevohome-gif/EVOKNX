@@ -519,6 +519,14 @@ class _WidgetPropsState extends State<_WidgetProps> {
             ),
             _Check('Hiện nhiệt độ phòng (cần gán ô Nhiệt độ phòng)', ac['showCur'] != false, (v) => setAc('showCur', v)),
             FieldLabel(
+              'Nút chế độ hiển thị',
+              EvoDropdown<String>(
+                value: (ac['modeLabel'] ?? 'both').toString(),
+                items: const [('both', 'Biểu tượng và chữ'), ('icon', 'Chỉ biểu tượng'), ('text', 'Chỉ chữ')],
+                onChanged: (v) => setAc('modeLabel', v),
+              ),
+            ),
+            FieldLabel(
               'Cách gửi chế độ',
               EvoDropdown<String>(
                 value: sep ? 'separate' : 'single',

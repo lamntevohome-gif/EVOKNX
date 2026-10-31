@@ -105,9 +105,9 @@ class _StructurePageState extends State<StructurePage> {
                   children: [
                     _palette(context),
                     Expanded(
-                      child: GestureDetector(
+                      child: Listener(
                         behavior: HitTestBehavior.translucent,
-                        onTap: () => _focus.requestFocus(),
+                        onPointerDown: (_) => _focus.requestFocus(),
                         child: Container(
                           color: c.paper,
                           child: DesignCanvas(d: d, issues: issues),
