@@ -1063,6 +1063,14 @@ class _OverviewProps extends StatelessWidget {
             controlAffinity: ListTileControlAffinity.leading,
             title: const Text('Ẩn tiêu đề phòng (dùng thanh chọn phòng làm tiêu đề)'),
           ),
+          CheckboxListTile(
+            value: theme['pageArrows'] != false,
+            onChanged: (v) => editTheme((x) => x['pageArrows'] = v ?? true),
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            controlAffinity: ListTileControlAffinity.leading,
+            title: const Text('Hiện nút ‹ › để chuyển trang trong phòng'),
+          ),
         ]),
       ],
     );

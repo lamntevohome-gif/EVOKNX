@@ -218,41 +218,8 @@ class _Screen extends StatelessWidget {
         ),
       ),
     );
-    Widget grid(Json s) => Expanded(
-      child: GestureDetector(
-        behavior: HitTestBehavior.translucent,
-        onHorizontalDragEnd: (e) {
-          final v = e.primaryVelocity ?? 0;
-          if (v < -200) {
-            d.stepSub(1);
-          } else if (v > 200) {
-            d.stepSub(-1);
-          }
-        },
-        child: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 240),
-          switchInCurve: Curves.easeOutCubic,
-          switchOutCurve: Curves.easeInCubic,
-          layoutBuilder: (cur, prev) => Stack(fit: StackFit.expand, children: [...prev, if (cur != null) cur]),
-          transitionBuilder: (child, anim) {
-            final incoming = child.key == ValueKey<String>('grid-${s['id']}');
-            final dir = d.lastDir.toDouble();
-            final begin = Offset(incoming ? 0.3 * dir : -0.3 * dir, 0);
-            return FadeTransition(
-              opacity: anim,
-              child: SlideTransition(
-                position: Tween<Offset>(begin: begin, end: Offset.zero).animate(anim),
-                child: child,
-              ),
-            );
-          },
-          child: Padding(
-            key: ValueKey<String>('grid-${s['id']}'),
-            padding: const EdgeInsets.fromLTRB(14, 2, 14, 12),
-            child: _GridArea(d: d, box: s, groupId: null, pal: pal, issues: issues),
-          ),
-        ),
-      ),
+    Widget grid(Json room, Json s) => Expanded(
+      child: _PagedGrid(key: ValueKey<String>('pg-${room['id']}'), d: d, room: room, pal: pal, issues: issues),
     );
 
     if (dev == 'tabletL') {
@@ -277,7 +244,7 @@ class _Screen extends StatelessWidget {
                         else ...[
                           _header(doc, room, floor, floors.length > 1, theme, pill: false),
                           _pageTabs(room, sub),
-                          grid(sub),
+                          grid(room, sub),
                         ],
                       ],
                     ),
@@ -303,7 +270,7 @@ class _Screen extends StatelessWidget {
             _header(doc, room, floor, floors.length > 1, theme),
             _roomsBar(doc, room, floor),
             tablet ? _pageTabs(room, sub) : _subNav(room, sub),
-            grid(sub),
+            grid(room, sub),
           ],
           if (floors.length > 1) _floorBar(floors, floor),
         ],
@@ -586,13 +553,6 @@ class _Screen extends StatelessWidget {
       (sub['title'] ?? '').toString(),
       style: TextStyle(fontSize: f, fontWeight: FontWeight.w600, color: pal.muted),
     );
-    if (d.test) {
-      if (ss.length < 2) return const SizedBox(height: 4);
-      return Padding(
-        padding: const EdgeInsets.only(bottom: 8),
-        child: Column(children: [title, const SizedBox(height: 5), dots]),
-      );
-    }
     Widget arrow(IconData icon, VoidCallback? onTap, String tip) => Tooltip(
       message: tip,
       child: InkWell(
@@ -610,6 +570,20 @@ class _Screen extends StatelessWidget {
         ),
       ),
     );
+    if (d.test) {
+      if (ss.length < 2) return const SizedBox(height: 4);
+      final arrows = jsonMap(d.doc['theme'])['pageArrows'] != false;
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
+        child: Row(
+          children: [
+            if (arrows) arrow(Icons.chevron_left, i > 0 ? () => d.stepSub(-1) : null, 'Trang trước'),
+            Expanded(child: Column(children: [title, const SizedBox(height: 5), dots])),
+            if (arrows) arrow(Icons.chevron_right, i < ss.length - 1 ? () => d.stepSub(1) : null, 'Trang sau'),
+          ],
+        ),
+      );
+    }
     return Padding(
       padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
       child: Row(
@@ -681,7 +655,7 @@ class _Screen extends StatelessWidget {
 
 /// Grid of a subpage or of a grid frame: cells (drop targets) and tiles.
 class _GridArea extends StatefulWidget {
-  const _GridArea({required this.d, required this.box, required this.groupId, required this.pal, required this.issues});
+  const _GridArea({super.key, required this.d, required this.box, required this.groupId, required this.pal, required this.issues});
   final Designer d;
   final Json box;
   final String? groupId;
@@ -1025,4 +999,71 @@ class _DragScroll extends MaterialScrollBehavior {
 
   @override
   Widget buildScrollbar(BuildContext context, Widget child, ScrollableDetails details) => child;
+}
+
+/// Pages of a room in a PageView: follows the mouse/finger while dragging,
+/// snaps to the nearest page, and animates when the page is changed from
+/// the dots, tabs, arrow buttons, keyboard or the structure tree.
+class _PagedGrid extends StatefulWidget {
+  const _PagedGrid({super.key, required this.d, required this.room, required this.pal, required this.issues});
+  final Designer d;
+  final Json room;
+  final AppPalette pal;
+  final List<Issue> issues;
+
+  @override
+  State<_PagedGrid> createState() => _PagedGridState();
+}
+
+class _PagedGridState extends State<_PagedGrid> {
+  late final PageController _pc = PageController(initialPage: _index());
+  bool _animating = false;
+
+  int _index() {
+    final ss = subsOf(widget.room);
+    final i = ss.indexWhere((x) => x['id'] == widget.d.sub?['id']);
+    return i < 0 ? 0 : i;
+  }
+
+  @override
+  void didUpdateWidget(covariant _PagedGrid old) {
+    super.didUpdateWidget(old);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _sync());
+  }
+
+  Future<void> _sync() async {
+    if (!mounted || !_pc.hasClients) return;
+    final target = _index();
+    final cur = _pc.page ?? target.toDouble();
+    if ((cur - target).abs() < 0.01 || _animating) return;
+    // Only animate when the change did not come from the user's own drag.
+    if (_pc.position.isScrollingNotifier.value) return;
+    _animating = true;
+    await _pc.animateToPage(target, duration: const Duration(milliseconds: 300), curve: Curves.easeOutCubic);
+    _animating = false;
+  }
+
+  @override
+  void dispose() {
+    _pc.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ss = subsOf(widget.room);
+    return PageView.builder(
+      controller: _pc,
+      itemCount: ss.length,
+      physics: const PageScrollPhysics(parent: ClampingScrollPhysics()),
+      onPageChanged: (i) {
+        if (_animating || i < 0 || i >= ss.length) return;
+        if (ss[i]['id'] != widget.d.sub?['id']) widget.d.selectSub(widget.room['id'] as String, ss[i]['id'] as String);
+      },
+      itemBuilder: (context, i) => Padding(
+        padding: const EdgeInsets.fromLTRB(14, 2, 14, 12),
+        child: _GridArea(key: ValueKey<String>('ga-${ss[i]['id']}'), d: widget.d, box: ss[i], groupId: null, pal: widget.pal, issues: widget.issues),
+      ),
+    );
+  }
 }
