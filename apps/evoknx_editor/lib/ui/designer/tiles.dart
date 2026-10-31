@@ -165,6 +165,69 @@ class TileView extends StatelessWidget {
 
   Json? _ga(String key) => byId(gas, jsonMap(w['bind'])[key] as String?);
 
+  /// Progress bar; in test mode a draggable slider (preview while dragging,
+  /// command sent on release).
+  Widget _slider(double v, Color c, {bool invert = false}) {
+    if (act == null) return _bar(v, c);
+    final f = v.clamp(0.0, 1.0);
+    return LayoutBuilder(
+      builder: (context, bc) {
+        final width = bc.maxWidth;
+        void at(double dx) {
+          var n = (dx / width * 100).clamp(0.0, 100.0).round();
+          if (invert) n = 100 - n;
+          act!('preview', n);
+        }
+
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onHorizontalDragStart: (e) => at(e.localPosition.dx),
+          onHorizontalDragUpdate: (e) => at(e.localPosition.dx),
+          onHorizontalDragEnd: (_) => act!('commit'),
+          onTapUp: (e) {
+            at(e.localPosition.dx);
+            act!('commit');
+          },
+          child: MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: SizedBox(
+              height: 22,
+              child: Stack(
+                alignment: Alignment.centerLeft,
+                children: [
+                  Container(
+                    height: 6,
+                    decoration: BoxDecoration(color: pal.line, borderRadius: BorderRadius.circular(3)),
+                  ),
+                  FractionallySizedBox(
+                    widthFactor: f,
+                    child: Container(
+                      height: 6,
+                      decoration: BoxDecoration(color: c, borderRadius: BorderRadius.circular(3)),
+                    ),
+                  ),
+                  Positioned(
+                    left: (width - 16) * f,
+                    child: Container(
+                      width: 16,
+                      height: 16,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: c, width: 2),
+                        boxShadow: const [BoxShadow(color: Color(0x33000000), blurRadius: 3)],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Widget _bar(double v, Color c) => ClipRRect(
     borderRadius: BorderRadius.circular(2),
     child: LinearProgressIndicator(value: v.clamp(0, 1).toDouble(), minHeight: 4, backgroundColor: pal.line, color: c),
@@ -203,7 +266,7 @@ class TileView extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             mainAxisSize: MainAxisSize.min,
-            children: [_state(on ? '$textOn $v%' : textOff), const SizedBox(height: 6), _bar(v / 100, colorOn)],
+            children: [_state(on ? '$textOn $v%' : textOff), const SizedBox(height: 6), _slider(v / 100, colorOn)],
           ),
         ]);
       case 'value':
@@ -336,7 +399,7 @@ class TileView extends StatelessWidget {
             ),
           ),
           if (ctrl == 'slider')
-            _bar((curtain ? 100 - p : p) / 100, pal.accent)
+            _slider((curtain ? 100 - p : p) / 100, pal.accent, invert: curtain)
           else
             Row(
               children: [

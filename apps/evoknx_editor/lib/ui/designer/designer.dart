@@ -46,6 +46,9 @@ class Designer extends ChangeNotifier {
   String view = 'room'; // overview | floor | room
   String? floorId, roomId, subId, widgetId;
   ({String? g, int x, int y})? cell;
+
+  /// Direction of the last page change (-1 previous, 1 next) for the slide animation.
+  int lastDir = 0;
   Json? clip;
 
   Json get doc => p.doc;
@@ -112,6 +115,14 @@ class Designer extends ChangeNotifier {
   }
 
   void selectSub(String roomId_, String id) {
+    final r0 = byId(jsonList(doc['pages']), roomId_);
+    if (r0 != null && room?['id'] == roomId_) {
+      final ss = subsOf(r0);
+      final a = ss.indexWhere((x) => x['id'] == sub?['id']), b = ss.indexWhere((x) => x['id'] == id);
+      lastDir = b > a ? 1 : (b < a ? -1 : 0);
+    } else {
+      lastDir = 0;
+    }
     view = 'room';
     roomId = roomId_;
     floorId = byId(jsonList(doc['pages']), roomId_)?['floorId'] as String?;
@@ -143,6 +154,7 @@ class Designer extends ChangeNotifier {
     final i = ss.indexWhere((x) => x['id'] == s['id']);
     final j = i + d;
     if (j < 0 || j >= ss.length) return;
+    lastDir = d;
     selectSub(r['id'] as String, ss[j]['id'] as String);
   }
 
@@ -491,7 +503,12 @@ class Designer extends ChangeNotifier {
         send(w, 'write', on, on ? '1 (Bật)' : '0 (Tắt)');
         break;
       case 'dimmer':
-        if (action == 'set') {
+        if (action == 'preview') {
+          s['val'] = (arg as num).round();
+        } else if (action == 'commit') {
+          final v = ((s['val'] as num?) ?? 0).round();
+          send(w, 'value', v, '$v %');
+        } else if (action == 'set') {
           final v = (arg as num).round();
           s['val'] = v;
           send(w, 'value', v, '$v %');
@@ -529,6 +546,11 @@ class Designer extends ChangeNotifier {
           send(w, 'upDown', v, '${v ? 1 : 0} (${curtain ? (down ? 'Đóng' : 'Mở') : (down ? 'Xuống' : 'Lên')})');
         } else if (action == 'stop') {
           send(w, 'stop', true, '1 (Dừng)');
+        } else if (action == 'preview') {
+          s['pos'] = (arg as num).round();
+        } else if (action == 'commit') {
+          final v = ((s['pos'] as num?) ?? 0).round();
+          send(w, 'position', v, '$v %');
         } else if (action == 'set') {
           final v = (arg as num).round();
           s['pos'] = v;

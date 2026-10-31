@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../state/app_settings.dart';
 import '../state/bus_controller.dart';
 import '../state/project_controller.dart';
 import '../ui/shell.dart';
@@ -12,13 +13,16 @@ class EvoknxApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'EVOKNX Editor',
-      debugShowCheckedModeBanner: false,
-      theme: buildTheme(Brightness.light),
-      darkTheme: buildTheme(Brightness.dark),
-      themeMode: ThemeMode.system,
-      home: Shell(project: project, bus: bus),
+    return ListenableBuilder(
+      listenable: appSettings,
+      builder: (context, _) => MaterialApp(
+        title: 'EVOKNX Editor',
+        debugShowCheckedModeBanner: false,
+        theme: buildTheme(Brightness.light),
+        darkTheme: buildTheme(Brightness.dark),
+        themeMode: appSettings.themeMode,
+        home: Shell(project: project, bus: bus),
+      ),
     );
   }
 }

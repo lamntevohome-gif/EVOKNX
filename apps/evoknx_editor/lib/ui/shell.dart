@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../app/theme.dart';
 import '../state/bus_controller.dart';
 import '../state/project_controller.dart';
+import '../state/app_settings.dart';
 import 'common.dart';
 import 'connections_page.dart';
 import 'import_dialog.dart';
@@ -124,6 +125,21 @@ class _ShellState extends State<Shell> {
           const SizedBox(width: 18),
           Seg<int>(items: const [(0, 'Cấu trúc'), (1, 'Kết nối'), (2, 'Kiểm tra')], value: ws, onChanged: (v) => setState(() => ws = v)),
           const Spacer(),
+          PopupMenuButton<ThemeMode>(
+            tooltip: 'Giao diện Editor: Sáng / Tối',
+            initialValue: appSettings.themeMode,
+            onSelected: appSettings.setThemeMode,
+            icon: Icon(switch (appSettings.themeMode) {
+              ThemeMode.light => Icons.light_mode_outlined,
+              ThemeMode.dark => Icons.dark_mode_outlined,
+              ThemeMode.system => Icons.brightness_auto_outlined,
+            }, size: 19),
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: ThemeMode.light, child: Text('Giao diện sáng')),
+              PopupMenuItem(value: ThemeMode.dark, child: Text('Giao diện tối')),
+              PopupMenuItem(value: ThemeMode.system, child: Text('Theo Windows')),
+            ],
+          ),
           IconButton(tooltip: 'Hoàn tác (Ctrl+Z)', onPressed: p.canUndo ? p.undo : null, icon: const Icon(Icons.undo, size: 19)),
           IconButton(tooltip: 'Làm lại (Ctrl+Y)', onPressed: p.canRedo ? p.redo : null, icon: const Icon(Icons.redo, size: 19)),
           const SizedBox(width: 8),

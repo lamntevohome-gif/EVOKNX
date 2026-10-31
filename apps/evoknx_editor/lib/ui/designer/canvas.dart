@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:math';
+import 'dart:ui' show PointerDeviceKind;
 
 import 'package:flutter/material.dart';
 import 'package:knx_config/knx_config.dart';
@@ -73,7 +74,10 @@ class DesignCanvas extends StatelessWidget {
                   child: Stack(
                     children: [
                       Positioned.fill(
-                        child: _Screen(d: d, pal: pal, issues: issues, size: logical, dev: dev),
+                        child: ScrollConfiguration(
+                          behavior: const _DragScroll(),
+                          child: _Screen(d: d, pal: pal, issues: issues, size: logical, dev: dev),
+                        ),
                       ),
                       if (d.splashPreview) Positioned.fill(child: _Splash(d: d)),
                     ],
@@ -215,9 +219,39 @@ class _Screen extends StatelessWidget {
       ),
     );
     Widget grid(Json s) => Expanded(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 2, 14, 12),
-        child: _GridArea(d: d, box: s, groupId: null, pal: pal, issues: issues),
+      child: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onHorizontalDragEnd: (e) {
+          final v = e.primaryVelocity ?? 0;
+          if (v < -200) {
+            d.stepSub(1);
+          } else if (v > 200) {
+            d.stepSub(-1);
+          }
+        },
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 240),
+          switchInCurve: Curves.easeOutCubic,
+          switchOutCurve: Curves.easeInCubic,
+          layoutBuilder: (cur, prev) => Stack(fit: StackFit.expand, children: [...prev, if (cur != null) cur]),
+          transitionBuilder: (child, anim) {
+            final incoming = child.key == ValueKey<String>('grid-${s['id']}');
+            final dir = d.lastDir.toDouble();
+            final begin = Offset(incoming ? 0.3 * dir : -0.3 * dir, 0);
+            return FadeTransition(
+              opacity: anim,
+              child: SlideTransition(
+                position: Tween<Offset>(begin: begin, end: Offset.zero).animate(anim),
+                child: child,
+              ),
+            );
+          },
+          child: Padding(
+            key: ValueKey<String>('grid-${s['id']}'),
+            padding: const EdgeInsets.fromLTRB(14, 2, 14, 12),
+            child: _GridArea(d: d, box: s, groupId: null, pal: pal, issues: issues),
+          ),
+        ),
       ),
     );
 
@@ -957,4 +991,16 @@ class _TuneDialogState extends State<_TuneDialog> {
       actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Xong'))],
     );
   }
+}
+
+/// Lets horizontal bars (rooms, pages, floors) be dragged with the mouse,
+/// like swiping on the phone.
+class _DragScroll extends MaterialScrollBehavior {
+  const _DragScroll();
+
+  @override
+  Set<PointerDeviceKind> get dragDevices => {PointerDeviceKind.touch, PointerDeviceKind.mouse, PointerDeviceKind.trackpad, PointerDeviceKind.stylus};
+
+  @override
+  Widget buildScrollbar(BuildContext context, Widget child, ScrollableDetails details) => child;
 }
