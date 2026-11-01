@@ -62,7 +62,7 @@ const Map<String, WidgetTypeDef> kWidgetTypes = {
     SlotDef('status', 'Trạng thái vị trí', [5], recommended: true),
   ]),
   'scene': WidgetTypeDef('scene', 'Cảnh', 'star', 2, 2, [
-    SlotDef('write', 'Địa chỉ cảnh', [17, 18], required: true),
+    SlotDef('write', 'Địa chỉ ghi', [1, 5, 17, 18], required: true),
   ]),
   'link': WidgetTypeDef('link', 'Mở trang web', 'link', 2, 2, []),
   'webview': WidgetTypeDef('webview', 'Trang web nhúng', 'globe', 4, 6, []),
@@ -99,6 +99,15 @@ String cameraUrl(Json cam, {bool hidePass = false}) {
   final auth = user.isEmpty ? '' : '${Uri.encodeComponent(user)}${pass.isEmpty ? '' : ':${hidePass ? '***' : Uri.encodeComponent(pass)}'}@';
   final defPort = proto == 'http' ? 80 : 554;
   return '$proto://$auth$host${port == null || port == defPort ? '' : ':$port'}$path';
+}
+
+/// Value a scene card sends. Older projects stored a scene number (1–64)
+/// and sent number − 1; that value is kept for them.
+String sceneSendValue(Json w) {
+  final v = w['sendValue'];
+  if (v != null && v.toString().trim().isNotEmpty) return v.toString().trim();
+  final n = (w['sceneNumber'] as num?)?.toInt();
+  return n == null ? '0' : '${n - 1}';
 }
 
 /// Fan speed levels of an AC: 'auto' (optional) then '1'…'N'.
@@ -216,7 +225,7 @@ Json makeWidget(String type, int x, int y, [int? w, int? h]) {
   }
   if (type == 'value') wd['format'] = {'unit': '', 'decimals': 1};
   if (type == 'button') wd['sendValue'] = '1';
-  if (type == 'scene') wd['sceneNumber'] = 1;
+  if (type == 'scene') wd['sendValue'] = '0';
   if (type == 'link') {
     wd['url'] = '';
     wd['openIn'] = 'inApp';
