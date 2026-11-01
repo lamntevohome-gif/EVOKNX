@@ -1,7 +1,7 @@
 name: evoknx_editor
 description: EVOKNX Editor - thiết kế giao diện điều khiển KNX cho Windows.
 publish_to: none
-version: 0.3.0+3
+version: 0.4.0+4
 
 environment:
   sdk: '>=3.4.0 <4.0.0'
@@ -23,3 +23,10 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/mdi/mdi_meta.json
+  fonts:
+    # Material Design Icons by Pictogrammers (Apache 2.0) – see assets/mdi/LICENSE.txt
+    - family: MDI
+      fonts:
+        - asset: assets/mdi/materialdesignicons-webfont.ttf
