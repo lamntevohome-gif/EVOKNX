@@ -1,7 +1,7 @@
 name: evoknx_editor
 description: EVOKNX Editor - thiết kế giao diện điều khiển KNX cho Windows.
 publish_to: none
-version: 0.2.0+1
+version: 0.3.0+3
 
 environment:
   sdk: '>=3.4.0 <4.0.0'
@@ -14,6 +14,7 @@ dependencies:
   knx_config:
     path: ../../packages/knx_config
   file_selector: ^1.0.3
+  flutter_svg: ^2.0.10
   path_provider: ^2.1.4
 
 dev_dependencies:
