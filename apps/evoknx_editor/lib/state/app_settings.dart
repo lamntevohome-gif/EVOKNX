@@ -19,6 +19,12 @@ class AppSettings extends ChangeNotifier {
 
   static const List<int> autosaveChoices = [0, 1, 2, 5, 10];
 
+  /// History copies (made by Ctrl+S): days to keep (0 = forever) and whether
+  /// days older than a week keep only their last copy.
+  int historyKeepDays = 90;
+  bool historyThin = true;
+  static const List<int> historyChoices = [30, 90, 180, 365, 0];
+
   Future<File> _file() async {
     final d = await getApplicationSupportDirectory();
     return File('${d.path}${Platform.pathSeparator}settings.json');
@@ -37,6 +43,9 @@ class AppSettings extends ChangeNotifier {
       };
       final a = (j['autosaveMinutes'] as num?)?.toInt();
       if (a != null && autosaveChoices.contains(a)) autosaveMinutes = a;
+      final hk = (j['historyKeepDays'] as num?)?.toInt();
+      if (hk != null && historyChoices.contains(hk)) historyKeepDays = hk;
+      if (j['historyThin'] is bool) historyThin = j['historyThin'] as bool;
       final dir = j['defaultFolder'];
       if (dir is String && dir.isNotEmpty) defaultFolder = dir;
     } catch (_) {}
@@ -46,7 +55,15 @@ class AppSettings extends ChangeNotifier {
     try {
       final f = await _file();
       await f.parent.create(recursive: true);
-      await f.writeAsString(jsonEncode({'theme': themeMode.name, 'autosaveMinutes': autosaveMinutes, 'defaultFolder': defaultFolder}));
+      await f.writeAsString(
+        jsonEncode({
+          'theme': themeMode.name,
+          'autosaveMinutes': autosaveMinutes,
+          'defaultFolder': defaultFolder,
+          'historyKeepDays': historyKeepDays,
+          'historyThin': historyThin,
+        }),
+      );
     } catch (_) {}
   }
 
@@ -58,6 +75,13 @@ class AppSettings extends ChangeNotifier {
 
   Future<void> setAutosaveMinutes(int m) async {
     autosaveMinutes = autosaveChoices.contains(m) ? m : 5;
+    notifyListeners();
+    await _persist();
+  }
+
+  Future<void> setHistory({int? keepDays, bool? thin}) async {
+    if (keepDays != null && historyChoices.contains(keepDays)) historyKeepDays = keepDays;
+    if (thin != null) historyThin = thin;
     notifyListeners();
     await _persist();
   }

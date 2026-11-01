@@ -8,6 +8,7 @@ import 'package:knx_config/knx_config.dart';
 import 'package:path_provider/path_provider.dart';
 
 import 'app_settings.dart';
+import 'project_files.dart';
 
 /// Holds the open project, file path, undo/redo history and autosave.
 class ProjectController extends ChangeNotifier {
@@ -26,6 +27,17 @@ class ProjectController extends ChangeNotifier {
   /// When the project file was last written (manually or automatically).
   DateTime? savedAt;
   bool lastSaveWasAuto = false;
+
+  /// Set while a history copy is open ("21:03 01/11/2026"): saving restores
+  /// it as the main file; automatic saving is paused meanwhile.
+  String? viewingSnapshot;
+
+  /// Asks the user a yes/no question (provided by the window).
+  Future<bool> Function(String title, String message, String yes)? confirm;
+  bool _legacyDeclined = false;
+
+  /// Folder of the current project, when it uses the project-folder layout.
+  String? get projectDir => path != null && isProjectLayout(path!) ? dirName(path!) : null;
   Directory? _dataDir;
 
   /// Session (crash-recovery) file. Windows opened by double-clicking a
@@ -67,9 +79,11 @@ class ProjectController extends ChangeNotifier {
         final po = jsonDecode(await File(openPath).readAsString());
         if (po is Map && isProject(po)) {
           doc = migrate(po.cast<String, dynamic>());
-          path = openPath;
-          dirty = false;
-          _remember(openPath);
+          final snap = snapshotInfo(openPath);
+          path = snap?.main ?? openPath;
+          dirty = snap != null;
+          viewingSnapshot = snap == null ? null : _label(snap.at);
+          _remember(path!);
           return;
         }
       }
@@ -155,7 +169,7 @@ class ProjectController extends ChangeNotifier {
     final m = appSettings.autosaveMinutes;
     if (m <= 0) return;
     _fileAutosaveTimer = Timer.periodic(Duration(minutes: m), (_) async {
-      if (path == null || !dirty) return;
+      if (path == null || !dirty || viewingSnapshot != null) return;
       final ok = await _writeTo(path!);
       if (ok) {
         lastSaveWasAuto = true;
@@ -179,23 +193,48 @@ class ProjectController extends ChangeNotifier {
   }
 
   /// Asks for a location (Save As). Returns the chosen path or null.
+  /// The user picks where to put the project; a folder named after the
+  /// project is created there and the main file goes inside it.
   Future<String?> _askLocation() async {
+    final pd = projectDir;
     final loc = await getSaveLocation(
       acceptedTypeGroups: const [_typeGroup],
-      suggestedName: path != null ? fileName! : '${_slug(projectName)}.evoknx',
-      initialDirectory: path != null ? File(path!).parent.path : appSettings.defaultFolder,
+      suggestedName: '${safeName(projectName)}.evoknx',
+      initialDirectory: pd != null ? dirName(pd) : (path != null ? File(path!).parent.path : appSettings.defaultFolder),
       confirmButtonText: 'Lưu',
     );
     if (loc == null) return null;
-    return loc.path.toLowerCase().endsWith('.evoknx') ? loc.path : '${loc.path}.evoknx';
+    final chosen = loc.path.toLowerCase().endsWith('.evoknx') ? loc.path : '${loc.path}.evoknx';
+    return _prepareFolder(projectLocation(chosen));
   }
+
+  /// Creates the project folder; asks before replacing another project.
+  Future<String?> _prepareFolder(({String dir, String main}) l) async {
+    if (l.main != path && await File(l.main).exists()) {
+      final ok =
+          await confirm?.call(
+            'Ghi đè dự án?',
+            'Folder “${baseName(l.dir)}” đã có file dự án ${baseName(l.main)}. Ghi đè bằng dự án đang mở? Các bản lịch sử cũ trong folder vẫn được giữ.',
+            'Ghi đè',
+          ) ??
+          false;
+      if (!ok) return null;
+    }
+    try {
+      await Directory(l.dir).create(recursive: true);
+    } catch (_) {
+      return null;
+    }
+    return l.main;
+  }
+
+  String _label(DateTime t) => '${two(t.hour)}:${two(t.minute)} ${two(t.day)}/${two(t.month)}/${t.year}';
 
   /// Saves before closing the window. Returns true when the project is safe
   /// to close (saved), false when the user cancelled or saving failed.
   Future<bool> saveForClose() async {
-    final p = path ?? await _askLocation();
-    if (p == null) return false;
-    return _writeTo(p);
+    final r = await save();
+    return r != null && !dirty;
   }
 
   /// Replaces the project with a newly created document (undoable).
@@ -229,9 +268,11 @@ class ProjectController extends ChangeNotifier {
       if (!isProject(o)) return 'File không đúng định dạng dự án EVOKNX.';
       mutate((_) {});
       doc = migrate((o as Map).cast<String, dynamic>());
-      path = p;
-      dirty = false;
-      _remember(p);
+      final snap = snapshotInfo(p);
+      path = snap?.main ?? p;
+      dirty = snap != null;
+      viewingSnapshot = snap == null ? null : _label(snap.at);
+      _remember(path!);
       _changed();
       return null;
     } catch (e) {
@@ -239,15 +280,52 @@ class ProjectController extends ChangeNotifier {
     }
   }
 
+  /// Manual save (Ctrl+S, Lưu, Lưu thành, save on close): writes the main
+  /// file and a dated history copy. Automatic saving writes the main file only.
   Future<String?> save({bool saveAs = false}) async {
     var p = path;
+    // A project saved as a loose file before folders existed: offer to move
+    // it into its own project folder (the old file is left untouched).
+    if (p != null && !saveAs && !isProjectLayout(p) && !_legacyDeclined) {
+      final yes =
+          await confirm?.call(
+            'Chuyển sang folder dự án?',
+            'Từ phiên bản này, mỗi dự án có folder riêng mang tên dự án, kèm lịch sử các lần lưu theo ngày. '
+                'Tạo folder “${safeName(projectName)}” cạnh file hiện tại và lưu vào đó? File cũ vẫn được giữ nguyên.',
+            'Chuyển',
+          ) ??
+          false;
+      if (yes) {
+        p = await _prepareFolder(projectLocation('${dirName(p)}${Platform.pathSeparator}${safeName(projectName)}.evoknx'));
+        if (p == null) return null;
+      } else {
+        _legacyDeclined = true;
+      }
+    }
     if (p == null || saveAs) {
       p = await _askLocation();
       if (p == null) return null;
     }
+    final restored = viewingSnapshot;
     final ok = await _writeTo(p);
     lastSaveWasAuto = false;
-    return ok ? 'Đã lưu ${p.split(Platform.pathSeparator).last}' : 'Không lưu được file. Kiểm tra quyền ghi của thư mục.';
+    if (!ok) return 'Không lưu được file. Kiểm tra quyền ghi của thư mục.';
+    viewingSnapshot = null;
+    var note = '';
+    if (isProjectLayout(p)) {
+      final now = DateTime.now();
+      try {
+        final sp = snapshotPath(p, projectName, now);
+        await File(sp).create(recursive: true);
+        await File(sp).writeAsString(const JsonEncoder.withIndent('  ').convert(doc));
+        note = ' · lịch sử ${two(now.hour)}:${two(now.minute)}:${two(now.second)}';
+      } catch (_) {
+        note = ' · không ghi được bản lịch sử';
+      }
+      unawaited(pruneHistory(dirName(p), keepDays: appSettings.historyKeepDays, thin: appSettings.historyThin).catchError((_) => 0));
+    }
+    _changed();
+    return restored != null ? 'Đã khôi phục bản lưu $restored thành bản chính$note' : 'Đã lưu ${baseName(p)}$note';
   }
 
   /// Exports the configuration file for the mobile/tablet app.
@@ -256,7 +334,8 @@ class ProjectController extends ChangeNotifier {
       acceptedTypeGroups: const [
         XTypeGroup(label: 'Cấu hình App', extensions: ['json']),
       ],
-      suggestedName: '${_slug(projectName)}-config.json',
+      suggestedName: '${safeName(projectName)} - cau hinh App.json',
+      initialDirectory: projectDir,
       confirmButtonText: 'Xuất',
     );
     if (loc == null) return null;
@@ -280,18 +359,6 @@ class ProjectController extends ChangeNotifier {
     if (d != null) {
       File('${d.path}${Platform.pathSeparator}recent.json').writeAsString(jsonEncode(recent)).catchError((_) => File(''));
     }
-  }
-
-  String _slug(String s) {
-    const from = 'àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ';
-    const to = 'aaaaaaaaaaaaaaaaaeeeeeeeeeeeiiiiiooooooooooooooooouuuuuuuuuuuyyyyyd';
-    final b = StringBuffer();
-    for (final ch in s.toLowerCase().split('')) {
-      final i = from.indexOf(ch);
-      b.write(i >= 0 ? to[i] : ch);
-    }
-    final r = b.toString().replaceAll(RegExp(r'[^a-z0-9]+'), '-').replaceAll(RegExp(r'^-|-$'), '');
-    return r.isEmpty ? 'du-an' : r;
   }
 
   // -------------------------------------------------------------- ETS
