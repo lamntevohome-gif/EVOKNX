@@ -21,7 +21,9 @@ int rows(Json box) => (layout(box)['rows'] as num?)?.toInt() ?? 12;
 
 /// A page that scrolls vertically (phone layout only): it shows
 /// [rows] rows on screen and has [pageRows] rows in total.
-bool scrollPage(Json box, Json doc) => box['scroll'] == true && box['type'] == null && (doc['activeDev'] ?? 'mobile') == 'mobile';
+/// Vertical page scrolling is switched off for now (kEnablePageScroll).
+const bool kEnablePageScroll = false;
+bool scrollPage(Json box, Json doc) => kEnablePageScroll && box['scroll'] == true && box['type'] == null && (doc['activeDev'] ?? 'mobile') == 'mobile';
 int pageRows(Json box, Json doc) => scrollPage(box, doc) ? max(rows(box), ((box['scrollRows'] as num?) ?? rows(box) * 2).toInt()) : rows(box);
 
 Json? byId(List<Json> l, String? id) {

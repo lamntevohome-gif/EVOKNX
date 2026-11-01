@@ -122,10 +122,10 @@ class StructureTree extends StatelessWidget {
               leading: iconWidget(r['icon'] as String?, 18, c.muted),
               text: (r['title'] ?? '').toString(),
               trailing: '${subsOf(r).fold<int>(0, (n, s) => n + jsonList(s['widgets']).length)}',
-              on: d.view == 'room' && curRoom?['id'] == r['id'] && subsOf(r).length < 2,
+              on: false,
               onTap: () => d.selectRoom(r['id'] as String),
             ),
-            if (curRoom?['id'] == r['id'] && subsOf(r).length > 1)
+            if (curRoom?['id'] == r['id'])
               for (final s in subsOf(r))
                 row(
                   indent: 36,

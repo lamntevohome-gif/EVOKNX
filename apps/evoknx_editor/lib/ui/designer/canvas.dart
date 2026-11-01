@@ -757,7 +757,7 @@ class _GridAreaState extends State<_GridArea> {
     }
     if (action == 'popup') {
       // Simple AC card: full controls (modes, fan) in a popup.
-      final full = {...w, 'look': 'full'};
+      final full = {...w, 'look': 'controls'};
       await showDialog<void>(
         context: context,
         builder: (c) => Dialog(
@@ -765,7 +765,7 @@ class _GridAreaState extends State<_GridArea> {
           elevation: 0,
           child: SizedBox(
             width: 340,
-            height: jsonMap(jsonMap(w['ac'])['fan'])['enabled'] == true ? 330 : 290,
+            height: jsonMap(jsonMap(w['ac'])['fan'])['enabled'] == true ? 236 : 150,
             child: ListenableBuilder(
               listenable: d,
               builder: (c, _) =>

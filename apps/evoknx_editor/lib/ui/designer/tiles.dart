@@ -365,17 +365,19 @@ class TileView extends StatelessWidget {
 
   /// Simple look: icon (and optional control) on top, name below, no state
   /// text; on/off is shown by the card colour.
-  Widget _simple(Color iconColor, {Widget? trailing}) => Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
+  Widget _simple(Color iconColor, {Widget? trailing}) => Row(
     children: [
-      Row(crossAxisAlignment: CrossAxisAlignment.start, children: [_icon(iconColor), const Spacer(), if (trailing != null) trailing]),
-      const Spacer(),
-      Text(
-        (w['label'] ?? '').toString(),
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(fontSize: fs(w, 'labelSize'), fontWeight: FontWeight.w500, color: pal.ink, height: 1.2),
+      _icon(iconColor),
+      const SizedBox(width: 10),
+      Expanded(
+        child: Text(
+          (w['label'] ?? '').toString(),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(fontSize: fs(w, 'labelSize'), fontWeight: FontWeight.w500, color: pal.ink, height: 1.2),
+        ),
       ),
+      if (trailing != null) ...[const SizedBox(width: 6), trailing],
     ],
   );
 
@@ -752,12 +754,31 @@ class TileView extends StatelessWidget {
             children: [
               _head(
                 acOn ? pal.accent : pal.muted,
-                trailing: _tap(
-                  'popup',
-                  Padding(
-                    padding: const EdgeInsets.all(2),
-                    child: iconWidget((ac['moreIcon'] ?? 'mdi:tune-variant').toString(), fs(w, 'iconSize') * 0.85, pal.muted),
-                  ),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _tap(
+                      'power',
+                      Container(
+                        width: ab * 1.9,
+                        height: ab * 1.9,
+                        decoration: BoxDecoration(
+                          color: acOn ? pal.accent : pal.panel,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: acOn ? pal.accent : pal.tileEdge),
+                        ),
+                        child: Center(child: iconWidget('mdi:power', ab * 0.9, acOn ? Colors.white : pal.muted)),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    _tap(
+                      'popup',
+                      Padding(
+                        padding: const EdgeInsets.all(2),
+                        child: iconWidget((ac['moreIcon'] ?? 'mdi:tune-variant').toString(), fs(w, 'iconSize') * 0.85, pal.muted),
+                      ),
+                    ),
+                  ],
                 ),
               ),
               Expanded(
@@ -765,55 +786,94 @@ class TileView extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     round(Icons.remove, 'minus'),
-                    SizedBox(width: ab * 0.6),
+                    SizedBox(width: ab * 1.3),
                     spText(),
-                    SizedBox(width: ab * 0.6),
+                    SizedBox(width: ab * 1.3),
                     round(Icons.add, 'plus'),
                   ],
                 ),
               ),
+              if (fanOn)
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: _tap(
+                    'fan',
+                    Container(
+                      padding: EdgeInsets.symmetric(horizontal: ab * 0.6, vertical: ab * 0.35),
+                      decoration: BoxDecoration(
+                        color: pal.panel,
+                        borderRadius: BorderRadius.circular(ab),
+                        border: Border.all(color: pal.tileEdge),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          iconWidget(fan == 'auto' ? 'mdi:fan-auto' : 'mdi:fan', ab * 0.95, pal.ink),
+                          const SizedBox(width: 4),
+                          Text(
+                            fan == 'auto' ? 'Auto' : fan,
+                            style: TextStyle(fontSize: ab * 0.8, color: pal.ink, fontWeight: FontWeight.w600),
+                          ),
+                        ],
+                      ),
+                    ),
+                    nextFan,
+                  ),
+                ),
+            ],
+          );
+        }
+        // Popup of the simple card: modes and fan only (setpoint is on the card).
+        if (w['look'] == 'controls') {
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Chế độ',
+                style: TextStyle(fontSize: fs(w, 'stateSize'), color: pal.muted),
+              ),
+              SizedBox(height: am * 0.4),
               Row(
                 children: [
-                  _tap(
-                    'power',
-                    Container(
-                      width: ab * 2.2,
-                      height: ab * 2.2,
-                      decoration: BoxDecoration(
-                        color: acOn ? pal.accent : pal.panel,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: acOn ? pal.accent : pal.tileEdge),
-                      ),
-                      child: Center(child: iconWidget('mdi:power', ab, acOn ? Colors.white : pal.muted)),
-                    ),
-                  ),
-                  const Spacer(),
-                  if (fanOn)
-                    _tap(
-                      'fan',
-                      Container(
-                        padding: EdgeInsets.symmetric(horizontal: ab * 0.6, vertical: ab * 0.35),
-                        decoration: BoxDecoration(
-                          color: pal.panel,
-                          borderRadius: BorderRadius.circular(ab),
-                          border: Border.all(color: pal.tileEdge),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            iconWidget(fan == 'auto' ? 'mdi:fan-auto' : 'mdi:fan', ab * 0.95, pal.ink),
-                            const SizedBox(width: 4),
-                            Text(
-                              fan == 'auto' ? 'Auto' : fan,
-                              style: TextStyle(fontSize: ab * 0.8, color: pal.ink, fontWeight: FontWeight.w600),
-                            ),
-                          ],
-                        ),
-                      ),
-                      nextFan,
-                    ),
+                  modeBtn('off', nm('off', 'Tắt'), 'power', !acOn),
+                  for (final m in kAcModes)
+                    if (modes.containsKey(m.key) ? modes[m.key] == true : m.key != 'heat') modeBtn(m.key, nm(m.key, m.name), m.icon, acOn && mode == m.key),
                 ],
               ),
+              if (fanOn) ...[
+                SizedBox(height: am),
+                Text(
+                  'Tốc độ quạt',
+                  style: TextStyle(fontSize: fs(w, 'stateSize'), color: pal.muted),
+                ),
+                SizedBox(height: am * 0.4),
+                Row(
+                  children: [
+                    for (final k in levels)
+                      Expanded(
+                        child: _tap(
+                          'fan',
+                          Container(
+                            margin: const EdgeInsets.symmetric(horizontal: 2),
+                            padding: EdgeInsets.symmetric(vertical: am * 0.45),
+                            decoration: BoxDecoration(
+                              color: acOn && fan == k ? pal.ink : pal.panel,
+                              border: Border.all(color: acOn && fan == k ? pal.ink : pal.tileEdge),
+                              borderRadius: BorderRadius.circular(am * 0.62),
+                            ),
+                            child: Text(
+                              k == 'auto' ? 'Auto' : k,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(fontSize: am * 0.8, fontWeight: FontWeight.w600, color: acOn && fan == k ? pal.screen : pal.muted),
+                            ),
+                          ),
+                          k,
+                        ),
+                      ),
+                  ],
+                ),
+              ],
             ],
           );
         }
@@ -947,6 +1007,7 @@ class _PressEffectState extends State<PressEffect> {
         duration: Duration(milliseconds: _down ? 90 : 240),
         curve: Curves.easeOutCubic,
         child: Stack(
+          fit: StackFit.passthrough,
           children: [
             widget.child,
             Positioned.fill(

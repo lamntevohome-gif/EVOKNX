@@ -1224,7 +1224,7 @@ class _RoomProps extends StatelessWidget {
                   ),
                 ],
               ),
-              if ((d.doc['activeDev'] ?? 'mobile') == 'mobile') ...[
+              if (kEnablePageScroll && (d.doc['activeDev'] ?? 'mobile') == 'mobile') ...[
                 Row(
                   children: [
                     Checkbox(
