@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:knx_config/knx_config.dart';
 
@@ -183,6 +184,14 @@ bool isCustomIcon(String? key) => key != null && _custom.containsKey(key);
 
 /// Draws an icon by key: built-in Material icon or a custom (tinted) icon.
 Widget iconWidget(String? key, double size, Color color) {
+  if (key != null && key.startsWith('mdi:')) {
+    final m = Mdi.byName[key.substring(4)];
+    return Icon(
+      m == null ? Icons.help_outline : IconData(m.cp, fontFamily: 'MDI'),
+      size: size,
+      color: color,
+    );
+  }
   final c = key == null ? null : _custom[key];
   if (c == null) return Icon(iconOf(key), size: size, color: color);
   return SizedBox(
@@ -194,4 +203,217 @@ Widget iconWidget(String? key, double size, Color color) {
   );
 }
 
-String iconLabel(String? key) => _custom[key]?.name ?? iconName(key);
+String iconLabel(String? key) {
+  if (key != null && key.startsWith('mdi:')) return key.substring(4);
+  return _custom[key]?.name ?? iconName(key);
+}
+
+// ------------------------------------------------------------------ MDI library
+
+/// One icon of Material Design Icons (Pictogrammers, Apache 2.0).
+class MdiIcon {
+  MdiIcon(this.name, this.cp, this.tags, this.search);
+  final String name;
+  final int cp;
+  final List<int> tags;
+
+  /// Lower-case name + aliases, used for searching.
+  final String search;
+  String get key => 'mdi:$name';
+}
+
+/// The bundled Material Design Icons set (font + searchable metadata).
+class Mdi {
+  static List<MdiIcon> all = const [];
+  static List<String> tags = const [];
+  static Map<String, MdiIcon> byName = const {};
+  static String version = '';
+
+  static Future<void> load() async {
+    if (all.isNotEmpty) return;
+    try {
+      final j = jsonDecode(await rootBundle.loadString('assets/mdi/mdi_meta.json')) as Map<String, dynamic>;
+      version = (j['version'] ?? '').toString();
+      tags = (j['tags'] as List).cast<String>();
+      all = [
+        for (final e in (j['icons'] as List).cast<List>())
+          MdiIcon(e[0] as String, e[1] as int, (e[2] as List).cast<int>(), '${e[0]} ${(e[3] as String).toLowerCase()}'),
+      ];
+      byName = {for (final i in all) i.name: i};
+    } catch (_) {
+      all = const [];
+    }
+  }
+
+  static int tagIndex(String name) => tags.indexOf(name);
+
+  /// Searches by English name/alias/tag, plus common Vietnamese words for
+  /// smart-home devices ("đèn", "rèm", "quạt"…). Query must be folded.
+  static List<MdiIcon> search(String q, {int? tag}) {
+    final terms = <String>{};
+    if (q.isNotEmpty) {
+      terms.add(q.replaceAll(' ', '-'));
+      kMdiVietnamese.forEach((vn, en) {
+        if (vn == q || (q.length >= 2 && vn.startsWith(q)) || q.contains(vn)) terms.addAll(en);
+      });
+    }
+    final tagHits = <int>{};
+    if (q.length >= 3) {
+      for (var i = 0; i < tags.length; i++) {
+        if (tags[i].toLowerCase().contains(q)) tagHits.add(i);
+      }
+    }
+    final first = <MdiIcon>[], rest = <MdiIcon>[];
+    for (final i in all) {
+      if (tag != null && !i.tags.contains(tag)) continue;
+      if (terms.isEmpty) {
+        rest.add(i);
+        continue;
+      }
+      var hit = false, starts = false;
+      for (final t in terms) {
+        if (i.search.contains(t)) {
+          hit = true;
+          if (i.name.startsWith(t)) starts = true;
+        }
+      }
+      if (!hit && tagHits.isNotEmpty && i.tags.any(tagHits.contains)) hit = true;
+      if (!hit) continue;
+      (starts ? first : rest).add(i);
+    }
+    return [...first, ...rest];
+  }
+}
+
+/// Vietnamese names of MDI categories shown in the picker.
+const Map<String, String> kMdiTagNames = {
+  'Home Automation': 'Nhà thông minh',
+  'Weather': 'Thời tiết',
+  'Device / Tech': 'Thiết bị công nghệ',
+  'Audio': 'Âm thanh',
+  'Video / Movie': 'Video, phim',
+  'Music': 'Âm nhạc',
+  'Lock': 'Khoá, an ninh',
+  'Alert / Error': 'Cảnh báo',
+  'Notification': 'Thông báo',
+  'Battery': 'Pin',
+  'Food / Drink': 'Ăn uống',
+  'People / Family': 'Người, gia đình',
+  'Account / User': 'Tài khoản',
+  'Nature': 'Thiên nhiên',
+  'Animal': 'Vật nuôi',
+  'Automotive': 'Xe hơi',
+  'Transportation + Road': 'Giao thông',
+  'Places': 'Địa điểm',
+  'Sport': 'Thể thao',
+  'Medical / Hospital': 'Y tế',
+  'Hardware / Tools': 'Dụng cụ',
+  'Settings': 'Cài đặt',
+  'Date / Time': 'Ngày giờ',
+  'Arrow': 'Mũi tên',
+  'Shape': 'Hình khối',
+  'Holiday': 'Lễ tết',
+  'Agriculture': 'Nông nghiệp',
+  'Cloud': 'Đám mây',
+  'Cellphone / Phone': 'Điện thoại',
+  'Photography': 'Ảnh',
+  'Gaming / RPG': 'Trò chơi',
+  'Shopping': 'Mua sắm',
+  'Science': 'Khoa học',
+  'Navigation': 'Điều hướng',
+  'Alpha / Numeric': 'Chữ, số',
+  'Math': 'Toán',
+};
+
+/// Vietnamese search words (without diacritics) → English MDI terms.
+const Map<String, List<String>> kMdiVietnamese = {
+  'den': ['light', 'lamp', 'bulb', 'chandelier', 'led-strip', 'track-light', 'wall-sconce', 'spotlight'],
+  'bong den': ['lightbulb'],
+  'den chum': ['chandelier'],
+  'den ban': ['desk-lamp', 'lamp'],
+  'den tran': ['ceiling-light'],
+  'den tuong': ['wall-sconce'],
+  'den led': ['led', 'led-strip'],
+  'rem': ['curtains', 'blinds', 'roller-shade', 'window-shutter'],
+  'rem cua': ['curtains'],
+  'cuon': ['roller-shade', 'window-shutter'],
+  'quat': ['fan', 'ceiling-fan'],
+  'may lanh': ['air-conditioner', 'snowflake', 'hvac'],
+  'dieu hoa': ['air-conditioner', 'hvac', 'thermostat'],
+  'nhiet do': ['thermometer', 'thermostat', 'temperature'],
+  'do am': ['water-percent', 'humidity'],
+  'suoi': ['radiator', 'heat'],
+  'loc khi': ['air-filter', 'air-purifier'],
+  'cua': ['door', 'gate', 'garage', 'window'],
+  'cua so': ['window'],
+  'cong': ['gate'],
+  'nha xe': ['garage'],
+  'khoa': ['lock', 'key'],
+  'chia khoa': ['key'],
+  'camera': ['cctv', 'camera', 'webcam'],
+  'an ninh': ['shield', 'security', 'alarm'],
+  'bao dong': ['alarm', 'siren', 'bell'],
+  'chuong': ['bell', 'doorbell'],
+  'cam bien': ['motion-sensor', 'smoke-detector', 'leak', 'sensor'],
+  'chuyen dong': ['motion-sensor', 'walk', 'run'],
+  'khoi': ['smoke'],
+  'ro ri': ['leak', 'water-alert'],
+  'tivi': ['television', 'tv'],
+  'tv': ['television'],
+  'loa': ['speaker'],
+  'am thanh': ['volume', 'speaker', 'music'],
+  'nhac': ['music'],
+  'phim': ['movie', 'filmstrip', 'theater'],
+  'rap': ['theater', 'projector'],
+  'may chieu': ['projector'],
+  'o cam': ['power-socket', 'power-plug'],
+  'cong tac': ['light-switch', 'toggle-switch', 'power'],
+  'nguon': ['power'],
+  'dien': ['flash', 'lightning-bolt', 'meter-electric', 'transmission-tower'],
+  'nang luong': ['solar-power', 'lightning-bolt', 'battery', 'flash'],
+  'mat troi': ['weather-sunny', 'solar'],
+  'pin': ['battery'],
+  'nuoc': ['water', 'faucet', 'shower'],
+  'voi': ['faucet'],
+  'tam': ['shower', 'bathtub'],
+  'nong lanh': ['water-boiler', 'water-thermometer'],
+  'ho boi': ['pool'],
+  'tuoi': ['sprinkler', 'watering-can'],
+  'vuon': ['flower', 'tree', 'grass', 'sprinkler'],
+  'bep': ['stove', 'pot', 'chef-hat', 'microwave', 'fridge'],
+  'tu lanh': ['fridge'],
+  'lo': ['stove', 'microwave', 'toaster-oven'],
+  'may giat': ['washing-machine'],
+  'may say': ['tumble-dryer'],
+  'rua bat': ['dishwasher'],
+  'hut bui': ['robot-vacuum', 'vacuum'],
+  'robot': ['robot-vacuum', 'robot'],
+  'giuong': ['bed'],
+  'ngu': ['bed', 'sleep', 'power-sleep'],
+  'sofa': ['sofa'],
+  'ghe': ['chair', 'seat'],
+  'ban': ['table', 'desk'],
+  'nha': ['home', 'house'],
+  'phong': ['home', 'floor-plan', 'door'],
+  'tang': ['stairs', 'floor-plan', 'home-floor'],
+  'thang may': ['elevator'],
+  'cau thang': ['stairs'],
+  'xe': ['car', 'motorbike', 'bicycle'],
+  'sac': ['ev-station', 'battery-charging', 'power-plug'],
+  'wifi': ['wifi', 'router'],
+  'mang': ['lan', 'router', 'network'],
+  'canh': ['palette', 'movie-open', 'weather-night', 'home-heart'],
+  'dem': ['weather-night', 'moon'],
+  'sang': ['weather-sunny', 'brightness'],
+  'thoi tiet': ['weather'],
+  'mua': ['weather-rainy', 'umbrella'],
+  'gio': ['weather-windy', 'fan', 'clock'],
+  'dong ho': ['clock', 'timer'],
+  'hen gio': ['timer', 'alarm'],
+  'cai dat': ['cog', 'tune'],
+  'nguoi': ['account', 'human'],
+  'tre em': ['baby', 'human-child'],
+  'thu cung': ['dog', 'cat', 'paw'],
+  'cho': ['dog'],
+  'meo': ['cat'],
+};

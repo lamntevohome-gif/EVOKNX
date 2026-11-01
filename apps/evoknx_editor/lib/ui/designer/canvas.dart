@@ -785,7 +785,17 @@ class _GridAreaState extends State<_GridArea> {
                     : GestureDetector(
                         behavior: HitTestBehavior.opaque,
                         onTap: () => _testAct(w, 'tap', null),
-                        child: MouseRegion(cursor: SystemMouseCursors.click, child: tile),
+                        child: MouseRegion(
+                          cursor: SystemMouseCursors.click,
+                          // Whole-card press effect for cards whose main action
+                          // is a tap; cards with their own buttons (rèm, máy
+                          // lạnh, web) animate those buttons instead.
+                          child: PressEffect(
+                            enabled: const ['switch', 'dimmer', 'button', 'scene', 'link'].contains(w['type']),
+                            dark: (hexColor(jsonMap(w['style'])['bg']) ?? pal.tile).computeLuminance() < 0.35,
+                            child: tile,
+                          ),
+                        ),
                       ),
               ),
             );
@@ -1335,6 +1345,7 @@ class _AppSettingsSheet extends StatelessWidget {
                   ]),
                   card('Giới thiệu', [
                     row(Icon(Icons.info_outline, color: pal.muted, size: 22), 'EVOKNX', sub: 'Phiên bản 1.0 · © ${DateTime.now().year} Evohome'),
+                    row(Icon(Icons.palette_outlined, color: pal.muted, size: 22), 'Biểu tượng', sub: 'Material Design Icons · Pictogrammers (Apache 2.0)'),
                     row(
                       Icon(Icons.home_work_outlined, color: pal.muted, size: 22),
                       (jsonMap(doc['project'])['name'] ?? '').toString(),

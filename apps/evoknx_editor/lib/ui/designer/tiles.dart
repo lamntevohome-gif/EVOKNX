@@ -1,4 +1,9 @@
+import 'dart:convert';
+import 'dart:math';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:knx_config/knx_config.dart';
 
 import 'icons.dart';
@@ -193,7 +198,10 @@ class TileView extends StatelessWidget {
       : GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: () => act!(action, arg),
-          child: MouseRegion(cursor: SystemMouseCursors.click, child: child),
+          child: MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: PressEffect(scale: 0.86, radius: 10, dark: pal.tile.computeLuminance() < 0.35, child: child),
+          ),
         );
 
   @override
@@ -209,6 +217,7 @@ class TileView extends StatelessWidget {
     final colorOn = rgb ?? hexColor(style['colorOn']) ?? pal.led;
     final colorOff = hexColor(style['colorOff']) ?? pal.muted;
     final bg = on ? Color.alphaBlend(colorOn.withValues(alpha: 0.16), pal.tile) : pal.tile;
+    final imageBtn = type == 'button' && w['btnStyle'] == 'image';
     return Container(
       decoration: BoxDecoration(
         color: type == 'webview' ? pal.tile : bg,
@@ -222,7 +231,7 @@ class TileView extends StatelessWidget {
               border: Border.all(color: pal.accent, width: 2),
             )
           : null,
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+      padding: imageBtn ? const EdgeInsets.all(8) : const EdgeInsets.fromLTRB(12, 10, 12, 10),
       child: ClipRect(
         child: Stack(
           children: [
@@ -339,6 +348,67 @@ class TileView extends StatelessWidget {
     child: LinearProgressIndicator(value: v.clamp(0, 1).toDouble(), minHeight: 4, backgroundColor: pal.line, color: c),
   );
 
+  /// Button style "Hình ảnh": the picture centred, optional label below.
+  Widget _imageButton() {
+    final size = (((w['imageSize'] as num?) ?? 70).toDouble().clamp(20, 100)) / 100;
+    final showLabel = w['showLabel'] != false && (w['label'] ?? '').toString().isNotEmpty;
+    final useIcon = w['imgSource'] == 'icon';
+    final img = useIcon ? null : imageFromData((w['image'] ?? '').toString());
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (useIcon)
+          Expanded(
+            child: LayoutBuilder(
+              builder: (context, c) => Center(
+                child: iconWidget(
+                  (w['imgIcon'] ?? 'mdi:gesture-tap-button').toString(),
+                  max(8.0, min(c.maxWidth, c.maxHeight) * size),
+                  hexColor(w['imgColor']) ?? pal.ink,
+                ),
+              ),
+            ),
+          )
+        else
+          Expanded(
+            child: Center(
+              child: FractionallySizedBox(
+                widthFactor: size,
+                heightFactor: size,
+                child:
+                    img ??
+                    Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.add_photo_alternate_outlined, size: 26, color: pal.muted),
+                        const SizedBox(height: 4),
+                        Flexible(
+                          child: Text(
+                            'Chưa có ảnh',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(fontSize: 11, color: pal.muted),
+                          ),
+                        ),
+                      ],
+                    ),
+              ),
+            ),
+          ),
+        if (showLabel) ...[
+          const SizedBox(height: 4),
+          Text(
+            (w['label'] ?? '').toString(),
+            maxLines: 1,
+            textAlign: TextAlign.center,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(fontSize: fs(w, 'labelSize'), color: pal.ink, height: 1.2),
+          ),
+        ],
+      ],
+    );
+  }
+
   Widget _col(List<Widget> children) =>
       Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisAlignment: MainAxisAlignment.spaceBetween, children: children);
 
@@ -401,6 +471,7 @@ class TileView extends StatelessWidget {
           ),
         ]);
       case 'button':
+        if (w['btnStyle'] == 'image') return _imageButton();
         return _col([_head(pal.muted), _state('Nhấn để gửi')]);
       case 'scene':
         return _col([_head(pal.muted), _state('Cảnh ${w['sceneNumber'] ?? 1}')]);
@@ -618,5 +689,93 @@ class TileView extends StatelessWidget {
         );
     }
     return _head(pal.muted);
+  }
+}
+
+// ------------------------------------------------------------------ images
+
+final Map<String, ({Uint8List bytes, bool svg})> _imgCache = {};
+
+/// Draws an image stored as a data URL (PNG, JPEG or SVG), untinted.
+Widget? imageFromData(String data, {BoxFit fit = BoxFit.contain}) {
+  if (data.isEmpty) return null;
+  var e = _imgCache[data];
+  if (e == null) {
+    final m = RegExp(r'^data:image/(png|jpeg|jpg|svg\+xml|webp)(;[^,]*)?,(.*)$', dotAll: true).firstMatch(data);
+    if (m == null) return null;
+    try {
+      final payload = m[3]!;
+      final bytes = (m[2] ?? '').contains('base64') ? base64Decode(payload) : Uint8List.fromList(utf8.encode(Uri.decodeComponent(payload)));
+      e = (bytes: bytes, svg: m[1] == 'svg+xml');
+      if (_imgCache.length > 40) _imgCache.clear();
+      _imgCache[data] = e;
+    } catch (_) {
+      return null;
+    }
+  }
+  return e.svg ? SvgPicture.memory(e.bytes, fit: fit) : Image.memory(e.bytes, fit: fit, gaplessPlayback: true, filterQuality: FilterQuality.medium);
+}
+
+// ------------------------------------------------------------------ press effect
+
+/// Visual feedback while a card or button is held down: it shrinks slightly
+/// and darkens. Uses a Listener so it never steals taps or drags; moving the
+/// finger (e.g. dragging a dimmer) releases the effect.
+class PressEffect extends StatefulWidget {
+  const PressEffect({super.key, required this.child, this.scale = 0.95, this.radius = 16, this.dark = false, this.enabled = true});
+  final Widget child;
+  final double scale, radius;
+  final bool dark, enabled;
+
+  @override
+  State<PressEffect> createState() => _PressEffectState();
+}
+
+class _PressEffectState extends State<PressEffect> {
+  bool _down = false;
+  Offset? _start;
+
+  void _set(bool v) {
+    if (_down != v && mounted) setState(() => _down = v);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!widget.enabled) return widget.child;
+    return Listener(
+      onPointerDown: (e) {
+        _start = e.position;
+        _set(true);
+      },
+      onPointerMove: (e) {
+        if (_down && _start != null && (e.position - _start!).distance > 10) _set(false);
+      },
+      onPointerUp: (_) => _set(false),
+      onPointerCancel: (_) => _set(false),
+      child: AnimatedScale(
+        scale: _down ? widget.scale : 1,
+        duration: Duration(milliseconds: _down ? 70 : 160),
+        curve: _down ? Curves.easeOut : Curves.easeOutBack,
+        child: Stack(
+          children: [
+            widget.child,
+            Positioned.fill(
+              child: IgnorePointer(
+                child: AnimatedOpacity(
+                  opacity: _down ? 1 : 0,
+                  duration: Duration(milliseconds: _down ? 50 : 180),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: widget.dark ? const Color(0x1FFFFFFF) : const Color(0x14000000),
+                      borderRadius: BorderRadius.circular(widget.radius),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

@@ -12,6 +12,7 @@ import 'designer.dart';
 import 'icon_picker.dart';
 import 'icons.dart';
 import 'model.dart';
+import 'tiles.dart';
 
 /// Right-hand properties panel of the Structure workspace.
 class PropsPanel extends StatelessWidget {
@@ -641,6 +642,7 @@ class _WidgetPropsState extends State<_WidgetProps> {
           ]),
         ];
       case 'button':
+        final imgStyle = w['btnStyle'] == 'image';
         return [
           _Section('Nút nhấn', [
             FieldLabel(
@@ -650,7 +652,16 @@ class _WidgetPropsState extends State<_WidgetProps> {
                 onChanged: (v) => set('sendValue', v.trim(), coalesce: 'sv-$id'),
               ),
             ),
+            FieldLabel(
+              'Kiểu hiển thị',
+              Seg<String>(
+                items: const [('card', 'Thẻ thường'), ('image', 'Hình ảnh')],
+                value: imgStyle ? 'image' : 'card',
+                onChanged: (v) => set('btnStyle', v),
+              ),
+            ),
           ]),
+          if (imgStyle) _ButtonImageSettings(d: d, w: w),
         ];
       case 'value':
         final f = jsonMap(w['format']);
@@ -1509,6 +1520,157 @@ class _ScreenBgSettings extends StatelessWidget {
             onChanged: (v) => _set({'bgText': v}),
           ),
         ),
+    ]);
+  }
+}
+
+/// Button "Hình ảnh" style: picture, its size, label on/off.
+class _ButtonImageSettings extends StatelessWidget {
+  const _ButtonImageSettings({required this.d, required this.w});
+  final Designer d;
+  final Json w;
+
+  String get id => w['id'] as String;
+
+  Future<void> _pick(BuildContext context) async {
+    final f = await openFile(
+      acceptedTypeGroups: const [
+        XTypeGroup(label: 'Hình ảnh (PNG, JPG, SVG)', extensions: ['png', 'jpg', 'jpeg', 'svg']),
+      ],
+      confirmButtonText: 'Chọn ảnh',
+    );
+    if (f == null) return;
+    final bytes = await f.readAsBytes();
+    if (!context.mounted) return;
+    if (bytes.length > 500 * 1024) {
+      toast(context, 'Ảnh nặng ${bytes.length ~/ 1024} KB, vượt quá 500 KB. Nên dùng PNG nền trong suốt khoảng 512 × 512 px.');
+      return;
+    }
+    final name = f.name.toLowerCase();
+    String mime;
+    if (name.endsWith('.svg')) {
+      if (!utf8.decode(bytes, allowMalformed: true).contains('<svg')) {
+        toast(context, 'File SVG không hợp lệ.');
+        return;
+      }
+      mime = 'svg+xml';
+    } else {
+      try {
+        final img = await decodeImageFromList(bytes);
+        if (!context.mounted) return;
+        if (max(img.width, img.height) < 64) {
+          toast(context, 'Ảnh ${img.width} × ${img.height} px quá nhỏ, sẽ bị mờ. Nên dùng khoảng 512 × 512 px.');
+          return;
+        }
+      } catch (_) {
+        if (context.mounted) toast(context, 'Không đọc được ảnh.');
+        return;
+      }
+      mime = name.endsWith('.png') ? 'png' : 'jpeg';
+    }
+    d.editWidget(id, (x) => x['image'] = 'data:image/$mime;base64,${base64Encode(bytes)}');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.evo;
+    final img = imageFromData((w['image'] ?? '').toString(), fit: BoxFit.contain);
+    final useIcon = w['imgSource'] == 'icon';
+    final iconColor = w['imgColor'] as String?;
+    return _Section('Hình ảnh', [
+      Seg<String>(
+        items: const [('image', 'Ảnh tải lên'), ('icon', 'Biểu tượng (MDI…)')],
+        value: useIcon ? 'icon' : 'image',
+        onChanged: (v) => d.editWidget(id, (x) => x['imgSource'] = v),
+      ),
+      if (useIcon) ...[
+        IconField(
+          d: d,
+          value: (w['imgIcon'] ?? 'mdi:gesture-tap-button').toString(),
+          scope: IconScope.widget,
+          onChanged: (v) => d.editWidget(id, (x) => x['imgIcon'] = v),
+        ),
+        FieldLabel(
+          'Màu biểu tượng',
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  ChoiceChip(label: const Text('Mặc định'), selected: iconColor == null, onSelected: (_) => d.editWidget(id, (x) => x.remove('imgColor'))),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text('Mặc định: theo màu chữ của thẻ', style: TextStyle(fontSize: 12, color: c.muted)),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              _ColorPicker(
+                value: iconColor ?? '',
+                onChanged: (v) => d.editWidget(id, (x) => x['imgColor'] = v, coalesce: 'imgc-$id'),
+              ),
+            ],
+          ),
+        ),
+      ],
+      if (!useIcon)
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 76,
+              height: 76,
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: c.paper,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: c.line),
+              ),
+              child: img ?? Center(child: Icon(Icons.image_outlined, color: c.muted)),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  EvoButton(label: img == null ? 'Chọn ảnh' : 'Đổi ảnh', icon: Icons.image_outlined, small: true, onPressed: () => _pick(context)),
+                  if (img != null) ...[
+                    const SizedBox(height: 6),
+                    EvoButton(
+                      label: 'Bỏ ảnh',
+                      icon: Icons.delete_outline,
+                      small: true,
+                      danger: true,
+                      onPressed: () => d.editWidget(id, (x) => x.remove('image')),
+                    ),
+                  ],
+                  const SizedBox(height: 8),
+                  Text(
+                    'PNG nền trong suốt, JPG hoặc SVG; nên dùng ảnh vuông khoảng 512 × 512 px, dưới 500 KB.',
+                    style: TextStyle(fontSize: 12, color: c.muted),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      StepRow(
+        label: useIcon ? 'Kích thước biểu tượng' : 'Kích thước ảnh',
+        unit: '%',
+        step: 5,
+        value: ((w['imageSize'] as num?) ?? 70).toInt(),
+        min: 20,
+        max: 100,
+        onChanged: (v) => d.editWidget(id, (x) => x['imageSize'] = v, coalesce: 'imgsize-$id'),
+      ),
+      FieldLabel(
+        'Chữ trên nút',
+        Seg<bool>(
+          items: const [(true, 'Có chữ'), (false, 'Không chữ')],
+          value: w['showLabel'] != false,
+          onChanged: (v) => d.editWidget(id, (x) => x['showLabel'] = v),
+        ),
+      ),
     ]);
   }
 }

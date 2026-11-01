@@ -73,14 +73,17 @@ class _IconPickerDialog extends StatefulWidget {
 
 class _IconPickerDialogState extends State<_IconPickerDialog> {
   late String tab;
+
+  /// MDI category filter (-1 = all).
+  int mdiTag = Mdi.tagIndex('Home Automation');
   String q = '';
 
   Designer get d => widget.d;
 
   List<(String, String)> get _tabs => switch (widget.scope) {
-    IconScope.widget => const [('light', 'Đèn'), ('device', 'Thiết bị'), ('custom', 'Biểu tượng riêng')],
-    IconScope.room => const [('room', 'Phòng'), ('custom', 'Biểu tượng riêng')],
-    IconScope.floor => const [('floor', 'Tầng'), ('room', 'Phòng'), ('custom', 'Biểu tượng riêng')],
+    IconScope.widget => const [('light', 'Đèn'), ('device', 'Thiết bị'), ('mdi', 'Thư viện MDI'), ('custom', 'Biểu tượng riêng')],
+    IconScope.room => const [('room', 'Phòng'), ('mdi', 'Thư viện MDI'), ('custom', 'Biểu tượng riêng')],
+    IconScope.floor => const [('floor', 'Tầng'), ('room', 'Phòng'), ('mdi', 'Thư viện MDI'), ('custom', 'Biểu tượng riêng')],
   };
 
   @override
@@ -88,7 +91,11 @@ class _IconPickerDialogState extends State<_IconPickerDialog> {
     super.initState();
     final cur = widget.current;
     String start = _tabs.first.$1;
-    if (isCustomIcon(cur)) {
+    if (cur != null && cur.startsWith('mdi:')) {
+      start = 'mdi';
+      final m = Mdi.byName[cur.substring(4)];
+      if (m != null && m.tags.isNotEmpty) mdiTag = m.tags.first;
+    } else if (isCustomIcon(cur)) {
       start = 'custom';
     } else if (kDeviceIcons.any((i) => i.$1 == cur) && widget.scope == IconScope.widget) {
       start = 'device';
@@ -106,7 +113,11 @@ class _IconPickerDialogState extends State<_IconPickerDialog> {
         all.addAll(_group(t.$1));
       }
       final seen = <String>{};
-      base = all.where((i) => seen.add(i.$1) && fold(i.$2).contains(fq)).toList();
+      base = all.where((i) => !i.$1.startsWith('mdi:') && seen.add(i.$1) && fold(i.$2).contains(fq)).toList();
+      // Then the MDI library (English names, Vietnamese keywords).
+      if (_tabs.any((t) => t.$1 == 'mdi')) {
+        base.addAll([for (final m in Mdi.search(fq)) (m.key, m.name)]);
+      }
     } else {
       base = _group(tab);
     }
@@ -118,6 +129,7 @@ class _IconPickerDialogState extends State<_IconPickerDialog> {
     'device' => kDeviceIcons,
     'room' => kRoomIcons,
     'floor' => kFloorIcons,
+    'mdi' => [for (final m in Mdi.search('', tag: mdiTag < 0 ? null : mdiTag)) (m.key, m.name)],
     _ => [for (final c in customIcons) (c.id, c.name)],
   };
 
@@ -280,7 +292,7 @@ class _IconPickerDialogState extends State<_IconPickerDialog> {
     return AlertDialog(
       title: const Text('Chọn biểu tượng', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
       content: SizedBox(
-        width: 640,
+        width: 760,
         height: 480,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -289,10 +301,39 @@ class _IconPickerDialogState extends State<_IconPickerDialog> {
               children: [
                 Seg<String>(items: _tabs, value: tab, onChanged: (v) => setState(() => tab = v)),
                 const Spacer(),
-                SearchField(hint: 'Tìm biểu tượng', width: 220, onChanged: (v) => setState(() => q = v)),
+                SearchField(hint: 'Tìm: đèn, quạt, light…', width: 220, onChanged: (v) => setState(() => q = v)),
               ],
             ),
             const SizedBox(height: 12),
+            if (tab == 'mdi' && !searching)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 260,
+                      child: EvoDropdown<int>(
+                        value: mdiTag,
+                        items: [
+                          (-1, 'Tất cả (${Mdi.all.length})'),
+                          for (final e in kMdiTagNames.entries)
+                            if (Mdi.tagIndex(e.key) >= 0) (Mdi.tagIndex(e.key), e.value),
+                          for (var i = 0; i < Mdi.tags.length; i++)
+                            if (!kMdiTagNames.containsKey(Mdi.tags[i])) (i, Mdi.tags[i]),
+                        ],
+                        onChanged: (v) => setState(() => mdiTag = v),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Material Design Icons · Pictogrammers. Gõ tìm bằng tiếng Việt (đèn, rèm, quạt…) hoặc tiếng Anh.',
+                        style: TextStyle(fontSize: 12, color: c.muted),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             if (tab == 'custom' && !searching)
               Container(
                 padding: const EdgeInsets.all(10),
