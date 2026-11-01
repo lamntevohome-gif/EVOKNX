@@ -64,4 +64,17 @@ void main() {
   final s4 = jsonList(jsonList(c['pages']).last['subpages']).first;
   check(res4.error == null && jsonMap(s4['layout'])['columns'] == 8 && jsonMap(jsonList(s4['widgets']).first['posBy'])['mobile'] != null,
       'tablet layout prepared');
+
+  // Cards: export one, import with and without addresses.
+  final cp = makeCardPart(a, w);
+  check(isPart(cp) && jsonList(cp['groupAddresses']).length == 1, 'card part');
+  final page = jsonList(jsonList(b['pages']).first['subpages']).first;
+  final before = jsonList(page['widgets']).length;
+  final r1 = applyCardPart(b, cp, page);
+  final r2 = applyCardPart(b, cp, page, keepAddresses: false);
+  final ws = jsonList(page['widgets']);
+  check(r1.error == null && r2.error == null && ws.length == before + 2, 'cards placed');
+  check(jsonMap(ws[ws.length - 2]['bind'])['write'] == 'ga_other' && jsonMap(ws.last['bind']).isEmpty, 'addresses kept / dropped');
+  final p1 = jsonMap(ws[ws.length - 2]['pos']), p2 = jsonMap(ws.last['pos']);
+  check(!(p1['x'] == p2['x'] && p1['y'] == p2['y']), 'no overlap');
 }
