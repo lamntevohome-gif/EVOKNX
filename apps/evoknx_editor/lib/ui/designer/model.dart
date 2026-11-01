@@ -133,7 +133,7 @@ const kTfs = [
   TfsDef('titleSize', 'Tiêu đề phòng', 23, 16, 36),
   TfsDef('roomBar', 'Thanh chọn phòng', 13, 11, 20),
   TfsDef('pageTitle', 'Tên trang', 13, 10, 24),
-  TfsDef('floorBar', 'Thanh chọn tầng', 12, 9, 18),
+  TfsDef('floorBar', 'Thanh chọn tầng', 15, 10, 24),
   TfsDef('crumb', 'Dòng tầng (Tầng 1 ›)', 13, 10, 20),
 ];
 

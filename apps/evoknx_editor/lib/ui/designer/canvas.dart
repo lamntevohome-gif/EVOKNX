@@ -612,7 +612,8 @@ class _Screen extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
       child: Container(
-        height: f * 3.4 + 10,
+        // Text fills the pill better; the bar keeps a comfortable minimum height.
+        height: max(48.0, f * 2.4 + 14),
         padding: const EdgeInsets.all(5),
         decoration: BoxDecoration(
           color: pal.panel.withValues(alpha: 0.9),
@@ -639,7 +640,7 @@ class _Screen extends StatelessWidget {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             if (fl['showIcon'] != false) ...[
-                              iconWidget(fl['icon'] as String? ?? 'stairs', f * 1.3, fl['id'] == floor?['id'] ? pal.screen : pal.muted),
+                              iconWidget(fl['icon'] as String? ?? 'stairs', f * 1.25, fl['id'] == floor?['id'] ? pal.screen : pal.muted),
                               SizedBox(width: f * 0.45),
                             ],
                             Flexible(
