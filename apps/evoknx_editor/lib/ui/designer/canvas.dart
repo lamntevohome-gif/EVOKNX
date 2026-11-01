@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'dart:math';
-import 'dart:ui' show PointerDeviceKind;
+import 'dart:ui' show ImageFilter, PointerDeviceKind;
 
 import 'package:flutter/material.dart';
 import 'package:knx_config/knx_config.dart';
@@ -80,6 +80,10 @@ class DesignCanvas extends StatelessWidget {
                           child: _Screen(d: d, pal: pal, issues: issues, size: logical, dev: dev),
                         ),
                       ),
+                      if (d.popupFor != null && d.test)
+                        Positioned.fill(
+                          child: _ScenePopup(d: d, w: d.popupFor!, pal: pal),
+                        ),
                       if (d.appSettingsOpen)
                         Positioned.fill(
                           child: _AppSettingsSheet(d: d, pal: pal),
@@ -680,6 +684,10 @@ class _GridArea extends StatefulWidget {
 class _GridAreaState extends State<_GridArea> {
   ({int x, int y, int w, int h, bool ok})? ghost;
 
+  /// The grid content (inside the scroll view on scrolling pages), used to
+  /// convert drag positions into cells.
+  final GlobalKey _content = GlobalKey();
+
   Designer get d => widget.d;
 
   /// How much the phone preview is scaled on screen, so the drag feedback
@@ -710,6 +718,64 @@ class _GridAreaState extends State<_GridArea> {
   }
 
   Future<void> _testAct(Json w, String action, Object? arg) async {
+    if (w['type'] == 'camera') {
+      if (action == 'tap' && jsonMap(w['cam'])['view'] == 'button') {
+        await showDialog<void>(
+          context: context,
+          builder: (c) => Dialog(
+            backgroundColor: Colors.black,
+            insetPadding: const EdgeInsets.all(40),
+            child: SizedBox(
+              width: 640,
+              height: 400,
+              child: Stack(
+                children: [
+                  Positioned.fill(child: CameraView(cam: jsonMap(w['cam']), live: true)),
+                  Positioned(
+                    top: 6,
+                    right: 6,
+                    child: IconButton(
+                      onPressed: () => Navigator.pop(c),
+                      icon: const Icon(Icons.close, color: Colors.white),
+                    ),
+                  ),
+                  Positioned(
+                    left: 14,
+                    top: 14,
+                    child: Text(
+                      (w['label'] ?? '').toString(),
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      }
+      return;
+    }
+    if (action == 'popup') {
+      // Simple AC card: full controls (modes, fan) in a popup.
+      final full = {...w, 'look': 'full'};
+      await showDialog<void>(
+        context: context,
+        builder: (c) => Dialog(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          child: SizedBox(
+            width: 340,
+            height: jsonMap(jsonMap(w['ac'])['fan'])['enabled'] == true ? 330 : 290,
+            child: ListenableBuilder(
+              listenable: d,
+              builder: (c, _) =>
+                  TileView(w: full, pal: widget.pal, gas: jsonList(d.doc['groupAddresses']), sim: d.sim[w['id']] ?? const {}, act: (a, [x]) => d.act(w, a, x)),
+            ),
+          ),
+        ),
+      );
+      return;
+    }
     if (action == 'tune') {
       await showDialog<void>(
         context: context,
@@ -725,14 +791,17 @@ class _GridAreaState extends State<_GridArea> {
     final box = widget.box;
     final pal = widget.pal;
     final test = d.test;
-    final c = cols(box), r = rows(box);
-    final gap = (c >= 6 || r >= 15) ? 6.0 : 10.0;
+    // Scrolling page (phone): [vis] rows fit the screen, [r] rows in total.
+    final scroll = widget.groupId == null && scrollPage(box, d.doc);
+    final c = cols(box), vis = rows(box), r = scroll ? pageRows(box, d.doc) : vis;
+    final gap = (c >= 6 || vis >= 15) ? 6.0 : 10.0;
     final evo = context.evo;
     final gas = jsonList(d.doc['groupAddresses']);
     return LayoutBuilder(
       builder: (context, bc) {
         final cw = (bc.maxWidth - gap * (c - 1)) / c;
-        final ch = (bc.maxHeight - gap * (r - 1)) / r;
+        final ch = (bc.maxHeight - gap * (vis - 1)) / vis;
+        final totalH = r * ch + gap * (r - 1);
         Rect rect(int x, int y, int w, int h) => Rect.fromLTWH(x * (cw + gap), y * (ch + gap), w * cw + (w - 1) * gap, h * ch + (h - 1) * gap);
         // Transparent background so the whole grid (gaps included) is a
         // drop area: the ghost no longer flickers between cells.
@@ -791,7 +860,9 @@ class _GridAreaState extends State<_GridArea> {
                           // is a tap; cards with their own buttons (rèm, máy
                           // lạnh, web) animate those buttons instead.
                           child: PressEffect(
-                            enabled: const ['switch', 'dimmer', 'button', 'scene', 'link'].contains(w['type']),
+                            enabled:
+                                const ['switch', 'dimmer', 'button', 'scene', 'link'].contains(w['type']) ||
+                                (w['type'] == 'camera' && jsonMap(w['cam'])['view'] == 'button'),
                             dark: (hexColor(jsonMap(w['style'])['bg']) ?? pal.tile).computeLuminance() < 0.35,
                             child: tile,
                           ),
@@ -866,7 +937,7 @@ class _GridAreaState extends State<_GridArea> {
         // Cell under the dragged card: a moved tile snaps by its top-left
         // corner (nearest cell), a new item from the palette by the cursor.
         ({int x, int y})? cellOf(DragTargetDetails<DragItem> det) {
-          final rb = context.findRenderObject();
+          final rb = _content.currentContext?.findRenderObject();
           if (rb is! RenderBox || !rb.attached) return null;
           final p = rb.globalToLocal(det.offset);
           final fx = p.dx / (cw + gap), fy = p.dy / (ch + gap);
@@ -876,7 +947,8 @@ class _GridAreaState extends State<_GridArea> {
           return (x: x, y: y);
         }
 
-        return MouseRegion(
+        final grid = MouseRegion(
+          key: _content,
           onExit: (_) {
             if (ghost != null) setState(() => ghost = null);
           },
@@ -899,6 +971,13 @@ class _GridAreaState extends State<_GridArea> {
               _drop(det.data, cell.x, cell.y);
             },
             builder: (context, cand, rej) => Stack(clipBehavior: Clip.hardEdge, children: children),
+          ),
+        );
+        if (!scroll) return grid;
+        return ScrollConfiguration(
+          behavior: ScrollConfiguration.of(context).copyWith(scrollbars: true),
+          child: SingleChildScrollView(
+            child: SizedBox(height: totalH, child: grid),
           ),
         );
       },
@@ -1361,6 +1440,69 @@ class _AppSettingsSheet extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Scene confirmation popup: blurs the screen behind, shows the scene's
+/// picture/icon and the message, disappears after the set time (max 5 s).
+class _ScenePopup extends StatelessWidget {
+  const _ScenePopup({required this.d, required this.w, required this.pal});
+  final Designer d;
+  final Json w;
+  final AppPalette pal;
+
+  @override
+  Widget build(BuildContext context) {
+    final pp = jsonMap(w['popup']);
+    final blur = ((pp['blur'] as num?) ?? 8).toDouble().clamp(0, 30).toDouble();
+    final size = ((pp['size'] as num?) ?? 20).toDouble().clamp(12, 40).toDouble();
+    final label = (w['label'] ?? '').toString();
+    final text = ((pp['text'] ?? 'Đã bật cảnh {tên}').toString()).replaceAll('{tên}', label).replaceAll('{ten}', label);
+    final image = w['btnStyle'] == 'image' && w['imgSource'] != 'icon' ? imageFromData((w['image'] ?? '').toString()) : null;
+    final iconKey = w['btnStyle'] == 'image' && w['imgSource'] == 'icon' ? (w['imgIcon'] ?? 'mdi:gesture-tap-button').toString() : (w['icon'] as String?);
+    return GestureDetector(
+      onTap: d.hidePopup,
+      child: TweenAnimationBuilder<double>(
+        tween: Tween(begin: 0, end: 1),
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+        builder: (context, t, child) => Opacity(
+          opacity: t,
+          child: Transform.scale(scale: 0.96 + 0.04 * t, child: child),
+        ),
+        child: ClipRect(
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
+            child: ColoredBox(
+              color: Colors.black.withValues(alpha: 0.12),
+              child: Center(
+                child: Container(
+                  constraints: const BoxConstraints(maxWidth: 260),
+                  padding: const EdgeInsets.fromLTRB(22, 22, 22, 20),
+                  decoration: BoxDecoration(
+                    color: pal.tile.withValues(alpha: 0.94),
+                    borderRadius: BorderRadius.circular(22),
+                    boxShadow: const [BoxShadow(color: Color(0x33000000), blurRadius: 24, offset: Offset(0, 8))],
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(width: 64, height: 64, child: image ?? Center(child: iconWidget(iconKey, 44, pal.accent))),
+                      const SizedBox(height: 12),
+                      Text(
+                        text,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: size, fontWeight: FontWeight.w600, color: pal.ink, height: 1.25),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
         ),
       ),
     );

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
@@ -45,6 +46,27 @@ class Designer extends ChangeNotifier {
 
   // in-preview app settings sheet
   bool appSettingsOpen = false;
+
+  /// Scene confirmation popup shown over the preview (test mode).
+  Json? popupFor;
+  Timer? _popupTimer;
+
+  void showPopup(Json w) {
+    final pp = jsonMap(w['popup']);
+    if (pp['enabled'] == false) return;
+    popupFor = w;
+    _popupTimer?.cancel();
+    final secs = ((pp['seconds'] as num?) ?? 2).toDouble().clamp(0.5, 5.0);
+    _popupTimer = Timer(Duration(milliseconds: (secs * 1000).round()), hidePopup);
+    _n();
+  }
+
+  void hidePopup() {
+    _popupTimer?.cancel();
+    if (popupFor == null) return;
+    popupFor = null;
+    _n();
+  }
 
   /// Theme picked in the preview's settings sheet (not saved to the project;
   /// on the real App every user chooses their own).
@@ -366,7 +388,7 @@ class Designer extends ChangeNotifier {
       if (box == null) return null;
       if (c.g != null && type == 'group') return 'Không thể đặt khung lưới bên trong khung lưới khác.';
       final sp = placeAt(box, type, c.x, c.y);
-      if (sp == null || (c.g == null && sp.y + sp.h > rows(box))) return 'Ô đã chọn không đủ chỗ cho thành phần này. Hãy chọn ô khác.';
+      if (sp == null || (c.g == null && sp.y + sp.h > pageRows(box, doc))) return 'Ô đã chọn không đủ chỗ cho thành phần này. Hãy chọn ô khác.';
       return drop(DragItem.palette(type), c.g, c.x, c.y);
     }
     final t = kWidgetTypes[type]!;
@@ -552,6 +574,7 @@ class Designer extends ChangeNotifier {
       case 'scene':
         final n = ((w['sceneNumber'] as num?) ?? 1).toInt();
         send(w, 'write', n - 1, 'Cảnh $n');
+        showPopup(w);
         break;
       case 'shutter':
         final inv = w['udInvert'] == true;
@@ -587,6 +610,15 @@ class Designer extends ChangeNotifier {
             s['on'] = false;
             send(w, 'power', false, '0 (Tắt)');
           }
+        } else if (action == 'power') {
+          final on = s['on'] != true;
+          s['on'] = on;
+          send(w, 'power', on, on ? '1 (Bật)' : '0 (Tắt)');
+        } else if (action == 'fan') {
+          final k = (arg ?? 'auto').toString();
+          s['fan'] = k;
+          final v = acFanValue(ac, k);
+          send(w, 'fan', v, '$v (${k == 'auto' ? 'Quạt tự động' : 'Quạt mức $k'})');
         } else if (action == 'mode') {
           final k = arg as String;
           if (s['on'] != true) {
@@ -666,6 +698,11 @@ class Designer extends ChangeNotifier {
                 if (k == 'mode' || k == 'modeSt') {
                   for (final m in kAcModes) {
                     if (((jsonMap(ac['values'])[m.key] as num?) ?? m.value) == n) s['mode'] = m.key;
+                  }
+                }
+                if (k == 'fan' || k == 'fanSt') {
+                  for (final lv in acFanLevels(ac)) {
+                    if (acFanValue(ac, lv) == n) s['fan'] = lv;
                   }
                 }
                 if (k.startsWith('mode_') || k.startsWith('modeSt_')) {

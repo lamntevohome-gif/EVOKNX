@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:knx_config/knx_config.dart';
 
 /// Helpers to read and edit the project JSON from the designer.
@@ -16,6 +18,11 @@ int pi(Json w, String k) => (pos(w)[k] as num?)?.toInt() ?? 0;
 Json layout(Json box) => jsonMap(box['layout']);
 int cols(Json box) => (layout(box)['columns'] as num?)?.toInt() ?? 4;
 int rows(Json box) => (layout(box)['rows'] as num?)?.toInt() ?? 12;
+
+/// A page that scrolls vertically (phone layout only): it shows
+/// [rows] rows on screen and has [pageRows] rows in total.
+bool scrollPage(Json box, Json doc) => box['scroll'] == true && box['type'] == null && (doc['activeDev'] ?? 'mobile') == 'mobile';
+int pageRows(Json box, Json doc) => scrollPage(box, doc) ? max(rows(box), ((box['scrollRows'] as num?) ?? rows(box) * 2).toInt()) : rows(box);
 
 Json? byId(List<Json> l, String? id) {
   if (id == null) return null;
@@ -116,6 +123,7 @@ List<String> fsKeysFor(String type) => switch (type) {
   'group' => const ['labelSize'],
   'value' => const ['labelSize', 'iconSize', 'valueSize'],
   'webview' => const ['labelSize', 'iconSize'],
+  'camera' => const ['labelSize', 'iconSize'],
   'shutter' => const ['labelSize', 'iconSize', 'stateSize', 'btnIcon'],
   'ac' => const ['labelSize', 'iconSize', 'valueSize', 'stateSize', 'acBtn', 'acMode'],
   _ => const ['labelSize', 'iconSize', 'stateSize'],
@@ -174,7 +182,7 @@ List<Issue> computeIssues(Json d) {
         if (t == null) continue;
         final name = '“${(w['label'] ?? t.name)}”';
         final where = '${r['title']}: ';
-        final rws = rows(box);
+        final rws = identical(box, s) ? pageRows(box, d) : rows(box);
         if (pi(w, 'y') + pi(w, 'h') > rws) {
           out.add(Issue(false, '$where$name nằm ngoài màn hình.', roomId: r['id'], subId: s['id'], widgetId: w['id']));
         }
@@ -191,6 +199,9 @@ List<Issue> computeIssues(Json d) {
           } else if (!slotAccepts(sl, g)) {
             out.add(Issue(true, '$where$name: DPT ${g['dpt']} không hợp với ô ${sl.label.toLowerCase()}.', roomId: r['id'], subId: s['id'], widgetId: w['id']));
           }
+        }
+        if (w['type'] == 'camera' && (jsonMap(w['cam'])['host'] ?? '').toString().trim().isEmpty) {
+          out.add(Issue(true, '$where$name chưa có địa chỉ IP camera.', roomId: r['id'], subId: s['id'], widgetId: w['id']));
         }
         if ((w['type'] == 'link' || w['type'] == 'webview') && !RegExp(r'^https?://\S+').hasMatch((w['url'] ?? '').toString())) {
           out.add(Issue(true, '$where$name chưa có địa chỉ web hợp lệ.', roomId: r['id'], subId: s['id'], widgetId: w['id']));

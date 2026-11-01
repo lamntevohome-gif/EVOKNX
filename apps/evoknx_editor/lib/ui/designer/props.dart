@@ -12,6 +12,7 @@ import 'designer.dart';
 import 'icon_picker.dart';
 import 'icons.dart';
 import 'model.dart';
+import 'parts_ui.dart';
 import 'tiles.dart';
 
 /// Right-hand properties panel of the Structure workspace.
@@ -362,7 +363,31 @@ class _WidgetPropsState extends State<_WidgetProps> {
           m[k] = v;
           x['style'] = m;
         }, coalesce: co);
+        final simple = w['look'] == 'simple';
         return [
+          _Section('Kiểu hiển thị', [
+            FieldLabel(
+              'Kiểu thẻ',
+              Seg<String>(
+                items: const [('full', 'Đầy đủ'), ('simple', 'Đơn giản')],
+                value: w['look'] == 'simple' ? 'simple' : 'full',
+                onChanged: (v) => set('look', v),
+              ),
+            ),
+            Text(
+              simple
+                  ? (w['type'] == 'dimmer'
+                        ? 'Chỉ có biểu tượng và tên; khi bật, thẻ đổi sang màu khi bật. Bấm thẻ để bật/tắt, bấm biểu tượng chỉnh để mở thanh độ sáng${feat['tw'] == true || feat['rgb'] == true ? ', nhiệt độ màu, màu RGB' : ''}.'
+                        : 'Chỉ có biểu tượng và tên; khi bật, cả thẻ đổi sang màu khi bật.')
+                  : 'Biểu tượng, tên và dòng trạng thái.',
+              style: TextStyle(fontSize: 12, color: context.evo.muted),
+            ),
+            if (simple && w['type'] == 'dimmer')
+              FieldLabel(
+                'Biểu tượng mở bảng chỉnh',
+                IconField(d: d, value: (w['tuneIcon'] ?? 'mdi:tune-vertical').toString(), scope: IconScope.widget, onChanged: (v) => set('tuneIcon', v)),
+              ),
+          ]),
           _Section('Màu và trạng thái', [
             FieldLabel(
               'Màu khi bật',
@@ -506,7 +531,99 @@ class _WidgetPropsState extends State<_WidgetProps> {
           m[k] = mm;
           x['ac'] = m;
         }, coalesce: co);
+        final fan = jsonMap(ac['fan']);
+        void setFan(String k, Object? v) => d.editWidget(id, (x) {
+          final m = jsonMap(x['ac']);
+          final f = jsonMap(m['fan']);
+          f[k] = v;
+          m['fan'] = f;
+          x['ac'] = m;
+        });
         return [
+          _Section('Kiểu hiển thị', [
+            FieldLabel(
+              'Kiểu thẻ',
+              Seg<String>(
+                items: const [('full', 'Đầy đủ'), ('simple', 'Đơn giản')],
+                value: w['look'] == 'simple' ? 'simple' : 'full',
+                onChanged: (v) => set('look', v),
+              ),
+            ),
+            if (w['look'] == 'simple') ...[
+              Text(
+                'Biểu tượng bật/tắt, nhiệt độ cài với nút − +, tốc độ quạt. Bấm biểu tượng chỉnh để mở đầy đủ chế độ.',
+                style: TextStyle(fontSize: 12, color: context.evo.muted),
+              ),
+              FieldLabel(
+                'Biểu tượng mở đầy đủ chế độ',
+                IconField(d: d, value: (ac['moreIcon'] ?? 'mdi:tune-variant').toString(), scope: IconScope.widget, onChanged: (v) => setAc('moreIcon', v)),
+              ),
+            ],
+          ]),
+          _Section('Tốc độ quạt', [
+            Row(
+              children: [
+                Checkbox(value: fan['enabled'] == true, onChanged: (v) => setFan('enabled', v == true)),
+                const Expanded(child: Text('Điều khiển tốc độ quạt')),
+              ],
+            ),
+            if (fan['enabled'] == true) ...[
+              Row(
+                children: [
+                  Expanded(
+                    child: FieldLabel(
+                      'Số mức',
+                      EvoDropdown<int>(
+                        value: ((fan['levels'] as num?) ?? 3).toInt().clamp(2, 5),
+                        items: const [(2, '2 mức'), (3, '3 mức'), (4, '4 mức'), (5, '5 mức')],
+                        onChanged: (v) => setFan('levels', v),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: FieldLabel(
+                      'Tự động',
+                      Seg<bool>(items: const [(true, 'Có'), (false, 'Không')], value: fan['auto'] != false, onChanged: (v) => setFan('auto', v)),
+                    ),
+                  ),
+                ],
+              ),
+              Text(
+                'Giá trị gửi cho từng mức (mặc định theo DPT 5.010: Tự động = 0, mức 1…N = 1…N; nếu địa chỉ dùng phần trăm, nhập ví dụ 33, 67, 100):',
+                style: TextStyle(fontSize: 12, color: context.evo.muted),
+              ),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final lv in acFanLevels(ac))
+                    SizedBox(
+                      width: 86,
+                      child: FieldLabel(
+                        lv == 'auto' ? 'Tự động' : 'Mức $lv',
+                        SyncedField(
+                          value: '${acFanValue(ac, lv)}',
+                          onChanged: (v) {
+                            final n = num.tryParse(v.trim());
+                            if (n == null) return;
+                            d.editWidget(id, (x) {
+                              final m = jsonMap(x['ac']);
+                              final f = jsonMap(m['fan']);
+                              final vals = jsonMap(f['values']);
+                              vals[lv] = n;
+                              f['values'] = vals;
+                              m['fan'] = f;
+                              x['ac'] = m;
+                            }, coalesce: 'fanv-$id-$lv');
+                          },
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          ]),
           _Section('Máy lạnh', [
             Row(
               children: [
@@ -629,6 +746,13 @@ class _WidgetPropsState extends State<_WidgetProps> {
           ]),
         ];
       case 'scene':
+        final sImg = w['btnStyle'] == 'image';
+        final pp = jsonMap(w['popup']);
+        void setPop(String k, Object? v, {String? co}) => d.editWidget(id, (x) {
+          final m = jsonMap(x['popup']);
+          m[k] = v;
+          x['popup'] = m;
+        }, coalesce: co);
         return [
           _Section('Cảnh', [
             FieldLabel(
@@ -639,6 +763,185 @@ class _WidgetPropsState extends State<_WidgetProps> {
                 onChanged: (v) => set('sceneNumber', v),
               ),
             ),
+            FieldLabel(
+              'Kiểu hiển thị',
+              Seg<String>(items: const [('card', 'Thẻ thường'), ('image', 'Hình ảnh')], value: sImg ? 'image' : 'card', onChanged: (v) => set('btnStyle', v)),
+            ),
+          ]),
+          if (sImg) _ButtonImageSettings(d: d, w: w),
+          _Section('Popup khi bấm', [
+            Row(
+              children: [
+                Checkbox(value: pp['enabled'] != false, onChanged: (v) => setPop('enabled', v == true)),
+                const Expanded(child: Text('Hiện popup và làm mờ giao diện phía sau')),
+              ],
+            ),
+            if (pp['enabled'] != false) ...[
+              FieldLabel(
+                'Nội dung popup ({tên} = tên cảnh)',
+                SyncedField(
+                  value: (pp['text'] ?? 'Đã bật cảnh {tên}').toString(),
+                  onChanged: (v) => setPop('text', v, co: 'ptext-$id'),
+                ),
+              ),
+              StepRow(
+                label: 'Độ mờ nền',
+                unit: '',
+                value: ((pp['blur'] as num?) ?? 8).toInt(),
+                min: 0,
+                max: 30,
+                step: 2,
+                onChanged: (v) => setPop('blur', v, co: 'pblur-$id'),
+              ),
+              StepRow(
+                label: 'Cỡ chữ',
+                value: ((pp['size'] as num?) ?? 20).toInt(),
+                min: 12,
+                max: 40,
+                onChanged: (v) => setPop('size', v, co: 'psize-$id'),
+              ),
+              FieldLabel(
+                'Thời gian hiện',
+                EvoDropdown<double>(
+                  value: const [1.0, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0].contains(((pp['seconds'] as num?) ?? 2).toDouble())
+                      ? ((pp['seconds'] as num?) ?? 2).toDouble()
+                      : 2.0,
+                  items: const [
+                    (1.0, '1 giây'),
+                    (1.5, '1,5 giây'),
+                    (2.0, '2 giây'),
+                    (2.5, '2,5 giây'),
+                    (3.0, '3 giây'),
+                    (4.0, '4 giây'),
+                    (5.0, '5 giây (tối đa)'),
+                  ],
+                  onChanged: (v) => setPop('seconds', v),
+                ),
+              ),
+              Text('Thử ở chế độ Chạy thử: bấm thẻ cảnh để xem popup. Bấm vào popup để tắt sớm.', style: TextStyle(fontSize: 12, color: context.evo.muted)),
+            ],
+          ]),
+        ];
+      case 'camera':
+        final cam = jsonMap(w['cam']);
+        final rtsp = cam['protocol'] != 'http';
+        void setCam(String k, Object? v, {String? co}) => d.editWidget(id, (x) {
+          final m = jsonMap(x['cam']);
+          m[k] = v;
+          x['cam'] = m;
+        }, coalesce: co);
+        return [
+          _Section('Camera', [
+            FieldLabel(
+              'Giao thức',
+              Seg<String>(
+                items: const [('rtsp', 'RTSP'), ('http', 'HTTP')],
+                value: rtsp ? 'rtsp' : 'http',
+                onChanged: (v) => d.editWidget(id, (x) {
+                  final m = jsonMap(x['cam']);
+                  final oldDef = m['protocol'] == 'http' ? 80 : 554;
+                  m['protocol'] = v;
+                  if (m['port'] == null || m['port'] == oldDef) m['port'] = v == 'http' ? 80 : 554;
+                  x['cam'] = m;
+                }),
+              ),
+            ),
+            Row(
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: FieldLabel(
+                    'Địa chỉ IP',
+                    SyncedField(
+                      value: (cam['host'] ?? '').toString(),
+                      hint: '192.168.1.64',
+                      onChanged: (v) => setCam('host', v.trim(), co: 'ch-$id'),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: FieldLabel(
+                    'Cổng',
+                    SyncedField(
+                      value: '${cam['port'] ?? (rtsp ? 554 : 80)}',
+                      number: true,
+                      onChanged: (v) {
+                        final n = int.tryParse(v.trim());
+                        if (n != null && n > 0 && n < 65536) setCam('port', n, co: 'cp-$id');
+                      },
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            FieldLabel(
+              'Đường dẫn',
+              SyncedField(
+                value: (cam['path'] ?? '').toString(),
+                hint: rtsp ? '/Streaming/Channels/101' : '/cgi-bin/snapshot.cgi',
+                onChanged: (v) => setCam('path', v.trim(), co: 'cpath-$id'),
+              ),
+            ),
+            Row(
+              children: [
+                Expanded(
+                  child: FieldLabel(
+                    'Tài khoản',
+                    SyncedField(
+                      value: (cam['user'] ?? '').toString(),
+                      onChanged: (v) => setCam('user', v, co: 'cu-$id'),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: FieldLabel(
+                    'Mật khẩu',
+                    _SecretField(
+                      value: (cam['pass'] ?? '').toString(),
+                      onChanged: (v) => setCam('pass', v, co: 'cpw-$id'),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            if (cameraUrl(cam).isNotEmpty)
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(color: context.evo.paper, borderRadius: BorderRadius.circular(8)),
+                child: SelectableText(cameraUrl(cam, hidePass: true), style: const TextStyle(fontSize: 12, fontFamily: 'Consolas')),
+              ),
+            Text(
+              rtsp
+                  ? 'Đường dẫn thường gặp: Hikvision /Streaming/Channels/101 (luồng chính) hoặc 102 (luồng phụ, nhẹ hơn); Dahua /cam/realmonitor?channel=1&subtype=1. Nên dùng luồng phụ cho điện thoại.'
+                  : 'HTTP: đường dẫn ảnh chụp (snapshot) hoặc luồng MJPEG của camera. Ở Chạy thử, Editor hiện ảnh chụp để kiểm tra địa chỉ; video RTSP chỉ phát trong App.',
+              style: TextStyle(fontSize: 12, color: context.evo.muted),
+            ),
+            Text(
+              'Mật khẩu camera được lưu trong file dự án và file cấu hình App. Nên tạo tài khoản chỉ có quyền xem trên camera.',
+              style: TextStyle(fontSize: 12, color: context.evo.warn),
+            ),
+          ]),
+          _Section('Kiểu hiển thị', [
+            Seg<String>(
+              items: const [('live', 'Luôn hiển thị'), ('button', 'Nút mở popup')],
+              value: cam['view'] == 'button' ? 'button' : 'live',
+              onChanged: (v) => setCam('view', v),
+            ),
+            Text(
+              cam['view'] == 'button'
+                  ? 'Thẻ như một nút bấm; bấm vào sẽ mở video camera trong popup.'
+                  : 'Video phát trực tiếp ngay trong thẻ, như trang web nhúng. Nên đặt thẻ rộng 4 cột, cao 3 hàng trở lên.',
+              style: TextStyle(fontSize: 12, color: context.evo.muted),
+            ),
+            if (cam['view'] != 'button')
+              Row(
+                children: [
+                  Checkbox(value: w['showHeader'] != false, onChanged: (v) => set('showHeader', v == true)),
+                  const Expanded(child: Text('Hiện tên camera phía trên video')),
+                ],
+              ),
           ]),
         ];
       case 'button':
@@ -667,6 +970,16 @@ class _WidgetPropsState extends State<_WidgetProps> {
         final f = jsonMap(w['format']);
         return [
           _Section('Hiển thị giá trị', [
+            FieldLabel(
+              'Kiểu thẻ',
+              Seg<String>(
+                items: const [('full', 'Đầy đủ'), ('simple', 'Đơn giản')],
+                value: w['look'] == 'simple' ? 'simple' : 'full',
+                onChanged: (v) => set('look', v),
+              ),
+            ),
+            if (w['look'] == 'simple')
+              Text('Một hàng: biểu tượng và tên bên trái, giá trị bên phải. Hợp với thẻ cao 1 ô.', style: TextStyle(fontSize: 12, color: context.evo.muted)),
             Row(
               children: [
                 Expanded(
@@ -852,6 +1165,7 @@ class _RoomProps extends StatelessWidget {
                 EvoButton(label: 'Xuống', icon: Icons.arrow_downward, small: true, onPressed: () => d.moveRoom(rid, 1)),
               ],
             ),
+            PartButtons(d: d, kind: 'room', id: rid, importHint: 'Nhập trang vào phòng này…'),
           ],
           trailing: EvoButton(
             label: 'Xoá phòng',
@@ -910,6 +1224,34 @@ class _RoomProps extends StatelessWidget {
                   ),
                 ],
               ),
+              if ((d.doc['activeDev'] ?? 'mobile') == 'mobile') ...[
+                Row(
+                  children: [
+                    Checkbox(
+                      value: s['scroll'] == true,
+                      onChanged: (v) => d.editSub((x) {
+                        x['scroll'] = v == true;
+                        if (v == true && x['scrollRows'] == null) x['scrollRows'] = rows(x) * 2;
+                      }),
+                    ),
+                    const Expanded(child: Text('Cho phép cuộn dọc khi nội dung dài hơn màn hình (chỉ điện thoại)')),
+                  ],
+                ),
+                if (s['scroll'] == true) ...[
+                  FieldLabel(
+                    'Tổng số hàng của trang (màn hình hiện ${rows(s)} hàng)',
+                    EvoDropdown<int>(
+                      value: pageRows(s, d.doc).clamp(rows(s) + 1, 60),
+                      items: [for (var i = rows(s) + 1; i <= 60; i++) (i, '$i hàng')],
+                      onChanged: (v) => d.editSub((x) => x['scrollRows'] = v),
+                    ),
+                  ),
+                  Text(
+                    'Người dùng cuộn lên xuống trong trang này, vẫn vuốt ngang để sang trang khác. Thẻ có thanh kéo ngang (đèn dim, rèm) dùng bình thường; tránh đặt thanh kéo dọc. Bố cục tablet luôn cố định.',
+                    style: TextStyle(fontSize: 12, color: context.evo.muted),
+                  ),
+                ],
+              ],
               Wrap(
                 spacing: 6,
                 runSpacing: 6,
@@ -929,6 +1271,7 @@ class _RoomProps extends StatelessWidget {
                   EvoButton(label: 'Thêm trang trong phòng', icon: Icons.add, small: true, onPressed: d.addSub),
                 ],
               ),
+              PartButtons(d: d, kind: 'page', id: s['id'] as String, importHint: 'Nhập trang…'),
             ],
             trailing: subs.length > 1
                 ? EvoButton(
@@ -999,6 +1342,7 @@ class _FloorProps extends StatelessWidget {
           ],
         ),
         Text('Tầng này có $n phòng.', style: TextStyle(fontSize: 12.5, color: context.evo.muted)),
+        PartButtons(d: d, kind: 'floor', id: fid, importHint: 'Nhập phòng vào tầng này…'),
       ],
       trailing: EvoButton(
         label: 'Xoá tầng',
@@ -1039,6 +1383,14 @@ class _OverviewProps extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 16),
+        _Section('Nhập tầng / phòng / trang', [
+          Text(
+            'Nhập từ file .evoknxpart (xuất từ dự án khác ở bảng thuộc tính của tầng, phòng hoặc trang). '
+            'Tầng được thêm vào cuối, phòng vào tầng đang chọn, trang vào phòng đang chọn.',
+            style: TextStyle(fontSize: 12.5, color: context.evo.muted),
+          ),
+          PartButtons(d: d, kind: null, importHint: 'Nhập từ file…'),
+        ]),
         _Section('Thiết bị sử dụng', [
           for (final dv in const [('mobile', 'Mobile', '12 × 4'), ('tabletP', 'Tablet dọc', '16 × 6'), ('tabletL', 'Tablet ngang', '10 × 8')])
             _Check('${dv.$2}   (${dv.$3})', dv.$1 == 'mobile' ? jsonMap(d.doc['devices'])['mobile'] != false : jsonMap(d.doc['devices'])[dv.$1] == true, (v) {
@@ -1673,4 +2025,45 @@ class _ButtonImageSettings extends StatelessWidget {
       ),
     ]);
   }
+}
+
+/// Password field with a show/hide eye.
+class _SecretField extends StatefulWidget {
+  const _SecretField({required this.value, required this.onChanged});
+  final String value;
+  final ValueChanged<String> onChanged;
+  @override
+  State<_SecretField> createState() => _SecretFieldState();
+}
+
+class _SecretFieldState extends State<_SecretField> {
+  late final TextEditingController _c = TextEditingController(text: widget.value);
+  bool _show = false;
+
+  @override
+  void didUpdateWidget(covariant _SecretField old) {
+    super.didUpdateWidget(old);
+    if (widget.value != _c.text && !FocusScope.of(context).hasFocus) _c.text = widget.value;
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => TextField(
+    controller: _c,
+    obscureText: !_show,
+    onChanged: widget.onChanged,
+    decoration: InputDecoration(
+      isDense: true,
+      suffixIcon: IconButton(
+        tooltip: _show ? 'Ẩn mật khẩu' : 'Hiện mật khẩu',
+        icon: Icon(_show ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: 18),
+        onPressed: () => setState(() => _show = !_show),
+      ),
+    ),
+  );
 }
