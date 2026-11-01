@@ -691,6 +691,17 @@ class _GridAreaState extends State<_GridArea> {
     return k > 0 ? k : 1;
   }
 
+  /// Inner grids of a frame let the page handle frames (no nesting).
+  bool _accepts(DragItem it) {
+    final g = widget.groupId;
+    if (g == null) return true;
+    if (it.kind != 'widget') return it.type != 'group';
+    if (it.id == g) return false;
+    final s = d.sub;
+    final w = s == null ? null : findWidget(s, it.id);
+    return w?['type'] != 'group';
+  }
+
   void _drop(DragItem it, int x, int y) {
     setState(() => ghost = null);
     final err = d.drop(it, widget.groupId, x, y);
@@ -722,7 +733,9 @@ class _GridAreaState extends State<_GridArea> {
         final cw = (bc.maxWidth - gap * (c - 1)) / c;
         final ch = (bc.maxHeight - gap * (r - 1)) / r;
         Rect rect(int x, int y, int w, int h) => Rect.fromLTWH(x * (cw + gap), y * (ch + gap), w * cw + (w - 1) * gap, h * ch + (h - 1) * gap);
-        final children = <Widget>[];
+        // Transparent background so the whole grid (gaps included) is a
+        // drop area: the ghost no longer flickers between cells.
+        final children = <Widget>[const Positioned.fill(child: ColoredBox(color: Colors.transparent))];
         if (!test) {
           for (var y = 0; y < r; y++) {
             for (var x = 0; x < c; x++) {
@@ -731,20 +744,13 @@ class _GridAreaState extends State<_GridArea> {
               children.add(
                 Positioned.fromRect(
                   rect: rect(x, y, 1, 1),
-                  child: DragTarget<DragItem>(
-                    onWillAcceptWithDetails: (det) {
-                      setState(() => ghost = d.footprint(det.data, widget.groupId, x, y));
-                      return true;
-                    },
-                    onAcceptWithDetails: (det) => _drop(det.data, x, y),
-                    builder: (context, cand, rej) => GestureDetector(
-                      onTap: () => d.selectCell(widget.groupId, x, y),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: sel ? pal.accentSoft : Colors.transparent,
-                          borderRadius: BorderRadius.circular(widget.groupId == null ? 14 : 10),
-                          border: Border.all(color: sel ? pal.accent : pal.lineStrong.withValues(alpha: 0.6), width: sel ? 1.5 : 1),
-                        ),
+                  child: GestureDetector(
+                    onTap: () => d.selectCell(widget.groupId, x, y),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: sel ? pal.accentSoft : Colors.transparent,
+                        borderRadius: BorderRadius.circular(widget.groupId == null ? 14 : 10),
+                        border: Border.all(color: sel ? pal.accent : pal.lineStrong.withValues(alpha: 0.6), width: sel ? 1.5 : 1),
                       ),
                     ),
                   ),
@@ -792,7 +798,16 @@ class _GridAreaState extends State<_GridArea> {
                 onTap: () => d.selectWidget(id),
                 child: Draggable<DragItem>(
                   data: DragItem.widget(id),
-                  onDragEnd: (_) => setState(() => ghost = null),
+                  // Keep the grab point under the cursor at the on-screen scale,
+                  // so the dragged card sits exactly where the tile was.
+                  dragAnchorStrategy: (draggable, ctx, position) {
+                    final rb = ctx.findRenderObject();
+                    if (rb is! RenderBox) return Offset.zero;
+                    return rb.globalToLocal(position) * _screenScale();
+                  },
+                  onDragEnd: (_) {
+                    if (ghost != null) setState(() => ghost = null);
+                  },
                   feedback: Builder(
                     builder: (_) {
                       final k = _screenScale();
@@ -837,11 +852,43 @@ class _GridAreaState extends State<_GridArea> {
             ),
           );
         }
+        // Cell under the dragged card: a moved tile snaps by its top-left
+        // corner (nearest cell), a new item from the palette by the cursor.
+        ({int x, int y})? cellOf(DragTargetDetails<DragItem> det) {
+          final rb = context.findRenderObject();
+          if (rb is! RenderBox || !rb.attached) return null;
+          final p = rb.globalToLocal(det.offset);
+          final fx = p.dx / (cw + gap), fy = p.dy / (ch + gap);
+          final moving = det.data.kind == 'widget';
+          final x = (moving ? fx.round() : fx.floor()).clamp(0, c - 1);
+          final y = (moving ? fy.round() : fy.floor()).clamp(0, r - 1);
+          return (x: x, y: y);
+        }
+
         return MouseRegion(
           onExit: (_) {
             if (ghost != null) setState(() => ghost = null);
           },
-          child: Stack(clipBehavior: Clip.hardEdge, children: children),
+          child: DragTarget<DragItem>(
+            onWillAcceptWithDetails: (det) => !test && _accepts(det.data),
+            onMove: (det) {
+              final cell = cellOf(det);
+              final g = cell == null ? null : d.footprint(det.data, widget.groupId, cell.x, cell.y);
+              if (g != ghost) setState(() => ghost = g);
+            },
+            onLeave: (_) {
+              if (ghost != null) setState(() => ghost = null);
+            },
+            onAcceptWithDetails: (det) {
+              final cell = cellOf(det);
+              if (cell == null) {
+                setState(() => ghost = null);
+                return;
+              }
+              _drop(det.data, cell.x, cell.y);
+            },
+            builder: (context, cand, rej) => Stack(clipBehavior: Clip.hardEdge, children: children),
+          ),
         );
       },
     );
