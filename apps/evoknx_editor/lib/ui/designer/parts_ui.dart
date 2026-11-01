@@ -9,8 +9,8 @@ import '../../state/project_files.dart';
 import '../common.dart';
 import 'designer.dart';
 
-const _partType = XTypeGroup(label: 'Tầng / phòng / trang EVOKNX', extensions: ['evoknxpart']);
-const _kindName = {'floor': 'tầng', 'room': 'phòng', 'page': 'trang'};
+const _partType = XTypeGroup(label: 'Tầng / phòng / trang / thẻ EVOKNX', extensions: ['evoknxpart']);
+const _kindName = {'floor': 'tầng', 'room': 'phòng', 'page': 'trang', 'card': 'thẻ'};
 
 /// "Xuất tầng/phòng/trang…" and "Nhập…" buttons.
 class PartButtons extends StatelessWidget {
@@ -76,6 +76,10 @@ Future<void> importPart(BuildContext context, Designer d) async {
   }
   final part = o.cast<String, dynamic>();
   final kind = part['kind'] as String;
+  if (kind == 'card') {
+    await _importCard(context, d, part);
+    return;
+  }
   final floorId = d.floor?['id'] as String?;
   final roomId = d.room?['id'] as String?;
   final where = switch (kind) {
@@ -117,5 +121,91 @@ Future<void> importPart(BuildContext context, Designer d) async {
     context,
     'Đã nhập ${res.floors > 0 ? '${res.floors} tầng, ' : ''}${res.rooms > 0 ? '${res.rooms} phòng, ' : ''}${res.pages} trang, ${res.widgets} thành phần. '
     'Địa chỉ nhóm: ${res.reusedAddresses} dùng lại, ${res.newAddresses} thêm mới.',
+  );
+}
+
+/// Exports the selected card (a grid frame with its cards).
+Future<void> exportCard(BuildContext context, Designer d, Json w) async {
+  final part = makeCardPart(d.doc, w);
+  final name = (w['label'] ?? '').toString().trim();
+  final loc = await getSaveLocation(
+    acceptedTypeGroups: const [_partType],
+    suggestedName: '${safeName(name.isEmpty ? (kWidgetTypes[w['type']]?.name ?? 'The') : name)} (thẻ).evoknxpart',
+    initialDirectory: d.p.projectDir,
+    confirmButtonText: 'Xuất',
+  );
+  if (loc == null) return;
+  final file = loc.path.toLowerCase().endsWith('.evoknxpart') ? loc.path : '${loc.path}.evoknxpart';
+  try {
+    await File(file).writeAsString(const JsonEncoder.withIndent('  ').convert(part));
+    if (context.mounted) toast(context, 'Đã xuất thẻ “$name” ra ${baseName(file)}');
+  } catch (e) {
+    if (context.mounted) toast(context, 'Không ghi được file: $e');
+  }
+}
+
+Future<void> _importCard(BuildContext context, Designer d, Json part) async {
+  final sub = d.sub;
+  if (sub == null) {
+    toast(context, 'Hãy chọn một trang để nhập thẻ vào.');
+    return;
+  }
+  final nGa = jsonList(part['groupAddresses']).length;
+  var keep = true;
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (c) => StatefulBuilder(
+      builder: (c, setS) => AlertDialog(
+        title: Text('Nhập thẻ “${part['name']}”?', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
+        content: SizedBox(
+          width: 460,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text('Thẻ được đặt vào chỗ trống đầu tiên của trang “${sub['title'] ?? ''}”, giữ nguyên mọi cài đặt (kiểu, màu, biểu tượng, chế độ…).'),
+              const SizedBox(height: 12),
+              RadioListTile<bool>(
+                value: true,
+                groupValue: keep,
+                onChanged: (v) => setS(() => keep = true),
+                title: const Text('Giữ địa chỉ nhóm đã gán'),
+                subtitle: Text(nGa == 0 ? 'Thẻ chưa gán địa chỉ nào.' : '$nGa địa chỉ; địa chỉ trùng với dự án này được dùng lại.'),
+                contentPadding: EdgeInsets.zero,
+              ),
+              RadioListTile<bool>(
+                value: false,
+                groupValue: keep,
+                onChanged: (v) => setS(() => keep = false),
+                title: const Text('Bỏ địa chỉ nhóm, gán lại sau'),
+                subtitle: const Text('Dùng thẻ như mẫu cho phòng khác.'),
+                contentPadding: EdgeInsets.zero,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          EvoButton(label: 'Huỷ', onPressed: () => Navigator.pop(c, false)),
+          EvoButton(label: 'Nhập', primary: true, onPressed: () => Navigator.pop(c, true)),
+        ],
+      ),
+    ),
+  );
+  if (ok != true || !context.mounted) return;
+  final sid = sub['id'];
+  late PartResult res;
+  d.p.mutate((doc) {
+    final target = allSubpages(doc).firstWhere((x) => x['id'] == sid);
+    res = applyCardPart(doc, part, target, keepAddresses: keep);
+  });
+  if (!context.mounted) return;
+  if (res.error != null) {
+    toast(context, res.error!);
+    return;
+  }
+  if (res.firstId != null) d.selectWidget(res.firstId!);
+  toast(
+    context,
+    'Đã nhập ${res.widgets} thẻ${keep ? '. Địa chỉ nhóm: ${res.reusedAddresses} dùng lại, ${res.newAddresses} thêm mới.' : ', chưa gán địa chỉ nhóm.'}',
   );
 }

@@ -189,6 +189,14 @@ class _WidgetPropsState extends State<_WidgetProps> {
               },
             ),
             const SizedBox(width: 6),
+            EvoButton(
+              label: 'Xuất',
+              icon: Icons.file_upload_outlined,
+              small: true,
+              tooltip: 'Xuất thẻ ra file để dùng lại ở trang hoặc dự án khác',
+              onPressed: () => exportCard(context, d, w),
+            ),
+            const SizedBox(width: 6),
             EvoButton(label: 'Xoá', icon: Icons.delete_outline, small: true, danger: true, onPressed: d.deleteWidget),
           ],
         ),
@@ -1274,7 +1282,7 @@ class _RoomProps extends StatelessWidget {
                   EvoButton(label: 'Thêm trang trong phòng', icon: Icons.add, small: true, onPressed: d.addSub),
                 ],
               ),
-              PartButtons(d: d, kind: 'page', id: s['id'] as String, importHint: 'Nhập trang…'),
+              PartButtons(d: d, kind: 'page', id: s['id'] as String, importHint: 'Nhập trang / thẻ…'),
             ],
             trailing: subs.length > 1
                 ? EvoButton(
@@ -1386,10 +1394,10 @@ class _OverviewProps extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 16),
-        _Section('Nhập tầng / phòng / trang', [
+        _Section('Nhập tầng / phòng / trang / thẻ', [
           Text(
-            'Nhập từ file .evoknxpart (xuất từ dự án khác ở bảng thuộc tính của tầng, phòng hoặc trang). '
-            'Tầng được thêm vào cuối, phòng vào tầng đang chọn, trang vào phòng đang chọn.',
+            'Nhập từ file .evoknxpart (xuất ở bảng thuộc tính của tầng, phòng, trang hoặc thẻ). '
+            'Tầng được thêm vào cuối, phòng vào tầng đang chọn, trang vào phòng đang chọn, thẻ vào trang đang mở.',
             style: TextStyle(fontSize: 12.5, color: context.evo.muted),
           ),
           PartButtons(d: d, kind: null, importHint: 'Nhập từ file…'),
