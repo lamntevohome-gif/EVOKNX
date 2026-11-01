@@ -75,6 +75,7 @@ const Map<String, WidgetTypeDef> kWidgetTypes = {
     SlotDef('mode', 'Chế độ', [20, 5]),
     SlotDef('modeSt', 'Trạng thái chế độ', [20, 5]),
   ]),
+  'camera': WidgetTypeDef('camera', 'Camera', 'camera', 4, 3, []),
   'group': WidgetTypeDef('group', 'Khung lưới', 'layout', 4, 4, []),
 };
 
@@ -82,6 +83,36 @@ class AcMode {
   final String key, name, icon;
   final int value;
   const AcMode(this.key, this.name, this.icon, this.value);
+}
+
+/// Stream address of a camera widget, e.g. rtsp://user:pass@192.168.1.64:554/path.
+/// [hidePass] replaces the password with ***.
+String cameraUrl(Json cam, {bool hidePass = false}) {
+  final proto = cam['protocol'] == 'http' ? 'http' : 'rtsp';
+  final host = (cam['host'] ?? '').toString().trim();
+  if (host.isEmpty) return '';
+  final port = (cam['port'] as num?)?.toInt();
+  var path = (cam['path'] ?? '').toString().trim();
+  if (path.isNotEmpty && !path.startsWith('/')) path = '/$path';
+  final user = (cam['user'] ?? '').toString();
+  final pass = (cam['pass'] ?? '').toString();
+  final auth = user.isEmpty ? '' : '${Uri.encodeComponent(user)}${pass.isEmpty ? '' : ':${hidePass ? '***' : Uri.encodeComponent(pass)}'}@';
+  final defPort = proto == 'http' ? 80 : 554;
+  return '$proto://$auth$host${port == null || port == defPort ? '' : ':$port'}$path';
+}
+
+/// Fan speed levels of an AC: 'auto' (optional) then '1'…'N'.
+/// Default values follow DPT 5.010 (0 = auto, 1…N = speed).
+List<String> acFanLevels(Json ac) {
+  final f = jsonMap(ac['fan']);
+  final n = ((f['levels'] as num?) ?? 3).toInt().clamp(2, 5);
+  return [if (f['auto'] != false) 'auto', for (var i = 1; i <= n; i++) '$i'];
+}
+
+num acFanValue(Json ac, String level) {
+  final v = jsonMap(jsonMap(ac['fan'])['values'])[level];
+  if (v is num) return v;
+  return level == 'auto' ? 0 : int.parse(level);
 }
 
 const List<AcMode> kAcModes = [
@@ -109,12 +140,24 @@ List<SlotDef> slotsFor(Json w) {
       final f = jsonMap(w['features']);
       return [
         ...base,
-        if (f['tw'] == true) ...const [SlotDef('ctWrite', 'Nhiệt độ màu', [7], required: true), SlotDef('ctStatus', 'Trạng thái nhiệt độ màu', [7], recommended: true)],
-        if (f['rgb'] == true) ...const [SlotDef('rgbWrite', 'Màu RGB', [232, 251], required: true), SlotDef('rgbStatus', 'Trạng thái màu RGB', [232, 251], recommended: true)],
+        if (f['tw'] == true) ...const [
+          SlotDef('ctWrite', 'Nhiệt độ màu', [7], required: true),
+          SlotDef('ctStatus', 'Trạng thái nhiệt độ màu', [7], recommended: true)
+        ],
+        if (f['rgb'] == true) ...const [
+          SlotDef('rgbWrite', 'Màu RGB', [232, 251], required: true),
+          SlotDef('rgbStatus', 'Trạng thái màu RGB', [232, 251], recommended: true)
+        ],
       ];
     case 'ac':
       final ac = jsonMap(w['ac']);
-      if (ac['modeAddr'] != 'separate') return base;
+      final fanSlots = jsonMap(ac['fan'])['enabled'] == true
+          ? const [
+              SlotDef('fan', 'Tốc độ quạt', [5, 20], required: true),
+              SlotDef('fanSt', 'Trạng thái tốc độ quạt', [5, 20], recommended: true)
+            ]
+          : const <SlotDef>[];
+      if (ac['modeAddr'] != 'separate') return [...base, ...fanSlots];
       final modes = jsonMap(ac['modes']);
       final names = jsonMap(ac['names']);
       final extra = <SlotDef>[];
@@ -125,7 +168,7 @@ List<SlotDef> slotsFor(Json w) {
         extra.add(SlotDef('mode_${m.key}', 'Chế độ $n', const [1], required: true));
         extra.add(SlotDef('modeSt_${m.key}', 'Trạng thái $n', const [1]));
       }
-      return [...base.where((s) => s.key != 'mode' && s.key != 'modeSt'), ...extra];
+      return [...base.where((s) => s.key != 'mode' && s.key != 'modeSt'), ...extra, ...fanSlots];
   }
   return base;
 }
@@ -192,6 +235,12 @@ Json makeWidget(String type, int x, int y, [int? w, int? h]) {
       'values': {'auto': 0, 'cool': 3, 'heat': 1, 'fan': 9, 'dry': 14},
     };
   }
+  if (type == 'scene') {
+    wd['popup'] = {'enabled': true, 'text': 'Đã bật cảnh {tên}', 'blur': 8, 'size': 20, 'seconds': 2};
+  }
+  if (type == 'camera') {
+    wd['cam'] = {'protocol': 'rtsp', 'host': '', 'port': 554, 'path': '/Streaming/Channels/101', 'user': 'admin', 'pass': '', 'view': 'live'};
+  }
   if (type == 'group') {
     wd['layout'] = {'type': 'grid', 'columns': min(w ?? t.w, 6), 'rows': 4};
     wd['widgets'] = <Json>[];
@@ -235,7 +284,12 @@ Json migrate(Json o) {
   for (final r in pages) {
     if (r['subpages'] is! List) {
       r['subpages'] = [
-        {'id': uid('sub_'), 'title': 'Trang 1', 'layout': r['layout'] ?? {'type': 'grid', 'columns': 4}, 'widgets': r['widgets'] ?? <Json>[]}
+        {
+          'id': uid('sub_'),
+          'title': 'Trang 1',
+          'layout': r['layout'] ?? {'type': 'grid', 'columns': 4},
+          'widgets': r['widgets'] ?? <Json>[]
+        }
       ];
       r.remove('layout');
       r.remove('widgets');
@@ -399,7 +453,11 @@ bool isFree(Json box, int x, int y, int w, int h, [String? except]) {
   return (x: 0, y: 0);
 }
 
-const Map<String, List<int>> kDeviceDefaults = {'mobile': [12, 4], 'tabletP': [16, 6], 'tabletL': [10, 8]};
+const Map<String, List<int>> kDeviceDefaults = {
+  'mobile': [12, 4],
+  'tabletP': [16, 6],
+  'tabletL': [10, 8]
+};
 
 /// Exports a normalized copy with layouts for every enabled device.
 Json exportProject(Json doc) {
