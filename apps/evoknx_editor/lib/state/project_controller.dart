@@ -322,7 +322,6 @@ class ProjectController extends ChangeNotifier {
       } catch (_) {
         note = ' · không ghi được bản lịch sử';
       }
-      unawaited(pruneHistory(dirName(p), keepDays: appSettings.historyKeepDays, thin: appSettings.historyThin).catchError((_) => 0));
     }
     _changed();
     return restored != null ? 'Đã khôi phục bản lưu $restored thành bản chính$note' : 'Đã lưu ${baseName(p)}$note';
