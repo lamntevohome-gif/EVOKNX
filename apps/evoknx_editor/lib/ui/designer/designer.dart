@@ -572,8 +572,8 @@ class Designer extends ChangeNotifier {
         send(w, 'write', num.tryParse(v) ?? 1, v);
         break;
       case 'scene':
-        final n = ((w['sceneNumber'] as num?) ?? 1).toInt();
-        send(w, 'write', n - 1, 'Cảnh $n');
+        final v = sceneSendValue(w);
+        send(w, 'write', num.tryParse(v.replaceAll(',', '.')) ?? 0, v);
         showPopup(w);
         break;
       case 'shutter':

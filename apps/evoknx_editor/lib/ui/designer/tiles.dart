@@ -16,12 +16,28 @@ class AppPalette {
   /// Text colours used directly on the screen background (title, page name…),
   /// which may differ when a custom background colour or image is used.
   final Color? onScreenInk, onScreenMuted;
+
+  /// Card shape (Tổng quan → Kiểu thẻ): corner radius, border width, shadow.
+  final double radius, border, shadow;
+
+  List<BoxShadow> get shadows => shadow <= 0
+      ? const []
+      : [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.10 + shadow * 0.006),
+            blurRadius: shadow * 1.6,
+            offset: Offset(0, shadow * 0.45),
+          ),
+        ];
   Color get sInk => onScreenInk ?? ink;
   Color get sMuted => onScreenMuted ?? muted;
 
   const AppPalette({
     this.onScreenInk,
     this.onScreenMuted,
+    this.radius = 12,
+    this.border = 1,
+    this.shadow = 0,
     required this.screen,
     required this.tile,
     required this.tileEdge,
@@ -47,6 +63,9 @@ class AppPalette {
     Color? lineStrong,
     Color? onScreenInk,
     Color? onScreenMuted,
+    double? radius,
+    double? border,
+    double? shadow,
   }) => AppPalette(
     screen: screen,
     tile: tile ?? this.tile,
@@ -63,6 +82,9 @@ class AppPalette {
     danger: danger,
     onScreenInk: onScreenInk ?? this.onScreenInk,
     onScreenMuted: onScreenMuted ?? this.onScreenMuted,
+    radius: radius ?? this.radius,
+    border: border ?? this.border,
+    shadow: shadow ?? this.shadow,
   );
 
   /// Palette for a card with a custom background: readable text on dark colours.
@@ -212,28 +234,31 @@ class TileView extends StatelessWidget {
     if (cardBg != null && pal.tile != cardBg) {
       return TileView(w: w, pal: pal.forCard(cardBg), gas: gas, sim: sim, selected: selected, flagged: flagged, act: act);
     }
+    // Transparent card: only the border stays; text follows the screen.
+    if (style['bg'] == 'transparent' && pal.tile != Colors.transparent) {
+      final tp = pal.copyWith(tile: Colors.transparent, ink: pal.sInk, muted: pal.sMuted, panel: pal.panel.withValues(alpha: 0.85));
+      return TileView(w: w, pal: tp, gas: gas, sim: sim, selected: selected, flagged: flagged, act: act);
+    }
     final on = type == 'switch' ? sim['on'] == true : (type == 'dimmer' ? ((sim['val'] as num?) ?? 0) > 0 : false);
     final rgb = type == 'dimmer' ? hexColor(sim['rgb']) : null;
     final colorOn = rgb ?? hexColor(style['colorOn']) ?? pal.led;
     final colorOff = hexColor(style['colorOff']) ?? pal.muted;
-    final simple = w['look'] == 'simple';
-    final filled = simple && on && (type == 'switch' || type == 'dimmer');
-    final bg = filled ? colorOn : (on ? Color.alphaBlend(colorOn.withValues(alpha: 0.16), pal.tile) : pal.tile);
+    // On: the card is tinted with the "on" colour (full and simple looks).
+    final bg = on ? Color.alphaBlend(colorOn.withValues(alpha: 0.30), pal.tile) : pal.tile;
     final imageBtn = (type == 'button' || type == 'scene') && w['btnStyle'] == 'image';
-    // Content drawn with a palette readable on the filled colour.
-    final self = filled ? TileView(w: w, pal: pal.forCard(colorOn), gas: gas, sim: sim, selected: selected, flagged: flagged, act: act) : this;
+    final self = this;
     return AnimatedContainer(
       duration: const Duration(milliseconds: 220),
       curve: Curves.easeOutCubic,
       decoration: BoxDecoration(
         color: type == 'webview' ? pal.tile : bg,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: filled ? colorOn : (on ? colorOn.withValues(alpha: 0.45) : pal.tileEdge)),
-        boxShadow: const [BoxShadow(color: Color(0x0A000000), blurRadius: 2, offset: Offset(0, 1))],
+        borderRadius: BorderRadius.circular(pal.radius),
+        border: pal.border <= 0 ? null : Border.all(color: on ? colorOn.withValues(alpha: 0.6) : pal.tileEdge, width: pal.border),
+        boxShadow: pal.tile == Colors.transparent ? const [] : pal.shadows,
       ),
       foregroundDecoration: selected
           ? BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(pal.radius),
               border: Border.all(color: pal.accent, width: 2),
             )
           : null,
@@ -450,19 +475,19 @@ class TileView extends StatelessWidget {
     final textOn = (style['textOn'] ?? 'Đang bật').toString(), textOff = (style['textOff'] ?? 'Đang tắt').toString();
     switch (type) {
       case 'switch':
-        if (w['look'] == 'simple') return _simple(on ? pal.ink : colorOff);
+        if (w['look'] == 'simple') return _simple(on ? colorOn : colorOff);
         return _col([_head(on ? colorOn : colorOff, trailing: _led(on, colorOn)), _state(on ? textOn : textOff)]);
       case 'dimmer':
         if (w['look'] == 'simple') {
           return _simple(
-            on ? pal.ink : colorOff,
+            on ? colorOn : colorOff,
             trailing: act == null && w['showTune'] == false
                 ? null
                 : _tap(
                     'tune',
                     Padding(
                       padding: const EdgeInsets.all(2),
-                      child: iconWidget((w['tuneIcon'] ?? 'mdi:tune-vertical').toString(), fs(w, 'iconSize') * 0.85, on ? pal.ink : pal.muted),
+                      child: iconWidget((w['tuneIcon'] ?? 'mdi:tune-vertical').toString(), fs(w, 'iconSize') * 0.85, pal.muted),
                     ),
                   ),
           );
@@ -548,7 +573,7 @@ class TileView extends StatelessWidget {
         return _col([_head(pal.muted), _state('Nhấn để gửi')]);
       case 'scene':
         if (w['btnStyle'] == 'image') return _imageButton();
-        return _col([_head(pal.muted), _state('Cảnh ${w['sceneNumber'] ?? 1}')]);
+        return _col([_head(pal.muted), _state('Nhấn để bật cảnh')]);
       case 'camera':
         final cam = jsonMap(w['cam']);
         if (cam['view'] == 'button') return _simple(pal.muted, trailing: _liveDot());
@@ -731,7 +756,15 @@ class TileView extends StatelessWidget {
         final fanOn = jsonMap(ac['fan'])['enabled'] == true;
         final fan = (sim['fan'] ?? 'auto').toString();
         final levels = acFanLevels(ac);
-        String fanName(String k) => k == 'auto' ? 'Tự động' : 'Mức $k';
+        // Fan speed icons (MDI): auto, low, medium, high (+ extra levels).
+        String fanIcon(String k) {
+          if (k == 'auto') return 'mdi:fan-auto';
+          final n = levels.where((x) => x != 'auto').length;
+          final i = int.tryParse(k) ?? 1;
+          if (n == 2) return i == 1 ? 'mdi:fan-speed-1' : 'mdi:fan-speed-3';
+          if (i <= 3) return 'mdi:fan-speed-$i';
+          return i == 4 && n == 5 ? 'mdi:fan-chevron-up' : 'mdi:fan-plus';
+        }
         Widget spText() => Row(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.baseline,
@@ -748,7 +781,6 @@ class TileView extends StatelessWidget {
           ],
         );
         if (w['look'] == 'simple') {
-          final nextFan = levels.isEmpty ? 'auto' : levels[(levels.indexOf(fan) + 1) % levels.length];
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -793,33 +825,6 @@ class TileView extends StatelessWidget {
                   ],
                 ),
               ),
-              if (fanOn)
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: _tap(
-                    'fan',
-                    Container(
-                      padding: EdgeInsets.symmetric(horizontal: ab * 0.6, vertical: ab * 0.35),
-                      decoration: BoxDecoration(
-                        color: pal.panel,
-                        borderRadius: BorderRadius.circular(ab),
-                        border: Border.all(color: pal.tileEdge),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          iconWidget(fan == 'auto' ? 'mdi:fan-auto' : 'mdi:fan', ab * 0.95, pal.ink),
-                          const SizedBox(width: 4),
-                          Text(
-                            fan == 'auto' ? 'Auto' : fan,
-                            style: TextStyle(fontSize: ab * 0.8, color: pal.ink, fontWeight: FontWeight.w600),
-                          ),
-                        ],
-                      ),
-                    ),
-                    nextFan,
-                  ),
-                ),
             ],
           );
         }
@@ -862,11 +867,7 @@ class TileView extends StatelessWidget {
                               border: Border.all(color: acOn && fan == k ? pal.ink : pal.tileEdge),
                               borderRadius: BorderRadius.circular(am * 0.62),
                             ),
-                            child: Text(
-                              k == 'auto' ? 'Auto' : k,
-                              textAlign: TextAlign.center,
-                              style: TextStyle(fontSize: am * 0.8, fontWeight: FontWeight.w600, color: acOn && fan == k ? pal.screen : pal.muted),
-                            ),
+                            child: Center(child: iconWidget(fanIcon(k), am * 1.15, acOn && fan == k ? pal.screen : pal.muted)),
                           ),
                           k,
                         ),
@@ -893,7 +894,16 @@ class TileView extends StatelessWidget {
                   : null,
             ),
             Expanded(
-              child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [round(Icons.remove, 'minus'), spText(), round(Icons.add, 'plus')]),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  round(Icons.remove, 'minus'),
+                  SizedBox(width: ab * 1.3),
+                  spText(),
+                  SizedBox(width: ab * 1.3),
+                  round(Icons.add, 'plus'),
+                ],
+              ),
             ),
             Row(
               children: [
@@ -906,10 +916,6 @@ class TileView extends StatelessWidget {
               SizedBox(height: am * 0.4),
               Row(
                 children: [
-                  Padding(
-                    padding: EdgeInsets.only(right: am * 0.3),
-                    child: iconWidget('mdi:fan', am, pal.muted),
-                  ),
                   for (final k in levels)
                     Expanded(
                       child: _tap(
@@ -922,12 +928,7 @@ class TileView extends StatelessWidget {
                             border: Border.all(color: acOn && fan == k ? pal.ink : pal.tileEdge),
                             borderRadius: BorderRadius.circular(am * 0.62),
                           ),
-                          child: Text(
-                            k == 'auto' ? 'Auto' : k,
-                            textAlign: TextAlign.center,
-                            maxLines: 1,
-                            style: TextStyle(fontSize: am * 0.75, fontWeight: FontWeight.w600, color: acOn && fan == k ? pal.screen : pal.muted),
-                          ),
+                          child: Center(child: iconWidget(fanIcon(k), am * 1.15, acOn && fan == k ? pal.screen : pal.muted)),
                         ),
                         k,
                       ),

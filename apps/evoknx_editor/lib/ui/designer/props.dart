@@ -756,12 +756,15 @@ class _WidgetPropsState extends State<_WidgetProps> {
         return [
           _Section('Cảnh', [
             FieldLabel(
-              'Số cảnh',
-              EvoDropdown<int>(
-                value: ((w['sceneNumber'] as num?) ?? 1).toInt(),
-                items: [for (var i = 1; i <= 64; i++) (i, 'Cảnh $i')],
-                onChanged: (v) => set('sceneNumber', v),
+              'Giá trị gửi',
+              SyncedField(
+                value: sceneSendValue(w),
+                onChanged: (v) => set('sendValue', v.trim(), coalesce: 'sv-$id'),
               ),
+            ),
+            Text(
+              'Giá trị gửi tới địa chỉ ghi khi bấm, giống nút nhấn. Với địa chỉ cảnh KNX (DPT 17.001), cảnh 1 = 0, cảnh 2 = 1…',
+              style: TextStyle(fontSize: 12, color: context.evo.muted),
             ),
             FieldLabel(
               'Kiểu hiển thị',
@@ -1412,6 +1415,31 @@ class _OverviewProps extends StatelessWidget {
         ]),
         _SplashSettings(d: d),
         _ScreenBgSettings(d: d),
+        _Section('Kiểu thẻ (tất cả thẻ)', [
+          StepRow(
+            label: 'Độ cong góc',
+            value: ((theme['cardRadius'] as num?) ?? 12).toInt(),
+            min: 0,
+            max: 32,
+            onChanged: (v) => editTheme((x) => x['cardRadius'] = v, coalesce: 'crad'),
+          ),
+          StepRow(
+            label: 'Độ dày viền',
+            value: ((theme['cardBorder'] as num?) ?? 1).toInt(),
+            min: 0,
+            max: 4,
+            onChanged: (v) => editTheme((x) => x['cardBorder'] = v, coalesce: 'cbor'),
+          ),
+          StepRow(
+            label: 'Đổ bóng',
+            unit: '',
+            value: ((theme['cardShadow'] as num?) ?? 0).toInt(),
+            min: 0,
+            max: 20,
+            onChanged: (v) => editTheme((x) => x['cardShadow'] = v, coalesce: 'cshd'),
+          ),
+          Text('Mặc định: góc 12, viền 1, không đổ bóng. Áp dụng cho mọi thẻ và khung lưới.', style: TextStyle(fontSize: 12, color: context.evo.muted)),
+        ]),
         _Section('Giao diện App', [
           StepRow(
             label: 'Tỉ lệ hiển thị trên tablet',
@@ -1704,38 +1732,45 @@ class _BgPicker extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.evo;
-    final isDefault = value == null || _hex(value!) == null;
+    final transparent = value == 'transparent';
+    final isDefault = !transparent && (value == null || _hex(value!) == null);
+    Widget chip(String text, bool on, VoidCallback tap) => Material(
+      color: on ? c.accentSoft : c.panel,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: BorderSide(color: on ? c.accent : c.line),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: tap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          child: Text(
+            text,
+            style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: on ? c.accentInk : c.ink),
+          ),
+        ),
+      ),
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Row(
           children: [
-            Material(
-              color: isDefault ? c.accentSoft : c.panel,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-                side: BorderSide(color: isDefault ? c.accent : c.line),
-              ),
-              child: InkWell(
-                borderRadius: BorderRadius.circular(8),
-                onTap: () => onChanged(null),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  child: Text(
-                    'Mặc định',
-                    style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: isDefault ? c.accentInk : c.ink),
-                  ),
-                ),
-              ),
-            ),
+            chip('Mặc định', isDefault, () => onChanged(null)),
+            const SizedBox(width: 6),
+            chip('Trong suốt', transparent, () => onChanged('transparent')),
             const SizedBox(width: 8),
             Expanded(
-              child: Text(isDefault ? 'Theo giao diện Sáng/Tối của App' : 'Chữ tự đổi sáng/tối cho dễ đọc', style: TextStyle(fontSize: 12, color: c.muted)),
+              child: Text(
+                transparent ? 'Chỉ còn viền, thấy nền giao diện phía sau' : (isDefault ? 'Theo giao diện Sáng/Tối của App' : 'Chữ tự đổi sáng/tối cho dễ đọc'),
+                style: TextStyle(fontSize: 12, color: c.muted),
+              ),
             ),
           ],
         ),
         const SizedBox(height: 8),
-        _ColorPicker(value: isDefault ? '' : value!, swatches: _kBgSwatches, onChanged: onChanged),
+        _ColorPicker(value: isDefault || transparent ? '' : value!, swatches: _kBgSwatches, onChanged: onChanged),
       ],
     );
   }

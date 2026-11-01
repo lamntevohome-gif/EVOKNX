@@ -47,7 +47,14 @@ class DesignCanvas extends StatelessWidget {
     final mode = d.previewTheme ?? (jsonMap(doc['theme'])['mode'] ?? 'light').toString();
     final base = AppPalette.of(mode);
     final bg = screenBackground(doc, base);
-    final pal = base.copyWith(onScreenInk: bg.ink, onScreenMuted: bg.muted);
+    final th = jsonMap(doc['theme']);
+    final pal = base.copyWith(
+      onScreenInk: bg.ink,
+      onScreenMuted: bg.muted,
+      radius: ((th['cardRadius'] as num?) ?? 12).toDouble().clamp(0, 32).toDouble(),
+      border: ((th['cardBorder'] as num?) ?? 1).toDouble().clamp(0, 4).toDouble(),
+      shadow: ((th['cardShadow'] as num?) ?? 0).toDouble().clamp(0, 20).toDouble(),
+    );
     final tablet = dev != 'mobile';
     final scale = tablet ? tabletScale(doc) : 1.0;
     final logical = Size(size.width / scale, size.height / scale);
@@ -860,6 +867,7 @@ class _GridAreaState extends State<_GridArea> {
                           // is a tap; cards with their own buttons (rèm, máy
                           // lạnh, web) animate those buttons instead.
                           child: PressEffect(
+                            radius: pal.radius,
                             enabled:
                                 const ['switch', 'dimmer', 'button', 'scene', 'link'].contains(w['type']) ||
                                 (w['type'] == 'camera' && jsonMap(w['cam'])['view'] == 'button'),
@@ -996,8 +1004,9 @@ class _GroupFrame extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final style = (w['gstyle'] ?? 'card').toString();
-    final bg = hexColor(w['gbg']);
-    final titleColor = bg == null ? pal.ink : (bg.computeLuminance() < 0.35 ? Colors.white : const Color(0xFF1B2320));
+    final transparent = w['gbg'] == 'transparent';
+    final bg = transparent ? null : hexColor(w['gbg']);
+    final titleColor = bg == null ? (transparent ? pal.sInk : pal.ink) : (bg.computeLuminance() < 0.35 ? Colors.white : const Color(0xFF1B2320));
     final align = switch (w['titleAlign']) {
       'center' => TextAlign.center,
       'right' => TextAlign.right,
@@ -1008,17 +1017,22 @@ class _GroupFrame extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: bg ?? (style == 'card' ? pal.tile : Colors.transparent),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: selected ? pal.accent : (style == 'none' ? (d.test ? Colors.transparent : pal.lineStrong.withValues(alpha: 0.5)) : pal.tileEdge),
-          width: selected ? 2 : 1,
-        ),
+        color: bg ?? (style == 'card' && !transparent ? pal.tile : Colors.transparent),
+        borderRadius: BorderRadius.circular(pal.radius + 2),
+        border: !selected && style != 'none' && pal.border <= 0
+            ? null
+            : Border.all(
+                color: selected ? pal.accent : (style == 'none' ? (d.test ? Colors.transparent : pal.lineStrong.withValues(alpha: 0.5)) : pal.tileEdge),
+                width: selected ? 2 : (style == 'none' ? 1 : pal.border),
+              ),
+        boxShadow: style == 'card' && !transparent ? pal.shadows : const [],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (showTitle) ...[
+            // Title centred between the frame edge and the grid below it.
+            SizedBox(height: max(0.0, gapT - 8)),
             Text(
               (w['label'] ?? '').toString(),
               textAlign: align,
