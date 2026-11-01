@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 
 /// Version shown in Settings → Giới thiệu.
-const String kEditorVersion = '0.3.0';
+const String kEditorVersion = '0.4.0';
 
 /// Editor preferences (stored in the app data folder, not in projects).
 class AppSettings extends ChangeNotifier {
