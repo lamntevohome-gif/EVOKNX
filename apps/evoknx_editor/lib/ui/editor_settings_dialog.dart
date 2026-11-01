@@ -67,6 +67,28 @@ class EditorSettingsDialog extends StatelessWidget {
                       style: TextStyle(fontSize: 12.5, color: c.muted),
                     ),
                   ]),
+                  section('Lịch sử lưu (tạo khi bấm Lưu / Ctrl+S)', [
+                    EvoDropdown<int>(
+                      value: appSettings.historyKeepDays,
+                      items: const [(30, 'Giữ 30 ngày'), (90, 'Giữ 90 ngày'), (180, 'Giữ 180 ngày'), (365, 'Giữ 1 năm'), (0, 'Không tự xoá')],
+                      onChanged: (v) => appSettings.setHistory(keepDays: v),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Checkbox(
+                          value: appSettings.historyThin,
+                          onChanged: (v) => appSettings.setHistory(thin: v ?? true),
+                        ),
+                        const Expanded(child: Text('Sau 7 ngày, mỗi ngày chỉ giữ bản lưu cuối cùng')),
+                      ],
+                    ),
+                    Text(
+                      'Mỗi dự án có folder riêng mang tên dự án. Mỗi lần bấm Lưu, Editor tạo thêm một bản lịch sử trong folder của ngày đó. '
+                      'Tự lưu chỉ ghi vào file chính. File chính không bao giờ bị xoá.',
+                      style: TextStyle(fontSize: 12.5, color: c.muted),
+                    ),
+                  ]),
                   section('Thư mục lưu mặc định', [
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),

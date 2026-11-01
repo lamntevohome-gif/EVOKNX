@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:ui' show AppExitResponse;
 
 import 'package:flutter/material.dart';
@@ -34,6 +35,19 @@ class _ShellState extends State<Shell> {
   void initState() {
     super.initState();
     _life; // registers the close handler
+    p.confirm = (title, message, yes) async =>
+        await showDialog<bool>(
+          context: context,
+          builder: (c) => AlertDialog(
+            title: Text(title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
+            content: SizedBox(width: 460, child: Text(message)),
+            actions: [
+              EvoButton(label: 'Huỷ', onPressed: () => Navigator.pop(c, false)),
+              EvoButton(label: yes, primary: true, onPressed: () => Navigator.pop(c, true)),
+            ],
+          ),
+        ) ==
+        true;
   }
 
   @override
@@ -132,6 +146,7 @@ class _ShellState extends State<Shell> {
   }
 
   String _status() {
+    if (p.viewingSnapshot != null) return 'Đang xem bản ${p.viewingSnapshot} · Lưu để khôi phục';
     if (p.path == null) return p.dirty ? 'Chưa lưu thành file' : 'Chưa lưu thành file';
     if (p.dirty) return 'Chưa lưu';
     final t = p.savedAt;
@@ -225,9 +240,17 @@ class _ShellState extends State<Shell> {
     return PopupMenuButton<String>(
       tooltip: 'Mở dự án (Ctrl+O)',
       position: PopupMenuPosition.under,
-      onSelected: (v) => v == '__browse' ? _open() : _open(v),
+      onSelected: (v) {
+        if (v == '__folder') {
+          final dir = p.projectDir;
+          if (dir != null) Process.run('explorer', [dir]);
+          return;
+        }
+        v == '__browse' ? _open() : _open(v);
+      },
       itemBuilder: (_) => [
         const PopupMenuItem(value: '__browse', child: Text('Mở file…')),
+        if (p.projectDir != null) const PopupMenuItem(value: '__folder', child: Text('Mở folder dự án (xem lịch sử lưu)')),
         if (p.recent.isNotEmpty) const PopupMenuDivider(),
         for (final r in p.recent)
           PopupMenuItem(
