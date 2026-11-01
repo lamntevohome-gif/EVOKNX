@@ -7,7 +7,16 @@ import 'model.dart';
 /// Colours of the simulated app screen (light/dark like the real app).
 class AppPalette {
   final Color screen, tile, tileEdge, panel, ink, muted, line, lineStrong, accent, accentSoft, led, ledSoft, danger;
+
+  /// Text colours used directly on the screen background (title, page name…),
+  /// which may differ when a custom background colour or image is used.
+  final Color? onScreenInk, onScreenMuted;
+  Color get sInk => onScreenInk ?? ink;
+  Color get sMuted => onScreenMuted ?? muted;
+
   const AppPalette({
+    this.onScreenInk,
+    this.onScreenMuted,
     required this.screen,
     required this.tile,
     required this.tileEdge,
@@ -22,6 +31,99 @@ class AppPalette {
     required this.ledSoft,
     required this.danger,
   });
+
+  AppPalette copyWith({
+    Color? tile,
+    Color? tileEdge,
+    Color? panel,
+    Color? ink,
+    Color? muted,
+    Color? line,
+    Color? lineStrong,
+    Color? onScreenInk,
+    Color? onScreenMuted,
+  }) => AppPalette(
+    screen: screen,
+    tile: tile ?? this.tile,
+    tileEdge: tileEdge ?? this.tileEdge,
+    panel: panel ?? this.panel,
+    ink: ink ?? this.ink,
+    muted: muted ?? this.muted,
+    line: line ?? this.line,
+    lineStrong: lineStrong ?? this.lineStrong,
+    accent: accent,
+    accentSoft: accentSoft,
+    led: led,
+    ledSoft: ledSoft,
+    danger: danger,
+    onScreenInk: onScreenInk ?? this.onScreenInk,
+    onScreenMuted: onScreenMuted ?? this.onScreenMuted,
+  );
+
+  /// Palette for a card with a custom background: readable text on dark colours.
+  AppPalette forCard(Color bg) {
+    if (bg.computeLuminance() < 0.35) {
+      return copyWith(
+        tile: bg,
+        ink: Colors.white,
+        muted: Colors.white.withValues(alpha: 0.72),
+        line: Colors.white.withValues(alpha: 0.22),
+        lineStrong: Colors.white.withValues(alpha: 0.38),
+        tileEdge: Colors.white.withValues(alpha: 0.18),
+        panel: Color.alphaBlend(Colors.white.withValues(alpha: 0.12), bg),
+      );
+    }
+    return copyWith(
+      tile: bg,
+      ink: const Color(0xFF1B2320),
+      muted: const Color(0xFF5B6662),
+      tileEdge: Color.alphaBlend(Colors.black.withValues(alpha: 0.10), bg),
+      panel: Color.alphaBlend(Colors.white.withValues(alpha: 0.55), bg),
+    );
+  }
+
+  /// App themes: Sáng, Tối, and two neutral themes (Xám than, Kem).
+  /// Older projects using "system" fall back to Sáng.
+  static AppPalette of(String? mode) => switch (mode) {
+    'dark' => dark,
+    'graphite' => graphite,
+    'sand' => sand,
+    _ => light,
+  };
+
+  /// Neutral dark grey (graphite), softer than full dark.
+  static const graphite = AppPalette(
+    screen: Color(0xFF2B2F33),
+    tile: Color(0xFF383D42),
+    tileEdge: Color(0xFF464C52),
+    panel: Color(0xFF32373C),
+    ink: Color(0xFFF1F3F4),
+    muted: Color(0xFFA9B0B6),
+    line: Color(0xFF444A50),
+    lineStrong: Color(0xFF5A6168),
+    accent: Color(0xFF4DB38A),
+    accentSoft: Color(0xFF23392F),
+    led: Color(0xFFF2AA45),
+    ledSoft: Color(0xFF3E3220),
+    danger: Color(0xFFEE7B66),
+  );
+
+  /// Neutral warm light (sand / ivory).
+  static const sand = AppPalette(
+    screen: Color(0xFFE9E4DC),
+    tile: Color(0xFFFBF9F6),
+    tileEdge: Color(0xFFDDD6CB),
+    panel: Color(0xFFFFFDFA),
+    ink: Color(0xFF2A2622),
+    muted: Color(0xFF7A7067),
+    line: Color(0xFFE4DDD2),
+    lineStrong: Color(0xFFCFC6B8),
+    accent: Color(0xFF2F7D5B),
+    accentSoft: Color(0xFFE3EFE6),
+    led: Color(0xFFE08E2B),
+    ledSoft: Color(0xFFF8EBD7),
+    danger: Color(0xFFC2412D),
+  );
 
   static const light = AppPalette(
     screen: Color(0xFFD8DBDF),
@@ -98,6 +200,10 @@ class TileView extends StatelessWidget {
   Widget build(BuildContext context) {
     final type = w['type'] as String? ?? '';
     final style = jsonMap(w['style']);
+    final cardBg = hexColor(style['bg']);
+    if (cardBg != null && pal.tile != cardBg) {
+      return TileView(w: w, pal: pal.forCard(cardBg), gas: gas, sim: sim, selected: selected, flagged: flagged, act: act);
+    }
     final on = type == 'switch' ? sim['on'] == true : (type == 'dimmer' ? ((sim['val'] as num?) ?? 0) > 0 : false);
     final rgb = type == 'dimmer' ? hexColor(sim['rgb']) : null;
     final colorOn = rgb ?? hexColor(style['colorOn']) ?? pal.led;
@@ -142,7 +248,7 @@ class TileView extends StatelessWidget {
     style: TextStyle(fontSize: fs(w, 'stateSize'), color: pal.muted, fontFeatures: const [FontFeature.tabularFigures()]),
   );
 
-  Widget _icon(Color color) => Icon(iconOf(w['icon'] as String?), size: fs(w, 'iconSize'), color: color);
+  Widget _icon(Color color) => iconWidget(w['icon'] as String?, fs(w, 'iconSize'), color);
 
   Widget _head(Color iconColor, {Widget? trailing}) => Row(
     children: [
@@ -447,7 +553,7 @@ class TileView extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (modeLabel != 'text') Icon(iconOf(icon), size: am, color: active ? pal.screen : pal.muted),
+                  if (modeLabel != 'text') iconWidget(icon, am, active ? pal.screen : pal.muted),
                   if (modeLabel == 'both') const SizedBox(height: 2),
                   if (modeLabel != 'icon')
                     Text(

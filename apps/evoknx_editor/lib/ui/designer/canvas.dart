@@ -44,9 +44,10 @@ class DesignCanvas extends StatelessWidget {
     final doc = d.doc;
     final dev = (doc['activeDev'] as String?) ?? 'mobile';
     final size = kDeviceSize[dev] ?? kDeviceSize['mobile']!;
-    final mode = (jsonMap(doc['theme'])['mode'] ?? 'light').toString();
-    final dark = mode == 'dark' || (mode == 'system' && Theme.of(context).brightness == Brightness.dark);
-    final pal = dark ? AppPalette.dark : AppPalette.light;
+    final mode = d.previewTheme ?? (jsonMap(doc['theme'])['mode'] ?? 'light').toString();
+    final base = AppPalette.of(mode);
+    final bg = screenBackground(doc, base);
+    final pal = base.copyWith(onScreenInk: bg.ink, onScreenMuted: bg.muted);
     final tablet = dev != 'mobile';
     final scale = tablet ? tabletScale(doc) : 1.0;
     final logical = Size(size.width / scale, size.height / scale);
@@ -65,8 +66,8 @@ class DesignCanvas extends StatelessWidget {
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(tablet ? 20 : 38),
-            child: ColoredBox(
-              color: pal.screen,
+            child: DecoratedBox(
+              decoration: bg.decoration,
               child: FittedBox(
                 child: SizedBox(
                   width: logical.width,
@@ -79,6 +80,10 @@ class DesignCanvas extends StatelessWidget {
                           child: _Screen(d: d, pal: pal, issues: issues, size: logical, dev: dev),
                         ),
                       ),
+                      if (d.appSettingsOpen)
+                        Positioned.fill(
+                          child: _AppSettingsSheet(d: d, pal: pal),
+                        ),
                       if (d.splashPreview) Positioned.fill(child: _Splash(d: d)),
                     ],
                   ),
@@ -180,7 +185,7 @@ class _Screen extends StatelessWidget {
           children: [
             Text(
               '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}',
-              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: pal.ink),
+              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: pal.sInk),
             ),
             const Spacer(),
             if (!tablet)
@@ -192,7 +197,7 @@ class _Screen extends StatelessWidget {
             const Spacer(),
             Text(
               '100%',
-              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: pal.ink),
+              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: pal.sInk),
             ),
           ],
         ),
@@ -205,14 +210,14 @@ class _Screen extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.home_outlined, size: 40, color: pal.muted),
+              Icon(Icons.home_outlined, size: 40, color: pal.sMuted),
               const SizedBox(height: 10),
               Text(
                 'Tầng này chưa có phòng nào',
-                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: pal.ink),
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: pal.sInk),
               ),
               const SizedBox(height: 6),
-              Text('Bấm “Thêm phòng” ở cột bên trái.', style: TextStyle(color: pal.muted)),
+              Text('Bấm “Thêm phòng” ở cột bên trái.', style: TextStyle(color: pal.sMuted)),
             ],
           ),
         ),
@@ -302,7 +307,12 @@ class _Screen extends StatelessWidget {
     ),
   );
 
-  Widget _gear() => Container(
+  Widget _gear() => GestureDetector(
+    onTap: () => d.toggleAppSettings(true),
+    child: MouseRegion(cursor: SystemMouseCursors.click, child: _gearIcon()),
+  );
+
+  Widget _gearIcon() => Container(
     width: 32,
     height: 32,
     decoration: BoxDecoration(
@@ -323,7 +333,7 @@ class _Screen extends StatelessWidget {
             child: hide
                 ? Text(
                     multi ? (floor?['title'] ?? '').toString() : '',
-                    style: TextStyle(fontSize: tfs(doc, 'crumb') * 1.15, color: pal.muted, fontWeight: FontWeight.w500),
+                    style: TextStyle(fontSize: tfs(doc, 'crumb') * 1.15, color: pal.sMuted, fontWeight: FontWeight.w500),
                   )
                 : Row(
                     crossAxisAlignment: CrossAxisAlignment.baseline,
@@ -332,14 +342,14 @@ class _Screen extends StatelessWidget {
                       if (multi)
                         Text(
                           '${floor?['title'] ?? ''} ›  ',
-                          style: TextStyle(fontSize: tfs(doc, 'crumb'), color: pal.muted, fontWeight: FontWeight.w500),
+                          style: TextStyle(fontSize: tfs(doc, 'crumb'), color: pal.sMuted, fontWeight: FontWeight.w500),
                         ),
                       Flexible(
                         child: Text(
                           (room['title'] ?? '').toString(),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontSize: tfs(doc, 'titleSize'), fontWeight: FontWeight.w600, color: pal.ink),
+                          style: TextStyle(fontSize: tfs(doc, 'titleSize'), fontWeight: FontWeight.w600, color: pal.sInk),
                         ),
                       ),
                     ],
@@ -395,7 +405,7 @@ class _Screen extends StatelessWidget {
                       padding: const EdgeInsets.fromLTRB(8, 10, 8, 4),
                       child: Row(
                         children: [
-                          if (f['showIcon'] != false) ...[Icon(iconOf(f['icon'] as String? ?? 'stairs'), size: 14, color: pal.muted), const SizedBox(width: 6)],
+                          if (f['showIcon'] != false) ...[iconWidget(f['icon'] as String? ?? 'stairs', 14, pal.muted), const SizedBox(width: 6)],
                           Text(
                             (f['title'] ?? '').toString(),
                             style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: pal.muted),
@@ -413,7 +423,7 @@ class _Screen extends StatelessWidget {
                         decoration: BoxDecoration(color: r['id'] == room?['id'] ? pal.ink : Colors.transparent, borderRadius: BorderRadius.circular(12)),
                         child: Row(
                           children: [
-                            Icon(iconOf(r['icon'] as String?), size: 20, color: r['id'] == room?['id'] ? pal.screen : pal.muted),
+                            iconWidget(r['icon'] as String?, 20, r['id'] == room?['id'] ? pal.screen : pal.muted),
                             const SizedBox(width: 10),
                             Expanded(
                               child: Text(
@@ -464,7 +474,7 @@ class _Screen extends StatelessWidget {
                   ),
                   child: Row(
                     children: [
-                      Icon(iconOf(r['icon'] as String?), size: f * 1.25, color: r['id'] == room['id'] ? pal.screen : pal.muted),
+                      iconWidget(r['icon'] as String?, f * 1.25, r['id'] == room['id'] ? pal.screen : pal.muted),
                       SizedBox(width: f * 0.45),
                       Text(
                         (r['title'] ?? '').toString(),
@@ -544,14 +554,14 @@ class _Screen extends StatelessWidget {
               width: k == i ? 16 : 6,
               height: 6,
               margin: const EdgeInsets.symmetric(horizontal: 2),
-              decoration: BoxDecoration(color: k == i ? pal.ink : pal.lineStrong, borderRadius: BorderRadius.circular(3)),
+              decoration: BoxDecoration(color: k == i ? pal.sInk : pal.sMuted.withValues(alpha: 0.45), borderRadius: BorderRadius.circular(3)),
             ),
           ),
       ],
     );
     final title = Text(
       (sub['title'] ?? '').toString(),
-      style: TextStyle(fontSize: f, fontWeight: FontWeight.w600, color: pal.muted),
+      style: TextStyle(fontSize: f, fontWeight: FontWeight.w600, color: pal.sMuted),
     );
     Widget arrow(IconData icon, VoidCallback? onTap, String tip) => Tooltip(
       message: tip,
@@ -629,7 +639,7 @@ class _Screen extends StatelessWidget {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             if (fl['showIcon'] != false) ...[
-                              Icon(iconOf(fl['icon'] as String? ?? 'stairs'), size: f * 1.3, color: fl['id'] == floor?['id'] ? pal.screen : pal.muted),
+                              iconWidget(fl['icon'] as String? ?? 'stairs', f * 1.3, fl['id'] == floor?['id'] ? pal.screen : pal.muted),
                               SizedBox(width: f * 0.45),
                             ],
                             Flexible(
@@ -1063,6 +1073,236 @@ class _PagedGridState extends State<_PagedGrid> {
       itemBuilder: (context, i) => Padding(
         padding: const EdgeInsets.fromLTRB(14, 2, 14, 12),
         child: _GridArea(key: ValueKey<String>('ga-${ss[i]['id']}'), d: widget.d, box: ss[i], groupId: null, pal: widget.pal, issues: widget.issues),
+      ),
+    );
+  }
+}
+
+/// Screen background (default, colour or image) and the text colours that
+/// stay readable on it.
+class ScreenBg {
+  const ScreenBg(this.decoration, this.ink, this.muted);
+  final BoxDecoration decoration;
+  final Color ink, muted;
+}
+
+String? _bgData;
+MemoryImage? _bgImage;
+
+ScreenBg screenBackground(Json doc, AppPalette base) {
+  final t = jsonMap(doc['theme']);
+  final mode = (t['bgMode'] ?? 'default').toString();
+  final textMode = (t['bgText'] ?? 'auto').toString();
+  const light = Color(0xFFFFFFFF);
+  const darkInk = Color(0xFF1B2320);
+  ({Color ink, Color muted}) text(bool darkBg) {
+    final d = textMode == 'light' || (textMode == 'auto' && darkBg);
+    if (textMode == 'auto' && mode == 'default') return (ink: base.ink, muted: base.muted);
+    return d ? (ink: light, muted: light.withValues(alpha: 0.75)) : (ink: darkInk, muted: const Color(0xFF55605C));
+  }
+
+  if (mode == 'color') {
+    final c = hexColor(t['bgColor']) ?? base.screen;
+    final tx = text(c.computeLuminance() < 0.35);
+    return ScreenBg(BoxDecoration(color: c), tx.ink, tx.muted);
+  }
+  if (mode == 'image') {
+    final data = (t['bgImage'] ?? '').toString();
+    final i = data.indexOf('base64,');
+    if (i > 0) {
+      if (_bgData != data) {
+        try {
+          _bgImage = MemoryImage(base64Decode(data.substring(i + 7)));
+          _bgData = data;
+        } catch (_) {
+          _bgImage = null;
+          _bgData = null;
+        }
+      }
+      final dim = (((t['bgDim'] as num?) ?? 30).toDouble().clamp(0, 80)) / 100;
+      final img = _bgImage;
+      if (img != null) {
+        final tx = text(dim >= 0.25 || base.screen.computeLuminance() < 0.35);
+        return ScreenBg(
+          BoxDecoration(
+            color: Colors.black,
+            image: DecorationImage(
+              image: img,
+              fit: BoxFit.cover,
+              colorFilter: ColorFilter.mode(Colors.black.withValues(alpha: dim), BlendMode.srcOver),
+            ),
+          ),
+          tx.ink,
+          tx.muted,
+        );
+      }
+    }
+  }
+  final tx = text(base.screen.computeLuminance() < 0.35);
+  return ScreenBg(BoxDecoration(color: base.screen), tx.ink, tx.muted);
+}
+
+/// The App's settings screen, opened from the gear button in the preview.
+class _AppSettingsSheet extends StatelessWidget {
+  const _AppSettingsSheet({required this.d, required this.pal});
+  final Designer d;
+  final AppPalette pal;
+
+  static const _themes = [('light', 'Sáng'), ('dark', 'Tối'), ('graphite', 'Xám than'), ('sand', 'Kem')];
+
+  @override
+  Widget build(BuildContext context) {
+    final doc = d.doc;
+    final projMode = (jsonMap(doc['theme'])['mode'] ?? 'light').toString();
+    final cur = d.previewTheme ?? projMode;
+    final online = d.bus?.connected == true && d.live;
+    Widget card(String title, List<Widget> children) => Padding(
+      padding: const EdgeInsets.only(bottom: 18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(left: 6, bottom: 6),
+            child: Text(
+              title.toUpperCase(),
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 0.4, color: pal.muted),
+            ),
+          ),
+          Container(
+            decoration: BoxDecoration(
+              color: pal.tile,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: pal.tileEdge),
+            ),
+            child: Column(
+              children: [
+                for (var i = 0; i < children.length; i++) ...[children[i], if (i < children.length - 1) Divider(height: 1, indent: 16, color: pal.line)],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+    Widget row(Widget leading, String text, {String? sub, Widget? trailing, VoidCallback? onTap}) => InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+        child: Row(
+          children: [
+            leading,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(text, style: TextStyle(fontSize: 15, color: pal.ink)),
+                  if (sub != null) ...[const SizedBox(height: 2), Text(sub, style: TextStyle(fontSize: 12.5, color: pal.muted))],
+                ],
+              ),
+            ),
+            if (trailing != null) trailing,
+          ],
+        ),
+      ),
+    );
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 1, end: 0),
+      duration: const Duration(milliseconds: 260),
+      curve: Curves.easeOutCubic,
+      builder: (context, t, child) => FractionalTranslation(translation: Offset(0, t), child: child),
+      child: Container(
+        color: pal.screen,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const SizedBox(height: 38),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 4, 12, 12),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Cài đặt',
+                      style: TextStyle(fontSize: 26, fontWeight: FontWeight.w700, color: pal.ink),
+                    ),
+                  ),
+                  InkWell(
+                    customBorder: const CircleBorder(),
+                    onTap: () => d.toggleAppSettings(false),
+                    child: Container(
+                      width: 34,
+                      height: 34,
+                      decoration: BoxDecoration(
+                        color: pal.panel,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: pal.tileEdge),
+                      ),
+                      child: Icon(Icons.close, size: 18, color: pal.ink),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                children: [
+                  card('Tài khoản', [
+                    row(
+                      CircleAvatar(
+                        radius: 18,
+                        backgroundColor: pal.accentSoft,
+                        child: Icon(Icons.person_outline, color: pal.accent, size: 20),
+                      ),
+                      'Chưa đăng nhập',
+                      sub: 'Tài khoản và phân quyền người dùng sẽ có trong bản sau',
+                    ),
+                  ]),
+                  card('Giao diện', [
+                    for (final (k, n) in _themes)
+                      row(
+                        Container(
+                          width: 22,
+                          height: 22,
+                          decoration: BoxDecoration(
+                            color: AppPalette.of(k).screen,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: pal.lineStrong),
+                          ),
+                        ),
+                        n,
+                        sub: k == projMode ? 'Mặc định của dự án' : null,
+                        trailing: k == cur ? Icon(Icons.check, color: pal.accent, size: 20) : null,
+                        onTap: () => d.setPreviewTheme(k == projMode ? null : k),
+                      ),
+                  ]),
+                  card('Kết nối KNX', [
+                    for (final c in jsonList(doc['connections']))
+                      row(
+                        Icon(Icons.router_outlined, color: pal.muted, size: 22),
+                        (c['name'] ?? 'Kết nối').toString(),
+                        sub: '${c['host'] ?? ''}:${c['port'] ?? 3671}${c['natMode'] == true ? ' · NAT' : ''}',
+                        trailing: Text(online ? 'Đã kết nối' : 'Giả lập', style: TextStyle(fontSize: 12.5, color: online ? pal.accent : pal.muted)),
+                      ),
+                  ]),
+                  card('Giới thiệu', [
+                    row(Icon(Icons.info_outline, color: pal.muted, size: 22), 'EVOKNX', sub: 'Phiên bản 1.0 · © ${DateTime.now().year} Evohome'),
+                    row(
+                      Icon(Icons.home_work_outlined, color: pal.muted, size: 22),
+                      (jsonMap(doc['project'])['name'] ?? '').toString(),
+                      sub: 'Cấu hình phiên bản ${jsonMap(doc['project'])['revision'] ?? 0}',
+                    ),
+                  ]),
+                  Text(
+                    'Đây là bản xem trước. Lựa chọn giao diện ở đây chỉ để thử, không đổi cài đặt của dự án; trên App mỗi người dùng tự chọn giao diện riêng.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 12, color: pal.muted),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

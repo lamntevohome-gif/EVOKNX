@@ -1,4 +1,9 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:knx_config/knx_config.dart';
 
 /// Icon keys used in project files (shared with the web editor) mapped to
 /// Material icons.
@@ -125,3 +130,68 @@ String iconName(String? key) {
   }
   return key ?? '';
 }
+
+// ------------------------------------------------------------------ custom icons
+
+/// A user-uploaded icon stored in the project (`icons` list), shared with
+/// the web editor format: {id, name, data: data URL (SVG or PNG)}.
+class CustomIcon {
+  CustomIcon(this.id, this.name, this.data, this.bytes, this.svg);
+  final String id, name, data;
+  final Uint8List bytes;
+  final bool svg;
+}
+
+final Map<String, CustomIcon> _custom = {};
+
+/// Decodes a data URL (base64 or plain text SVG). Returns null if invalid.
+({Uint8List bytes, bool svg})? decodeIconData(String data) {
+  final m = RegExp(r'^data:image/(svg\+xml|png)(;[^,]*)?,(.*)$', dotAll: true).firstMatch(data);
+  if (m == null) return null;
+  final svg = m[1] == 'svg+xml';
+  try {
+    final payload = m[3]!;
+    final bytes = (m[2] ?? '').contains('base64') ? base64Decode(payload) : Uint8List.fromList(utf8.encode(Uri.decodeComponent(payload)));
+    return (bytes: bytes, svg: svg);
+  } catch (_) {
+    return null;
+  }
+}
+
+/// Refreshes the icon registry from the project (cheap when unchanged).
+void syncCustomIcons(Json doc) {
+  final seen = <String>{};
+  for (final i in jsonList(doc['icons'])) {
+    final id = (i['id'] ?? '').toString();
+    final data = (i['data'] ?? '').toString();
+    final name = (i['name'] ?? id).toString();
+    if (id.isEmpty) continue;
+    seen.add(id);
+    final cur = _custom[id];
+    if (cur != null && cur.data == data) {
+      if (cur.name != name) _custom[id] = CustomIcon(id, name, data, cur.bytes, cur.svg);
+      continue;
+    }
+    final dec = decodeIconData(data);
+    if (dec != null) _custom[id] = CustomIcon(id, name, data, dec.bytes, dec.svg);
+  }
+  _custom.removeWhere((k, _) => !seen.contains(k));
+}
+
+List<CustomIcon> get customIcons => _custom.values.toList();
+bool isCustomIcon(String? key) => key != null && _custom.containsKey(key);
+
+/// Draws an icon by key: built-in Material icon or a custom (tinted) icon.
+Widget iconWidget(String? key, double size, Color color) {
+  final c = key == null ? null : _custom[key];
+  if (c == null) return Icon(iconOf(key), size: size, color: color);
+  return SizedBox(
+    width: size,
+    height: size,
+    child: c.svg
+        ? SvgPicture.memory(c.bytes, fit: BoxFit.contain, colorFilter: ColorFilter.mode(color, BlendMode.srcIn))
+        : Image.memory(c.bytes, fit: BoxFit.contain, color: color, colorBlendMode: BlendMode.srcIn, filterQuality: FilterQuality.medium, gaplessPlayback: true),
+  );
+}
+
+String iconLabel(String? key) => _custom[key]?.name ?? iconName(key);

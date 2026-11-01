@@ -87,6 +87,7 @@ class _StructurePageState extends State<StructurePage> {
       child: ListenableBuilder(
         listenable: Listenable.merge([widget.project, d, widget.bus]),
         builder: (context, _) {
+          syncCustomIcons(d.doc);
           final issues = computeIssues(d.doc);
           return Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,

@@ -7,7 +7,9 @@ import '../state/project_controller.dart';
 import '../state/app_settings.dart';
 import 'common.dart';
 import 'connections_page.dart';
+import 'editor_settings_dialog.dart';
 import 'import_dialog.dart';
+import 'new_project_dialog.dart';
 import 'structure_page.dart';
 import 'test_page.dart';
 
@@ -21,8 +23,56 @@ class Shell extends StatefulWidget {
 
 class _ShellState extends State<Shell> {
   int ws = 0;
+  late final AppLifecycleListener _life = AppLifecycleListener(onExitRequested: _onExitRequested);
+  bool _asking = false;
 
   ProjectController get p => widget.project;
+
+  @override
+  void initState() {
+    super.initState();
+    _life; // registers the close handler
+  }
+
+  @override
+  void dispose() {
+    _life.dispose();
+    super.dispose();
+  }
+
+  /// Called when the window is being closed: offers to save changes.
+  Future<AppExitResponse> _onExitRequested() async {
+    if (!p.dirty || _asking || !mounted) return AppExitResponse.exit;
+    _asking = true;
+    final name = p.fileName;
+    final choice = await showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (c) => AlertDialog(
+        title: const Text('Lưu thay đổi trước khi đóng?', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
+        content: SizedBox(
+          width: 440,
+          child: Text(
+            name != null
+                ? 'Dự án “${p.projectName}” có thay đổi chưa lưu vào file $name.'
+                : 'Dự án “${p.projectName}” chưa được lưu thành file. Bấm Lưu để chọn tên và thư mục.',
+          ),
+        ),
+        actions: [
+          EvoButton(label: 'Huỷ', onPressed: () => Navigator.pop(c)),
+          EvoButton(label: 'Không lưu', danger: true, onPressed: () => Navigator.pop(c, 'discard')),
+          EvoButton(label: name != null ? 'Lưu' : 'Lưu thành…', primary: true, onPressed: () => Navigator.pop(c, 'save')),
+        ],
+      ),
+    );
+    _asking = false;
+    if (choice == 'discard') return AppExitResponse.exit;
+    if (choice == 'save') {
+      final ok = await p.saveForClose();
+      return ok ? AppExitResponse.exit : AppExitResponse.cancel;
+    }
+    return AppExitResponse.cancel;
+  }
 
   Future<void> _save({bool saveAs = false}) async {
     final m = await p.save(saveAs: saveAs);
@@ -34,10 +84,7 @@ class _ShellState extends State<Shell> {
     if (m != null && mounted) toast(context, m);
   }
 
-  Future<void> _new() async {
-    final name = await showDialog<String>(context: context, builder: (_) => const _NewProjectDialog());
-    if (name != null) p.newDocument(name);
-  }
+  Future<void> _new() => showNewProjectDialog(context, p);
 
   Future<void> _export() async {
     final m = await p.exportConfig();
@@ -82,8 +129,18 @@ class _ShellState extends State<Shell> {
     );
   }
 
+  String _status() {
+    if (p.path == null) return p.dirty ? 'Chưa lưu thành file' : 'Chưa lưu thành file';
+    if (p.dirty) return 'Chưa lưu';
+    final t = p.savedAt;
+    if (t == null) return 'Đã lưu';
+    final hm = '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+    return p.lastSaveWasAuto ? 'Tự lưu lúc $hm' : 'Đã lưu lúc $hm';
+  }
+
   Widget _topBar(BuildContext context) {
     final c = context.evo;
+    final compact = MediaQuery.sizeOf(context).width < 1500;
     return Container(
       height: 56,
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -119,45 +176,50 @@ class _ShellState extends State<Shell> {
           ),
           const SizedBox(width: 8),
           Tooltip(
-            message: p.path ?? 'Chưa lưu thành file',
-            child: Text(p.dirty ? 'Chưa lưu' : 'Đã lưu', style: TextStyle(fontSize: 12.5, color: p.dirty ? c.warn : c.muted)),
+            message: p.path ?? 'Dự án chưa được lưu thành file',
+            child: Text(_status(), style: TextStyle(fontSize: 12.5, color: p.dirty ? c.warn : c.muted)),
           ),
           const SizedBox(width: 18),
           Seg<int>(items: const [(0, 'Cấu trúc'), (1, 'Kết nối'), (2, 'Kiểm tra')], value: ws, onChanged: (v) => setState(() => ws = v)),
           const Spacer(),
-          PopupMenuButton<ThemeMode>(
-            tooltip: 'Giao diện Editor: Sáng / Tối',
-            initialValue: appSettings.themeMode,
-            onSelected: appSettings.setThemeMode,
-            icon: Icon(switch (appSettings.themeMode) {
-              ThemeMode.light => Icons.light_mode_outlined,
-              ThemeMode.dark => Icons.dark_mode_outlined,
-              ThemeMode.system => Icons.brightness_auto_outlined,
-            }, size: 19),
-            itemBuilder: (_) => const [
-              PopupMenuItem(value: ThemeMode.light, child: Text('Giao diện sáng')),
-              PopupMenuItem(value: ThemeMode.dark, child: Text('Giao diện tối')),
-              PopupMenuItem(value: ThemeMode.system, child: Text('Theo Windows')),
-            ],
-          ),
           IconButton(tooltip: 'Hoàn tác (Ctrl+Z)', onPressed: p.canUndo ? p.undo : null, icon: const Icon(Icons.undo, size: 19)),
           IconButton(tooltip: 'Làm lại (Ctrl+Y)', onPressed: p.canRedo ? p.redo : null, icon: const Icon(Icons.redo, size: 19)),
           const SizedBox(width: 8),
-          EvoButton(label: 'Mới', icon: Icons.note_add_outlined, tooltip: 'Dự án mới (Ctrl+N)', onPressed: _new),
+          EvoButton(label: compact ? '' : 'Mới', icon: Icons.note_add_outlined, tooltip: 'Dự án mới (Ctrl+N)', onPressed: _new),
           const SizedBox(width: 8),
-          _openButton(),
+          _openButton(compact),
           const SizedBox(width: 8),
-          EvoButton(label: 'Lưu', icon: Icons.save_outlined, tooltip: 'Lưu (Ctrl+S)', onPressed: () => _save()),
+          EvoButton(label: compact ? '' : 'Lưu', icon: Icons.save_outlined, tooltip: 'Lưu (Ctrl+S)', onPressed: () => _save()),
           const SizedBox(width: 8),
-          EvoButton(label: 'Nhập từ ETS', icon: Icons.upload_outlined, onPressed: () => runEtsImport(context, p)),
+          EvoButton(
+            label: compact ? '' : 'Lưu thành',
+            icon: Icons.save_as_outlined,
+            tooltip: 'Lưu thành file khác (Ctrl+Shift+S)',
+            onPressed: () => _save(saveAs: true),
+          ),
           const SizedBox(width: 8),
-          EvoButton(label: 'Xuất cấu hình', icon: Icons.download_outlined, primary: true, tooltip: 'Xuất file cấu hình cho App', onPressed: _export),
+          EvoButton(
+            label: compact ? '' : 'Nhập từ ETS',
+            icon: Icons.upload_outlined,
+            tooltip: 'Nhập địa chỉ nhóm từ ETS',
+            onPressed: () => runEtsImport(context, p),
+          ),
+          const SizedBox(width: 8),
+          EvoButton(
+            label: compact ? '' : 'Xuất cấu hình',
+            icon: Icons.download_outlined,
+            primary: true,
+            tooltip: 'Xuất file cấu hình cho App',
+            onPressed: _export,
+          ),
+          const SizedBox(width: 6),
+          IconButton(tooltip: 'Cài đặt Editor', onPressed: () => EditorSettingsDialog.show(context), icon: const Icon(Icons.settings_outlined, size: 20)),
         ],
       ),
     );
   }
 
-  Widget _openButton() {
+  Widget _openButton(bool compact) {
     return PopupMenuButton<String>(
       tooltip: 'Mở dự án (Ctrl+O)',
       position: PopupMenuPosition.under,
@@ -171,57 +233,11 @@ class _ShellState extends State<Shell> {
             child: Text(r, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13)),
           ),
       ],
-      child: const IgnorePointer(
-        child: EvoButton(label: 'Mở', icon: Icons.folder_open_outlined, onPressed: _noop),
+      child: IgnorePointer(
+        child: EvoButton(label: compact ? '' : 'Mở', icon: Icons.folder_open_outlined, onPressed: _noop),
       ),
     );
   }
 }
 
 void _noop() {}
-
-class _NewProjectDialog extends StatefulWidget {
-  const _NewProjectDialog();
-  @override
-  State<_NewProjectDialog> createState() => _NewProjectDialogState();
-}
-
-class _NewProjectDialogState extends State<_NewProjectDialog> {
-  final _c = TextEditingController();
-  @override
-  void dispose() {
-    _c.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Tạo dự án mới', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
-      content: SizedBox(
-        width: 420,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Dự án hiện tại sẽ được thay thế. Bạn vẫn có thể hoàn tác (Ctrl+Z).', style: TextStyle(color: context.evo.muted)),
-            const SizedBox(height: 14),
-            FieldLabel(
-              'Tên dự án',
-              TextField(
-                controller: _c,
-                autofocus: true,
-                decoration: const InputDecoration(hintText: 'Ví dụ: Biệt thự anh Nam'),
-                onSubmitted: (v) => Navigator.pop(context, v),
-              ),
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        EvoButton(label: 'Huỷ', onPressed: () => Navigator.pop(context)),
-        EvoButton(label: 'Tạo dự án', primary: true, onPressed: () => Navigator.pop(context, _c.text)),
-      ],
-    );
-  }
-}

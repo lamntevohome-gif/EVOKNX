@@ -9,6 +9,7 @@ import 'package:knx_config/knx_config.dart';
 import '../../app/theme.dart';
 import '../common.dart';
 import 'designer.dart';
+import 'icon_picker.dart';
 import 'icons.dart';
 import 'model.dart';
 
@@ -117,8 +118,6 @@ class StepRow extends StatelessWidget {
   }
 }
 
-List<(String, String)> _iconItems(List<(String, String)> l) => l;
-
 // ------------------------------------------------------------------ widget
 
 class _WidgetProps extends StatefulWidget {
@@ -201,10 +200,30 @@ class _WidgetPropsState extends State<_WidgetProps> {
             ),
           ),
           if (type != 'group')
-            FieldLabel(
-              'Biểu tượng',
-              EvoDropdown<String>(value: (w['icon'] ?? '').toString(), items: [...kLightIcons, ...kDeviceIcons], onChanged: (v) => set('icon', v)),
+            FieldLabel('Biểu tượng', IconField(d: d, value: w['icon'] as String?, scope: IconScope.widget, onChanged: (v) => set('icon', v))),
+          FieldLabel(
+            type == 'group' ? 'Màu nền khung' : 'Màu nền thẻ',
+            _BgPicker(
+              value: (type == 'group' ? w['gbg'] : jsonMap(w['style'])['bg']) as String?,
+              onChanged: (v) => d.editWidget(id, (x) {
+                if (type == 'group') {
+                  if (v == null) {
+                    x.remove('gbg');
+                  } else {
+                    x['gbg'] = v;
+                  }
+                } else {
+                  final m = jsonMap(x['style']);
+                  if (v == null) {
+                    m.remove('bg');
+                  } else {
+                    m['bg'] = v;
+                  }
+                  x['style'] = m;
+                }
+              }, coalesce: 'bg-$id'),
             ),
+          ),
           Row(
             children: [
               Expanded(
@@ -813,7 +832,7 @@ class _RoomProps extends StatelessWidget {
             ),
             FieldLabel(
               'Biểu tượng phòng',
-              EvoDropdown<String>(value: (r['icon'] ?? 'sofa').toString(), items: _iconItems(kRoomIcons), onChanged: (v) => editRoom((x) => x['icon'] = v)),
+              IconField(d: d, value: (r['icon'] ?? 'sofa').toString(), scope: IconScope.room, onChanged: (v) => editRoom((x) => x['icon'] = v)),
             ),
             Row(
               children: [
@@ -949,7 +968,7 @@ class _FloorProps extends StatelessWidget {
         ),
         FieldLabel(
           'Biểu tượng tầng',
-          EvoDropdown<String>(value: (f['icon'] ?? 'stairs').toString(), items: kFloorIcons, onChanged: (v) => editFloor((x) => x['icon'] = v)),
+          IconField(d: d, value: (f['icon'] ?? 'stairs').toString(), scope: IconScope.floor, onChanged: (v) => editFloor((x) => x['icon'] = v)),
         ),
         CheckboxListTile(
           value: f['showIcon'] != false,
@@ -1029,6 +1048,7 @@ class _OverviewProps extends StatelessWidget {
             }),
         ]),
         _SplashSettings(d: d),
+        _ScreenBgSettings(d: d),
         _Section('Giao diện App', [
           StepRow(
             label: 'Tỉ lệ hiển thị trên tablet',
@@ -1050,8 +1070,8 @@ class _OverviewProps extends StatelessWidget {
           FieldLabel(
             'Giao diện mặc định',
             EvoDropdown<String>(
-              value: (theme['mode'] ?? 'light').toString(),
-              items: const [('light', 'Sáng'), ('dark', 'Tối'), ('system', 'Theo cài đặt của máy')],
+              value: const ['light', 'dark', 'graphite', 'sand'].contains(theme['mode']) ? theme['mode'] as String : 'light',
+              items: const [('light', 'Sáng'), ('dark', 'Tối'), ('graphite', 'Xám than'), ('sand', 'Kem')],
               onChanged: (v) => editTheme((x) => x['mode'] = v),
             ),
           ),
@@ -1113,9 +1133,10 @@ Color? _hex(String s) {
 }
 
 class _ColorPicker extends StatelessWidget {
-  const _ColorPicker({required this.value, required this.onChanged});
+  const _ColorPicker({required this.value, required this.onChanged, this.swatches = _kSwatches});
   final String value;
   final ValueChanged<String> onChanged;
+  final List<String> swatches;
   @override
   Widget build(BuildContext context) {
     final c = context.evo;
@@ -1126,7 +1147,7 @@ class _ColorPicker extends StatelessWidget {
             spacing: 6,
             runSpacing: 6,
             children: [
-              for (final h in _kSwatches)
+              for (final h in swatches)
                 InkWell(
                   customBorder: const CircleBorder(),
                   onTap: () => onChanged(h),
@@ -1307,5 +1328,187 @@ class _SplashSettings extends StatelessWidget {
         ),
       ),
     ], trailing: EvoButton(label: 'Xem thử', icon: Icons.play_arrow_outlined, small: true, onPressed: () => d.previewSplash((dur * 1000).round())));
+  }
+}
+
+const _kBgSwatches = ['#FFFFFF', '#F3F4F6', '#E3F1E9', '#FDF1DC', '#E6EEF9', '#FBE9E5', '#2A3035', '#1B2320', '#0F1A2B', '#3A2D17'];
+
+/// "Mặc định" + colour swatches for card / frame backgrounds (null = default).
+class _BgPicker extends StatelessWidget {
+  const _BgPicker({required this.value, required this.onChanged});
+  final String? value;
+  final ValueChanged<String?> onChanged;
+  @override
+  Widget build(BuildContext context) {
+    final c = context.evo;
+    final isDefault = value == null || _hex(value!) == null;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Material(
+              color: isDefault ? c.accentSoft : c.panel,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+                side: BorderSide(color: isDefault ? c.accent : c.line),
+              ),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(8),
+                onTap: () => onChanged(null),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  child: Text(
+                    'Mặc định',
+                    style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: isDefault ? c.accentInk : c.ink),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(isDefault ? 'Theo giao diện Sáng/Tối của App' : 'Chữ tự đổi sáng/tối cho dễ đọc', style: TextStyle(fontSize: 12, color: c.muted)),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        _ColorPicker(value: isDefault ? '' : value!, swatches: _kBgSwatches, onChanged: onChanged),
+      ],
+    );
+  }
+}
+
+/// Overview → "Nền giao diện": default, colour, or an uploaded image.
+class _ScreenBgSettings extends StatelessWidget {
+  const _ScreenBgSettings({required this.d});
+  final Designer d;
+
+  void _set(Map<String, Object?> kv, {String? co}) => d.p.mutate((doc) {
+    final t = jsonMap(doc['theme']);
+    kv.forEach((k, v) {
+      if (v == null) {
+        t.remove(k);
+      } else {
+        t[k] = v;
+      }
+    });
+    doc['theme'] = t;
+  }, coalesce: co);
+
+  Future<void> _pick(BuildContext context) async {
+    final f = await openFile(
+      acceptedTypeGroups: const [
+        XTypeGroup(label: 'Ảnh nền (JPG, PNG)', extensions: ['jpg', 'jpeg', 'png']),
+      ],
+      confirmButtonText: 'Chọn ảnh',
+    );
+    if (f == null) return;
+    final bytes = await f.readAsBytes();
+    if (!context.mounted) return;
+    if (bytes.length > 2 * 1024 * 1024) {
+      toast(context, 'Ảnh nặng ${(bytes.length / 1024 / 1024).toStringAsFixed(1)} MB, vượt quá 2 MB. Hãy nén lại (ví dụ xuất JPG chất lượng 80%).');
+      return;
+    }
+    try {
+      final img = await decodeImageFromList(bytes);
+      if (!context.mounted) return;
+      if (min(img.width, img.height) < 600) {
+        toast(context, 'Ảnh ${img.width} × ${img.height} px quá nhỏ, sẽ bị vỡ hình. Nên dùng 1290 × 2796 px.');
+        return;
+      }
+    } catch (_) {
+      if (context.mounted) toast(context, 'Không đọc được ảnh.');
+      return;
+    }
+    final png = f.name.toLowerCase().endsWith('.png');
+    _set({'bgMode': 'image', 'bgImage': 'data:image/${png ? 'png' : 'jpeg'};base64,${base64Encode(bytes)}'});
+    if (context.mounted) toast(context, 'Đã đặt ảnh nền.');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.evo;
+    final t = jsonMap(d.doc['theme']);
+    final mode = (t['bgMode'] ?? 'default').toString();
+    final img = (t['bgImage'] ?? '').toString();
+    final i = img.indexOf('base64,');
+    return _Section('Nền giao diện', [
+      Seg<String>(
+        items: const [('default', 'Mặc định'), ('color', 'Màu'), ('image', 'Hình ảnh')],
+        value: mode,
+        onChanged: (v) => _set({'bgMode': v, if (v == 'color' && t['bgColor'] == null) 'bgColor': '#E3F1E9'}),
+      ),
+      if (mode == 'default') Text('Dùng màu nền theo giao diện Sáng/Tối của App.', style: TextStyle(fontSize: 12.5, color: c.muted)),
+      if (mode == 'color')
+        _ColorPicker(
+          value: (t['bgColor'] ?? '#E3F1E9').toString(),
+          swatches: _kBgSwatches,
+          onChanged: (v) => _set({'bgColor': v}, co: 'bgc'),
+        ),
+      if (mode == 'image') ...[
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 72,
+              height: 128,
+              clipBehavior: Clip.antiAlias,
+              decoration: BoxDecoration(
+                color: c.paper,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: c.line),
+              ),
+              child: i > 0
+                  ? Image.memory(base64Decode(img.substring(i + 7)), fit: BoxFit.cover, gaplessPlayback: true)
+                  : Center(
+                      child: Text('Chưa có', style: TextStyle(fontSize: 12, color: c.muted)),
+                    ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  EvoButton(label: i > 0 ? 'Đổi ảnh' : 'Tải ảnh lên', icon: Icons.image_outlined, small: true, onPressed: () => _pick(context)),
+                  if (i > 0) ...[
+                    const SizedBox(height: 6),
+                    EvoButton(
+                      label: 'Bỏ ảnh',
+                      icon: Icons.delete_outline,
+                      small: true,
+                      danger: true,
+                      onPressed: () => _set({'bgImage': null, 'bgMode': 'default'}),
+                    ),
+                  ],
+                  const SizedBox(height: 8),
+                  Text(
+                    'JPG hoặc PNG, ảnh dọc theo màn hình điện thoại, nên dùng 1290 × 2796 px, dưới 2 MB. Ảnh tự cắt vừa cả mobile và tablet.',
+                    style: TextStyle(fontSize: 12, color: c.muted),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        StepRow(
+          label: 'Làm tối ảnh (giúp chữ dễ đọc)',
+          unit: '%',
+          step: 10,
+          value: ((t['bgDim'] as num?) ?? 30).toInt(),
+          min: 0,
+          max: 80,
+          onChanged: (v) => _set({'bgDim': v}, co: 'bgdim'),
+        ),
+      ],
+      if (mode != 'default')
+        FieldLabel(
+          'Màu chữ trên nền (tiêu đề, tên trang)',
+          EvoDropdown<String>(
+            value: (t['bgText'] ?? 'auto').toString(),
+            items: const [('auto', 'Tự động theo nền'), ('dark', 'Chữ đậm'), ('light', 'Chữ trắng')],
+            onChanged: (v) => _set({'bgText': v}),
+          ),
+        ),
+    ]);
   }
 }

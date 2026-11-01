@@ -43,6 +43,23 @@ class Designer extends ChangeNotifier {
   // splash preview
   bool splashPreview = false;
 
+  // in-preview app settings sheet
+  bool appSettingsOpen = false;
+
+  /// Theme picked in the preview's settings sheet (not saved to the project;
+  /// on the real App every user chooses their own).
+  String? previewTheme;
+
+  void toggleAppSettings([bool? open]) {
+    appSettingsOpen = open ?? !appSettingsOpen;
+    _n();
+  }
+
+  void setPreviewTheme(String? m) {
+    previewTheme = m;
+    _n();
+  }
+
   String view = 'room'; // overview | floor | room
   String? floorId, roomId, subId, widgetId;
   ({String? g, int x, int y})? cell;

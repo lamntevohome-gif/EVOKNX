@@ -7,6 +7,8 @@ import 'package:flutter/foundation.dart';
 import 'package:knx_config/knx_config.dart';
 import 'package:path_provider/path_provider.dart';
 
+import 'app_settings.dart';
+
 /// Holds the open project, file path, undo/redo history and autosave.
 class ProjectController extends ChangeNotifier {
   Json doc = newProject('Dự án mới');
@@ -19,12 +21,22 @@ class ProjectController extends ChangeNotifier {
   String? _lastCoalesce;
   DateTime _lastCoalesceAt = DateTime.fromMillisecondsSinceEpoch(0);
   Timer? _autosaveTimer;
+  Timer? _fileAutosaveTimer;
+
+  /// When the project file was last written (manually or automatically).
+  DateTime? savedAt;
+  bool lastSaveWasAuto = false;
   Directory? _dataDir;
+
+  /// Session (crash-recovery) file. Windows opened by double-clicking a
+  /// project get their own session file so several windows never collide.
+  String _sessionName = 'autosave.evoknx';
 
   static const _typeGroup = XTypeGroup(label: 'Dự án EVOKNX', extensions: ['evoknx', 'json']);
 
   bool get canUndo => _undo.isNotEmpty;
   bool get canRedo => _redo.isNotEmpty;
+  String? get fileName => path?.split(Platform.pathSeparator).last;
   String get projectName => (jsonMap(doc['project'])['name'] as String?) ?? 'Dự án mới';
   List<Json> get connections => jsonList(doc['connections']);
   List<Json> get groupAddresses => jsonList(doc['groupAddresses']);
@@ -43,12 +55,27 @@ class ProjectController extends ChangeNotifier {
     return null;
   }
 
-  Future<void> init() async {
+  Future<void> init({String? openPath}) async {
+    appSettings.addListener(_configureFileAutosave);
+    _configureFileAutosave();
+    if (openPath != null) _sessionName = 'autosave-${openPath.toLowerCase().hashCode.toUnsigned(32).toRadixString(16)}.evoknx';
     try {
       _dataDir = await getApplicationSupportDirectory();
+      if (openPath != null) {
+        final rf = File('${_dataDir!.path}${Platform.pathSeparator}recent.json');
+        if (await rf.exists()) recent = (jsonDecode(await rf.readAsString()) as List).cast<String>();
+        final po = jsonDecode(await File(openPath).readAsString());
+        if (po is Map && isProject(po)) {
+          doc = migrate(po.cast<String, dynamic>());
+          path = openPath;
+          dirty = false;
+          _remember(openPath);
+          return;
+        }
+      }
       final r = File('${_dataDir!.path}${Platform.pathSeparator}recent.json');
       if (await r.exists()) recent = (jsonDecode(await r.readAsString()) as List).cast<String>();
-      final a = File('${_dataDir!.path}${Platform.pathSeparator}autosave.evoknx');
+      final a = File('${_dataDir!.path}${Platform.pathSeparator}$_sessionName');
       if (await a.exists()) {
         final o = jsonDecode(await a.readAsString());
         if (o is Map && o['doc'] is Map && isProject(o['doc'])) {
@@ -116,11 +143,70 @@ class ProjectController extends ChangeNotifier {
     final d = _dataDir;
     if (d == null) return;
     try {
-      await File('${d.path}${Platform.pathSeparator}autosave.evoknx').writeAsString(jsonEncode({'path': path, 'dirty': dirty, 'doc': doc}));
+      await File('${d.path}${Platform.pathSeparator}$_sessionName').writeAsString(jsonEncode({'path': path, 'dirty': dirty, 'doc': doc}));
     } catch (_) {}
   }
 
   // -------------------------------------------------------------- files
+
+  /// (Re)starts the periodic save into the project file.
+  void _configureFileAutosave() {
+    _fileAutosaveTimer?.cancel();
+    final m = appSettings.autosaveMinutes;
+    if (m <= 0) return;
+    _fileAutosaveTimer = Timer.periodic(Duration(minutes: m), (_) async {
+      if (path == null || !dirty) return;
+      final ok = await _writeTo(path!);
+      if (ok) {
+        lastSaveWasAuto = true;
+        notifyListeners();
+      }
+    });
+  }
+
+  Future<bool> _writeTo(String p) async {
+    try {
+      await File(p).writeAsString(const JsonEncoder.withIndent('  ').convert(doc));
+      path = p;
+      dirty = false;
+      savedAt = DateTime.now();
+      _remember(p);
+      _changed();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Asks for a location (Save As). Returns the chosen path or null.
+  Future<String?> _askLocation() async {
+    final loc = await getSaveLocation(
+      acceptedTypeGroups: const [_typeGroup],
+      suggestedName: path != null ? fileName! : '${_slug(projectName)}.evoknx',
+      initialDirectory: path != null ? File(path!).parent.path : appSettings.defaultFolder,
+      confirmButtonText: 'Lưu',
+    );
+    if (loc == null) return null;
+    return loc.path.toLowerCase().endsWith('.evoknx') ? loc.path : '${loc.path}.evoknx';
+  }
+
+  /// Saves before closing the window. Returns true when the project is safe
+  /// to close (saved), false when the user cancelled or saving failed.
+  Future<bool> saveForClose() async {
+    final p = path ?? await _askLocation();
+    if (p == null) return false;
+    return _writeTo(p);
+  }
+
+  /// Replaces the project with a newly created document (undoable).
+  void replaceDocument(Json d) {
+    mutate((_) {});
+    doc = migrate(d);
+    path = null;
+    dirty = true;
+    savedAt = null;
+    _changed();
+  }
 
   void newDocument(String name) {
     mutate((_) {});
@@ -156,20 +242,12 @@ class ProjectController extends ChangeNotifier {
   Future<String?> save({bool saveAs = false}) async {
     var p = path;
     if (p == null || saveAs) {
-      final loc = await getSaveLocation(acceptedTypeGroups: const [_typeGroup], suggestedName: '${_slug(projectName)}.evoknx', confirmButtonText: 'Lưu');
-      if (loc == null) return null;
-      p = loc.path.toLowerCase().endsWith('.evoknx') ? loc.path : '${loc.path}.evoknx';
+      p = await _askLocation();
+      if (p == null) return null;
     }
-    try {
-      await File(p).writeAsString(const JsonEncoder.withIndent('  ').convert(doc));
-      path = p;
-      dirty = false;
-      _remember(p);
-      _changed();
-      return 'Đã lưu ${p.split(Platform.pathSeparator).last}';
-    } catch (e) {
-      return 'Không lưu được file: $e';
-    }
+    final ok = await _writeTo(p);
+    lastSaveWasAuto = false;
+    return ok ? 'Đã lưu ${p.split(Platform.pathSeparator).last}' : 'Không lưu được file. Kiểm tra quyền ghi của thư mục.';
   }
 
   /// Exports the configuration file for the mobile/tablet app.

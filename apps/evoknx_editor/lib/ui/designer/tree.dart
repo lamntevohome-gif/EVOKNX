@@ -109,7 +109,7 @@ class StructureTree extends StatelessWidget {
         const SizedBox(height: 10),
         for (final f in floorsOf(doc)) ...[
           row(
-            leading: Icon(iconOf(f['icon'] as String? ?? 'stairs'), size: 18, color: c.muted),
+            leading: iconWidget(f['icon'] as String? ?? 'stairs', 18, c.muted),
             text: (f['title'] ?? '').toString(),
             trailing: '${roomsOf(doc, f['id'] as String?).length} phòng',
             on: d.view == 'floor' && d.floor?['id'] == f['id'],
@@ -119,7 +119,7 @@ class StructureTree extends StatelessWidget {
           for (final r in roomsOf(doc, f['id'] as String?)) ...[
             row(
               indent: 12,
-              leading: Icon(iconOf(r['icon'] as String?), size: 18, color: c.muted),
+              leading: iconWidget(r['icon'] as String?, 18, c.muted),
               text: (r['title'] ?? '').toString(),
               trailing: '${subsOf(r).fold<int>(0, (n, s) => n + jsonList(s['widgets']).length)}',
               on: d.view == 'room' && curRoom?['id'] == r['id'] && subsOf(r).length < 2,
