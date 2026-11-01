@@ -1,0 +1,85 @@
+name: Build EVOKNX Editor (Windows)
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  packages:
+    name: Kiểm tra thư viện Dart
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dart-lang/setup-dart@v1
+      - name: knx_core
+        working-directory: packages/knx_core
+        run: |
+          dart pub get
+          dart analyze
+          dart run tool/selftest.dart
+      - name: knx_config
+        working-directory: packages/knx_config
+        run: |
+          dart pub get
+          dart analyze
+          dart run tool/selftest.dart
+
+  windows:
+    name: Build Windows
+    needs: packages
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: apps/evoknx_editor
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Tạo thư mục windows (nếu chưa có)
+        run: |
+          flutter config --enable-windows-desktop
+          if (!(Test-Path windows)) { flutter create --platforms=windows --project-name evoknx_editor --org vn.evohome . }
+      - name: Tuỳ chỉnh tên, kích thước cửa sổ và biểu tượng
+        run: |
+          $f = 'windows/runner/main.cpp'
+          (Get-Content $f) -replace 'L"evoknx_editor"', 'L"EVOKNX Editor"' -replace 'Win32Window::Size size\(1280, 720\)', 'Win32Window::Size size(1440, 900)' | Set-Content $f
+          Copy-Item windows_assets/app_icon.ico windows/runner/resources/app_icon.ico -Force
+          $rc = 'windows/runner/Runner.rc'
+          (Get-Content $rc) -replace '"FileDescription", "evoknx_editor"', '"FileDescription", "EVOKNX Editor"' -replace '"ProductName", "evoknx_editor"', '"ProductName", "EVOKNX Editor"' -replace '"CompanyName", "vn.evohome"', '"CompanyName", "Evohome"' | Set-Content $rc
+      - run: flutter pub get
+      - name: Phân tích code
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
+      - run: flutter test
+      - name: Build
+        run: flutter build windows --release
+      - name: Kèm thư viện Visual C++ (để chạy được trên máy chưa cài)
+        run: |
+          foreach ($dll in 'msvcp140.dll','vcruntime140.dll','vcruntime140_1.dll') {
+            $src = Join-Path $env:WINDIR "System32\$dll"
+            if (Test-Path $src) { Copy-Item $src build/windows/x64/runner/Release/ -Force }
+          }
+      - name: Đóng gói
+        run: |
+          Rename-Item build/windows/x64/runner/Release EVOKNX-Editor
+          Compress-Archive -Path build/windows/x64/runner/EVOKNX-Editor -DestinationPath EVOKNX-Editor-Windows.zip
+      - name: Bộ cài đặt (Inno Setup)
+        run: |
+          $iscc = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
+          if (!(Test-Path $iscc)) { choco install innosetup -y --no-progress | Out-Null }
+          $ver = (Select-String -Path pubspec.yaml -Pattern '^version:\s*([0-9.]+)').Matches[0].Groups[1].Value
+          & $iscc "/DAppVersion=$ver" "/DSourceDir=$PWD\build\windows\x64\runner\EVOKNX-Editor" windows_assets\installer.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: EVOKNX-Editor-Setup
+          path: apps/evoknx_editor/installer/*.exe
+          retention-days: 30
+      - uses: actions/upload-artifact@v4
+        with:
+          name: EVOKNX-Editor-Windows
+          path: apps/evoknx_editor/EVOKNX-Editor-Windows.zip
+          retention-days: 30
