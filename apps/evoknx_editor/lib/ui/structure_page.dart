@@ -195,6 +195,7 @@ class _StructurePageState extends State<StructurePage> {
                 message: 'Kéo vào màn hình, hoặc bấm để thêm',
                 child: Draggable<DragItem>(
                   data: DragItem.palette(t.type),
+                  dragAnchorStrategy: pointerDragAnchorStrategy,
                   feedback: Material(type: MaterialType.transparency, child: chip(iconOf(t.icon), t.name)),
                   child: chip(iconOf(t.icon), t.name, onTap: () => _add(t.type)),
                 ),
