@@ -3,6 +3,8 @@
 // A part file carries the items, the group addresses they use and the custom
 // icons they show. On import every id is renewed, addresses are matched by
 // their KNX address (existing ones are reused) and icons are added if missing.
+import 'dart:math';
+
 import 'project.dart';
 
 const int kPartVersion = 1;
@@ -10,7 +12,7 @@ const int kPartVersion = 1;
 /// A modifiable List<dynamic> holding the same items.
 List<dynamic> _growable(Object? v) => <dynamic>[...(v is List ? v : const [])];
 
-bool isPart(Object? o) => o is Map && o['evoknxPart'] is num && const ['floor', 'room', 'page'].contains(o['kind']);
+bool isPart(Object? o) => o is Map && o['evoknxPart'] is num && const ['floor', 'room', 'page', 'card'].contains(o['kind']);
 
 Object? _copy(Object? v) {
   if (v is Map) return v.map((k, e) => MapEntry(k.toString(), _copy(e)));
@@ -253,4 +255,114 @@ PartResult applyPart(Json doc, Json part, {String? floorId, String? roomId}) {
         ? newFloors.first['id'] as String
         : (newRooms.isNotEmpty ? newRooms.first['id'] as String : (newSubs.isNotEmpty ? newSubs.first['id'] as String : null)),
   );
+}
+
+
+// ------------------------------------------------------------------ cards
+
+/// Builds a part file for one card (a grid frame carries its cards).
+Json makeCardPart(Json doc, Json widget) {
+  final w = Json.from(_copy(widget) as Map);
+  final gaIds = <String>{};
+  void binds(Json x) => jsonMap(x['bind']).values.whereType<String>().forEach(gaIds.add);
+  binds(w);
+  jsonList(w['widgets']).forEach(binds);
+  final used = <String>{};
+  _walkStrings(w, used.add);
+  return {
+    'evoknxPart': kPartVersion,
+    'kind': 'card',
+    'name': (w['label'] ?? '').toString(),
+    'schemaVersion': kSchemaVersion,
+    'createdAt': DateTime.now().toIso8601String(),
+    'widgets': [w],
+    'groupAddresses': jsonList(doc['groupAddresses']).where((g) => gaIds.contains(g['id'])).toList(),
+    'icons': jsonList(doc['icons']).where((i) => used.contains(i['id'])).toList(),
+  };
+}
+
+/// Places the card(s) of [part] on page [sub] at the first free spot.
+/// With [keepAddresses] false the cards keep their settings but no group
+/// addresses (to be assigned again).
+PartResult applyCardPart(Json doc, Json part, Json sub, {bool keepAddresses = true}) {
+  if (!isPart(part) || part['kind'] != 'card') return PartResult(error: 'File không phải thẻ EVOKNX.');
+  final p = Json.from(_copy(part) as Map);
+  final gaMap = <String, String>{};
+  var added = 0, reused = 0;
+  if (keepAddresses) {
+    final docGas = doc['groupAddresses'] = _growable(doc['groupAddresses']);
+    for (final g in jsonList(p['groupAddresses'])) {
+      final oldId = (g['id'] ?? '').toString();
+      final hit = jsonList(docGas).where((x) => x['address'] == g['address']).firstOrNull;
+      if (hit != null) {
+        gaMap[oldId] = hit['id'] as String;
+        reused++;
+        continue;
+      }
+      var nid = oldId;
+      if (nid.isEmpty || jsonList(docGas).any((x) => x['id'] == nid)) nid = uid('ga_');
+      docGas.add({...g, 'id': nid});
+      gaMap[oldId] = nid;
+      added++;
+    }
+  }
+  final iconMap = <String, String>{};
+  final docIcons = doc['icons'] = _growable(doc['icons']);
+  var icons = 0;
+  for (final i in jsonList(p['icons'])) {
+    final oldId = (i['id'] ?? '').toString();
+    final same = jsonList(docIcons).where((x) => x['data'] == i['data']).firstOrNull;
+    if (same != null) {
+      iconMap[oldId] = same['id'] as String;
+      continue;
+    }
+    var nid = oldId;
+    if (jsonList(docIcons).any((x) => x['id'] == nid)) nid = uid('ci_');
+    docIcons.add({...i, 'id': nid});
+    iconMap[oldId] = nid;
+    icons++;
+  }
+  Object? remap(Object? v) {
+    if (v is String) return iconMap[v] ?? v;
+    if (v is List) return v.map(remap).toList();
+    if (v is Map) {
+      final m = <String, dynamic>{};
+      v.forEach((k, e) {
+        if (k == 'bind' && e is Map) {
+          m['bind'] = keepAddresses ? e.map((bk, bv) => MapEntry(bk.toString(), bv is String ? (gaMap[bv] ?? bv) : bv)) : <String, dynamic>{};
+        } else if (k != 'posBy') {
+          m[k.toString()] = remap(e);
+        }
+      });
+      return m;
+    }
+    return v;
+  }
+
+  sub['widgets'] = _growable(sub['widgets']);
+  final list = sub['widgets'] as List;
+  final cols = (jsonMap(sub['layout'])['columns'] as num?)?.toInt() ?? 4;
+  var count = 0;
+  String? first;
+  for (final w0 in jsonList(p['widgets'])) {
+    final w = Json.from(remap(w0) as Map);
+    w['id'] = uid('w_');
+    count++;
+    for (final c in jsonList(w['widgets'])) {
+      c['id'] = uid('w_');
+      count++;
+    }
+    final pos = jsonMap(w['pos']);
+    final ww = min(((pos['w'] as num?) ?? 2).toInt(), cols), hh = ((pos['h'] as num?) ?? 2).toInt();
+    if (w['type'] == 'group') {
+      final l = jsonMap(w['layout']);
+      if (((l['columns'] as num?) ?? ww) > ww) l['columns'] = ww;
+      w['layout'] = l;
+    }
+    final f = findFree(sub, ww, hh);
+    w['pos'] = {'x': f.x, 'y': f.y, 'w': ww, 'h': hh};
+    list.add(w);
+    first ??= w['id'] as String;
+  }
+  return PartResult(widgets: count, newAddresses: added, reusedAddresses: reused, icons: icons, firstId: first);
 }
