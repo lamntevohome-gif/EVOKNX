@@ -6,10 +6,12 @@ import 'app/app.dart';
 import 'state/app_settings.dart';
 import 'state/bus_controller.dart';
 import 'state/project_controller.dart';
+import 'ui/designer/icons.dart';
 
 Future<void> main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
   await appSettings.load();
+  await Mdi.load();
   final project = ProjectController();
   // A project file passed on the command line (double-click on a .evoknx
   // file) opens in this new window.
