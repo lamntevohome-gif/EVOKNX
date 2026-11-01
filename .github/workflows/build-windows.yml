@@ -56,10 +56,28 @@ jobs:
       - run: flutter test
       - name: Build
         run: flutter build windows --release
+      - name: Kèm thư viện Visual C++ (để chạy được trên máy chưa cài)
+        run: |
+          foreach ($dll in 'msvcp140.dll','vcruntime140.dll','vcruntime140_1.dll') {
+            $src = Join-Path $env:WINDIR "System32\$dll"
+            if (Test-Path $src) { Copy-Item $src build/windows/x64/runner/Release/ -Force }
+          }
       - name: Đóng gói
         run: |
           Rename-Item build/windows/x64/runner/Release EVOKNX-Editor
           Compress-Archive -Path build/windows/x64/runner/EVOKNX-Editor -DestinationPath EVOKNX-Editor-Windows.zip
+      - name: Bộ cài đặt (Inno Setup)
+        run: |
+          $iscc = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
+          if (!(Test-Path $iscc)) { choco install innosetup -y --no-progress | Out-Null }
+          $ver = (Select-String -Path pubspec.yaml -Pattern '^version:\s*([0-9.]+)').Matches[0].Groups[1].Value
+          & $iscc "/DAppVersion=$ver" "/DSourceDir=$PWD\build\windows\x64\runner\EVOKNX-Editor" windows_assets\installer.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: EVOKNX-Editor-Setup
+          path: apps/evoknx_editor/installer/*.exe
+          retention-days: 30
       - uses: actions/upload-artifact@v4
         with:
           name: EVOKNX-Editor-Windows
