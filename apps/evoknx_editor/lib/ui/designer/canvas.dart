@@ -48,9 +48,13 @@ class DesignCanvas extends StatelessWidget {
     final base = AppPalette.of(mode);
     final bg = screenBackground(doc, base);
     final th = jsonMap(doc['theme']);
+    // The open page may have its own background over the common one.
+    final pageBg = d.view == 'room' ? pageBackground(d.sub, bg, th) : null;
     final pal = base.copyWith(
-      onScreenInk: bg.ink,
-      onScreenMuted: bg.muted,
+      onScreenInk: (pageBg ?? bg).ink,
+      onScreenMuted: (pageBg ?? bg).muted,
+      tileOpacity: ((th['cardOpacity'] as num?) ?? 100).toDouble().clamp(0, 100) / 100,
+      edgeOpacity: ((th['cardEdge'] as num?) ?? 100).toDouble().clamp(0, 100) / 100,
       radius: ((th['cardRadius'] as num?) ?? 12).toDouble().clamp(0, 32).toDouble(),
       border: ((th['cardBorder'] as num?) ?? 1).toDouble().clamp(0, 4).toDouble(),
       shadow: ((th['cardShadow'] as num?) ?? 0).toDouble().clamp(0, 20).toDouble(),
@@ -81,6 +85,18 @@ class DesignCanvas extends StatelessWidget {
                   height: logical.height,
                   child: Stack(
                     children: [
+                      Positioned.fill(
+                        child: AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 280),
+                          child: pageBg == null
+                              ? const SizedBox.expand(key: ValueKey('page-bg-none'))
+                              : DecoratedBox(
+                                  key: ValueKey('page-bg-${d.sub?['id']}-${jsonMap(d.sub?['bg']).hashCode}'),
+                                  decoration: pageBg.decoration,
+                                  child: const SizedBox.expand(),
+                                ),
+                        ),
+                      ),
                       Positioned.fill(
                         child: ScrollConfiguration(
                           behavior: const _DragScroll(),
@@ -856,7 +872,7 @@ class _GridAreaState extends State<_GridArea> {
             children.add(
               Positioned.fromRect(
                 rect: rc,
-                child: w['type'] == 'group' || w['type'] == 'value'
+                child: w['type'] == 'group' || (w['type'] == 'value' && !isStateValue(w))
                     ? tile
                     : GestureDetector(
                         behavior: HitTestBehavior.opaque,
@@ -1004,9 +1020,8 @@ class _GroupFrame extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final style = (w['gstyle'] ?? 'card').toString();
-    final transparent = w['gbg'] == 'transparent';
-    final bg = transparent ? null : hexColor(w['gbg']);
-    final titleColor = bg == null ? (transparent ? pal.sInk : pal.ink) : (bg.computeLuminance() < 0.35 ? Colors.white : const Color(0xFF1B2320));
+    // The frame look comes from its style (Kiểu khung); no separate colour.
+    final titleColor = style == 'card' ? pal.ink : pal.sInk;
     final align = switch (w['titleAlign']) {
       'center' => TextAlign.center,
       'right' => TextAlign.right,
@@ -1017,15 +1032,15 @@ class _GroupFrame extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: bg ?? (style == 'card' && !transparent ? pal.tile : Colors.transparent),
+        color: style == 'card' ? pal.fill(pal.tile) : Colors.transparent,
         borderRadius: BorderRadius.circular(pal.radius + 2),
         border: !selected && style != 'none' && pal.border <= 0
             ? null
             : Border.all(
-                color: selected ? pal.accent : (style == 'none' ? (d.test ? Colors.transparent : pal.lineStrong.withValues(alpha: 0.5)) : pal.tileEdge),
+                color: selected ? pal.accent : (style == 'none' ? (d.test ? Colors.transparent : pal.lineStrong.withValues(alpha: 0.5)) : pal.edge),
                 width: selected ? 2 : (style == 'none' ? 1 : pal.border),
               ),
-        boxShadow: style == 'card' && !transparent ? pal.shadows : const [],
+        boxShadow: style == 'card' ? pal.shadows : const [],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1239,6 +1254,56 @@ class ScreenBg {
 
 String? _bgData;
 MemoryImage? _bgImage;
+
+final Map<String, MemoryImage> _pageImages = {};
+
+/// Background of one page (sub-page), drawn over the common background:
+/// a colour or an image, each with its own opacity. Null = none.
+ScreenBg? pageBackground(Json? sub, ScreenBg screen, Json theme) {
+  final b = jsonMap(sub?['bg']);
+  final mode = (b['mode'] ?? 'default').toString();
+  if (mode != 'color' && mode != 'image') return null;
+  final op = (((b['opacity'] as num?) ?? 100).toDouble().clamp(0, 100)) / 100;
+  final textMode = (theme['bgText'] ?? 'auto').toString();
+  final under = screen.decoration.color ?? Colors.black;
+  ({Color ink, Color muted}) text(bool darkBg) {
+    final dark = textMode == 'light' || (textMode == 'auto' && darkBg);
+    return dark ? (ink: Colors.white, muted: Colors.white.withValues(alpha: 0.75)) : (ink: const Color(0xFF1B2320), muted: const Color(0xFF55605C));
+  }
+
+  if (mode == 'color') {
+    final c = (hexColor(b['color']) ?? under).withValues(alpha: op);
+    final tx = text(Color.alphaBlend(c, under).computeLuminance() < 0.35);
+    return ScreenBg(BoxDecoration(color: c), tx.ink, tx.muted);
+  }
+  final data = (b['image'] ?? '').toString();
+  final i = data.indexOf('base64,');
+  if (i <= 0) return null;
+  var img = _pageImages[data];
+  if (img == null) {
+    try {
+      img = MemoryImage(base64Decode(data.substring(i + 7)));
+      if (_pageImages.length > 20) _pageImages.clear();
+      _pageImages[data] = img;
+    } catch (_) {
+      return null;
+    }
+  }
+  final dim = (((b['dim'] as num?) ?? 30).toDouble().clamp(0, 80)) / 100;
+  final tx = text(op >= 0.5 ? dim >= 0.25 : under.computeLuminance() < 0.35);
+  return ScreenBg(
+    BoxDecoration(
+      image: DecorationImage(
+        image: img,
+        fit: BoxFit.cover,
+        opacity: op,
+        colorFilter: ColorFilter.mode(Colors.black.withValues(alpha: dim), BlendMode.srcOver),
+      ),
+    ),
+    tx.ink,
+    tx.muted,
+  );
+}
 
 ScreenBg screenBackground(Json doc, AppPalette base) {
   final t = jsonMap(doc['theme']);

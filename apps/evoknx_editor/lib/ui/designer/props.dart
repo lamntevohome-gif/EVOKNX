@@ -177,8 +177,21 @@ class _WidgetPropsState extends State<_WidgetProps> {
             Icon(iconOf(def?.icon), size: 20, color: c.accent),
             const SizedBox(width: 8),
             Expanded(
-              child: Text(def?.name ?? type, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+              child: Text(
+                def?.name ?? type,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+              ),
             ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        // Actions on their own row so a narrow panel never squeezes the title.
+        Wrap(
+          spacing: 0,
+          runSpacing: 6,
+          children: [
             EvoButton(
               label: 'Sao chép',
               icon: Icons.copy_outlined,
@@ -211,29 +224,30 @@ class _WidgetPropsState extends State<_WidgetProps> {
           ),
           if (type != 'group')
             FieldLabel('Biểu tượng', IconField(d: d, value: w['icon'] as String?, scope: IconScope.widget, onChanged: (v) => set('icon', v))),
-          FieldLabel(
-            type == 'group' ? 'Màu nền khung' : 'Màu nền thẻ',
-            _BgPicker(
-              value: (type == 'group' ? w['gbg'] : jsonMap(w['style'])['bg']) as String?,
-              onChanged: (v) => d.editWidget(id, (x) {
-                if (type == 'group') {
-                  if (v == null) {
-                    x.remove('gbg');
+          if (type != 'group')
+            FieldLabel(
+              'Nền thẻ',
+              _BgPicker(
+                value: (type == 'group' ? w['gbg'] : jsonMap(w['style'])['bg']) as String?,
+                onChanged: (v) => d.editWidget(id, (x) {
+                  if (type == 'group') {
+                    if (v == null) {
+                      x.remove('gbg');
+                    } else {
+                      x['gbg'] = v;
+                    }
                   } else {
-                    x['gbg'] = v;
+                    final m = jsonMap(x['style']);
+                    if (v == null) {
+                      m.remove('bg');
+                    } else {
+                      m['bg'] = v;
+                    }
+                    x['style'] = m;
                   }
-                } else {
-                  final m = jsonMap(x['style']);
-                  if (v == null) {
-                    m.remove('bg');
-                  } else {
-                    m['bg'] = v;
-                  }
-                  x['style'] = m;
-                }
-              }, coalesce: 'bg-$id'),
+                }, coalesce: 'bg-$id'),
+              ),
             ),
-          ),
           Row(
             children: [
               Expanded(
@@ -979,52 +993,77 @@ class _WidgetPropsState extends State<_WidgetProps> {
         ];
       case 'value':
         final f = jsonMap(w['format']);
+        final stateStyle = isStateValue(w);
         return [
           _Section('Hiển thị giá trị', [
             FieldLabel(
               'Kiểu thẻ',
               Seg<String>(
-                items: const [('full', 'Đầy đủ'), ('simple', 'Đơn giản')],
-                value: w['look'] == 'simple' ? 'simple' : 'full',
-                onChanged: (v) => set('look', v),
+                items: const [('state', 'Đầy đủ (trạng thái)'), ('number', 'Đơn giản (số đo)')],
+                value: stateStyle ? 'state' : 'number',
+                onChanged: (v) => d.editWidget(id, (x) {
+                  if (v == 'state') {
+                    x['valueStyle'] = 'state';
+                    if (jsonList(x['states']).isEmpty) x['states'] = _stateTemplate('onoff');
+                  } else {
+                    x.remove('valueStyle');
+                  }
+                }),
               ),
             ),
-            if (w['look'] == 'simple')
-              Text('Một hàng: biểu tượng và tên bên trái, giá trị bên phải. Hợp với thẻ cao 1 ô.', style: TextStyle(fontSize: 12, color: context.evo.muted)),
-            Row(
-              children: [
-                Expanded(
-                  child: FieldLabel(
-                    'Đơn vị',
-                    SyncedField(
-                      value: (f['unit'] ?? '').toString(),
-                      hint: '°C',
-                      onChanged: (v) => d.editWidget(id, (o) {
-                        final ff = jsonMap(o['format']);
-                        ff['unit'] = v;
-                        o['format'] = ff;
-                      }, coalesce: 'unit-$id'),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: FieldLabel(
-                    'Số lẻ',
-                    EvoDropdown<int>(
-                      value: ((f['decimals'] as num?) ?? 1).toInt(),
-                      items: const [(0, '0'), (1, '1'), (2, '2')],
-                      onChanged: (v) => d.editWidget(id, (o) {
-                        final ff = jsonMap(o['format']);
-                        ff['decimals'] = v;
-                        o['format'] = ff;
-                      }),
-                    ),
-                  ),
-                ),
-              ],
+            Text(
+              stateStyle
+                  ? 'Mỗi giá trị nhận từ bus hiện chữ, biểu tượng và màu riêng (ví dụ 0 = Đóng, 1 = Mở). Ở Chạy thử, bấm thẻ để xem lần lượt từng trạng thái.'
+                  : 'Hiện con số kèm đơn vị, như nhiệt độ, độ ẩm, công suất.',
+              style: TextStyle(fontSize: 12, color: context.evo.muted),
             ),
+            if (!stateStyle)
+              FieldLabel(
+                'Bố cục',
+                Seg<String>(
+                  items: const [('full', 'Khối'), ('simple', 'Một hàng')],
+                  value: w['look'] == 'simple' ? 'simple' : 'full',
+                  onChanged: (v) => set('look', v),
+                ),
+              ),
+            if (!stateStyle && w['look'] == 'simple')
+              Text('Một hàng: biểu tượng và tên bên trái, giá trị bên phải. Hợp với thẻ cao 1 ô.', style: TextStyle(fontSize: 12, color: context.evo.muted)),
+            if (!stateStyle)
+              Row(
+                children: [
+                  Expanded(
+                    child: FieldLabel(
+                      'Đơn vị',
+                      SyncedField(
+                        value: (f['unit'] ?? '').toString(),
+                        hint: '°C',
+                        onChanged: (v) => d.editWidget(id, (o) {
+                          final ff = jsonMap(o['format']);
+                          ff['unit'] = v;
+                          o['format'] = ff;
+                        }, coalesce: 'unit-$id'),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: FieldLabel(
+                      'Số lẻ',
+                      EvoDropdown<int>(
+                        value: ((f['decimals'] as num?) ?? 1).toInt(),
+                        items: const [(0, '0'), (1, '1'), (2, '2')],
+                        onChanged: (v) => d.editWidget(id, (o) {
+                          final ff = jsonMap(o['format']);
+                          ff['decimals'] = v;
+                          o['format'] = ff;
+                        }),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
           ]),
+          if (stateStyle) _StatesEditor(d: d, w: w),
         ];
       case 'group':
         final l = jsonMap(w['layout']);
@@ -1297,6 +1336,7 @@ class _RoomProps extends StatelessWidget {
                   )
                 : null,
           ),
+        if (s != null) _PageBgSettings(d: d, s: s),
         Text(
           'Kéo thành phần từ thanh công cụ vào ô trống, hoặc bấm vào một ô trống rồi bấm thành phần. Bấm vào thành phần để chỉnh tên, kích thước và địa chỉ nhóm.',
           style: TextStyle(fontSize: 12.5, color: context.evo.muted),
@@ -1439,6 +1479,24 @@ class _OverviewProps extends StatelessWidget {
             onChanged: (v) => editTheme((x) => x['cardBorder'] = v, coalesce: 'cbor'),
           ),
           StepRow(
+            label: 'Độ đậm nền thẻ',
+            unit: '%',
+            step: 5,
+            value: ((theme['cardOpacity'] as num?) ?? 100).toInt(),
+            min: 0,
+            max: 100,
+            onChanged: (v) => editTheme((x) => x['cardOpacity'] = v, coalesce: 'cop'),
+          ),
+          StepRow(
+            label: 'Độ đậm viền',
+            unit: '%',
+            step: 5,
+            value: ((theme['cardEdge'] as num?) ?? 100).toInt(),
+            min: 0,
+            max: 100,
+            onChanged: (v) => editTheme((x) => x['cardEdge'] = v, coalesce: 'cedge'),
+          ),
+          StepRow(
             label: 'Đổ bóng',
             unit: '',
             value: ((theme['cardShadow'] as num?) ?? 0).toInt(),
@@ -1446,7 +1504,10 @@ class _OverviewProps extends StatelessWidget {
             max: 20,
             onChanged: (v) => editTheme((x) => x['cardShadow'] = v, coalesce: 'cshd'),
           ),
-          Text('Mặc định: góc 12, viền 1, không đổ bóng. Áp dụng cho mọi thẻ và khung lưới.', style: TextStyle(fontSize: 12, color: context.evo.muted)),
+          Text(
+            'Mặc định: góc 12, viền 1, nền và viền đậm 100%, không đổ bóng. Áp dụng cho mọi thẻ và khung lưới.',
+            style: TextStyle(fontSize: 12, color: context.evo.muted),
+          ),
         ]),
         _Section('Giao diện App', [
           StepRow(
@@ -1741,7 +1802,8 @@ class _BgPicker extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = context.evo;
     final transparent = value == 'transparent';
-    final isDefault = !transparent && (value == null || _hex(value!) == null);
+    final outline = value == 'outline';
+    final isDefault = !transparent && !outline && (value == null || _hex(value!) == null);
     Widget chip(String text, bool on, VoidCallback tap) => Material(
       color: on ? c.accentSoft : c.panel,
       shape: RoundedRectangleBorder(
@@ -1763,22 +1825,26 @@ class _BgPicker extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
           children: [
             chip('Mặc định', isDefault, () => onChanged(null)),
-            const SizedBox(width: 6),
+            chip('Chỉ có viền', outline, () => onChanged('outline')),
             chip('Trong suốt', transparent, () => onChanged('transparent')),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                transparent ? 'Chỉ còn viền, thấy nền giao diện phía sau' : (isDefault ? 'Theo giao diện Sáng/Tối của App' : 'Chữ tự đổi sáng/tối cho dễ đọc'),
-                style: TextStyle(fontSize: 12, color: c.muted),
-              ),
-            ),
           ],
         ),
+        const SizedBox(height: 6),
+        Text(
+          transparent
+              ? 'Không nền, không viền'
+              : outline
+              ? 'Không nền, chỉ giữ viền'
+              : (isDefault ? 'Theo giao diện của App' : 'Chữ tự đổi sáng/tối cho dễ đọc'),
+          style: TextStyle(fontSize: 12, color: c.muted),
+        ),
         const SizedBox(height: 8),
-        _ColorPicker(value: isDefault || transparent ? '' : value!, swatches: _kBgSwatches, onChanged: onChanged),
+        _ColorPicker(value: isDefault || transparent || outline ? '' : value!, swatches: _kBgSwatches, onChanged: onChanged),
       ],
     );
   }
@@ -1801,46 +1867,14 @@ class _ScreenBgSettings extends StatelessWidget {
     doc['theme'] = t;
   }, coalesce: co);
 
-  Future<void> _pick(BuildContext context) async {
-    final f = await openFile(
-      acceptedTypeGroups: const [
-        XTypeGroup(label: 'Ảnh nền (JPG, PNG)', extensions: ['jpg', 'jpeg', 'png']),
-      ],
-      confirmButtonText: 'Chọn ảnh',
-    );
-    if (f == null) return;
-    final bytes = await f.readAsBytes();
-    if (!context.mounted) return;
-    if (bytes.length > 2 * 1024 * 1024) {
-      toast(context, 'Ảnh nặng ${(bytes.length / 1024 / 1024).toStringAsFixed(1)} MB, vượt quá 2 MB. Hãy nén lại (ví dụ xuất JPG chất lượng 80%).');
-      return;
-    }
-    try {
-      final img = await decodeImageFromList(bytes);
-      if (!context.mounted) return;
-      if (min(img.width, img.height) < 600) {
-        toast(context, 'Ảnh ${img.width} × ${img.height} px quá nhỏ, sẽ bị vỡ hình. Nên dùng 1290 × 2796 px.');
-        return;
-      }
-    } catch (_) {
-      if (context.mounted) toast(context, 'Không đọc được ảnh.');
-      return;
-    }
-    final png = f.name.toLowerCase().endsWith('.png');
-    _set({'bgMode': 'image', 'bgImage': 'data:image/${png ? 'png' : 'jpeg'};base64,${base64Encode(bytes)}'});
-    if (context.mounted) toast(context, 'Đã đặt ảnh nền.');
-  }
-
   @override
   Widget build(BuildContext context) {
     final c = context.evo;
     final t = jsonMap(d.doc['theme']);
     final mode = (t['bgMode'] ?? 'default').toString();
-    final img = (t['bgImage'] ?? '').toString();
-    final i = img.indexOf('base64,');
-    return _Section('Nền giao diện', [
+    return _Section('Nền chung (mọi trang)', [
       Seg<String>(
-        items: const [('default', 'Mặc định'), ('color', 'Màu'), ('image', 'Hình ảnh')],
+        items: const [('default', 'Mặc định'), ('color', 'Màu')],
         value: mode,
         onChanged: (v) => _set({'bgMode': v, if (v == 'color' && t['bgColor'] == null) 'bgColor': '#E3F1E9'}),
       ),
@@ -1852,58 +1886,16 @@ class _ScreenBgSettings extends StatelessWidget {
           onChanged: (v) => _set({'bgColor': v}, co: 'bgc'),
         ),
       if (mode == 'image') ...[
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 72,
-              height: 128,
-              clipBehavior: Clip.antiAlias,
-              decoration: BoxDecoration(
-                color: c.paper,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: c.line),
-              ),
-              child: i > 0
-                  ? Image.memory(base64Decode(img.substring(i + 7)), fit: BoxFit.cover, gaplessPlayback: true)
-                  : Center(
-                      child: Text('Chưa có', style: TextStyle(fontSize: 12, color: c.muted)),
-                    ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  EvoButton(label: i > 0 ? 'Đổi ảnh' : 'Tải ảnh lên', icon: Icons.image_outlined, small: true, onPressed: () => _pick(context)),
-                  if (i > 0) ...[
-                    const SizedBox(height: 6),
-                    EvoButton(
-                      label: 'Bỏ ảnh',
-                      icon: Icons.delete_outline,
-                      small: true,
-                      danger: true,
-                      onPressed: () => _set({'bgImage': null, 'bgMode': 'default'}),
-                    ),
-                  ],
-                  const SizedBox(height: 8),
-                  Text(
-                    'JPG hoặc PNG, ảnh dọc theo màn hình điện thoại, nên dùng 1290 × 2796 px, dưới 2 MB. Ảnh tự cắt vừa cả mobile và tablet.',
-                    style: TextStyle(fontSize: 12, color: c.muted),
-                  ),
-                ],
-              ),
-            ),
-          ],
+        Text(
+          'Dự án đang dùng ảnh nền chung (cách cũ). Từ nay ảnh nền được đặt riêng cho từng trang, trong thuộc tính của trang.',
+          style: TextStyle(fontSize: 12.5, color: c.warn),
         ),
-        StepRow(
-          label: 'Làm tối ảnh (giúp chữ dễ đọc)',
-          unit: '%',
-          step: 10,
-          value: ((t['bgDim'] as num?) ?? 30).toInt(),
-          min: 0,
-          max: 80,
-          onChanged: (v) => _set({'bgDim': v}, co: 'bgdim'),
+        EvoButton(
+          label: 'Bỏ ảnh nền chung',
+          icon: Icons.delete_outline,
+          small: true,
+          danger: true,
+          onPressed: () => _set({'bgImage': null, 'bgMode': 'default'}),
         ),
       ],
       if (mode != 'default')
@@ -2109,4 +2101,333 @@ class _SecretFieldState extends State<_SecretField> {
       ),
     ),
   );
+}
+
+/// Background of one page: follows the overview, a colour (with opacity) or
+/// an image (with darkening and opacity).
+class _PageBgSettings extends StatelessWidget {
+  const _PageBgSettings({required this.d, required this.s});
+  final Designer d;
+  final Json s;
+
+  void _set(Map<String, Object?> kv, {String? co}) => d.editSub((x) {
+    final b = jsonMap(x['bg']);
+    kv.forEach((k, v) {
+      if (v == null) {
+        b.remove(k);
+      } else {
+        b[k] = v;
+      }
+    });
+    if (b['mode'] == null || b['mode'] == 'default') {
+      x.remove('bg');
+    } else {
+      x['bg'] = b;
+    }
+  }, coalesce: co);
+
+  Future<void> _pick(BuildContext context) async {
+    final f = await openFile(
+      acceptedTypeGroups: const [
+        XTypeGroup(label: 'Ảnh nền (JPG, PNG)', extensions: ['jpg', 'jpeg', 'png']),
+      ],
+      confirmButtonText: 'Chọn ảnh',
+    );
+    if (f == null) return;
+    final bytes = await f.readAsBytes();
+    if (!context.mounted) return;
+    if (bytes.length > 2 * 1024 * 1024) {
+      toast(context, 'Ảnh nặng ${(bytes.length / 1024 / 1024).toStringAsFixed(1)} MB, vượt quá 2 MB. Hãy nén lại (ví dụ JPG chất lượng 80%).');
+      return;
+    }
+    try {
+      final img = await decodeImageFromList(bytes);
+      if (!context.mounted) return;
+      if (min(img.width, img.height) < 600) {
+        toast(context, 'Ảnh ${img.width} × ${img.height} px quá nhỏ, sẽ bị vỡ hình. Nên dùng 1290 × 2796 px.');
+        return;
+      }
+    } catch (_) {
+      if (context.mounted) toast(context, 'Không đọc được ảnh.');
+      return;
+    }
+    final png = f.name.toLowerCase().endsWith('.png');
+    _set({'mode': 'image', 'image': 'data:image/${png ? 'png' : 'jpeg'};base64,${base64Encode(bytes)}'});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.evo;
+    final b = jsonMap(s['bg']);
+    final mode = (b['mode'] ?? 'default').toString();
+    final img = (b['image'] ?? '').toString();
+    final i = img.indexOf('base64,');
+    return _Section('Nền của trang này', [
+      Seg<String>(
+        items: const [('default', 'Theo tổng quan'), ('color', 'Màu'), ('image', 'Hình ảnh')],
+        value: mode,
+        onChanged: (v) => _set({'mode': v, if (v == 'color' && b['color'] == null) 'color': '#E3F1E9'}),
+      ),
+      if (mode == 'default') Text('Dùng nền chung ở Tổng quan.', style: TextStyle(fontSize: 12.5, color: c.muted)),
+      if (mode == 'color')
+        _ColorPicker(
+          value: (b['color'] ?? '#E3F1E9').toString(),
+          swatches: _kBgSwatches,
+          onChanged: (v) => _set({'color': v}, co: 'pbgc'),
+        ),
+      if (mode == 'image')
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 72,
+              height: 128,
+              clipBehavior: Clip.antiAlias,
+              decoration: BoxDecoration(
+                color: c.paper,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: c.line),
+              ),
+              child: i > 0
+                  ? Image.memory(base64Decode(img.substring(i + 7)), fit: BoxFit.cover, gaplessPlayback: true)
+                  : Center(
+                      child: Text('Chưa có', style: TextStyle(fontSize: 12, color: c.muted)),
+                    ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  EvoButton(label: i > 0 ? 'Đổi ảnh' : 'Tải ảnh lên', icon: Icons.image_outlined, small: true, onPressed: () => _pick(context)),
+                  if (i > 0) ...[
+                    const SizedBox(height: 6),
+                    EvoButton(
+                      label: 'Bỏ ảnh',
+                      icon: Icons.delete_outline,
+                      small: true,
+                      danger: true,
+                      onPressed: () => _set({'image': null, 'mode': 'default'}),
+                    ),
+                  ],
+                  const SizedBox(height: 8),
+                  Text('JPG hoặc PNG, ảnh dọc, nên dùng 1290 × 2796 px, dưới 2 MB.', style: TextStyle(fontSize: 12, color: c.muted)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      if (mode == 'image')
+        StepRow(
+          label: 'Làm tối ảnh',
+          unit: '%',
+          step: 10,
+          value: ((b['dim'] as num?) ?? 30).toInt(),
+          min: 0,
+          max: 80,
+          onChanged: (v) => _set({'dim': v}, co: 'pbgdim'),
+        ),
+      if (mode != 'default')
+        StepRow(
+          label: mode == 'image' ? 'Độ đậm ảnh' : 'Độ đậm màu nền',
+          unit: '%',
+          step: 5,
+          value: ((b['opacity'] as num?) ?? 100).toInt(),
+          min: 0,
+          max: 100,
+          onChanged: (v) => _set({'opacity': v}, co: 'pbgop'),
+        ),
+      if (mode != 'default')
+        Text(
+          'Dưới 100%: nhìn xuyên thấy nền chung ở Tổng quan. Màu chữ trên nền theo cài đặt "Màu chữ trên nền" ở Tổng quan.',
+          style: TextStyle(fontSize: 12, color: c.muted),
+        ),
+    ]);
+  }
+}
+
+// ------------------------------------------------------------------ value states
+
+const _stateTemplates = {
+  'onoff': 'Bật / Tắt',
+  'door': 'Cửa: Đóng / Mở',
+  'window': 'Cửa sổ: Đóng / Mở',
+  'presence': 'Có người / Không có người',
+  'leak': 'Rò nước (báo động)',
+  'smoke': 'Khói (báo động)',
+};
+
+List<Map<String, dynamic>> _stateTemplate(String k) => switch (k) {
+  'door' => [
+    {'v': '0', 'text': 'Đóng', 'icon': 'mdi:door-closed', 'color': '#8A938F'},
+    {'v': '1', 'text': 'Mở', 'icon': 'mdi:door-open', 'color': '#EE9B2A'},
+  ],
+  'window' => [
+    {'v': '0', 'text': 'Đóng', 'icon': 'mdi:window-closed-variant', 'color': '#8A938F'},
+    {'v': '1', 'text': 'Mở', 'icon': 'mdi:window-open-variant', 'color': '#EE9B2A'},
+  ],
+  'presence' => [
+    {'v': '0', 'text': 'Không có người', 'icon': 'mdi:account-off-outline', 'color': '#8A938F'},
+    {'v': '1', 'text': 'Có người', 'icon': 'mdi:account', 'color': '#3E8EF7'},
+  ],
+  'leak' => [
+    {'v': '0', 'text': 'Bình thường', 'icon': 'mdi:water-check', 'color': '#1E7F57'},
+    {'v': '1', 'text': 'Rò nước!', 'icon': 'mdi:water-alert', 'color': '#E5484D', 'alarm': true},
+  ],
+  'smoke' => [
+    {'v': '0', 'text': 'Bình thường', 'icon': 'mdi:smoke-detector', 'color': '#1E7F57'},
+    {'v': '1', 'text': 'Có khói!', 'icon': 'mdi:smoke-detector-alert', 'color': '#E5484D', 'alarm': true},
+  ],
+  _ => [
+    {'v': '0', 'text': 'Tắt', 'icon': 'mdi:power', 'color': '#8A938F'},
+    {'v': '1', 'text': 'Bật', 'icon': 'mdi:power', 'color': '#1E7F57'},
+  ],
+};
+
+/// Table of states of a value card: value → text, icon, colour, alarm.
+class _StatesEditor extends StatelessWidget {
+  const _StatesEditor({required this.d, required this.w});
+  final Designer d;
+  final Json w;
+
+  String get id => w['id'] as String;
+
+  void _edit(void Function(List<dynamic> rows) fn, {String? co}) => d.editWidget(id, (x) {
+    final rows = <dynamic>[for (final r in jsonList(x['states'])) Map<String, dynamic>.from(r)];
+    fn(rows);
+    x['states'] = rows;
+  }, coalesce: co);
+
+  void _setRow(int i, String k, Object? v, {String? co}) => _edit((rows) {
+    final r = rows[i] as Map<String, dynamic>;
+    if (v == null || v == false || (v is String && v.isEmpty && k != 'text')) {
+      r.remove(k);
+    } else {
+      r[k] = v;
+    }
+  }, co: co);
+
+  Future<void> _pickColor(BuildContext context, int i, String? cur) async {
+    final v = await showDialog<String>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text('Màu của trạng thái', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+        content: SizedBox(
+          width: 340,
+          child: _ColorPicker(value: cur ?? '', onChanged: (h) => Navigator.pop(c, h)),
+        ),
+        actions: [
+          EvoButton(label: 'Mặc định', onPressed: () => Navigator.pop(c, '')),
+          EvoButton(label: 'Đóng', onPressed: () => Navigator.pop(c)),
+        ],
+      ),
+    );
+    if (v == null) return;
+    _setRow(i, 'color', v.isEmpty ? null : v);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.evo;
+    final rows = jsonList(w['states']);
+    return _Section('Trạng thái', [
+      Text('Giá trị · Chữ hiển thị · Biểu tượng · Màu · Báo động', style: TextStyle(fontSize: 12, color: c.muted)),
+      for (var i = 0; i < rows.length; i++)
+        Row(
+          children: [
+            SizedBox(
+              width: 52,
+              child: SyncedField(
+                key: ValueKey('sv-$id-$i'),
+                value: (rows[i]['v'] ?? '').toString(),
+                hint: '0',
+                onChanged: (v) => _setRow(i, 'v', v.trim(), co: 'stv-$id-$i'),
+              ),
+            ),
+            const SizedBox(width: 6),
+            Expanded(
+              child: SyncedField(
+                key: ValueKey('st-$id-$i'),
+                value: (rows[i]['text'] ?? '').toString(),
+                hint: 'Chữ hiển thị',
+                onChanged: (v) => _setRow(i, 'text', v, co: 'stt-$id-$i'),
+              ),
+            ),
+            const SizedBox(width: 4),
+            Tooltip(
+              message: 'Biểu tượng',
+              child: InkWell(
+                borderRadius: BorderRadius.circular(8),
+                onTap: () async {
+                  final v = await pickIcon(context, d: d, current: rows[i]['icon'] as String?, scope: IconScope.widget);
+                  if (v != null) _setRow(i, 'icon', v);
+                },
+                child: Container(
+                  width: 34,
+                  height: 34,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    border: Border.all(color: c.line),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: iconWidget((rows[i]['icon'] ?? w['icon'])?.toString(), 18, _hex((rows[i]['color'] ?? '').toString()) ?? c.ink),
+                ),
+              ),
+            ),
+            const SizedBox(width: 4),
+            Tooltip(
+              message: 'Màu',
+              child: InkWell(
+                borderRadius: BorderRadius.circular(8),
+                onTap: () => _pickColor(context, i, rows[i]['color'] as String?),
+                child: Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    color: _hex((rows[i]['color'] ?? '').toString()) ?? c.paper,
+                    border: Border.all(color: c.line),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+            ),
+            Tooltip(
+              message: 'Báo động: thẻ chuyển đỏ khi ở trạng thái này',
+              child: Checkbox(value: rows[i]['alarm'] == true, onChanged: (v) => _setRow(i, 'alarm', v == true)),
+            ),
+            IconButton(
+              tooltip: 'Xoá trạng thái',
+              visualDensity: VisualDensity.compact,
+              icon: Icon(Icons.close, size: 16, color: c.muted),
+              onPressed: () => _edit((r) => r.removeAt(i)),
+            ),
+          ],
+        ),
+      Row(
+        children: [
+          EvoButton(
+            label: 'Thêm trạng thái',
+            icon: Icons.add,
+            small: true,
+            onPressed: () => _edit((r) => r.add(<String, dynamic>{'v': '${r.length}', 'text': ''})),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: EvoDropdown<String>(
+              value: '',
+              items: [('', 'Dùng mẫu…'), for (final e in _stateTemplates.entries) (e.key, e.value)],
+              onChanged: (k) {
+                if (k.isEmpty) return;
+                d.editWidget(id, (x) => x['states'] = _stateTemplate(k));
+              },
+            ),
+          ),
+        ],
+      ),
+      Text(
+        'Giá trị là con số nhận từ địa chỉ trạng thái (1 bit: 0 / 1; 1 byte: 0–255…). Giá trị chưa có trong bảng sẽ hiện nguyên con số.',
+        style: TextStyle(fontSize: 12, color: c.muted),
+      ),
+    ]);
+  }
 }

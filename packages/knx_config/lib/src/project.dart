@@ -101,6 +101,25 @@ String cameraUrl(Json cam, {bool hidePass = false}) {
   return '$proto://$auth$host${port == null || port == defPort ? '' : ':$port'}$path';
 }
 
+/// Value card in "state" style (Kiểu đầy đủ): rows of
+/// {v: value, text, icon, color, alarm}. Older value cards have no style and
+/// keep showing a number.
+bool isStateValue(Json w) => w['type'] == 'value' && w['valueStyle'] == 'state';
+
+/// The state row matching [value] (a number; true/false count as 1/0).
+Json? valueState(Json w, Object? value) {
+  num? n;
+  if (value is bool) n = value ? 1 : 0;
+  if (value is num) n = value;
+  if (value is String) n = num.tryParse(value.replaceAll(',', '.'));
+  if (n == null) return null;
+  for (final r in jsonList(w['states'])) {
+    final v = num.tryParse((r['v'] ?? '').toString().replaceAll(',', '.'));
+    if (v != null && v == n) return r;
+  }
+  return null;
+}
+
 /// Value a scene card sends. Older projects stored a scene number (1–64)
 /// and sent number − 1; that value is kept for them.
 String sceneSendValue(Json w) {

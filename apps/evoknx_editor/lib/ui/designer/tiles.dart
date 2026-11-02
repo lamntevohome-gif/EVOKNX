@@ -20,6 +20,15 @@ class AppPalette {
   /// Card shape (Tổng quan → Kiểu thẻ): corner radius, border width, shadow.
   final double radius, border, shadow;
 
+  /// Card background and border strength (Tổng quan → Kiểu thẻ), 0…1.
+  final double tileOpacity, edgeOpacity;
+
+  /// Border colour after the border-strength setting.
+  Color get edge => tileEdge.withValues(alpha: tileEdge.a * edgeOpacity);
+
+  /// A card background after the background-opacity setting.
+  Color fill(Color c) => c.withValues(alpha: c.a * tileOpacity);
+
   List<BoxShadow> get shadows => shadow <= 0
       ? const []
       : [
@@ -38,6 +47,8 @@ class AppPalette {
     this.radius = 12,
     this.border = 1,
     this.shadow = 0,
+    this.tileOpacity = 1,
+    this.edgeOpacity = 1,
     required this.screen,
     required this.tile,
     required this.tileEdge,
@@ -66,6 +77,8 @@ class AppPalette {
     double? radius,
     double? border,
     double? shadow,
+    double? tileOpacity,
+    double? edgeOpacity,
   }) => AppPalette(
     screen: screen,
     tile: tile ?? this.tile,
@@ -85,6 +98,8 @@ class AppPalette {
     radius: radius ?? this.radius,
     border: border ?? this.border,
     shadow: shadow ?? this.shadow,
+    tileOpacity: tileOpacity ?? this.tileOpacity,
+    edgeOpacity: edgeOpacity ?? this.edgeOpacity,
   );
 
   /// Palette for a card with a custom background: readable text on dark colours.
@@ -234,8 +249,11 @@ class TileView extends StatelessWidget {
     if (cardBg != null && pal.tile != cardBg) {
       return TileView(w: w, pal: pal.forCard(cardBg), gas: gas, sim: sim, selected: selected, flagged: flagged, act: act);
     }
-    // Transparent card: only the border stays; text follows the screen.
-    if (style['bg'] == 'transparent' && pal.tile != Colors.transparent) {
+    // "Chỉ có viền" / "Trong suốt": no background (and no border for the
+    // latter); text follows the screen background.
+    final noBg = style['bg'] == 'outline' || style['bg'] == 'transparent';
+    final noBorder = style['bg'] == 'transparent';
+    if (noBg && pal.tile != Colors.transparent) {
       final tp = pal.copyWith(tile: Colors.transparent, ink: pal.sInk, muted: pal.sMuted, panel: pal.panel.withValues(alpha: 0.85));
       return TileView(w: w, pal: tp, gas: gas, sim: sim, selected: selected, flagged: flagged, act: act);
     }
@@ -244,16 +262,27 @@ class TileView extends StatelessWidget {
     final colorOn = rgb ?? hexColor(style['colorOn']) ?? pal.led;
     final colorOff = hexColor(style['colorOff']) ?? pal.muted;
     // On: the card is tinted with the "on" colour (full and simple looks).
-    final bg = on ? Color.alphaBlend(colorOn.withValues(alpha: 0.30), pal.tile) : pal.tile;
+    // Value card, state style: a state marked as alarm tints the card red.
+    final alarm = _stateRow()?['alarm'] == true;
+    final bg = alarm
+        ? Color.alphaBlend(pal.danger.withValues(alpha: 0.18), pal.tile)
+        : (on ? Color.alphaBlend(colorOn.withValues(alpha: 0.30), pal.tile) : pal.tile);
     final imageBtn = (type == 'button' || type == 'scene') && w['btnStyle'] == 'image';
     final self = this;
     return AnimatedContainer(
       duration: const Duration(milliseconds: 220),
       curve: Curves.easeOutCubic,
       decoration: BoxDecoration(
-        color: type == 'webview' ? pal.tile : bg,
+        color: pal.fill(type == 'webview' ? pal.tile : bg),
         borderRadius: BorderRadius.circular(pal.radius),
-        border: pal.border <= 0 ? null : Border.all(color: on ? colorOn.withValues(alpha: 0.6) : pal.tileEdge, width: pal.border),
+        border: alarm
+            ? Border.all(color: pal.danger, width: max(1.5, pal.border))
+            : pal.border <= 0 || (noBorder && !on)
+            ? null
+            : Border.all(
+                color: on ? colorOn.withValues(alpha: 0.6 * pal.edgeOpacity) : pal.edge,
+                width: pal.border,
+              ),
         boxShadow: pal.tile == Colors.transparent ? const [] : pal.shadows,
       ),
       foregroundDecoration: selected
@@ -272,6 +301,16 @@ class TileView extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  /// The state row shown by a state-style value card (the first row as a
+  /// sample while designing, when no value is known yet).
+  Json? _stateRow() {
+    if (!isStateValue(w)) return null;
+    final r = valueState(w, sim['val']);
+    if (r != null || sim['val'] != null || act != null) return r;
+    final rows = jsonList(w['states']);
+    return rows.isEmpty ? null : rows.first;
   }
 
   Widget _label() => Text(
@@ -520,6 +559,41 @@ class TileView extends StatelessWidget {
         ]);
       case 'value':
         final g = _ga('status');
+        if (isStateValue(w)) {
+          final row = _stateRow();
+          final raw = sim['val'];
+          final text = row != null
+              ? (row['text'] ?? '').toString()
+              : (raw is num ? fmtNum(raw, 0) : (jsonList(w['states']).isEmpty ? 'Chưa đặt trạng thái' : '–'));
+          return _col([
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                iconWidget((row?['icon'] ?? w['icon'])?.toString(), fs(w, 'iconSize'), hexColor(row?['color']) ?? pal.muted),
+                const Spacer(),
+                if (row?['alarm'] == true) Icon(Icons.warning_amber_rounded, size: fs(w, 'iconSize') * 0.8, color: pal.danger),
+              ],
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _label(),
+                const SizedBox(height: 2),
+                Text(
+                  text,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: fs(w, 'stateSize') * 1.15,
+                    fontWeight: FontWeight.w600,
+                    color: row == null ? pal.muted : (hexColor(row['color']) ?? pal.ink),
+                  ),
+                ),
+              ],
+            ),
+          ]);
+        }
         if (w['look'] == 'simple') {
           const samples0 = {'9.001': 24.5, '9.004': 320, '9.007': 62, '14.056': 1250, '13.010': 8420, '5.001': 45};
           final raw0 = sim['val'] ?? samples0[(g?['dpt'] ?? '').toString()];

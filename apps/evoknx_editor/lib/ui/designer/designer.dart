@@ -536,6 +536,15 @@ class Designer extends ChangeNotifier {
     final s = st(id);
     final label = (w['label'] ?? '').toString();
     switch (w['type']) {
+      case 'value':
+        // Test mode: tapping a state-style value card steps through its
+        // states so each text, icon, colour and alarm can be previewed.
+        final rows = jsonList(w['states']);
+        if (!isStateValue(w) || rows.isEmpty) break;
+        num? numOf(Object? v) => num.tryParse((v ?? '').toString().replaceAll(',', '.'));
+        final i = rows.indexWhere((r) => numOf(r['v']) == s['val']);
+        s['val'] = numOf(rows[(i + 1) % rows.length]['v']) ?? 0;
+        break;
       case 'switch':
         final on = !(s['on'] == true);
         s['on'] = on;

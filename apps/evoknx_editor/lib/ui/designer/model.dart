@@ -123,7 +123,7 @@ double fs(Json w, String key) {
 
 List<String> fsKeysFor(String type) => switch (type) {
   'group' => const ['labelSize'],
-  'value' => const ['labelSize', 'iconSize', 'valueSize'],
+  'value' => const ['labelSize', 'iconSize', 'valueSize', 'stateSize'],
   'webview' => const ['labelSize', 'iconSize'],
   'camera' => const ['labelSize', 'iconSize'],
   'shutter' => const ['labelSize', 'iconSize', 'stateSize', 'btnIcon'],
