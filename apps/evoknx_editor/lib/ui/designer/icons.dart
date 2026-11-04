@@ -186,8 +186,11 @@ bool isCustomIcon(String? key) => key != null && _custom.containsKey(key);
 Widget iconWidget(String? key, double size, Color color) {
   if (key != null && key.startsWith('mdi:')) {
     final m = Mdi.byName[key.substring(4)];
+    // MDI code points are loaded from bundled metadata at runtime.
+    // ignore: non_constant_argument_for_const_parameter
+    final IconData icon = m == null ? Icons.help_outline : IconData(m.cp, fontFamily: 'MDI');
     return Icon(
-      m == null ? Icons.help_outline : IconData(m.cp, fontFamily: 'MDI'),
+      icon,
       size: size,
       color: color,
     );

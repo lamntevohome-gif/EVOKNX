@@ -7,7 +7,6 @@ import 'package:flutter/services.dart';
 import '../app/theme.dart';
 import '../state/bus_controller.dart';
 import '../state/project_controller.dart';
-import '../state/app_settings.dart';
 import 'common.dart';
 import 'connections_page.dart';
 import 'editor_settings_dialog.dart';

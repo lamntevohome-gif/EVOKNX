@@ -1045,8 +1045,14 @@ class _GridAreaState extends State<_GridArea> {
               final rb = _content.currentContext?.findRenderObject();
               if (rb is! RenderBox) return (w: gw, h: gh);
               final p = rb.globalToLocal(global);
-              final nw = ((p.dx - rc.left + gap) / (cw + gap)).round().clamp(1, max(1, maxW));
-              final nh = ((p.dy - rc.top + gap) / (ch + gap)).round().clamp(1, max(1, maxH));
+              final nw = ((p.dx - rc.left + gap) / (cw + gap))
+                  .round()
+                  .clamp(1, max(1, maxW))
+                  .toInt();
+              final nh = ((p.dy - rc.top + gap) / (ch + gap))
+                  .round()
+                  .clamp(1, max(1, maxH))
+                  .toInt();
               return (w: nw, h: nh);
             }
 
