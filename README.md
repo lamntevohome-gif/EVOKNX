@@ -5,7 +5,9 @@ Phần mềm thiết kế và điều khiển giao diện nhà thông minh KNX c
 ## Cấu trúc
 
 ```
+apps/evoknx_app/     App điều khiển (Flutter, Android; iOS sau)
 apps/evoknx_editor/   Ứng dụng Editor cho Windows (Flutter)
+packages/evoknx_ui/   Giao diện dùng chung: thẻ, biểu tượng MDI, font Inter
 packages/knx_core/    Thư viện KNX: KNXnet/IP tunneling, cEMI, DPT (Dart thuần, dùng chung với App mobile)
 packages/knx_config/  File dự án .evoknx, nâng cấp phiên bản, nhập ETS (.knxproj, CSV, XML)
 .github/workflows/    Tự động build bản Windows

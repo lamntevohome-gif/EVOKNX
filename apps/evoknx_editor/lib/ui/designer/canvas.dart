@@ -9,9 +9,8 @@ import 'package:knx_config/knx_config.dart';
 import '../../app/theme.dart';
 import '../common.dart';
 import 'designer.dart';
-import 'icons.dart';
-import 'model.dart';
-import 'tiles.dart';
+
+import 'package:evoknx_ui/evoknx_ui.dart';
 
 const Map<String, Size> kDeviceSize = {'mobile': Size(393, 852), 'tabletP': Size(820, 1180), 'tabletL': Size(1180, 820)};
 

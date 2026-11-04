@@ -7,8 +7,8 @@ import 'package:knx_config/knx_config.dart';
 import '../../app/theme.dart';
 import '../common.dart';
 import 'designer.dart';
-import 'icons.dart';
-import 'model.dart';
+
+import 'package:evoknx_ui/evoknx_ui.dart';
 
 /// Which icon groups a picker shows.
 enum IconScope { widget, room, floor }

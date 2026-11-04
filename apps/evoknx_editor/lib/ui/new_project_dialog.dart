@@ -4,7 +4,8 @@ import 'package:knx_config/knx_config.dart';
 import '../app/theme.dart';
 import '../state/project_controller.dart';
 import 'common.dart';
-import 'designer/icons.dart';
+
+import 'package:evoknx_ui/evoknx_ui.dart';
 
 /// "Mới": choose Quick create (floors, rooms, icons, ETS) or Manual.
 Future<void> showNewProjectDialog(BuildContext context, ProjectController p) async {

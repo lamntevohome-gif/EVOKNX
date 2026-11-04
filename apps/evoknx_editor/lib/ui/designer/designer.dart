@@ -7,7 +7,8 @@ import 'package:knx_config/knx_config.dart';
 import '../../state/bus_controller.dart';
 import '../../state/card_library.dart';
 import '../../state/project_controller.dart';
-import 'model.dart';
+
+import 'package:evoknx_ui/evoknx_ui.dart';
 
 /// What is being dragged onto the canvas.
 class DragItem {

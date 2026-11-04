@@ -9,11 +9,11 @@ import '../state/project_controller.dart';
 import 'common.dart';
 import 'designer/canvas.dart';
 import 'designer/designer.dart';
-import 'designer/icons.dart';
-import 'designer/model.dart';
+
+import 'package:evoknx_ui/evoknx_ui.dart';
+
 import 'designer/props.dart';
 import 'designer/parts_ui.dart';
-import 'designer/tiles.dart';
 import 'designer/tree.dart';
 
 /// "Cấu trúc" workspace: structure tree, phone canvas and properties.

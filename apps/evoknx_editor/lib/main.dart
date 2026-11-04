@@ -7,7 +7,8 @@ import 'state/app_settings.dart';
 import 'state/bus_controller.dart';
 import 'state/card_library.dart';
 import 'state/project_controller.dart';
-import 'ui/designer/icons.dart';
+
+import 'package:evoknx_ui/evoknx_ui.dart';
 
 Future<void> main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();

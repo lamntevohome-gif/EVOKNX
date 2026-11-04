@@ -4,8 +4,9 @@ import 'package:knx_config/knx_config.dart';
 import '../../app/theme.dart';
 import '../common.dart';
 import 'designer.dart';
-import 'icons.dart';
-import 'model.dart';
+
+import 'package:evoknx_ui/evoknx_ui.dart';
+
 import 'parts_ui.dart';
 
 /// What is being dragged in the structure tree.

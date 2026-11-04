@@ -187,7 +187,7 @@ class EvoDropdown<T> extends StatelessWidget {
           iconEnabledColor: c.muted,
           dropdownColor: c.panel,
           borderRadius: BorderRadius.circular(6),
-          style: TextStyle(fontSize: kUiText, color: warn ? c.warn : c.ink, fontFamily: 'Inter'),
+          style: TextStyle(fontSize: kUiText, color: warn ? c.warn : c.ink, fontFamily: 'packages/evoknx_ui/Inter'),
           items: [
             for (final i in items)
               DropdownMenuItem<T>(

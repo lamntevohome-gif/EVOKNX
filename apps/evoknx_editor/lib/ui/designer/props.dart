@@ -11,10 +11,10 @@ import '../../state/app_settings.dart';
 import '../common.dart';
 import 'designer.dart';
 import 'icon_picker.dart';
-import 'icons.dart';
-import 'model.dart';
+
+import 'package:evoknx_ui/evoknx_ui.dart';
+
 import 'parts_ui.dart';
-import 'tiles.dart';
 
 /// Right-hand properties panel of the Structure workspace.
 class PropsPanel extends StatelessWidget {
