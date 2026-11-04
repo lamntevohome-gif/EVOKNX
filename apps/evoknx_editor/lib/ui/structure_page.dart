@@ -276,14 +276,19 @@ class _StructurePageState extends State<StructurePage> {
           Draggable<DragItem>(
             data: DragItem.palette(t.type),
             dragAnchorStrategy: pointerDragAnchorStrategy,
-            feedback: feedback(Icon(iconOf(t.icon), size: 15, color: c.muted), t.name),
+            feedback: feedback(iconWidget(t.icon, 17, c.muted), t.name),
             child: MouseRegion(
               cursor: SystemMouseCursors.grab,
               child: item(
-                Icon(iconOf(t.icon), size: 15, color: c.muted),
+                iconWidget(t.icon, 17, c.muted),
                 t.name,
-                onTap: () => _add(t.type),
-                trailing: grip,
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(tooltip: 'Thêm vào ô đang chọn (hoặc chỗ trống đầu tiên)', icon: const Icon(Icons.add), onPressed: () => _add(t.type)),
+                    grip,
+                  ],
+                ),
               ),
             ),
           ),
@@ -332,10 +337,6 @@ class _StructurePageState extends State<StructurePage> {
                                 child: item(
                                   icon,
                                   name,
-                                  onTap: () {
-                                    final m = d.addLibCard(id);
-                                    if (m != null) toast(context, m);
-                                  },
                                   onMenu: (at) async {
                                     final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
                                     final v = await showMenu<String>(
@@ -362,6 +363,14 @@ class _StructurePageState extends State<StructurePage> {
                                   },
                                 ),
                               ),
+                            ),
+                            IconButton(
+                              tooltip: 'Thêm vào ô đang chọn (hoặc chỗ trống đầu tiên)',
+                              icon: const Icon(Icons.add),
+                              onPressed: () {
+                                final m = d.addLibCard(id);
+                                if (m != null) toast(context, m);
+                              },
                             ),
                             Tooltip(
                               message: 'Kéo để sắp xếp',

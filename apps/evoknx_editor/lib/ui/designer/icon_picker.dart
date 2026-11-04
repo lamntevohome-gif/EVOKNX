@@ -84,44 +84,50 @@ class _IconPickerDialogState extends State<_IconPickerDialog> {
 
   Designer get d => widget.d;
 
-  List<(String, String)> get _tabs => switch (widget.scope) {
-    IconScope.widget => const [('light', 'Đèn'), ('device', 'Thiết bị'), ('mdi', 'Thư viện MDI'), ('custom', 'Biểu tượng riêng')],
-    IconScope.room => const [('room', 'Phòng'), ('mdi', 'Thư viện MDI'), ('custom', 'Biểu tượng riêng')],
-    IconScope.floor => const [('floor', 'Tầng'), ('room', 'Phòng'), ('mdi', 'Thư viện MDI'), ('custom', 'Biểu tượng riêng')],
-  };
+  List<(String, String)> get _tabs => const [('suggest', 'Gợi ý'), ('mdi', 'Thư viện MDI'), ('custom', 'Biểu tượng riêng')];
+
+  /// Common MDI icons for this place (cards, rooms or floors).
+  List<(String, String)> get _suggest {
+    final base = switch (widget.scope) {
+      IconScope.widget => [...kLightIcons, ...kDeviceIcons],
+      IconScope.room => kRoomIcons,
+      IconScope.floor => [...kFloorIcons, ...kRoomIcons],
+    };
+    final seen = <String>{};
+    return [
+      for (final (k, n) in base)
+        if (mdiKeyOf(k) case final m? when seen.add(m)) (m, n),
+    ];
+  }
 
   @override
   void initState() {
     super.initState();
-    final cur = widget.current;
-    String start = _tabs.first.$1;
-    if (cur != null && cur.startsWith('mdi:')) {
-      start = 'mdi';
+    final cur = mdiKeyOf(widget.current);
+    if (isCustomIcon(cur)) {
+      tab = 'custom';
+    } else if (cur != null && cur.startsWith('mdi:') && !_suggest.any((x) => x.$1 == cur)) {
+      tab = 'mdi';
       final m = Mdi.byName[cur.substring(4)];
       if (m != null && m.tags.isNotEmpty) mdiTag = m.tags.first;
-    } else if (isCustomIcon(cur)) {
-      start = 'custom';
-    } else if (kDeviceIcons.any((i) => i.$1 == cur) && widget.scope == IconScope.widget) {
-      start = 'device';
+    } else {
+      tab = 'suggest';
     }
-    tab = start;
   }
 
   List<(String, String)> _items() {
     final fq = fold(q.trim());
     final List<(String, String)> base;
     if (fq.isNotEmpty) {
-      // Search across every group this picker allows.
-      final all = <(String, String)>[];
-      for (final t in _tabs) {
-        all.addAll(_group(t.$1));
-      }
+      // Suggestions and custom icons by their Vietnamese names first, then
+      // the MDI library (English names, Vietnamese keywords).
       final seen = <String>{};
-      base = all.where((i) => !i.$1.startsWith('mdi:') && seen.add(i.$1) && fold(i.$2).contains(fq)).toList();
-      // Then the MDI library (English names, Vietnamese keywords).
-      if (_tabs.any((t) => t.$1 == 'mdi')) {
-        base.addAll([for (final m in Mdi.search(fq)) (m.key, m.name)]);
-      }
+      base = [
+        for (final i in [..._suggest, ..._group('custom')])
+          if (fold(i.$2).contains(fq) && seen.add(i.$1)) i,
+        for (final m in Mdi.search(fq))
+          if (seen.add(m.key)) (m.key, m.name),
+      ];
     } else {
       base = _group(tab);
     }
@@ -129,10 +135,7 @@ class _IconPickerDialogState extends State<_IconPickerDialog> {
   }
 
   List<(String, String)> _group(String g) => switch (g) {
-    'light' => kLightIcons,
-    'device' => kDeviceIcons,
-    'room' => kRoomIcons,
-    'floor' => kFloorIcons,
+    'suggest' => _suggest,
     'mdi' => [for (final m in Mdi.search('', tag: mdiTag < 0 ? null : mdiTag)) (m.key, m.name)],
     _ => [for (final c in customIcons) (c.id, c.name)],
   };
@@ -374,7 +377,7 @@ class _IconPickerDialogState extends State<_IconPickerDialog> {
                       itemCount: items.length,
                       itemBuilder: (context, i) {
                         final (key, name) = items[i];
-                        final on = key == widget.current;
+                        final on = key == mdiKeyOf(widget.current);
                         final custom = isCustomIcon(key);
                         final ci = custom ? customIcons.firstWhere((x) => x.id == key) : null;
                         return Tooltip(

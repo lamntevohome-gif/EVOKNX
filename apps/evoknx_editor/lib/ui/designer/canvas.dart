@@ -874,9 +874,10 @@ class _GridAreaState extends State<_GridArea> {
                     onTap: () => d.selectCell(widget.groupId, x, y),
                     child: Container(
                       decoration: BoxDecoration(
-                        color: sel ? pal.accentSoft : Colors.transparent,
+                        // Selected cell: outline only (Editor selection blue), no fill.
+                        color: Colors.transparent,
                         borderRadius: BorderRadius.circular(widget.groupId == null ? 14 : 10),
-                        border: Border.all(color: sel ? pal.accent : pal.lineStrong.withValues(alpha: 0.6), width: sel ? 1.5 : 1),
+                        border: Border.all(color: sel ? kEditorSelection : pal.lineStrong.withValues(alpha: 0.6), width: sel ? 2 : 1),
                       ),
                     ),
                   ),
@@ -1506,7 +1507,7 @@ ScreenBg? pageBackground(Json? sub, ScreenBg screen, Json theme) {
   if (mode == 'color') {
     final c = shade(hexColor(b['color']) ?? under).withValues(alpha: op);
     final tx = text(Color.alphaBlend(c, under).computeLuminance() < 0.35);
-    return ScreenBg(BoxDecoration(color: c), tx.ink, tx.muted, key: 'c|${sub?['id']}|${b['color']}|$br|$op');
+    return ScreenBg(BoxDecoration(color: c), tx.ink, tx.muted, key: 'c|${sub?['id']}');
   }
   final data = (b['image'] ?? '').toString();
   final i = data.indexOf('base64,');
@@ -1531,7 +1532,7 @@ ScreenBg? pageBackground(Json? sub, ScreenBg screen, Json theme) {
     tx.ink,
     tx.muted,
     blur: blur,
-    key: 'i|${sub?['id']}|${data.length}|$br|$blur|$op',
+    key: 'i|${sub?['id']}|${data.length}',
   );
 }
 

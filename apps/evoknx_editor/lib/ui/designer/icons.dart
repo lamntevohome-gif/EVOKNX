@@ -61,6 +61,63 @@ const Map<String, IconData> kIconData = {
 
 IconData iconOf(String? key) => kIconData[key] ?? Icons.lightbulb_outline;
 
+/// The App shows MDI icons only. Older projects (and card type defaults)
+/// use these short keys, which are drawn with the matching MDI icon.
+const Map<String, String> kLegacyToMdi = {
+  'bulb': 'lightbulb-outline',
+  'downlight': 'ceiling-light-outline',
+  'spot': 'spotlight-beam',
+  'ceiling': 'ceiling-light',
+  'pendant': 'ceiling-light-multiple-outline',
+  'chandelier': 'chandelier',
+  'wall': 'wall-sconce-outline',
+  'strip': 'led-strip-variant',
+  'flood': 'flashlight',
+  'table': 'desk-lamp',
+  'sun': 'weather-sunny',
+  'blind': 'blinds',
+  'curtain': 'curtains',
+  'thermo': 'thermostat',
+  'drop': 'water-outline',
+  'snow': 'snowflake',
+  'fan': 'fan',
+  'tv': 'television',
+  'camera': 'cctv',
+  'plug': 'power-socket-eu',
+  'power': 'power',
+  'door': 'door',
+  'button': 'gesture-tap-button',
+  'star': 'star-outline',
+  'link': 'link-variant',
+  'globe': 'web',
+  'layout': 'view-grid-outline',
+  'flame': 'fire',
+  'acauto': 'autorenew',
+  'home': 'home-outline',
+  'sofa': 'sofa-outline',
+  'bed': 'bed-outline',
+  'kids': 'teddy-bear',
+  'kitchen': 'stove',
+  'dining': 'silverware-fork-knife',
+  'bath': 'bathtub-outline',
+  'desk': 'desk',
+  'cinema': 'theater',
+  'gym': 'dumbbell',
+  'laundry': 'washing-machine',
+  'stairs': 'stairs',
+  'garage': 'garage-variant',
+  'balcony': 'balcony',
+  'leaf': 'sprout-outline',
+  'pool': 'pool',
+};
+
+/// The MDI key an icon key is drawn with ('bulb' → 'mdi:lightbulb-outline').
+String? mdiKeyOf(String? key) {
+  if (key == null) return null;
+  final m = kLegacyToMdi[key];
+  return m == null ? key : 'mdi:$m';
+}
+
 const List<(String, String)> kLightIcons = [
   ('bulb', 'Bóng đèn'),
   ('downlight', 'Đèn downlight'),
@@ -184,6 +241,7 @@ bool isCustomIcon(String? key) => key != null && _custom.containsKey(key);
 
 /// Draws an icon by key: built-in Material icon or a custom (tinted) icon.
 Widget iconWidget(String? key, double size, Color color) {
+  key = mdiKeyOf(key);
   if (key != null && key.startsWith('mdi:')) {
     final m = Mdi.byName[key.substring(4)];
     // MDI code points are loaded from bundled metadata at runtime.
@@ -192,7 +250,7 @@ Widget iconWidget(String? key, double size, Color color) {
     return Icon(icon, size: size, color: color);
   }
   final c = key == null ? null : _custom[key];
-  if (c == null) return Icon(iconOf(key), size: size, color: color);
+  if (c == null) return iconWidget('mdi:lightbulb-outline', size, color);
   return SizedBox(
     width: size,
     height: size,
@@ -203,6 +261,7 @@ Widget iconWidget(String? key, double size, Color color) {
 }
 
 String iconLabel(String? key) {
+  if (kLegacyToMdi.containsKey(key)) return iconName(key);
   if (key != null && key.startsWith('mdi:')) return key.substring(4);
   return _custom[key]?.name ?? iconName(key);
 }

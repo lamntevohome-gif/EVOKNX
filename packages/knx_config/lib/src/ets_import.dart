@@ -188,5 +188,109 @@ EtsResult _parseKnxproj(Uint8List bytes) {
   }
   final data = zip.read(xmlName);
   if (data == null) throw EtsException('Không đọc được dữ liệu project (file có thể bị mã hoá).');
-  return EtsResult(_parseXml(decodeText(data), twoLevel: twoLevel), pname);
+  final xml = decodeText(data);
+  final items = _parseXml(xml, twoLevel: twoLevel);
+  if (items.any((i) => i.dpt.isEmpty)) {
+    final fromObjects = _dptsFromComObjects(xml, zip, names);
+    if (fromObjects.isNotEmpty) {
+      final ids = _gaIdsByAddress(xml, twoLevel: twoLevel);
+      for (var k = 0; k < items.length; k++) {
+        final it = items[k];
+        if (it.dpt.isNotEmpty) continue;
+        final id = ids[it.address];
+        final d = id == null ? null : (fromObjects[id] ?? fromObjects[_shortGaId(id)]);
+        if (d != null && d.isNotEmpty) items[k] = EtsItem(it.address, it.name, d);
+      }
+    }
+  }
+  return EtsResult(items, pname);
+}
+
+/// "P-0123-0_GA-17" → "GA-17" (ETS 6 links use the short form).
+String _shortGaId(String id) {
+  final i = id.lastIndexOf('_GA-');
+  return i < 0 ? id : id.substring(i + 1);
+}
+
+Map<String, String> _gaIdsByAddress(String xml, {bool twoLevel = false}) {
+  final out = <String, String>{};
+  for (final m in RegExp(r'<GroupAddress\b[^>]*>').allMatches(xml)) {
+    final tag = m.group(0)!;
+    var a = _attr(tag, 'Address');
+    if (RegExp(r'^\d+$').hasMatch(a)) a = _gaFromInt(int.parse(a), twoLevel: twoLevel);
+    final id = _attr(tag, 'Id');
+    if (id.isNotEmpty && GroupAddress.isValid(a)) out[a] = id;
+  }
+  return out;
+}
+
+/// Datapoint types of group addresses that have none in the project, taken
+/// from the communication objects linked to them, as ETS and xknxproject do:
+/// the object instance in the project first, then the object reference and
+/// the object of the manufacturer's application program (inside the
+/// .knxproj). Keys are group address ids (full and short form).
+Map<String, String> _dptsFromComObjects(String projectXml, ZipReader zip, List<String> names) {
+  // Hardware2Program id → application program id (from the M-xxxx/Hardware.xml files).
+  final h2p = <String, String>{};
+  for (final n in names.where((n) => RegExp(r'^M-[0-9A-F]+/Hardware\.xml$', caseSensitive: false).hasMatch(n))) {
+    final x = zip.read(n);
+    if (x == null) continue;
+    final t = decodeText(x);
+    for (final m in RegExp(r'<Hardware2Program\b[^>]*\bId="([^"]+)"[^>]*>([\s\S]*?)</Hardware2Program>').allMatches(t)) {
+      final ref = RegExp(r'<ApplicationProgramRef\b[^>]*\bRefId="([^"]+)"').firstMatch(m.group(2)!);
+      if (ref != null) h2p[m.group(1)!] = ref.group(1)!;
+    }
+  }
+
+  // Application programs, loaded on demand: ComObjectRef id → (dpt, ComObject id), ComObject id → dpt.
+  final apps = <String, ({Map<String, (String, String)> refs, Map<String, String> objs})?>{};
+  ({Map<String, (String, String)> refs, Map<String, String> objs})? app(String appId) {
+    if (apps.containsKey(appId)) return apps[appId];
+    final mf = appId.split('_').first;
+    final file = names.firstWhere((n) => n.toLowerCase() == '$mf/$appId.xml'.toLowerCase(), orElse: () => '');
+    final x = file.isEmpty ? null : zip.read(file);
+    if (x == null) return apps[appId] = null;
+    final t = decodeText(x);
+    final refs = <String, (String, String)>{};
+    final objs = <String, String>{};
+    for (final m in RegExp(r'<ComObjectRef\b[^>]*>').allMatches(t)) {
+      final tag = m.group(0)!;
+      refs[_attr(tag, 'Id')] = (_attr(tag, 'DatapointType'), _attr(tag, 'RefId'));
+    }
+    for (final m in RegExp(r'<ComObject\b[^>]*>').allMatches(t)) {
+      final tag = m.group(0)!;
+      objs[_attr(tag, 'Id')] = _attr(tag, 'DatapointType');
+    }
+    return apps[appId] = (refs: refs, objs: objs);
+  }
+
+  final out = <String, String>{};
+  for (final dm in RegExp(r'<DeviceInstance\b([^>]*)>([\s\S]*?)</DeviceInstance>').allMatches(projectXml)) {
+    final appId = h2p[_attr('<x ${dm.group(1)!}>', 'Hardware2ProgramRefId')];
+    final body = dm.group(2)!;
+    for (final om in RegExp(r'<ComObjectInstanceRef\b([^>]*?)(/>|>([\s\S]*?)</ComObjectInstanceRef>)').allMatches(body)) {
+      final tag = '<x ${om.group(1)!}>';
+      final links = <String>[
+        ..._attr(tag, 'Links').split(RegExp(r'\s+')).where((l) => l.isNotEmpty),
+        for (final c in RegExp(r'GroupAddressRefId="([^"]+)"').allMatches(om.group(3) ?? '')) c.group(1)!,
+      ];
+      if (links.isEmpty) continue;
+      var dpt = normalizeDpt(_attr(tag, 'DatapointType'));
+      if (dpt.isEmpty && appId != null) {
+        final a = app(appId);
+        final refId = _attr(tag, 'RefId');
+        final r = a?.refs['${appId}_$refId'] ?? a?.refs[refId];
+        dpt = normalizeDpt(r?.$1);
+        if (dpt.isEmpty && r != null) dpt = normalizeDpt(a?.objs[r.$2]);
+      }
+      if (dpt.isEmpty) continue;
+      for (final l in links) {
+        // The first object that gives a type wins (as in ETS); later ones
+        // only fill addresses that have none yet.
+        out.putIfAbsent(l, () => dpt);
+        out.putIfAbsent(_shortGaId(l), () => dpt);
+      }
+    }
+  }
+  return out;
 }

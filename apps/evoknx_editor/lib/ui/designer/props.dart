@@ -83,7 +83,9 @@ class _Section extends StatelessWidget {
   }
 }
 
-class StepRow extends StatelessWidget {
+/// "Label   − [value] +": the value can also be typed (Enter or leaving the
+/// box applies it, clamped to the allowed range).
+class StepRow extends StatefulWidget {
   const StepRow({
     super.key,
     required this.label,
@@ -99,17 +101,62 @@ class StepRow extends StatelessWidget {
   final ValueChanged<int> onChanged;
 
   @override
+  State<StepRow> createState() => _StepRowState();
+}
+
+class _StepRowState extends State<StepRow> {
+  late final TextEditingController _c = TextEditingController(text: '${widget.value}');
+  final FocusNode _f = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    _f.addListener(() {
+      if (!_f.hasFocus) _commit();
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant StepRow old) {
+    super.didUpdateWidget(old);
+    if (!_f.hasFocus && _c.text != '${widget.value}') _c.text = '${widget.value}';
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    _f.dispose();
+    super.dispose();
+  }
+
+  void _commit() {
+    final n = int.tryParse(_c.text.replaceAll(RegExp(r'[^0-9-]'), ''));
+    if (n == null) {
+      _c.text = '${widget.value}';
+      return;
+    }
+    final v = n.clamp(widget.min, widget.max).toInt();
+    _c.text = '$v';
+    if (v != widget.value) widget.onChanged(v);
+  }
+
+  @override
   Widget build(BuildContext context) {
     final c = context.evo;
-    Widget b(IconData i, int d) => InkWell(
-      onTap: (d < 0 ? value <= min : value >= max) ? null : () => onChanged((value + d).clamp(min, max)),
-      child: SizedBox(width: 28, height: 32, child: Icon(i, size: 16, color: (d < 0 ? value <= min : value >= max) ? c.lineStrong : c.muted)),
-    );
+    final value = widget.value, min = widget.min, max = widget.max;
+    Widget b(IconData i, int d) {
+      final off = d < 0 ? value <= min : value >= max;
+      return InkWell(
+        onTap: off ? null : () => widget.onChanged((value + d).clamp(min, max).toInt()),
+        child: SizedBox(width: 28, height: 32, child: Icon(i, size: 16, color: off ? c.lineStrong : c.muted)),
+      );
+    }
+
     return Row(
       children: [
         Expanded(
           child: Text(
-            label,
+            widget.label,
             style: TextStyle(fontSize: kUiText, color: c.ink),
           ),
         ),
@@ -121,20 +168,47 @@ class StepRow extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              b(Icons.remove, -step),
+              b(Icons.remove, -widget.step),
               Container(
-                width: 64,
+                width: 68,
                 height: 32,
-                alignment: Alignment.center,
                 decoration: BoxDecoration(
                   border: Border.symmetric(vertical: BorderSide(color: c.line)),
                 ),
-                child: Text(
-                  unit.isEmpty ? '$value' : '$value $unit',
-                  style: const TextStyle(fontSize: kUiText, fontWeight: FontWeight.w500),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Flexible(
+                      child: TextField(
+                        controller: _c,
+                        focusNode: _f,
+                        textAlign: TextAlign.right,
+                        keyboardType: TextInputType.number,
+                        style: const TextStyle(fontSize: kUiText, fontWeight: FontWeight.w500),
+                        onSubmitted: (_) => _commit(),
+                        decoration: const InputDecoration(
+                          isDense: true,
+                          filled: false,
+                          border: InputBorder.none,
+                          enabledBorder: InputBorder.none,
+                          focusedBorder: InputBorder.none,
+                          contentPadding: EdgeInsets.symmetric(horizontal: 2, vertical: 8),
+                        ),
+                      ),
+                    ),
+                    if (widget.unit.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(left: 2, right: 6),
+                        child: Text(
+                          widget.unit,
+                          style: TextStyle(fontSize: kUiText - 1, color: c.muted),
+                        ),
+                      ),
+                    if (widget.unit.isEmpty) const SizedBox(width: 6),
+                  ],
                 ),
               ),
-              b(Icons.add, step),
+              b(Icons.add, widget.step),
             ],
           ),
         ),
@@ -746,7 +820,7 @@ class _WidgetPropsState extends State<_WidgetProps> {
                       onChanged: (v) => setAcMap('modes', m.key, v ?? false),
                     ),
                   ),
-                  Icon(iconOf(m.icon), size: 16, color: context.evo.muted),
+                  iconWidget(m.icon, 16, context.evo.muted),
                   const SizedBox(width: 8),
                   Expanded(
                     child: SyncedField(

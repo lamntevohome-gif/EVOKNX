@@ -66,7 +66,7 @@ const Map<String, WidgetTypeDef> kWidgetTypes = {
   ]),
   'link': WidgetTypeDef('link', 'Mở trang web', 'link', 2, 2, []),
   'webview': WidgetTypeDef('webview', 'Trang web nhúng', 'globe', 4, 6, []),
-  'ac': WidgetTypeDef('ac', 'Máy lạnh', 'snow', 4, 6, [
+  'ac': WidgetTypeDef('ac', 'Máy lạnh', 'snow', 4, 4, [
     SlotDef('power', 'Bật/tắt', [1], required: true),
     SlotDef('powerSt', 'Trạng thái bật/tắt', [1], recommended: true),
     SlotDef('setpoint', 'Nhiệt độ cài đặt', [9], required: true),
