@@ -77,4 +77,22 @@ void main() {
   check(jsonMap(ws[ws.length - 2]['bind'])['write'] == 'ga_other' && jsonMap(ws.last['bind']).isEmpty, 'addresses kept / dropped');
   final p1 = jsonMap(ws[ws.length - 2]['pos']), p2 = jsonMap(ws.last['pos']);
   check(!(p1['x'] == p2['x'] && p1['y'] == p2['y']), 'no overlap');
+
+  // Library placement: only existing addresses, at a given free spot.
+  final b2 = newProject('B2');
+  b2['groupAddresses'] = [
+    {'id': 'ga_x', 'address': '1/1/1', 'name': 'x', 'dpt': '1.001'},
+  ];
+  final page2 = jsonList(jsonList(applyPartFloor(b2)['pages']).first['subpages']).first;
+  final rm = applyCardPart(b2, cp, page2, matchExisting: true, atX: 2, atY: 3);
+  final placed = jsonList(page2['widgets']).last;
+  check(rm.error == null && jsonMap(placed['pos'])['x'] == 2 && jsonMap(placed['pos'])['y'] == 3, 'placed at drop cell');
+  check(jsonMap(placed['bind'])['write'] == 'ga_x' && jsonList(b2['groupAddresses']).length == 1, 'only existing addresses kept');
+}
+
+Json applyPartFloor(Json d) {
+  final f = makeFloor('T');
+  d['floors'] = [f];
+  d['pages'] = [makeRoom('R', floorId: f['id'] as String)];
+  return d;
 }

@@ -221,9 +221,6 @@ class _ShellState extends State<Shell> {
           ),
           IconButton(tooltip: 'Hoàn tác (Ctrl+Z)', onPressed: p.canUndo ? p.undo : null, icon: const Icon(Icons.undo)),
           IconButton(tooltip: 'Làm lại (Ctrl+Y)', onPressed: p.canRedo ? p.redo : null, icon: const Icon(Icons.redo)),
-          IconButton(tooltip: 'Lưu (Ctrl+S)', onPressed: () => _save(), icon: const Icon(Icons.save_outlined)),
-          const SizedBox(width: 6),
-          EvoButton(label: 'Xuất cấu hình', primary: true, tooltip: 'Xuất file cấu hình cho App', onPressed: _export),
         ],
       ),
     );

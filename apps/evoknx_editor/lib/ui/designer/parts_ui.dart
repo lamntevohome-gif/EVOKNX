@@ -5,6 +5,7 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:knx_config/knx_config.dart';
 
+import '../../state/card_library.dart';
 import '../../state/project_files.dart';
 import '../common.dart';
 import 'designer.dart';
@@ -138,7 +139,8 @@ Future<void> exportCard(BuildContext context, Designer d, Json w) async {
   final file = loc.path.toLowerCase().endsWith('.evoknxpart') ? loc.path : '${loc.path}.evoknxpart';
   try {
     await File(file).writeAsString(const JsonEncoder.withIndent('  ').convert(part));
-    if (context.mounted) toast(context, 'Đã xuất thẻ “$name” ra ${baseName(file)}');
+    await cardLibrary.add(part);
+    if (context.mounted) toast(context, 'Đã xuất thẻ “$name” ra ${baseName(file)} và thêm vào Thư viện thẻ');
   } catch (e) {
     if (context.mounted) toast(context, 'Không ghi được file: $e');
   }
@@ -208,4 +210,27 @@ Future<void> _importCard(BuildContext context, Designer d, Json part) async {
     context,
     'Đã nhập ${res.widgets} thẻ${keep ? '. Địa chỉ nhóm: ${res.reusedAddresses} dùng lại, ${res.newAddresses} thêm mới.' : ', chưa gán địa chỉ nhóm.'}',
   );
+}
+
+/// "+" of the card library: adds card files (.evoknxpart) to the library.
+Future<void> importCardsToLibrary(BuildContext context) async {
+  final files = await openFiles(acceptedTypeGroups: const [_partType], confirmButtonText: 'Thêm vào thư viện');
+  if (files.isEmpty) return;
+  var n = 0, skipped = 0;
+  for (final f in files) {
+    try {
+      final o = jsonDecode(await f.readAsString());
+      if (o is Map && isPart(o) && o['kind'] == 'card') {
+        await cardLibrary.add(o.cast<String, dynamic>());
+        n++;
+      } else {
+        skipped++;
+      }
+    } catch (_) {
+      skipped++;
+    }
+  }
+  if (context.mounted) {
+    toast(context, 'Đã thêm $n thẻ vào thư viện${skipped > 0 ? '; bỏ qua $skipped file không phải thẻ' : ''}.');
+  }
 }

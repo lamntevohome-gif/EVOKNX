@@ -4,6 +4,7 @@ import 'package:knx_config/knx_config.dart';
 
 import '../app/theme.dart';
 import '../state/bus_controller.dart';
+import '../state/card_library.dart';
 import '../state/project_controller.dart';
 import 'common.dart';
 import 'designer/canvas.dart';
@@ -11,6 +12,8 @@ import 'designer/designer.dart';
 import 'designer/icons.dart';
 import 'designer/model.dart';
 import 'designer/props.dart';
+import 'designer/parts_ui.dart';
+import 'designer/tiles.dart';
 import 'designer/tree.dart';
 
 /// "Cấu trúc" workspace: structure tree, phone canvas and properties.
@@ -173,43 +176,49 @@ class _StructurePageState extends State<StructurePage> {
     );
   }
 
-  /// Card types to drag onto the screen (or click to add to the selected cell).
+  /// "Thành phần": card types on top, the card library below. Items can be
+  /// dragged onto the screen or clicked to add to the selected cell.
   Widget _assets(BuildContext context) {
     final c = context.evo;
-    Widget item(IconData icon, String label, {VoidCallback? onTap, bool accent = false}) => InkWell(
-      onTap: onTap,
-      child: Container(
-        height: 30,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        child: Row(
-          children: [
-            Icon(icon, size: 15, color: accent ? c.accent : c.muted),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                label,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: kUiText, color: accent ? c.accentInk : c.ink),
+    Widget item(Widget icon, String label, {VoidCallback? onTap, Widget? trailing, bool accent = false, void Function(Offset)? onMenu}) => PressEffect(
+      scale: 0.98,
+      radius: 4,
+      child: InkWell(
+        onTap: onTap,
+        onSecondaryTapDown: onMenu == null ? null : (e) => onMenu(e.globalPosition),
+        child: Container(
+          height: 30,
+          padding: const EdgeInsets.only(left: 12, right: 6),
+          child: Row(
+            children: [
+              SizedBox(width: 16, child: Center(child: icon)),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  label,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: kUiText, color: accent ? c.accentInk : c.ink),
+                ),
               ),
-            ),
-            if (!accent) Icon(Icons.drag_indicator, size: 14, color: c.lineStrong),
-          ],
+              if (trailing != null) trailing,
+            ],
+          ),
         ),
       ),
     );
-    Widget feedback(IconData icon, String label) => Material(
+    Widget feedback(Widget icon, String label) => Material(
       color: c.panel,
       elevation: 4,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(5),
-        side: BorderSide(color: c.accent),
+        side: BorderSide(color: kEditorSelection),
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 15, color: c.accent),
+            icon,
             const SizedBox(width: 6),
             Text(
               label,
@@ -219,12 +228,30 @@ class _StructurePageState extends State<StructurePage> {
         ),
       ),
     );
-    return ListView(
-      padding: const EdgeInsets.symmetric(vertical: 6),
+    Widget header(String title, {Widget? trailing}) => Container(
+      height: 32,
+      padding: const EdgeInsets.only(left: 12, right: 6),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              title,
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: c.muted),
+            ),
+          ),
+          if (trailing != null) trailing,
+        ],
+      ),
+    );
+    final grip = Icon(Icons.drag_indicator, size: 14, color: c.lineStrong);
+
+    final types = ListView(
+      padding: const EdgeInsets.only(bottom: 6),
       children: [
-        if (d.clip != null) ...[
+        header('LOẠI THẺ'),
+        if (d.clip != null)
           item(
-            Icons.content_paste,
+            Icon(Icons.content_paste, size: 15, color: c.accent),
             'Dán “${d.clip!['label'] ?? ''}”',
             accent: true,
             onTap: () {
@@ -232,22 +259,123 @@ class _StructurePageState extends State<StructurePage> {
               if (m != null) toast(context, m);
             },
           ),
-          Divider(color: c.line),
-        ],
-        Padding(
-          padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
-          child: Text('Kéo vào màn hình, hoặc chọn ô trống rồi bấm', style: TextStyle(fontSize: 11, color: c.muted)),
-        ),
         for (final t in kWidgetTypes.values)
           Draggable<DragItem>(
             data: DragItem.palette(t.type),
             dragAnchorStrategy: pointerDragAnchorStrategy,
-            feedback: feedback(iconOf(t.icon), t.name),
+            feedback: feedback(Icon(iconOf(t.icon), size: 15, color: c.muted), t.name),
             child: MouseRegion(
               cursor: SystemMouseCursors.grab,
-              child: item(iconOf(t.icon), t.name, onTap: () => _add(t.type)),
+              child: item(
+                Icon(iconOf(t.icon), size: 15, color: c.muted),
+                t.name,
+                onTap: () => _add(t.type),
+                trailing: grip,
+              ),
             ),
           ),
+      ],
+    );
+
+    final library = ListenableBuilder(
+      listenable: cardLibrary,
+      builder: (context, _) {
+        final list = cardLibrary.entries;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            header(
+              'THƯ VIỆN THẺ',
+              trailing: IconButton(tooltip: 'Thêm thẻ vào thư viện từ file', icon: const Icon(Icons.add), onPressed: () => importCardsToLibrary(context)),
+            ),
+            Expanded(
+              child: list.isEmpty
+                  ? Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                      child: Text('Chưa có thẻ. Xuất một thẻ đã cấu hình, hoặc bấm + để thêm từ file.', style: TextStyle(fontSize: 11, color: c.muted)),
+                    )
+                  : ReorderableListView.builder(
+                      buildDefaultDragHandles: false,
+                      padding: const EdgeInsets.only(bottom: 8),
+                      itemCount: list.length,
+                      onReorder: (a, b) => cardLibrary.reorder(a, b > a ? b - 1 : b),
+                      proxyDecorator: (child, i, anim) => Material(color: c.panel, elevation: 4, child: child),
+                      itemBuilder: (context, i) {
+                        final e = list[i];
+                        final id = e['id'] as String;
+                        final card = CardLibrary.cardOf(e);
+                        final icon = iconWidget((card?['icon'] ?? kWidgetTypes[e['type']]?.icon)?.toString(), 15, c.muted);
+                        final name = (e['name'] ?? '').toString();
+                        // The grip (right) reorders; the rest of the row drags
+                        // the card onto the screen.
+                        return Row(
+                          key: ValueKey(id),
+                          children: [
+                            Expanded(
+                              child: Draggable<DragItem>(
+                                data: DragItem.lib(id),
+                                dragAnchorStrategy: pointerDragAnchorStrategy,
+                                feedback: feedback(icon, name),
+                                child: item(
+                                  icon,
+                                  name,
+                                  onTap: () {
+                                    final m = d.addLibCard(id);
+                                    if (m != null) toast(context, m);
+                                  },
+                                  onMenu: (at) async {
+                                    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+                                    final v = await showMenu<String>(
+                                      context: context,
+                                      position: RelativeRect.fromRect(at & const Size(1, 1), Offset.zero & overlay.size),
+                                      items: [
+                                        PopupMenuItem(
+                                          value: 'del',
+                                          height: 30,
+                                          child: Row(
+                                            children: [
+                                              Icon(Icons.delete_outline, size: 15, color: c.danger),
+                                              const SizedBox(width: 10),
+                                              Text(
+                                                'Xoá khỏi thư viện',
+                                                style: TextStyle(fontSize: kUiText, color: c.danger),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    );
+                                    if (v == 'del') await cardLibrary.remove(id);
+                                  },
+                                ),
+                              ),
+                            ),
+                            Tooltip(
+                              message: 'Kéo để sắp xếp',
+                              child: ReorderableDragStartListener(
+                                index: i,
+                                child: MouseRegion(
+                                  cursor: SystemMouseCursors.resizeUpDown,
+                                  child: Padding(padding: const EdgeInsets.fromLTRB(4, 4, 8, 4), child: grip),
+                                ),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+            ),
+          ],
+        );
+      },
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Expanded(flex: 3, child: types),
+        Divider(color: c.line),
+        Expanded(flex: 2, child: library),
       ],
     );
   }

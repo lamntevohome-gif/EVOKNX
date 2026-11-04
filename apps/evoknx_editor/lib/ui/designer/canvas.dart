@@ -736,6 +736,9 @@ class _GridArea extends StatefulWidget {
 class _GridAreaState extends State<_GridArea> {
   ({int x, int y, int w, int h, bool ok})? ghost;
 
+  /// Card being resized with the corner handle (new size in cells).
+  ({String id, int w, int h})? resizing;
+
   /// The grid content (inside the scroll view on scrolling pages), used to
   /// convert drag positions into cells.
   final GlobalKey _content = GlobalKey();
@@ -970,47 +973,118 @@ class _GridAreaState extends State<_GridArea> {
             ),
           );
           // Selection in the style of design tools: blue outline, corner
-          // handles and the card size (columns × rows) under it.
+          // handles and the card size (columns × rows) under it. The
+          // bottom-right handle resizes the card by dragging.
           if (selected) {
             const sel = kEditorSelection;
+            final rz = resizing?.id == id ? resizing : null;
+            final gw = rz?.w ?? pi(w, 'w'), gh = rz?.h ?? pi(w, 'h');
+            final rr = rz == null ? rc : rect(pi(w, 'x'), pi(w, 'y'), gw, gh);
+            final ok = rz == null || isFree(box, pi(w, 'x'), pi(w, 'y'), gw, gh, id);
+            final col = ok ? sel : evo.danger;
             Widget handle() => Container(
               width: 7,
               height: 7,
               decoration: BoxDecoration(
                 color: Colors.white,
-                border: Border.all(color: sel, width: 1.2),
+                border: Border.all(color: col, width: 1.2),
               ),
             );
-            final below = rc.bottom + 22 <= bc.maxHeight;
+            final below = rr.bottom + 22 <= bc.maxHeight;
+            if (rz != null) {
+              children.add(
+                Positioned.fromRect(
+                  rect: rr,
+                  child: IgnorePointer(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: col.withValues(alpha: 0.08),
+                        border: Border.all(color: col, width: 1.5),
+                        borderRadius: BorderRadius.circular(pal.radius),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }
             children.add(
               Positioned(
-                left: rc.left - 3,
-                top: rc.top - 3,
-                width: rc.width + 6,
-                height: rc.height + 6 + (below ? 20 : 0),
+                left: rr.left - 3,
+                top: rr.top - 3,
+                width: rr.width + 6,
+                height: rr.height + 6 + (below ? 20 : 0),
                 child: IgnorePointer(
                   child: Stack(
                     children: [
                       Positioned(left: 0, top: 0, child: handle()),
                       Positioned(right: 0, top: 0, child: handle()),
-                      Positioned(left: 0, top: rc.height - 1, child: handle()),
-                      Positioned(right: 0, top: rc.height - 1, child: handle()),
+                      Positioned(left: 0, top: rr.height - 1, child: handle()),
                       Positioned(
                         left: 0,
                         right: 0,
-                        top: below ? rc.height + 8 : rc.height - 18,
+                        top: below ? rr.height + 8 : rr.height - 18,
                         child: Center(
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                            decoration: BoxDecoration(color: sel, borderRadius: BorderRadius.circular(3)),
+                            decoration: BoxDecoration(color: col, borderRadius: BorderRadius.circular(3)),
                             child: Text(
-                              '${pi(w, 'w')} × ${pi(w, 'h')}',
+                              '$gw × $gh',
                               style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.w600),
                             ),
                           ),
                         ),
                       ),
                     ],
+                  ),
+                ),
+              ),
+            );
+            // Resize handle (bottom-right corner).
+            final maxW = c - pi(w, 'x'), maxH = r - pi(w, 'y');
+            ({int w, int h}) sizeAt(Offset global) {
+              final rb = _content.currentContext?.findRenderObject();
+              if (rb is! RenderBox) return (w: gw, h: gh);
+              final p = rb.globalToLocal(global);
+              final nw = ((p.dx - rc.left + gap) / (cw + gap)).round().clamp(1, max(1, maxW));
+              final nh = ((p.dy - rc.top + gap) / (ch + gap)).round().clamp(1, max(1, maxH));
+              return (w: nw, h: nh);
+            }
+
+            children.add(
+              Positioned(
+                left: rr.right - 6,
+                top: rr.bottom - 6,
+                width: 14,
+                height: 14,
+                child: MouseRegion(
+                  cursor: SystemMouseCursors.resizeDownRight,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onPanStart: (e) => setState(() => resizing = (id: id, w: pi(w, 'w'), h: pi(w, 'h'))),
+                    onPanUpdate: (e) {
+                      final sz = sizeAt(e.globalPosition);
+                      if (sz.w != resizing?.w || sz.h != resizing?.h) setState(() => resizing = (id: id, w: sz.w, h: sz.h));
+                    },
+                    onPanEnd: (_) {
+                      final z = resizing;
+                      setState(() => resizing = null);
+                      if (z == null || (z.w == pi(w, 'w') && z.h == pi(w, 'h'))) return;
+                      if (!isFree(box, pi(w, 'x'), pi(w, 'y'), z.w, z.h, id)) {
+                        toast(context, 'Không đủ chỗ: vùng mới bị trùng với thẻ khác.');
+                        return;
+                      }
+                      d.editWidget(id, (o) => o['pos'] = {'x': pi(w, 'x'), 'y': pi(w, 'y'), 'w': z.w, 'h': z.h});
+                    },
+                    child: Center(
+                      child: Container(
+                        width: 9,
+                        height: 9,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          border: Border.all(color: col, width: 1.5),
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -1334,9 +1408,6 @@ class ScreenBg {
   final String key;
 }
 
-String? _bgData;
-MemoryImage? _bgImage;
-
 final Map<String, MemoryImage> _pageImages = {};
 
 /// Background of one page (sub-page), drawn over the common background:
@@ -1345,18 +1416,21 @@ ScreenBg? pageBackground(Json? sub, ScreenBg screen, Json theme) {
   final b = jsonMap(sub?['bg']);
   final mode = (b['mode'] ?? 'default').toString();
   if (mode != 'color' && mode != 'image') return null;
-  final op = (((b['opacity'] as num?) ?? 100).toDouble().clamp(0, 100)) / 100;
-  final textMode = (theme['bgText'] ?? 'auto').toString();
-  final under = screen.decoration.color ?? Colors.black;
+  // One brightness control: 100 = original, below darkens, above lightens.
+  // (Older pages stored "dim" instead.)
+  final legacyDim = (b['dim'] as num?)?.toDouble();
+  final br = ((b['bright'] as num?)?.toDouble() ?? (legacyDim != null ? 100 - legacyDim : 100)).clamp(20, 150).toDouble();
+  final textMode = (b['text'] ?? theme['bgText'] ?? 'auto').toString();
   ({Color ink, Color muted}) text(bool darkBg) {
     final dark = textMode == 'light' || (textMode == 'auto' && darkBg);
     return dark ? (ink: Colors.white, muted: Colors.white.withValues(alpha: 0.75)) : (ink: const Color(0xFF1B2320), muted: const Color(0xFF55605C));
   }
 
+  Color shade(Color c) => br < 100 ? Color.lerp(c, Colors.black, (100 - br) / 100)! : Color.lerp(c, Colors.white, (br - 100) / 100)!;
   if (mode == 'color') {
-    final c = (hexColor(b['color']) ?? under).withValues(alpha: op);
-    final tx = text(Color.alphaBlend(c, under).computeLuminance() < 0.35);
-    return ScreenBg(BoxDecoration(color: c), tx.ink, tx.muted, key: 'c|${sub?['id']}|${b['color']}|$op');
+    final c = shade(hexColor(b['color']) ?? screen.decoration.color ?? Colors.white);
+    final tx = text(c.computeLuminance() < 0.35);
+    return ScreenBg(BoxDecoration(color: c), tx.ink, tx.muted, key: 'c|${sub?['id']}|${b['color']}|$br');
   }
   final data = (b['image'] ?? '').toString();
   final i = data.indexOf('base64,');
@@ -1371,76 +1445,24 @@ ScreenBg? pageBackground(Json? sub, ScreenBg screen, Json theme) {
       return null;
     }
   }
-  final dim = (((b['dim'] as num?) ?? 30).toDouble().clamp(0, 80)) / 100;
   final blur = ((b['blur'] as num?) ?? 0).toDouble().clamp(0, 20).toDouble();
-  final tx = text(op >= 0.5 ? dim >= 0.25 : under.computeLuminance() < 0.35);
+  final overlay = br < 100 ? Colors.black.withValues(alpha: (100 - br) / 100) : Colors.white.withValues(alpha: (br - 100) / 100);
+  final tx = text(br <= 80);
   return ScreenBg(
     BoxDecoration(
-      image: DecorationImage(
-        image: img,
-        fit: BoxFit.cover,
-        opacity: op,
-        colorFilter: ColorFilter.mode(Colors.black.withValues(alpha: dim), BlendMode.srcOver),
-      ),
+      color: Colors.black,
+      image: DecorationImage(image: img, fit: BoxFit.cover, colorFilter: ColorFilter.mode(overlay, BlendMode.srcOver)),
     ),
     tx.ink,
     tx.muted,
     blur: blur,
-    key: 'i|${sub?['id']}|${data.length}|$op|$dim|$blur',
+    key: 'i|${sub?['id']}|${data.length}|$br|$blur',
   );
 }
 
 ScreenBg screenBackground(Json doc, AppPalette base) {
-  final t = jsonMap(doc['theme']);
-  final mode = (t['bgMode'] ?? 'default').toString();
-  final textMode = (t['bgText'] ?? 'auto').toString();
-  const light = Color(0xFFFFFFFF);
-  const darkInk = Color(0xFF1B2320);
-  ({Color ink, Color muted}) text(bool darkBg) {
-    final d = textMode == 'light' || (textMode == 'auto' && darkBg);
-    if (textMode == 'auto' && mode == 'default') return (ink: base.ink, muted: base.muted);
-    return d ? (ink: light, muted: light.withValues(alpha: 0.75)) : (ink: darkInk, muted: const Color(0xFF55605C));
-  }
-
-  if (mode == 'color') {
-    final c = hexColor(t['bgColor']) ?? base.screen;
-    final tx = text(c.computeLuminance() < 0.35);
-    return ScreenBg(BoxDecoration(color: c), tx.ink, tx.muted);
-  }
-  if (mode == 'image') {
-    final data = (t['bgImage'] ?? '').toString();
-    final i = data.indexOf('base64,');
-    if (i > 0) {
-      if (_bgData != data) {
-        try {
-          _bgImage = MemoryImage(base64Decode(data.substring(i + 7)));
-          _bgData = data;
-        } catch (_) {
-          _bgImage = null;
-          _bgData = null;
-        }
-      }
-      final dim = (((t['bgDim'] as num?) ?? 30).toDouble().clamp(0, 80)) / 100;
-      final img = _bgImage;
-      if (img != null) {
-        final tx = text(dim >= 0.25 || base.screen.computeLuminance() < 0.35);
-        return ScreenBg(
-          BoxDecoration(
-            color: Colors.black,
-            image: DecorationImage(
-              image: img,
-              fit: BoxFit.cover,
-              colorFilter: ColorFilter.mode(Colors.black.withValues(alpha: dim), BlendMode.srcOver),
-            ),
-          ),
-          tx.ink,
-          tx.muted,
-        );
-      }
-    }
-  }
-  final tx = text(base.screen.computeLuminance() < 0.35);
-  return ScreenBg(BoxDecoration(color: base.screen), tx.ink, tx.muted);
+  // Backgrounds are set per page now; the common one follows the App theme.
+  return ScreenBg(BoxDecoration(color: base.screen), base.ink, base.muted);
 }
 
 /// The App's settings screen, opened from the gear button in the preview.

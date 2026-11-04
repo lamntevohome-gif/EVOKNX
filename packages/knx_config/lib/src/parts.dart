@@ -284,11 +284,25 @@ Json makeCardPart(Json doc, Json widget) {
 /// Places the card(s) of [part] on page [sub] at the first free spot.
 /// With [keepAddresses] false the cards keep their settings but no group
 /// addresses (to be assigned again).
-PartResult applyCardPart(Json doc, Json part, Json sub, {bool keepAddresses = true}) {
+///
+/// With [matchExisting], addresses are kept only where the project already
+/// has the same KNX address (used for the card library). [atX]/[atY] place
+/// the card there when that spot is free.
+PartResult applyCardPart(Json doc, Json part, Json sub, {bool keepAddresses = true, bool matchExisting = false, int? atX, int? atY}) {
   if (!isPart(part) || part['kind'] != 'card') return PartResult(error: 'File không phải thẻ EVOKNX.');
   final p = Json.from(_copy(part) as Map);
   final gaMap = <String, String>{};
   var added = 0, reused = 0;
+  if (matchExisting) {
+    keepAddresses = false;
+    for (final g in jsonList(p['groupAddresses'])) {
+      final hit = jsonList(doc['groupAddresses']).where((x) => x['address'] == g['address']).firstOrNull;
+      if (hit != null) {
+        gaMap[(g['id'] ?? '').toString()] = hit['id'] as String;
+        reused++;
+      }
+    }
+  }
   if (keepAddresses) {
     final docGas = doc['groupAddresses'] = _growable(doc['groupAddresses']);
     for (final g in jsonList(p['groupAddresses'])) {
@@ -329,7 +343,12 @@ PartResult applyCardPart(Json doc, Json part, Json sub, {bool keepAddresses = tr
       final m = <String, dynamic>{};
       v.forEach((k, e) {
         if (k == 'bind' && e is Map) {
-          m['bind'] = keepAddresses ? e.map((bk, bv) => MapEntry(bk.toString(), bv is String ? (gaMap[bv] ?? bv) : bv)) : <String, dynamic>{};
+          m['bind'] = keepAddresses
+              ? e.map((bk, bv) => MapEntry(bk.toString(), bv is String ? (gaMap[bv] ?? bv) : bv))
+              : <String, dynamic>{
+                  for (final en in e.entries)
+                    if (en.value is String && gaMap.containsKey(en.value)) en.key.toString(): gaMap[en.value],
+                };
         } else if (k != 'posBy') {
           m[k.toString()] = remap(e);
         }
@@ -359,7 +378,8 @@ PartResult applyCardPart(Json doc, Json part, Json sub, {bool keepAddresses = tr
       if (((l['columns'] as num?) ?? ww) > ww) l['columns'] = ww;
       w['layout'] = l;
     }
-    final f = findFree(sub, ww, hh);
+    final at = atX != null && atY != null && first == null && atX + ww <= cols && isFree(sub, atX, atY, ww, hh) ? (x: atX, y: atY) : null;
+    final f = at ?? findFree(sub, ww, hh);
     w['pos'] = {'x': f.x, 'y': f.y, 'w': ww, 'h': hh};
     list.add(w);
     first ??= w['id'] as String;

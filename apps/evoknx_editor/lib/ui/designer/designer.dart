@@ -5,16 +5,18 @@ import 'package:flutter/foundation.dart';
 import 'package:knx_config/knx_config.dart';
 
 import '../../state/bus_controller.dart';
+import '../../state/card_library.dart';
 import '../../state/project_controller.dart';
 import 'model.dart';
 
 /// What is being dragged onto the canvas.
 class DragItem {
-  final String kind; // palette | widget
+  final String kind; // palette | widget | lib (card library entry)
   final String? type;
   final String? id;
   const DragItem.palette(String this.type) : kind = 'palette', id = null;
   const DragItem.widget(String this.id) : kind = 'widget', type = null;
+  const DragItem.lib(String this.id) : kind = 'lib', type = null;
 }
 
 /// Selection + editing commands for the Structure workspace.
@@ -292,6 +294,42 @@ class Designer extends ChangeNotifier {
     });
   }
 
+  /// Moves [list] item [id] to where [targetId] is (after it when moving
+  /// down, before it when moving up), as when dragging in a layers list.
+  static void _moveTo(List<dynamic> list, String id, String targetId) {
+    final from = list.indexWhere((x) => x is Map && x['id'] == id);
+    final to = list.indexWhere((x) => x is Map && x['id'] == targetId);
+    if (from < 0 || to < 0 || from == to) return;
+    final item = list.removeAt(from);
+    final t = list.indexWhere((x) => x is Map && x['id'] == targetId);
+    list.insert(from < to ? t + 1 : t, item);
+  }
+
+  /// Drag in the structure tree: a floor onto another floor.
+  void dropFloor(String id, String targetId) => p.mutate((d) => _moveTo(rawList(d, 'floors'), id, targetId));
+
+  /// Drag in the structure tree: a room onto a floor (moves it to the end of
+  /// that floor) or onto another room (moves it next to that room).
+  void dropRoom(String id, {String? floorId, String? targetRoomId}) {
+    p.mutate((d) {
+      final list = rawList(d, 'pages');
+      final r = list.firstWhere((x) => x is Map && x['id'] == id) as Map;
+      if (targetRoomId != null) {
+        final t = list.firstWhere((x) => x is Map && x['id'] == targetRoomId) as Map;
+        r['floorId'] = t['floorId'];
+        _moveTo(list, id, targetRoomId);
+      } else if (floorId != null) {
+        r['floorId'] = floorId;
+        list.remove(r);
+        list.add(r);
+      }
+    });
+    _n();
+  }
+
+  /// Drag in the structure tree: a page onto another page of the same room.
+  void dropSub(String roomId_, String id, String targetId) => p.mutate((d) => _moveTo(rawList(byId(jsonList(d['pages']), roomId_)!, 'subpages'), id, targetId));
+
   // ------------------------------------------------------------ widget edits
 
   /// Edits the selected subpage (looked up again inside the mutation).
@@ -326,6 +364,14 @@ class Designer extends ChangeNotifier {
       final nested = g != null && (w['type'] == 'group' || w['id'] == g);
       return (x: xx, y: y, w: ww, h: hh, ok: !nested && isFree(box, xx, y, ww, hh, w['id'] as String?));
     }
+    if (it.kind == 'lib') {
+      final e = cardLibrary.byId(it.id ?? '');
+      final w = e == null ? null : CardLibrary.cardOf(e);
+      if (w == null) return null;
+      final ww = min(pi(w, 'w'), c), hh = g == null ? pi(w, 'h') : min(pi(w, 'h'), rows(box) - y);
+      final xx = min(x, c - ww);
+      return (x: xx, y: y, w: ww, h: hh, ok: !(g != null && w['type'] == 'group') && hh > 0 && isFree(box, xx, y, ww, hh));
+    }
     final t = kWidgetTypes[it.type]!;
     final ww = min(t.w, c - x), hh = g == null ? t.h : min(t.h, rows(box) - y);
     return (x: x, y: y, w: ww, h: hh, ok: !(g != null && it.type == 'group') && ww > 0 && isFree(box, x, y, ww, hh));
@@ -337,6 +383,21 @@ class Designer extends ChangeNotifier {
     if (s == null) return 'Hãy chọn một phòng trước.';
     final box = _box(s, g);
     if (box == null) return null;
+    if (it.kind == 'lib') {
+      final e = cardLibrary.byId(it.id ?? '');
+      if (e == null) return null;
+      final card = CardLibrary.cardOf(e);
+      if (g != null && card?['type'] == 'group') return 'Không thể đặt khung lưới bên trong khung lưới khác.';
+      final fp = footprint(it, g, x, y);
+      late PartResult res;
+      editSub((ss) {
+        final b = _box(ss, g)!;
+        res = applyCardPart(p.doc, jsonMap(e['part']), b, matchExisting: true, atX: fp != null && fp.ok ? fp.x : null, atY: fp != null && fp.ok ? fp.y : null);
+      });
+      if (res.error != null) return res.error;
+      if (res.firstId != null) selectWidget(res.firstId);
+      return null;
+    }
     if (it.kind == 'palette') {
       if (g != null && it.type == 'group') return 'Không thể đặt khung lưới bên trong khung lưới khác.';
       final sp = placeAt(box, it.type!, x, y);
@@ -375,6 +436,17 @@ class Designer extends ChangeNotifier {
   }
 
   /// Adds a component at the selected cell, or at the first free spot.
+  /// Adds a card from the card library to the selected cell, or to the first
+  /// free spot of the page.
+  String? addLibCard(String entryId) {
+    if (room == null) return 'Hãy chọn một phòng trước.';
+    final c = cell;
+    if (c != null) return drop(DragItem.lib(entryId), c.g, c.x, c.y);
+    final s = sub;
+    if (s == null) return null;
+    return drop(DragItem.lib(entryId), null, -1, -1);
+  }
+
   String? addWidget(String type) {
     if (room == null) {
       final f = floor;

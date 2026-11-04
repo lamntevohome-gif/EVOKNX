@@ -1208,14 +1208,6 @@ class _RoomProps extends StatelessWidget {
               'Biểu tượng phòng',
               IconField(d: d, value: (r['icon'] ?? 'sofa').toString(), scope: IconScope.room, onChanged: (v) => editRoom((x) => x['icon'] = v)),
             ),
-            Row(
-              children: [
-                EvoButton(label: 'Lên', icon: Icons.arrow_upward, small: true, onPressed: () => d.moveRoom(rid, -1)),
-                const SizedBox(width: 6),
-                EvoButton(label: 'Xuống', icon: Icons.arrow_downward, small: true, onPressed: () => d.moveRoom(rid, 1)),
-              ],
-            ),
-            PartButtons(d: d, kind: 'room', id: rid, importHint: 'Nhập trang vào phòng này…'),
           ],
           trailing: EvoButton(
             label: 'Xoá phòng',
@@ -1301,26 +1293,6 @@ class _RoomProps extends StatelessWidget {
                   ),
                 ],
               ],
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: [
-                  EvoButton(
-                    label: 'Trang trước',
-                    icon: Icons.chevron_left,
-                    small: true,
-                    onPressed: si > 0 ? () => d.moveInList('', s['id'] as String, -1, roomForSubs: rid) : null,
-                  ),
-                  EvoButton(
-                    label: 'Trang sau',
-                    icon: Icons.chevron_right,
-                    small: true,
-                    onPressed: si < subs.length - 1 ? () => d.moveInList('', s['id'] as String, 1, roomForSubs: rid) : null,
-                  ),
-                  EvoButton(label: 'Thêm trang trong phòng', icon: Icons.add, small: true, onPressed: d.addSub),
-                ],
-              ),
-              PartButtons(d: d, kind: 'page', id: s['id'] as String, importHint: 'Nhập trang / thẻ…'),
             ],
             trailing: subs.length > 1
                 ? EvoButton(
@@ -1381,17 +1353,7 @@ class _FloorProps extends StatelessWidget {
           controlAffinity: ListTileControlAffinity.leading,
           title: const Text('Ẩn/hiện biểu tượng'),
         ),
-        Wrap(
-          spacing: 6,
-          runSpacing: 6,
-          children: [
-            EvoButton(label: 'Thêm phòng', icon: Icons.add, small: true, onPressed: () => d.addRoom(fid)),
-            EvoButton(label: 'Lên', icon: Icons.arrow_upward, small: true, onPressed: () => d.moveInList('floors', fid, -1)),
-            EvoButton(label: 'Xuống', icon: Icons.arrow_downward, small: true, onPressed: () => d.moveInList('floors', fid, 1)),
-          ],
-        ),
-        Text('Tầng này có $n phòng.', style: TextStyle(fontSize: 11.5, color: context.evo.muted)),
-        PartButtons(d: d, kind: 'floor', id: fid, importHint: 'Nhập phòng vào tầng này…'),
+        Text('Tầng này có $n phòng. Chuột phải vào tầng ở cột Cấu trúc để thêm phòng, nhập, xuất.', style: TextStyle(fontSize: 11, color: context.evo.muted)),
       ],
       trailing: EvoButton(
         label: 'Xoá tầng',
@@ -1432,13 +1394,6 @@ class _OverviewProps extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 16),
-        _Section('Nhập tầng / phòng / trang / thẻ', [
-          Hint(
-            'Nhập từ file .evoknxpart (xuất ở bảng thuộc tính của tầng, phòng, trang hoặc thẻ). '
-            'Tầng được thêm vào cuối, phòng vào tầng đang chọn, trang vào phòng đang chọn, thẻ vào trang đang mở.',
-          ),
-          PartButtons(d: d, kind: null, importHint: 'Nhập từ file…'),
-        ]),
         _Section('Thiết bị sử dụng', [
           for (final dv in const [('mobile', 'Mobile', '12 × 4'), ('tabletP', 'Tablet dọc', '16 × 6'), ('tabletL', 'Tablet ngang', '10 × 8')])
             _Check('${dv.$2}   (${dv.$3})', dv.$1 == 'mobile' ? jsonMap(d.doc['devices'])['mobile'] != false : jsonMap(d.doc['devices'])[dv.$1] == true, (v) {
@@ -1459,7 +1414,6 @@ class _OverviewProps extends StatelessWidget {
             }),
         ]),
         _SplashSettings(d: d),
-        _ScreenBgSettings(d: d),
         _Section('Kiểu thẻ (tất cả thẻ)', [
           StepRow(
             label: 'Độ cong góc',
@@ -1842,67 +1796,6 @@ class _BgPicker extends StatelessWidget {
   }
 }
 
-/// Overview → "Nền giao diện": default, colour, or an uploaded image.
-class _ScreenBgSettings extends StatelessWidget {
-  const _ScreenBgSettings({required this.d});
-  final Designer d;
-
-  void _set(Map<String, Object?> kv, {String? co}) => d.p.mutate((doc) {
-    final t = jsonMap(doc['theme']);
-    kv.forEach((k, v) {
-      if (v == null) {
-        t.remove(k);
-      } else {
-        t[k] = v;
-      }
-    });
-    doc['theme'] = t;
-  }, coalesce: co);
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.evo;
-    final t = jsonMap(d.doc['theme']);
-    final mode = (t['bgMode'] ?? 'default').toString();
-    return _Section('Nền chung (mọi trang)', [
-      Seg<String>(
-        items: const [('default', 'Mặc định'), ('color', 'Màu')],
-        value: mode,
-        onChanged: (v) => _set({'bgMode': v, if (v == 'color' && t['bgColor'] == null) 'bgColor': '#E3F1E9'}),
-      ),
-      if (mode == 'default') Hint('Dùng màu nền theo giao diện Sáng/Tối của App.'),
-      if (mode == 'color')
-        _ColorPicker(
-          value: (t['bgColor'] ?? '#E3F1E9').toString(),
-          swatches: _kBgSwatches,
-          onChanged: (v) => _set({'bgColor': v}, co: 'bgc'),
-        ),
-      if (mode == 'image') ...[
-        Text(
-          'Dự án đang dùng ảnh nền chung (cách cũ). Từ nay ảnh nền được đặt riêng cho từng trang, trong thuộc tính của trang.',
-          style: TextStyle(fontSize: 11.5, color: c.warn),
-        ),
-        EvoButton(
-          label: 'Bỏ ảnh nền chung',
-          icon: Icons.delete_outline,
-          small: true,
-          danger: true,
-          onPressed: () => _set({'bgImage': null, 'bgMode': 'default'}),
-        ),
-      ],
-      if (mode != 'default')
-        FieldLabel(
-          'Màu chữ trên nền (tiêu đề, tên trang)',
-          EvoDropdown<String>(
-            value: (t['bgText'] ?? 'auto').toString(),
-            items: const [('auto', 'Tự động theo nền'), ('dark', 'Chữ đậm'), ('light', 'Chữ trắng')],
-            onChanged: (v) => _set({'bgText': v}),
-          ),
-        ),
-    ]);
-  }
-}
-
 /// Button "Hình ảnh" style: picture, its size, label on/off.
 class _ButtonImageSettings extends StatelessWidget {
   const _ButtonImageSettings({required this.d, required this.w});
@@ -2149,13 +2042,14 @@ class _PageBgSettings extends StatelessWidget {
     final mode = (b['mode'] ?? 'default').toString();
     final img = (b['image'] ?? '').toString();
     final i = img.indexOf('base64,');
+    final legacyDim = (b['dim'] as num?)?.toInt();
+    final bright = ((b['bright'] as num?) ?? (legacyDim != null ? 100 - legacyDim : 100)).toInt().clamp(20, 150);
     return _Section('Nền của trang này', [
       Seg<String>(
-        items: const [('default', 'Theo tổng quan'), ('color', 'Màu'), ('image', 'Hình ảnh')],
+        items: const [('default', 'Mặc định'), ('color', 'Màu'), ('image', 'Hình ảnh')],
         value: mode,
         onChanged: (v) => _set({'mode': v, if (v == 'color' && b['color'] == null) 'color': '#E3F1E9'}),
       ),
-      if (mode == 'default') Text('Dùng nền chung ở Tổng quan.', style: TextStyle(fontSize: 11.5, color: c.muted)),
       if (mode == 'color')
         _ColorPicker(
           value: (b['color'] ?? '#E3F1E9').toString(),
@@ -2167,38 +2061,28 @@ class _PageBgSettings extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              width: 72,
-              height: 128,
+              width: 56,
+              height: 100,
               clipBehavior: Clip.antiAlias,
               decoration: BoxDecoration(
                 color: c.paper,
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(4),
                 border: Border.all(color: c.line),
               ),
-              child: i > 0
-                  ? Image.memory(base64Decode(img.substring(i + 7)), fit: BoxFit.cover, gaplessPlayback: true)
-                  : Center(
-                      child: Text('Chưa có', style: TextStyle(fontSize: 12, color: c.muted)),
-                    ),
+              child: i > 0 ? Image.memory(base64Decode(img.substring(i + 7)), fit: BoxFit.cover, gaplessPlayback: true) : null,
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  EvoButton(label: i > 0 ? 'Đổi ảnh' : 'Tải ảnh lên', icon: Icons.image_outlined, small: true, onPressed: () => _pick(context)),
+                  EvoButton(label: i > 0 ? 'Đổi ảnh' : 'Chọn ảnh', small: true, onPressed: () => _pick(context)),
                   if (i > 0) ...[
                     const SizedBox(height: 6),
-                    EvoButton(
-                      label: 'Bỏ ảnh',
-                      icon: Icons.delete_outline,
-                      small: true,
-                      danger: true,
-                      onPressed: () => _set({'image': null, 'mode': 'default'}),
-                    ),
+                    EvoButton(label: 'Bỏ ảnh', small: true, danger: true, onPressed: () => _set({'image': null, 'mode': 'default'})),
                   ],
-                  const SizedBox(height: 8),
-                  Hint('JPG hoặc PNG, ảnh dọc, nên dùng 1290 × 2796 px, dưới 2 MB.'),
+                  const SizedBox(height: 6),
+                  Text('JPG/PNG dọc, dưới 2 MB', style: TextStyle(fontSize: 11, color: c.muted)),
                 ],
               ),
             ),
@@ -2206,40 +2090,33 @@ class _PageBgSettings extends StatelessWidget {
         ),
       if (mode == 'image')
         StepRow(
-          label: 'Làm mờ ảnh',
+          label: 'Làm mờ',
           unit: '',
-          step: 1,
           value: ((b['blur'] as num?) ?? 0).toInt(),
           min: 0,
           max: 20,
           onChanged: (v) => _set({'blur': v}, co: 'pbgblur'),
         ),
-      if (mode == 'image')
-        StepRow(
-          label: 'Làm tối ảnh',
-          unit: '%',
-          step: 10,
-          value: ((b['dim'] as num?) ?? 30).toInt(),
-          min: 0,
-          max: 80,
-          onChanged: (v) => _set({'dim': v}, co: 'pbgdim'),
-        ),
       if (mode != 'default')
         StepRow(
-          label: mode == 'image' ? 'Độ đậm ảnh' : 'Độ đậm màu nền',
+          label: 'Độ sáng',
           unit: '%',
           step: 5,
-          value: ((b['opacity'] as num?) ?? 100).toInt(),
-          min: 0,
-          max: 100,
-          onChanged: (v) => _set({'opacity': v}, co: 'pbgop'),
+          value: bright,
+          min: 20,
+          max: 150,
+          onChanged: (v) => _set({'bright': v, 'dim': null, 'opacity': null}, co: 'pbgbright'),
         ),
       if (mode != 'default')
-        Hint(
-          mode == 'image'
-              ? 'Làm mờ: nhoè ảnh (0 = nét). Làm tối: phủ tối cho chữ dễ đọc. Độ đậm: dưới 100% thì nhìn xuyên thấy nền chung ở Tổng quan.'
-              : 'Độ đậm dưới 100%: nhìn xuyên thấy nền chung ở Tổng quan.',
+        FieldLabel(
+          'Màu chữ trên nền',
+          EvoDropdown<String>(
+            value: const ['auto', 'dark', 'light'].contains(b['text']) ? b['text'] as String : 'auto',
+            items: const [('auto', 'Tự động'), ('dark', 'Chữ đậm'), ('light', 'Chữ trắng')],
+            onChanged: (v) => _set({'text': v == 'auto' ? null : v}),
+          ),
         ),
+      Hint('Độ sáng 100% là nguyên bản; thấp hơn làm tối, cao hơn làm sáng. Màu chữ áp dụng cho chữ nằm trên nền (giờ, tên phòng, tên trang).'),
     ]);
   }
 }
