@@ -81,9 +81,9 @@ class DesignCanvas extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(frameName, style: TextStyle(fontSize: 12, color: ec.muted)),
+                Text(frameName, style: TextStyle(fontSize: 14, color: ec.muted)),
                 const SizedBox(width: 8),
-                Text('${size.width.round()} × ${size.height.round()}', style: TextStyle(fontSize: 12, color: ec.lineStrong)),
+                Text('${size.width.round()} × ${size.height.round()}', style: TextStyle(fontSize: 14, color: ec.lineStrong)),
               ],
             ),
           ),
@@ -1055,11 +1055,11 @@ class _GridAreaState extends State<_GridArea> {
               final cur = resizing ?? (id: id, w: gw, h: gh);
               if (rb is! RenderBox) return (w: cur.w, h: cur.h);
               final p = rb.globalToLocal(global);
-              // A new column/row is taken once the pointer passes 40 % of it.
-              final nw = ((p.dx - rc.left + gap) / (cw + gap) + 0.1).round().clamp(1, max(1, maxW)).toInt();
-              final nh = ((p.dy - rc.top + gap) / (ch + gap) + 0.1).round().clamp(1, max(1, maxH)).toInt();
-              // Every zone resizes both ways: the card follows the pointer.
-              return (w: nw, h: nh);
+              // The card edge snaps to the cell boundary nearest the pointer.
+              final nw = ((p.dx - rc.left + gap) / (cw + gap)).round().clamp(1, max(1, maxW)).toInt();
+              final nh = ((p.dy - rc.top + gap) / (ch + gap)).round().clamp(1, max(1, maxH)).toInt();
+              // Right edge: width only. Bottom edge: height only. Corner: both.
+              return (w: mode == 'h' ? cur.w : nw, h: mode == 'w' ? cur.h : nh);
             }
 
             Widget zone(String mode, MouseCursor cursor, Widget? child) => MouseRegion(
@@ -1097,7 +1097,21 @@ class _GridAreaState extends State<_GridArea> {
                 top: rr.top + corner / 2,
                 width: edge,
                 height: max(0.0, rr.height - corner),
-                child: zone('wh', SystemMouseCursors.resizeLeftRight, null),
+                child: zone(
+                  'w',
+                  SystemMouseCursors.resizeLeftRight,
+                  Center(
+                    child: Container(
+                      width: 5 / k,
+                      height: min(22 / k, max(8.0, rr.height - corner)),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        border: Border.all(color: col, width: 1.2 / k),
+                        borderRadius: BorderRadius.circular(3 / k),
+                      ),
+                    ),
+                  ),
+                ),
               ),
             );
             children.add(
@@ -1107,7 +1121,21 @@ class _GridAreaState extends State<_GridArea> {
                 top: inY(rr.bottom - edge / 2, edge),
                 width: max(0.0, rr.width - corner),
                 height: edge,
-                child: zone('wh', SystemMouseCursors.resizeUpDown, null),
+                child: zone(
+                  'h',
+                  SystemMouseCursors.resizeUpDown,
+                  Center(
+                    child: Container(
+                      width: min(22 / k, max(8.0, rr.width - corner)),
+                      height: 5 / k,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        border: Border.all(color: col, width: 1.2 / k),
+                        borderRadius: BorderRadius.circular(3 / k),
+                      ),
+                    ),
+                  ),
+                ),
               ),
             );
             children.add(

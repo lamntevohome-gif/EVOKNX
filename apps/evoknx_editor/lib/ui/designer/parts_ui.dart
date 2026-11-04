@@ -91,7 +91,7 @@ Future<void> importPart(BuildContext context, Designer d) async {
   final ok = await showDialog<bool>(
     context: context,
     builder: (c) => AlertDialog(
-      title: Text('Nhập ${_kindName[kind]} “${part['name']}”?', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+      title: Text('Nhập ${_kindName[kind]} “${part['name']}”?', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
       content: SizedBox(
         width: 460,
         child: Text(
@@ -196,7 +196,7 @@ Future<void> _importCard(BuildContext context, Designer d, Json part) async {
     context: context,
     builder: (c) => StatefulBuilder(
       builder: (c, setS) => AlertDialog(
-        title: Text('Nhập thẻ “${part['name']}”?', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+        title: Text('Nhập thẻ “${part['name']}”?', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
         content: SizedBox(
           width: 460,
           child: Column(

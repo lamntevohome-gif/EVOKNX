@@ -37,7 +37,7 @@ class EditorSettingsDialog extends StatelessWidget {
             children: [
               Icon(Icons.settings_outlined, color: c.accent),
               const SizedBox(width: 10),
-              const Text('Cài đặt Editor', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+              const Text('Cài đặt Editor', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
             ],
           ),
           content: SizedBox(
@@ -64,7 +64,7 @@ class EditorSettingsDialog extends StatelessWidget {
                     Text(
                       'Chỉ áp dụng cho dự án đã lưu thành file. Ngoài ra Editor luôn sao lưu ngầm phiên làm việc, '
                       'nên nếu máy tắt đột ngột, lần mở sau dự án vẫn còn nguyên.',
-                      style: TextStyle(fontSize: 12.5, color: c.muted),
+                      style: TextStyle(fontSize: 14.5, color: c.muted),
                     ),
                   ]),
                   section('Bảng thuộc tính', [
@@ -119,7 +119,7 @@ class EditorSettingsDialog extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: 10),
-                        const Text('EVOKNX Editor', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                        const Text('EVOKNX Editor', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
                         const SizedBox(width: 8),
                         Text('phiên bản $kEditorVersion', style: TextStyle(color: c.muted)),
                       ],

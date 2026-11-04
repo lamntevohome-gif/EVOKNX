@@ -189,7 +189,7 @@ class _TestPageState extends State<TestPage> {
         decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(5)),
         child: Text(
           r.typeText,
-          style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: fg),
+          style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600, color: fg),
         ),
       );
     }
@@ -397,7 +397,7 @@ class _TestPageState extends State<TestPage> {
                   style: TextStyle(color: c.muted, fontSize: kUiText),
                 ),
                 const Spacer(),
-                Text(curText, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                Text(curText, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
               ],
             ),
           ),

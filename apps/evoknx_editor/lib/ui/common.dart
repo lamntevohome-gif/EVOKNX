@@ -25,7 +25,7 @@ class EvoButton extends StatelessWidget {
     final c = context.evo;
     final enabled = onPressed != null;
     final iconOnly = label.isEmpty;
-    final h = small ? 24.0 : 28.0;
+    final h = small ? 30.0 : 34.0;
     final bg = primary ? c.accent : (iconOnly ? Colors.transparent : c.panel);
     final fg = primary ? Colors.white : (danger ? c.danger : c.ink);
     final side = primary || iconOnly ? BorderSide.none : BorderSide(color: c.line);
@@ -40,18 +40,18 @@ class EvoButton extends StatelessWidget {
           hoverColor: primary ? Colors.black.withValues(alpha: 0.08) : (danger ? c.dangerSoft : Theme.of(context).hoverColor),
           child: Container(
             height: h,
-            padding: EdgeInsets.symmetric(horizontal: iconOnly ? 0 : (small ? 8 : 10)),
+            padding: EdgeInsets.symmetric(horizontal: iconOnly ? 0 : (small ? 10 : 12)),
             constraints: BoxConstraints(minWidth: h),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                if (icon != null) Icon(icon, size: small ? 14 : 15, color: fg),
+                if (icon != null) Icon(icon, size: small ? 16 : 17, color: fg),
                 if (icon != null && !iconOnly) const SizedBox(width: 5),
                 if (!iconOnly)
                   Text(
                     label,
-                    style: TextStyle(color: fg, fontSize: small ? 11.5 : kUiText, fontWeight: FontWeight.w500),
+                    style: TextStyle(color: fg, fontSize: small ? kUiText - 1 : kUiText, fontWeight: FontWeight.w500),
                   ),
               ],
             ),
@@ -86,7 +86,7 @@ class Seg<T> extends StatelessWidget {
               child: MouseRegion(
                 cursor: SystemMouseCursors.click,
                 child: Container(
-                  height: 24,
+                  height: 34,
                   padding: const EdgeInsets.symmetric(horizontal: 10),
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
@@ -120,7 +120,7 @@ class SectionTitle extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: SizedBox(
-        height: 24,
+        height: 34,
         child: Row(
           children: [
             Expanded(
@@ -147,7 +147,7 @@ class FieldLabel extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(label, style: TextStyle(fontSize: 12, color: context.evo.muted)),
+        Text(label, style: TextStyle(fontSize: 14, color: context.evo.muted)),
         const SizedBox(height: 4),
         child,
       ],
@@ -170,7 +170,7 @@ class EvoDropdown<T> extends StatelessWidget {
     final has = items.any((i) => i.$1 == value);
     return Container(
       width: width,
-      height: 28,
+      height: 34,
       padding: const EdgeInsets.symmetric(horizontal: 8),
       decoration: BoxDecoration(
         color: c.panel,
@@ -272,7 +272,7 @@ class _SyncedFieldState extends State<SyncedField> {
               )
             : null,
         hoverColor: widget.borderless ? Theme.of(context).hoverColor : null,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       ),
     );
     return widget.width == null ? field : SizedBox(width: widget.width, child: field);
@@ -312,7 +312,7 @@ class SearchField extends StatelessWidget {
           enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide.none),
           prefixIcon: Icon(Icons.search, size: 15, color: context.evo.muted),
           prefixIconConstraints: const BoxConstraints(minWidth: 28),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 6, vertical: 7),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 9),
         ),
       ),
     );
@@ -342,6 +342,6 @@ class Hint extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (!visible) return const SizedBox.shrink();
-    return Text(text, style: TextStyle(fontSize: 12, height: 1.4, color: context.evo.muted));
+    return Text(text, style: TextStyle(fontSize: 14, height: 1.4, color: context.evo.muted));
   }
 }

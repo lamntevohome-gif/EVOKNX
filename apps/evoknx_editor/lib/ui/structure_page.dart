@@ -112,7 +112,7 @@ class _StructurePageState extends State<StructurePage> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Container(
-                width: 248,
+                width: 276,
                 decoration: BoxDecoration(
                   color: c.panel,
                   border: Border(right: BorderSide(color: c.line)),
@@ -145,7 +145,7 @@ class _StructurePageState extends State<StructurePage> {
                 ),
               ),
               Container(
-                width: 300,
+                width: 336,
                 decoration: BoxDecoration(
                   color: c.panel,
                   border: Border(left: BorderSide(color: c.line)),
@@ -173,7 +173,7 @@ class _StructurePageState extends State<StructurePage> {
       ),
     );
     return Container(
-      height: 40,
+      height: 46,
       padding: const EdgeInsets.only(left: 6, right: 6),
       decoration: BoxDecoration(
         border: Border(bottom: BorderSide(color: c.line)),
@@ -200,7 +200,7 @@ class _StructurePageState extends State<StructurePage> {
         onTap: onTap,
         onSecondaryTapDown: onMenu == null ? null : (e) => onMenu(e.globalPosition),
         child: Container(
-          height: 30,
+          height: 36,
           padding: const EdgeInsets.only(left: 12, right: 6),
           child: Row(
             children: [
@@ -242,14 +242,14 @@ class _StructurePageState extends State<StructurePage> {
       ),
     );
     Widget header(String title, {Widget? trailing}) => Container(
-      height: 32,
+      height: 38,
       padding: const EdgeInsets.only(left: 12, right: 6),
       child: Row(
         children: [
           Expanded(
             child: Text(
               title,
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: c.muted),
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: c.muted),
             ),
           ),
           if (trailing != null) trailing,
@@ -305,7 +305,7 @@ class _StructurePageState extends State<StructurePage> {
               child: list.isEmpty
                   ? Padding(
                       padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-                      child: Text('Chưa có thẻ. Xuất một thẻ đã cấu hình, hoặc bấm + để thêm từ file.', style: TextStyle(fontSize: 12, color: c.muted)),
+                      child: Text('Chưa có thẻ. Xuất một thẻ đã cấu hình, hoặc bấm + để thêm từ file.', style: TextStyle(fontSize: 14, color: c.muted)),
                     )
                   : ReorderableListView.builder(
                       buildDefaultDragHandles: false,
@@ -344,7 +344,7 @@ class _StructurePageState extends State<StructurePage> {
                                       items: [
                                         PopupMenuItem(
                                           value: 'del',
-                                          height: 30,
+                                          height: 36,
                                           child: Row(
                                             children: [
                                               Icon(Icons.delete_outline, size: 15, color: c.danger),
@@ -397,7 +397,7 @@ class _StructurePageState extends State<StructurePage> {
   Widget _palette(BuildContext context) {
     final c = context.evo;
     return Container(
-      height: 40,
+      height: 46,
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
         color: c.panel,
@@ -420,7 +420,7 @@ class _StructurePageState extends State<StructurePage> {
                     ? (widget.bus.connected ? 'Đang điều khiển bus KNX thật' : 'Chưa kết nối bus: mở khu Kiểm tra để kết nối')
                     : 'Lệnh chỉ ghi vào nhật ký, chưa gửi xuống bus',
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 12.5, color: d.live && !widget.bus.connected ? c.danger : c.muted),
+                style: TextStyle(fontSize: 14.5, color: d.live && !widget.bus.connected ? c.danger : c.muted),
               ),
             ),
           ],
@@ -462,7 +462,7 @@ class _StructurePageState extends State<StructurePage> {
             Icon(Icons.play_circle_outline, size: 16, color: c.muted),
             const SizedBox(width: 8),
             const Expanded(
-              child: Text('Nhật ký lệnh', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+              child: Text('Nhật ký lệnh', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
             ),
             if (d.log.isNotEmpty) TextButton(onPressed: () => setState(d.log.clear), child: const Text('Xoá')),
           ],
@@ -472,7 +472,7 @@ class _StructurePageState extends State<StructurePage> {
           d.live && widget.bus.connected
               ? 'Đang điều khiển bus KNX thật. Mọi thay đổi trên bus cũng hiện ngay trên màn hình mô phỏng.'
               : 'Lệnh được ghi lại dưới đây, chưa gửi xuống bus.',
-          style: TextStyle(fontSize: 12, color: c.muted),
+          style: TextStyle(fontSize: 14, color: c.muted),
         ),
         const SizedBox(height: 12),
         const SectionTitle('Lệnh gửi'),

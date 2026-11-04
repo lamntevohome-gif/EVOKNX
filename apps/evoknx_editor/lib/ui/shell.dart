@@ -38,7 +38,7 @@ class _ShellState extends State<Shell> {
         await showDialog<bool>(
           context: context,
           builder: (c) => AlertDialog(
-            title: Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+            title: Text(title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
             content: SizedBox(width: 460, child: Text(message)),
             actions: [
               EvoButton(label: 'Huỷ', onPressed: () => Navigator.pop(c, false)),
@@ -64,7 +64,7 @@ class _ShellState extends State<Shell> {
       context: context,
       barrierDismissible: false,
       builder: (c) => AlertDialog(
-        title: const Text('Lưu thay đổi trước khi đóng?', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+        title: const Text('Lưu thay đổi trước khi đóng?', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
         content: SizedBox(
           width: 440,
           child: Text(
@@ -171,7 +171,7 @@ class _ShellState extends State<Shell> {
         onTap: () => setState(() => ws = i),
         borderRadius: BorderRadius.circular(5),
         child: Container(
-          height: 28,
+          height: 32,
           padding: const EdgeInsets.symmetric(horizontal: 10),
           alignment: Alignment.center,
           decoration: BoxDecoration(color: on ? c.accent : null, borderRadius: BorderRadius.circular(5)),
@@ -184,7 +184,7 @@ class _ShellState extends State<Shell> {
     }
 
     return Container(
-      height: 44,
+      height: 50,
       padding: const EdgeInsets.symmetric(horizontal: 8),
       decoration: const BoxDecoration(
         color: _kBar,
@@ -302,7 +302,7 @@ class _ShellState extends State<Shell> {
         borderRadius: BorderRadius.circular(5),
         onTap: () => ctl.isOpen ? ctl.close() : ctl.open(),
         child: Container(
-          height: 32,
+          height: 36,
           padding: const EdgeInsets.symmetric(horizontal: 8),
           decoration: BoxDecoration(color: ctl.isOpen ? _kBarHover : null, borderRadius: BorderRadius.circular(5)),
           child: Row(
@@ -344,9 +344,9 @@ ThemeData _barTheme() {
     hoverColor: _kBarHover,
     iconButtonTheme: IconButtonThemeData(
       style: IconButton.styleFrom(
-        iconSize: 16,
-        minimumSize: const Size(28, 28),
-        fixedSize: const Size(28, 28),
+        iconSize: 18,
+        minimumSize: const Size(32, 32),
+        fixedSize: const Size(32, 32),
         padding: EdgeInsets.zero,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
         foregroundColor: Colors.white,

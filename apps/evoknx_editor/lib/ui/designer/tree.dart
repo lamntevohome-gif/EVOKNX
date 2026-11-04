@@ -34,7 +34,7 @@ class StructureTree extends StatelessWidget {
           else
             PopupMenuItem<int>(
               value: i,
-              height: 30,
+              height: 34,
               enabled: items[i].$3 != null,
               child: Row(
                 children: [
@@ -93,7 +93,7 @@ class StructureTree extends StatelessWidget {
           onTap: onTap,
           onSecondaryTapDown: (e) => onMenu(e.globalPosition),
           child: Container(
-            height: 28,
+            height: 34,
             padding: EdgeInsets.only(left: 12 + indent, right: 12),
             decoration: hover ? BoxDecoration(border: Border.all(color: c.accent, width: 1.5)) : null,
             child: Row(
@@ -107,7 +107,7 @@ class StructureTree extends StatelessWidget {
                     style: TextStyle(fontSize: kUiText, fontWeight: bold ? FontWeight.w600 : FontWeight.w400, color: c.ink),
                   ),
                 ),
-                if (trailing != null) Text(trailing, style: TextStyle(fontSize: 12, color: c.muted)),
+                if (trailing != null) Text(trailing, style: TextStyle(fontSize: 14, color: c.muted)),
               ],
             ),
           ),

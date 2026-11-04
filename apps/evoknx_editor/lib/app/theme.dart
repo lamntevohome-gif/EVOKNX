@@ -66,7 +66,7 @@ extension EvoTheme on BuildContext {
 }
 
 /// Base text size of the Editor (dense, like design tools).
-const double kUiText = 13;
+const double kUiText = 15;
 
 ThemeData buildTheme(Brightness b) {
   final c = b == Brightness.dark ? EvoColors.dark : EvoColors.light;
@@ -98,15 +98,15 @@ ThemeData buildTheme(Brightness b) {
         .apply(bodyColor: c.ink, displayColor: c.ink)
         .copyWith(
           bodyMedium: TextStyle(fontSize: kUiText, color: c.ink),
-          bodySmall: TextStyle(fontSize: 12, color: c.muted),
+          bodySmall: TextStyle(fontSize: 14, color: c.muted),
           labelLarge: TextStyle(fontSize: kUiText, fontWeight: FontWeight.w500, color: c.ink),
-          titleMedium: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: c.ink),
+          titleMedium: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: c.ink),
         ),
     inputDecorationTheme: InputDecorationTheme(
       isDense: true,
       filled: true,
       fillColor: c.panel,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       border: border,
       enabledBorder: border,
       focusedBorder: OutlineInputBorder(
@@ -130,12 +130,12 @@ ThemeData buildTheme(Brightness b) {
       radius: const Radius.circular(3),
       thumbColor: WidgetStatePropertyAll(c.lineStrong),
     ),
-    iconTheme: IconThemeData(color: c.ink, size: 16),
+    iconTheme: IconThemeData(color: c.ink, size: 18),
     iconButtonTheme: IconButtonThemeData(
       style: IconButton.styleFrom(
-        iconSize: 16,
-        minimumSize: const Size(28, 28),
-        fixedSize: const Size(28, 28),
+        iconSize: 18,
+        minimumSize: const Size(32, 32),
+        fixedSize: const Size(32, 32),
         padding: EdgeInsets.zero,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
         foregroundColor: c.ink,
@@ -146,7 +146,7 @@ ThemeData buildTheme(Brightness b) {
       waitDuration: const Duration(milliseconds: 400),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
       decoration: BoxDecoration(color: const Color(0xFF1E1E1E), borderRadius: BorderRadius.circular(4)),
-      textStyle: const TextStyle(color: Colors.white, fontSize: 12.5),
+      textStyle: const TextStyle(color: Colors.white, fontSize: 14.5),
     ),
     dialogTheme: DialogThemeData(
       backgroundColor: c.panel,
@@ -155,7 +155,7 @@ ThemeData buildTheme(Brightness b) {
         borderRadius: BorderRadius.circular(8),
         side: BorderSide(color: c.line),
       ),
-      titleTextStyle: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: c.ink, fontFamily: 'Inter'),
+      titleTextStyle: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: c.ink, fontFamily: 'Inter'),
       contentTextStyle: TextStyle(fontSize: kUiText, color: c.ink, fontFamily: 'Inter', height: 1.45),
     ),
     popupMenuTheme: PopupMenuThemeData(
@@ -179,7 +179,7 @@ ThemeData buildTheme(Brightness b) {
     ),
     menuButtonTheme: MenuButtonThemeData(
       style: ButtonStyle(
-        minimumSize: const WidgetStatePropertyAll(Size(220, 28)),
+        minimumSize: const WidgetStatePropertyAll(Size(240, 34)),
         padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 12)),
         textStyle: WidgetStatePropertyAll(TextStyle(fontSize: kUiText, fontFamily: 'Inter', color: c.ink)),
         backgroundColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.hovered) || s.contains(WidgetState.focused) ? c.accent : null),

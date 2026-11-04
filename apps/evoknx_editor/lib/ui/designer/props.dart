@@ -103,7 +103,7 @@ class StepRow extends StatelessWidget {
     final c = context.evo;
     Widget b(IconData i, int d) => InkWell(
       onTap: (d < 0 ? value <= min : value >= max) ? null : () => onChanged((value + d).clamp(min, max)),
-      child: SizedBox(width: 24, height: 26, child: Icon(i, size: 14, color: (d < 0 ? value <= min : value >= max) ? c.lineStrong : c.muted)),
+      child: SizedBox(width: 28, height: 32, child: Icon(i, size: 16, color: (d < 0 ? value <= min : value >= max) ? c.lineStrong : c.muted)),
     );
     return Row(
       children: [
@@ -123,8 +123,8 @@ class StepRow extends StatelessWidget {
             children: [
               b(Icons.remove, -step),
               Container(
-                width: 52,
-                height: 26,
+                width: 64,
+                height: 32,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   border: Border.symmetric(vertical: BorderSide(color: c.line)),
@@ -731,7 +731,7 @@ class _WidgetPropsState extends State<_WidgetProps> {
                   child: Text(
                     'Bật/tắt',
                     textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 13, color: context.evo.muted),
+                    style: TextStyle(fontSize: 15, color: context.evo.muted),
                   ),
                 ),
               ],
@@ -762,7 +762,7 @@ class _WidgetPropsState extends State<_WidgetProps> {
                         ? Text(
                             'Gửi 1',
                             textAlign: TextAlign.center,
-                            style: TextStyle(fontSize: 13, color: context.evo.muted),
+                            style: TextStyle(fontSize: 15, color: context.evo.muted),
                           )
                         : SyncedField(
                             value: '${values[m.key] ?? m.value}',
@@ -939,7 +939,7 @@ class _WidgetPropsState extends State<_WidgetProps> {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(color: context.evo.paper, borderRadius: BorderRadius.circular(8)),
-                child: SelectableText(cameraUrl(cam, hidePass: true), style: const TextStyle(fontSize: 13, fontFamily: 'Consolas')),
+                child: SelectableText(cameraUrl(cam, hidePass: true), style: const TextStyle(fontSize: 15, fontFamily: 'Consolas')),
               ),
             Hint(
               rtsp
@@ -948,7 +948,7 @@ class _WidgetPropsState extends State<_WidgetProps> {
             ),
             Text(
               'Mật khẩu camera được lưu trong file dự án và file cấu hình App. Nên tạo tài khoản chỉ có quyền xem trên camera.',
-              style: TextStyle(fontSize: 13, color: context.evo.warn),
+              style: TextStyle(fontSize: 15, color: context.evo.warn),
             ),
           ]),
           _Section('Kiểu hiển thị', [
@@ -1356,7 +1356,7 @@ class _FloorProps extends StatelessWidget {
           controlAffinity: ListTileControlAffinity.leading,
           title: const Text('Ẩn/hiện biểu tượng'),
         ),
-        Text('Tầng này có $n phòng. Chuột phải vào tầng ở cột Cấu trúc để thêm phòng, nhập, xuất.', style: TextStyle(fontSize: 12, color: context.evo.muted)),
+        Text('Tầng này có $n phòng. Chuột phải vào tầng ở cột Cấu trúc để thêm phòng, nhập, xuất.', style: TextStyle(fontSize: 14, color: context.evo.muted)),
       ],
       trailing: EvoButton(
         label: 'Xoá tầng',
@@ -1393,7 +1393,7 @@ class _OverviewProps extends StatelessWidget {
           children: [
             Icon(Icons.settings_outlined, size: 20, color: context.evo.accent),
             const SizedBox(width: 8),
-            const Text('Tổng quan', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+            const Text('Tổng quan', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
           ],
         ),
         const SizedBox(height: 16),
@@ -1667,7 +1667,7 @@ class _SplashSettings extends StatelessWidget {
                     padding: const EdgeInsets.all(8),
                     child: Image.memory(base64Decode(logo.substring(22)), fit: BoxFit.contain),
                   )
-                : Text(logo.isEmpty ? 'Chưa có' : 'SVG', style: const TextStyle(color: Color(0xFF9AA59F), fontSize: 13)),
+                : Text(logo.isEmpty ? 'Chưa có' : 'SVG', style: const TextStyle(color: Color(0xFF9AA59F), fontSize: 15)),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -1767,7 +1767,7 @@ class _BgPicker extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           child: Text(
             text,
-            style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: on ? c.accentInk : c.ink),
+            style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600, color: on ? c.accentInk : c.ink),
           ),
         ),
       ),
@@ -2085,7 +2085,7 @@ class _PageBgSettings extends StatelessWidget {
                     EvoButton(label: 'Bỏ ảnh', small: true, danger: true, onPressed: () => _set({'image': null, 'mode': 'default'})),
                   ],
                   const SizedBox(height: 6),
-                  Text('JPG/PNG dọc, dưới 2 MB', style: TextStyle(fontSize: 12, color: c.muted)),
+                  Text('JPG/PNG dọc, dưới 2 MB', style: TextStyle(fontSize: 14, color: c.muted)),
                 ],
               ),
             ),
@@ -2201,7 +2201,7 @@ class _StatesEditor extends StatelessWidget {
     final v = await showDialog<String>(
       context: context,
       builder: (c) => AlertDialog(
-        title: const Text('Màu của trạng thái', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+        title: const Text('Màu của trạng thái', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
         content: SizedBox(
           width: 340,
           child: _ColorPicker(value: cur ?? '', onChanged: (h) => Navigator.pop(c, h)),
