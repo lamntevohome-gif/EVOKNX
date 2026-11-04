@@ -126,7 +126,7 @@ class EditorSettingsDialog extends StatelessWidget {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'Thiết kế giao diện điều khiển nhà thông minh KNX.\n© ${DateTime.now().year} Evohome. Bảo lưu mọi quyền.\n\nBiểu tượng: Material Design Icons của Pictogrammers, giấy phép Apache 2.0.',
+                      'Thiết kế giao diện điều khiển nhà thông minh KNX.\n© ${DateTime.now().year} Evohome. Bảo lưu mọi quyền.\n\nBiểu tượng: Material Design Icons của Pictogrammers, giấy phép Apache 2.0.\nPhông chữ: Inter của Rasmus Andersson, giấy phép SIL Open Font License.',
                       style: TextStyle(fontSize: kUiText, color: c.muted),
                     ),
                   ]),

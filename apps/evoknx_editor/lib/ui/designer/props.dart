@@ -1186,53 +1186,56 @@ class _RoomProps extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _Section(
-          'Phòng',
-          [
-            FieldLabel(
-              'Tên phòng',
-              SyncedField(
-                value: (r['title'] ?? '').toString(),
-                onChanged: (v) => editRoom((x) => x['title'] = v, coalesce: 'rt-$rid'),
-              ),
-            ),
-            FieldLabel(
-              'Thuộc tầng',
-              EvoDropdown<String>(
-                value: (r['floorId'] ?? '').toString(),
-                items: [for (final f in floors) (f['id'].toString(), (f['title'] ?? '').toString())],
-                onChanged: (v) => editRoom((x) => x['floorId'] = v),
-              ),
-            ),
-            FieldLabel(
-              'Biểu tượng phòng',
-              IconField(d: d, value: (r['icon'] ?? 'sofa').toString(), scope: IconScope.room, onChanged: (v) => editRoom((x) => x['icon'] = v)),
-            ),
-          ],
-          trailing: EvoButton(
-            label: 'Xoá phòng',
-            icon: Icons.delete_outline,
-            small: true,
-            danger: true,
-            onPressed: () async {
-              final ok = await showDialog<bool>(
-                context: context,
-                builder: (c) => AlertDialog(
-                  title: Text('Xoá phòng “${r['title']}”?'),
-                  content: const Text('Toàn bộ trang và thành phần trong phòng sẽ bị xoá. Bạn có thể hoàn tác (Ctrl+Z).'),
-                  actions: [
-                    TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Huỷ')),
-                    FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('Xoá phòng')),
-                  ],
-                ),
-              );
-              if (ok == true) d.deleteRoom();
-            },
-          ),
-        ),
-        if (s != null)
+        // Room and page settings are shown separately: the room when it is
+        // selected in the structure tree, a page when that page is selected.
+        if (d.roomFocus)
           _Section(
-            'Trang ${si + 1}/${subs.length} của phòng',
+            'Phòng',
+            [
+              FieldLabel(
+                'Tên phòng',
+                SyncedField(
+                  value: (r['title'] ?? '').toString(),
+                  onChanged: (v) => editRoom((x) => x['title'] = v, coalesce: 'rt-$rid'),
+                ),
+              ),
+              FieldLabel(
+                'Thuộc tầng',
+                EvoDropdown<String>(
+                  value: (r['floorId'] ?? '').toString(),
+                  items: [for (final f in floors) (f['id'].toString(), (f['title'] ?? '').toString())],
+                  onChanged: (v) => editRoom((x) => x['floorId'] = v),
+                ),
+              ),
+              FieldLabel(
+                'Biểu tượng phòng',
+                IconField(d: d, value: (r['icon'] ?? 'sofa').toString(), scope: IconScope.room, onChanged: (v) => editRoom((x) => x['icon'] = v)),
+              ),
+            ],
+            trailing: EvoButton(
+              label: 'Xoá phòng',
+              icon: Icons.delete_outline,
+              small: true,
+              danger: true,
+              onPressed: () async {
+                final ok = await showDialog<bool>(
+                  context: context,
+                  builder: (c) => AlertDialog(
+                    title: Text('Xoá phòng “${r['title']}”?'),
+                    content: const Text('Toàn bộ trang và thành phần trong phòng sẽ bị xoá. Bạn có thể hoàn tác (Ctrl+Z).'),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Huỷ')),
+                      FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('Xoá phòng')),
+                    ],
+                  ),
+                );
+                if (ok == true) d.deleteRoom();
+              },
+            ),
+          ),
+        if (!d.roomFocus && s != null)
+          _Section(
+            'Trang ${si + 1}/${subs.length} · ${r['title'] ?? ''}',
             [
               FieldLabel(
                 'Tên trang',
@@ -1307,7 +1310,7 @@ class _RoomProps extends StatelessWidget {
                   )
                 : null,
           ),
-        if (s != null) _PageBgSettings(d: d, s: s),
+        if (!d.roomFocus && s != null) _PageBgSettings(d: d, s: s),
         Hint(
           'Kéo thành phần từ thanh công cụ vào ô trống, hoặc bấm vào một ô trống rồi bấm thành phần. Bấm vào thành phần để chỉnh tên, kích thước và địa chỉ nhóm.',
         ),
@@ -2043,7 +2046,7 @@ class _PageBgSettings extends StatelessWidget {
     final img = (b['image'] ?? '').toString();
     final i = img.indexOf('base64,');
     final legacyDim = (b['dim'] as num?)?.toInt();
-    final bright = ((b['bright'] as num?) ?? (legacyDim != null ? 100 - legacyDim : 100)).toInt().clamp(20, 150);
+    final bright = ((b['bright'] as num?) ?? (legacyDim != null ? 100 - legacyDim : 100)).toInt().clamp(20, 150).toInt();
     return _Section('Nền của trang này', [
       Seg<String>(
         items: const [('default', 'Mặc định'), ('color', 'Màu'), ('image', 'Hình ảnh')],
@@ -2105,7 +2108,17 @@ class _PageBgSettings extends StatelessWidget {
           value: bright,
           min: 20,
           max: 150,
-          onChanged: (v) => _set({'bright': v, 'dim': null, 'opacity': null}, co: 'pbgbright'),
+          onChanged: (v) => _set({'bright': v, 'dim': null}, co: 'pbgbright'),
+        ),
+      if (mode != 'default')
+        StepRow(
+          label: 'Độ đậm',
+          unit: '%',
+          step: 5,
+          value: ((b['opacity'] as num?) ?? 100).toInt().clamp(0, 100).toInt(),
+          min: 0,
+          max: 100,
+          onChanged: (v) => _set({'opacity': v}, co: 'pbgop'),
         ),
       if (mode != 'default')
         FieldLabel(
@@ -2116,7 +2129,9 @@ class _PageBgSettings extends StatelessWidget {
             onChanged: (v) => _set({'text': v == 'auto' ? null : v}),
           ),
         ),
-      Hint('Độ sáng 100% là nguyên bản; thấp hơn làm tối, cao hơn làm sáng. Màu chữ áp dụng cho chữ nằm trên nền (giờ, tên phòng, tên trang).'),
+      Hint(
+        'Độ sáng 100% là nguyên bản; thấp hơn làm tối, cao hơn làm sáng. Độ đậm dưới 100% thì nhìn xuyên thấy nền mặc định của App. Màu chữ áp dụng cho chữ nằm trên nền (giờ, tên phòng, tên trang).',
+      ),
     ]);
   }
 }

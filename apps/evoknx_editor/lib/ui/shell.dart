@@ -156,7 +156,14 @@ class _ShellState extends State<Shell> {
 
   /// Top bar: app menu and workspaces on the left, project name and save
   /// state in the middle, undo/redo and the one primary action on the right.
-  Widget _topBar(BuildContext context) {
+  Widget _topBar(BuildContext context) =>
+      // Always dark, like the toolbar of design tools.
+      Theme(
+        data: buildTheme(Brightness.dark),
+        child: Builder(builder: _darkTopBar),
+      );
+
+  Widget _darkTopBar(BuildContext context) {
     final c = context.evo;
     Widget tab(int i, String label) {
       final on = ws == i;
@@ -167,10 +174,10 @@ class _ShellState extends State<Shell> {
           height: 28,
           padding: const EdgeInsets.symmetric(horizontal: 10),
           alignment: Alignment.center,
-          decoration: BoxDecoration(color: on ? c.paper : null, borderRadius: BorderRadius.circular(5)),
+          decoration: BoxDecoration(color: on ? c.accent : null, borderRadius: BorderRadius.circular(5)),
           child: Text(
             label,
-            style: TextStyle(fontSize: kUiText, fontWeight: on ? FontWeight.w600 : FontWeight.w400, color: on ? c.ink : c.muted),
+            style: TextStyle(fontSize: kUiText, fontWeight: on ? FontWeight.w600 : FontWeight.w400, color: on ? Colors.white : c.muted),
           ),
         ),
       );
@@ -179,9 +186,9 @@ class _ShellState extends State<Shell> {
     return Container(
       height: 44,
       padding: const EdgeInsets.symmetric(horizontal: 8),
-      decoration: BoxDecoration(
-        color: c.panel,
-        border: Border(bottom: BorderSide(color: c.line)),
+      decoration: const BoxDecoration(
+        color: Color(0xFF2C2C2C),
+        border: Border(bottom: BorderSide(color: Color(0xFF1E1E1E))),
       ),
       child: Row(
         children: [
@@ -297,7 +304,7 @@ class _ShellState extends State<Shell> {
         child: Container(
           height: 32,
           padding: const EdgeInsets.symmetric(horizontal: 8),
-          decoration: BoxDecoration(color: ctl.isOpen ? c.paper : null, borderRadius: BorderRadius.circular(5)),
+          decoration: BoxDecoration(color: ctl.isOpen ? const Color(0xFF383838) : null, borderRadius: BorderRadius.circular(5)),
           child: Row(
             children: [
               Container(

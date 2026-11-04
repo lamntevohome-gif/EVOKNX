@@ -71,6 +71,19 @@ class _StructurePageState extends State<StructurePage> {
       d.selectWidget(null);
       return KeyEventResult.handled;
     }
+    // Selected card: arrows move it, Shift+arrows resize it (one cell).
+    final arrows = {
+      LogicalKeyboardKey.arrowLeft: (-1, 0),
+      LogicalKeyboardKey.arrowRight: (1, 0),
+      LogicalKeyboardKey.arrowUp: (0, -1),
+      LogicalKeyboardKey.arrowDown: (0, 1),
+    };
+    if (!ctrl && d.widgetId != null && !d.test && arrows.containsKey(k)) {
+      final (ax, ay) = arrows[k]!;
+      final m = HardwareKeyboard.instance.isShiftPressed ? d.nudgeSelected(dw: ax, dh: ay) : d.nudgeSelected(dx: ax, dy: ay);
+      if (m != null) toast(context, m);
+      return KeyEventResult.handled;
+    }
     if (!ctrl && (k == LogicalKeyboardKey.arrowLeft || k == LogicalKeyboardKey.arrowRight) && d.widgetId == null) {
       d.stepSub(k == LogicalKeyboardKey.arrowLeft ? -1 : 1);
       return KeyEventResult.handled;

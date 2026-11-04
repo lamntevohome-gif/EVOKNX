@@ -26,6 +26,17 @@ flutter:
   assets:
     - assets/mdi/mdi_meta.json
   fonts:
+    # Inter by Rasmus Andersson (SIL Open Font License) – see assets/fonts/inter/OFL.txt
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/inter/Inter-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/inter/Inter-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/inter/Inter-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/inter/Inter-Bold.ttf
+          weight: 700
     # Material Design Icons by Pictogrammers (Apache 2.0) – see assets/mdi/LICENSE.txt
     - family: MDI
       fonts:

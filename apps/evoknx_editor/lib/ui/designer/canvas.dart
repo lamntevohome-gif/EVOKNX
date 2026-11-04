@@ -1039,56 +1039,85 @@ class _GridAreaState extends State<_GridArea> {
                 ),
               ),
             );
-            // Resize handle (bottom-right corner).
+            // Resize: drag the right edge (width), the bottom edge (height)
+            // or the corner (both). Hit areas keep a constant size on the
+            // real screen, whatever the zoom of the preview.
+            final k = _screenScale();
+            final edge = 12 / k, corner = 18 / k, dot = 9 / k;
             final maxW = c - pi(w, 'x'), maxH = r - pi(w, 'y');
-            ({int w, int h}) sizeAt(Offset global) {
+            ({int w, int h}) sizeAt(Offset global, String mode) {
               final rb = _content.currentContext?.findRenderObject();
-              if (rb is! RenderBox) return (w: gw, h: gh);
+              final cur = resizing ?? (id: id, w: gw, h: gh);
+              if (rb is! RenderBox) return (w: cur.w, h: cur.h);
               final p = rb.globalToLocal(global);
-              final nw = ((p.dx - rc.left + gap) / (cw + gap))
-                  .round()
-                  .clamp(1, max(1, maxW))
-                  .toInt();
-              final nh = ((p.dy - rc.top + gap) / (ch + gap))
-                  .round()
-                  .clamp(1, max(1, maxH))
-                  .toInt();
-              return (w: nw, h: nh);
+              // A new column/row is taken once the pointer passes 40 % of it.
+              final nw = ((p.dx - rc.left + gap) / (cw + gap) + 0.1).round().clamp(1, max(1, maxW)).toInt();
+              final nh = ((p.dy - rc.top + gap) / (ch + gap) + 0.1).round().clamp(1, max(1, maxH)).toInt();
+              return (w: mode == 'h' ? cur.w : nw, h: mode == 'w' ? cur.h : nh);
             }
 
+            Widget zone(String mode, MouseCursor cursor, Widget? child) => MouseRegion(
+              cursor: cursor,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                dragStartBehavior: DragStartBehavior.down,
+                onPanStart: (e) => setState(() => resizing = (id: id, w: pi(w, 'w'), h: pi(w, 'h'))),
+                onPanUpdate: (e) {
+                  final sz = sizeAt(e.globalPosition, mode);
+                  if (sz.w != resizing?.w || sz.h != resizing?.h) setState(() => resizing = (id: id, w: sz.w, h: sz.h));
+                },
+                onPanCancel: () => setState(() => resizing = null),
+                onPanEnd: (_) {
+                  final z = resizing;
+                  setState(() => resizing = null);
+                  if (z == null || (z.w == pi(w, 'w') && z.h == pi(w, 'h'))) return;
+                  if (!isFree(box, pi(w, 'x'), pi(w, 'y'), z.w, z.h, id)) {
+                    toast(context, 'Không đủ chỗ: vùng mới bị trùng với thẻ khác.');
+                    return;
+                  }
+                  d.editWidget(id, (o) => o['pos'] = {'x': pi(w, 'x'), 'y': pi(w, 'y'), 'w': z.w, 'h': z.h});
+                },
+                child: child ?? const SizedBox.expand(),
+              ),
+            );
+
+            // Keep the zones inside the grid so edge cards stay resizable.
+            double inX(double x, double size) => x.clamp(0.0, max(0.0, bc.maxWidth - size)).toDouble();
+            double inY(double y, double size) => y.clamp(0.0, max(0.0, (scroll ? totalH : bc.maxHeight) - size)).toDouble();
             children.add(
               Positioned(
-                left: rr.right - 6,
-                top: rr.bottom - 6,
-                width: 14,
-                height: 14,
-                child: MouseRegion(
-                  cursor: SystemMouseCursors.resizeDownRight,
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onPanStart: (e) => setState(() => resizing = (id: id, w: pi(w, 'w'), h: pi(w, 'h'))),
-                    onPanUpdate: (e) {
-                      final sz = sizeAt(e.globalPosition);
-                      if (sz.w != resizing?.w || sz.h != resizing?.h) setState(() => resizing = (id: id, w: sz.w, h: sz.h));
-                    },
-                    onPanEnd: (_) {
-                      final z = resizing;
-                      setState(() => resizing = null);
-                      if (z == null || (z.w == pi(w, 'w') && z.h == pi(w, 'h'))) return;
-                      if (!isFree(box, pi(w, 'x'), pi(w, 'y'), z.w, z.h, id)) {
-                        toast(context, 'Không đủ chỗ: vùng mới bị trùng với thẻ khác.');
-                        return;
-                      }
-                      d.editWidget(id, (o) => o['pos'] = {'x': pi(w, 'x'), 'y': pi(w, 'y'), 'w': z.w, 'h': z.h});
-                    },
-                    child: Center(
-                      child: Container(
-                        width: 9,
-                        height: 9,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          border: Border.all(color: col, width: 1.5),
-                        ),
+                left: inX(rr.right - edge / 2, edge),
+                top: rr.top + corner / 2,
+                width: edge,
+                height: max(0.0, rr.height - corner),
+                child: zone('w', SystemMouseCursors.resizeLeftRight, null),
+              ),
+            );
+            children.add(
+              Positioned(
+                left: rr.left + corner / 2,
+                top: inY(rr.bottom - edge / 2, edge),
+                width: max(0.0, rr.width - corner),
+                height: edge,
+                child: zone('h', SystemMouseCursors.resizeUpDown, null),
+              ),
+            );
+            children.add(
+              Positioned(
+                left: inX(rr.right - corner / 2, corner),
+                top: inY(rr.bottom - corner / 2, corner),
+                width: corner,
+                height: corner,
+                child: zone(
+                  'wh',
+                  SystemMouseCursors.resizeDownRight,
+                  Center(
+                    child: Container(
+                      width: dot,
+                      height: dot,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        border: Border.all(color: col, width: 1.5 / k),
                       ),
                     ),
                   ),
@@ -1122,8 +1151,8 @@ class _GridAreaState extends State<_GridArea> {
           final p = rb.globalToLocal(det.offset);
           final fx = p.dx / (cw + gap), fy = p.dy / (ch + gap);
           final moving = det.data.kind == 'widget';
-          final x = (moving ? fx.round() : fx.floor()).clamp(0, c - 1);
-          final y = (moving ? fy.round() : fy.floor()).clamp(0, r - 1);
+          final x = (moving ? fx.round() : fx.floor()).clamp(0, c - 1).toInt();
+          final y = (moving ? fy.round() : fy.floor()).clamp(0, r - 1).toInt();
           return (x: x, y: y);
         }
 
@@ -1387,7 +1416,9 @@ class _PagedGridState extends State<_PagedGrid> {
     return PageView.builder(
       controller: _pc,
       itemCount: ss.length,
-      physics: const PageScrollPhysics(parent: ClampingScrollPhysics()),
+      // Swiping between pages only in test mode; while designing it would
+      // get in the way of dragging and resizing cards.
+      physics: widget.d.test ? const PageScrollPhysics(parent: ClampingScrollPhysics()) : const NeverScrollableScrollPhysics(),
       onPageChanged: (i) {
         if (_animating || i < 0 || i >= ss.length) return;
         if (ss[i]['id'] != widget.d.sub?['id']) widget.d.selectSub(widget.room['id'] as String, ss[i]['id'] as String);
@@ -1427,6 +1458,8 @@ ScreenBg? pageBackground(Json? sub, ScreenBg screen, Json theme) {
   final legacyDim = (b['dim'] as num?)?.toDouble();
   final br = ((b['bright'] as num?)?.toDouble() ?? (legacyDim != null ? 100 - legacyDim : 100)).clamp(20, 150).toDouble();
   final textMode = (b['text'] ?? theme['bgText'] ?? 'auto').toString();
+  final op = (((b['opacity'] as num?) ?? 100).toDouble().clamp(0, 100)) / 100;
+  final under = screen.decoration.color ?? Colors.white;
   ({Color ink, Color muted}) text(bool darkBg) {
     final dark = textMode == 'light' || (textMode == 'auto' && darkBg);
     return dark ? (ink: Colors.white, muted: Colors.white.withValues(alpha: 0.75)) : (ink: const Color(0xFF1B2320), muted: const Color(0xFF55605C));
@@ -1434,9 +1467,9 @@ ScreenBg? pageBackground(Json? sub, ScreenBg screen, Json theme) {
 
   Color shade(Color c) => br < 100 ? Color.lerp(c, Colors.black, (100 - br) / 100)! : Color.lerp(c, Colors.white, (br - 100) / 100)!;
   if (mode == 'color') {
-    final c = shade(hexColor(b['color']) ?? screen.decoration.color ?? Colors.white);
-    final tx = text(c.computeLuminance() < 0.35);
-    return ScreenBg(BoxDecoration(color: c), tx.ink, tx.muted, key: 'c|${sub?['id']}|${b['color']}|$br');
+    final c = shade(hexColor(b['color']) ?? under).withValues(alpha: op);
+    final tx = text(Color.alphaBlend(c, under).computeLuminance() < 0.35);
+    return ScreenBg(BoxDecoration(color: c), tx.ink, tx.muted, key: 'c|${sub?['id']}|${b['color']}|$br|$op');
   }
   final data = (b['image'] ?? '').toString();
   final i = data.indexOf('base64,');
@@ -1453,16 +1486,15 @@ ScreenBg? pageBackground(Json? sub, ScreenBg screen, Json theme) {
   }
   final blur = ((b['blur'] as num?) ?? 0).toDouble().clamp(0, 20).toDouble();
   final overlay = br < 100 ? Colors.black.withValues(alpha: (100 - br) / 100) : Colors.white.withValues(alpha: (br - 100) / 100);
-  final tx = text(br <= 80);
+  final tx = text(op >= 0.5 ? br <= 80 : under.computeLuminance() < 0.35);
   return ScreenBg(
     BoxDecoration(
-      color: Colors.black,
-      image: DecorationImage(image: img, fit: BoxFit.cover, colorFilter: ColorFilter.mode(overlay, BlendMode.srcOver)),
+      image: DecorationImage(image: img, fit: BoxFit.cover, opacity: op, colorFilter: ColorFilter.mode(overlay, BlendMode.srcOver)),
     ),
     tx.ink,
     tx.muted,
     blur: blur,
-    key: 'i|${sub?['id']}|${data.length}|$br|$blur',
+    key: 'i|${sub?['id']}|${data.length}|$br|$blur|$op',
   );
 }
 

@@ -125,13 +125,51 @@ Future<void> importPart(BuildContext context, Designer d) async {
   );
 }
 
-/// Exports the selected card (a grid frame with its cards).
+/// Exports the selected card (a grid frame with its cards): asks for the card
+/// name, then where to save it; optionally also adds it to the card library.
 Future<void> exportCard(BuildContext context, Designer d, Json w) async {
+  final ctl = TextEditingController(
+    text: (w['label'] ?? '').toString().trim().isEmpty ? (kWidgetTypes[w['type']]?.name ?? 'Thẻ') : (w['label'] ?? '').toString().trim(),
+  );
+  var toLibrary = false;
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (c) => StatefulBuilder(
+      builder: (c, setS) => AlertDialog(
+        title: const Text('Xuất thẻ'),
+        content: SizedBox(
+          width: 380,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              FieldLabel('Tên thẻ', TextField(controller: ctl, autofocus: true, onSubmitted: (_) => Navigator.pop(c, true))),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Checkbox(value: toLibrary, onChanged: (v) => setS(() => toLibrary = v == true)),
+                  const SizedBox(width: 6),
+                  const Expanded(child: Text('Thêm vào Thư viện thẻ')),
+                ],
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          EvoButton(label: 'Huỷ', onPressed: () => Navigator.pop(c, false)),
+          EvoButton(label: 'Xuất…', primary: true, onPressed: () => Navigator.pop(c, true)),
+        ],
+      ),
+    ),
+  );
+  final name = ctl.text.trim();
+  ctl.dispose();
+  if (ok != true || !context.mounted) return;
   final part = makeCardPart(d.doc, w);
-  final name = (w['label'] ?? '').toString().trim();
+  if (name.isNotEmpty) part['name'] = name;
   final loc = await getSaveLocation(
     acceptedTypeGroups: const [_partType],
-    suggestedName: '${safeName(name.isEmpty ? (kWidgetTypes[w['type']]?.name ?? 'The') : name)} (thẻ).evoknxpart',
+    suggestedName: '${safeName((part['name'] ?? 'The').toString())} (thẻ).evoknxpart',
     initialDirectory: d.p.projectDir,
     confirmButtonText: 'Xuất',
   );
@@ -139,8 +177,8 @@ Future<void> exportCard(BuildContext context, Designer d, Json w) async {
   final file = loc.path.toLowerCase().endsWith('.evoknxpart') ? loc.path : '${loc.path}.evoknxpart';
   try {
     await File(file).writeAsString(const JsonEncoder.withIndent('  ').convert(part));
-    await cardLibrary.add(part);
-    if (context.mounted) toast(context, 'Đã xuất thẻ “$name” ra ${baseName(file)} và thêm vào Thư viện thẻ');
+    if (toLibrary) await cardLibrary.add(part);
+    if (context.mounted) toast(context, 'Đã xuất thẻ “${part['name']}” ra ${baseName(file)}${toLibrary ? ' và thêm vào Thư viện thẻ' : ''}');
   } catch (e) {
     if (context.mounted) toast(context, 'Không ghi được file: $e');
   }

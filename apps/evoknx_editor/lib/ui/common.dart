@@ -37,7 +37,7 @@ class EvoButton extends StatelessWidget {
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onPressed,
-          hoverColor: primary ? Colors.black.withValues(alpha: 0.08) : (danger ? c.dangerSoft : c.paper),
+          hoverColor: primary ? Colors.black.withValues(alpha: 0.08) : (danger ? c.dangerSoft : Theme.of(context).hoverColor),
           child: Container(
             height: h,
             padding: EdgeInsets.symmetric(horizontal: iconOnly ? 0 : (small ? 8 : 10)),
@@ -187,7 +187,7 @@ class EvoDropdown<T> extends StatelessWidget {
           iconEnabledColor: c.muted,
           dropdownColor: c.panel,
           borderRadius: BorderRadius.circular(6),
-          style: TextStyle(fontSize: kUiText, color: warn ? c.warn : c.ink, fontFamily: 'Segoe UI'),
+          style: TextStyle(fontSize: kUiText, color: warn ? c.warn : c.ink, fontFamily: 'Inter'),
           items: [
             for (final i in items)
               DropdownMenuItem<T>(
@@ -271,7 +271,7 @@ class _SyncedFieldState extends State<SyncedField> {
                 borderRadius: BorderRadius.circular(4),
               )
             : null,
-        hoverColor: widget.borderless ? c.paper : null,
+        hoverColor: widget.borderless ? Theme.of(context).hoverColor : null,
         contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       ),
     );

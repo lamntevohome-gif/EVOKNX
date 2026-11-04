@@ -73,13 +73,13 @@ ThemeData buildTheme(Brightness b) {
   final base = ThemeData(
     useMaterial3: true,
     brightness: b,
-    fontFamily: 'Segoe UI',
+    fontFamily: 'Inter',
     colorScheme: ColorScheme.fromSeed(seedColor: c.accent, brightness: b, primary: c.accent, surface: c.panel),
     scaffoldBackgroundColor: c.paper,
     dividerColor: c.line,
     visualDensity: VisualDensity.compact,
     splashFactory: NoSplash.splashFactory,
-    hoverColor: c.paper,
+    hoverColor: b == Brightness.dark ? const Color(0xFF383838) : c.paper,
     highlightColor: c.line.withValues(alpha: 0.5),
     extensions: [c],
   );
@@ -139,7 +139,7 @@ ThemeData buildTheme(Brightness b) {
         padding: EdgeInsets.zero,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
         foregroundColor: c.ink,
-        hoverColor: c.paper,
+        hoverColor: b == Brightness.dark ? const Color(0xFF383838) : c.paper,
       ),
     ),
     tooltipTheme: TooltipThemeData(
@@ -155,8 +155,8 @@ ThemeData buildTheme(Brightness b) {
         borderRadius: BorderRadius.circular(8),
         side: BorderSide(color: c.line),
       ),
-      titleTextStyle: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: c.ink, fontFamily: 'Segoe UI'),
-      contentTextStyle: TextStyle(fontSize: kUiText, color: c.ink, fontFamily: 'Segoe UI', height: 1.45),
+      titleTextStyle: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: c.ink, fontFamily: 'Inter'),
+      contentTextStyle: TextStyle(fontSize: kUiText, color: c.ink, fontFamily: 'Inter', height: 1.45),
     ),
     popupMenuTheme: PopupMenuThemeData(
       color: c.panel,
@@ -166,7 +166,7 @@ ThemeData buildTheme(Brightness b) {
         borderRadius: BorderRadius.circular(6),
         side: BorderSide(color: c.line),
       ),
-      textStyle: TextStyle(fontSize: kUiText, color: c.ink, fontFamily: 'Segoe UI'),
+      textStyle: TextStyle(fontSize: kUiText, color: c.ink, fontFamily: 'Inter'),
     ),
     menuTheme: MenuThemeData(
       style: MenuStyle(
@@ -181,7 +181,7 @@ ThemeData buildTheme(Brightness b) {
       style: ButtonStyle(
         minimumSize: const WidgetStatePropertyAll(Size(220, 28)),
         padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 12)),
-        textStyle: WidgetStatePropertyAll(TextStyle(fontSize: kUiText, fontFamily: 'Segoe UI', color: c.ink)),
+        textStyle: WidgetStatePropertyAll(TextStyle(fontSize: kUiText, fontFamily: 'Inter', color: c.ink)),
         backgroundColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.hovered) || s.contains(WidgetState.focused) ? c.accent : null),
         foregroundColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.hovered) || s.contains(WidgetState.focused) ? Colors.white : c.ink),
         iconColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.hovered) || s.contains(WidgetState.focused) ? Colors.white : c.muted),

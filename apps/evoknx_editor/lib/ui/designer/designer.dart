@@ -145,7 +145,12 @@ class Designer extends ChangeNotifier {
     _n();
   }
 
+  /// True when the room itself (not one of its pages) is selected in the
+  /// structure tree: the properties panel then shows the room settings.
+  bool roomFocus = false;
+
   void selectRoom(String id) {
+    roomFocus = true;
     view = 'room';
     roomId = id;
     floorId = byId(jsonList(doc['pages']), id)?['floorId'] as String?;
@@ -165,6 +170,7 @@ class Designer extends ChangeNotifier {
       lastDir = 0;
     }
     view = 'room';
+    roomFocus = false;
     roomId = roomId_;
     floorId = byId(jsonList(doc['pages']), roomId_)?['floorId'] as String?;
     subId = id;
@@ -436,6 +442,21 @@ class Designer extends ChangeNotifier {
   }
 
   /// Adds a component at the selected cell, or at the first free spot.
+  /// Keyboard: Shift+arrows resize the selected card by one cell, arrows
+  /// move it by one cell. Returns an error message when it does not fit.
+  String? nudgeSelected({int dx = 0, int dy = 0, int dw = 0, int dh = 0}) {
+    final id = widgetId, s = sub;
+    if (id == null || s == null) return null;
+    final w = findWidget(s, id), box = containerOf(s, id);
+    if (w == null || box == null) return null;
+    final nx = pi(w, 'x') + dx, ny = pi(w, 'y') + dy, nw = pi(w, 'w') + dw, nh = pi(w, 'h') + dh;
+    final maxRows = box['type'] == 'group' ? rows(box) : pageRows(box, doc);
+    if (nx < 0 || ny < 0 || nw < 1 || nh < 1 || nx + nw > cols(box) || ny + nh > maxRows) return null;
+    if (!isFree(box, nx, ny, nw, nh, id)) return 'Không đủ chỗ: trùng với thẻ khác.';
+    editWidget(id, (o) => o['pos'] = {'x': nx, 'y': ny, 'w': nw, 'h': nh}, coalesce: 'nudge-$id');
+    return null;
+  }
+
   /// Adds a card from the card library to the selected cell, or to the first
   /// free spot of the page.
   String? addLibCard(String entryId) {

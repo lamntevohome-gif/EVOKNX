@@ -187,13 +187,9 @@ Widget iconWidget(String? key, double size, Color color) {
   if (key != null && key.startsWith('mdi:')) {
     final m = Mdi.byName[key.substring(4)];
     // MDI code points are loaded from bundled metadata at runtime.
-    // ignore: non_constant_argument_for_const_parameter
+    // ignore: non_const_argument_for_const_parameter
     final IconData icon = m == null ? Icons.help_outline : IconData(m.cp, fontFamily: 'MDI');
-    return Icon(
-      icon,
-      size: size,
-      color: color,
-    );
+    return Icon(icon, size: size, color: color);
   }
   final c = key == null ? null : _custom[key];
   if (c == null) return Icon(iconOf(key), size: size, color: color);
