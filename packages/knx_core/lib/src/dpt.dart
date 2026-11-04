@@ -54,6 +54,63 @@ const List<DptInfo> kCommonDpts = [
   DptInfo('251.600', 'Màu RGBW'),
 ];
 
+/// Datapoint types grouped by size, as in the ETS type list
+/// ("1 Bit - (DPT 1.*) Boolean" …). [id] is the type assigned when the group
+/// is chosen.
+class DptGroup {
+  final String id, size, name;
+  final int main;
+  const DptGroup(this.id, this.size, this.main, this.name);
+  String get label => '$size – DPT $main.* $name';
+}
+
+const List<DptGroup> kDptGroups = [
+  DptGroup('1.001', '1 Bit', 1, 'Boolean (bật/tắt)'),
+  DptGroup('3.007', '4 Bit', 3, 'Điều khiển / Dim'),
+  DptGroup('5.001', '8 Bit', 5, 'Số không dấu'),
+  DptGroup('6.010', '8 Bit', 6, 'Số có dấu'),
+  DptGroup('7.001', '16 Bit', 7, 'Số không dấu'),
+  DptGroup('8.001', '16 Bit', 8, 'Số có dấu'),
+  DptGroup('9.001', '16 Bit', 9, 'Số thực'),
+  DptGroup('12.001', '32 Bit', 12, 'Số không dấu'),
+  DptGroup('13.001', '32 Bit', 13, 'Số có dấu'),
+  DptGroup('14', '32 Bit', 14, 'Số thực'),
+  DptGroup('19.001', '8 Byte', 19, 'Ngày và giờ'),
+  DptGroup('16.000', '14 Byte', 16, 'Chuỗi ký tự'),
+];
+
+/// Readable name of a type: its size group, plus the exact sub-type when it
+/// is not the group's default (e.g. "16 Bit – DPT 9.* Số thực (9.004)").
+String dptLabel(String dpt) {
+  final m = dptMain(dpt);
+  final g = kDptGroups.where((x) => x.main == m).firstOrNull;
+  final known = kCommonDpts.where((x) => x.id == dpt).firstOrNull;
+  if (g != null) return dpt == g.id || dpt == '$m' ? g.label : '${g.label} ($dpt${known != null ? ' · ${known.name}' : ''})';
+  return known != null ? '$dpt · ${known.name}' : 'DPT $dpt';
+}
+
+/// Type from an ETS object length ("1 Bit", "1 Byte", "2 Bytes"…), used when
+/// the project gives no datapoint type: the common type of that size.
+String dptFromSize(String? size) {
+  final m = RegExp(r'(\d+)\s*(bit|byte)', caseSensitive: false).firstMatch(size ?? '');
+  if (m == null) return '';
+  final n = int.parse(m[1]!);
+  final bits = m[2]!.toLowerCase() == 'bit' ? n : n * 8;
+  return switch (bits) {
+    1 => '1.001',
+    2 => '2.001',
+    4 => '3.007',
+    8 => '5.001',
+    16 => '9.001',
+    24 => '232.600',
+    32 => '14',
+    48 => '251.600',
+    64 => '19.001',
+    112 => '16.000',
+    _ => '',
+  };
+}
+
 /// Normalises "DPST-9-1", "DPT-9", "9.1", "9.001" to "9.001" / "9".
 String normalizeDpt(String? s) {
   if (s == null) return '';

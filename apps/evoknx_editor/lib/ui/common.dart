@@ -206,10 +206,12 @@ class EvoDropdown<T> extends StatelessWidget {
   }
 }
 
+/// DPT choices grouped by size, like the ETS type list. A more specific
+/// type already assigned (e.g. 9.004 from ETS) stays listed with its name.
 List<(String, String)> dptItems(String current, {String none = 'Chưa có DPT'}) => [
   ('', none),
-  if (current.isNotEmpty && !kCommonDpts.any((d) => d.id == current)) (current, current),
-  for (final d in kCommonDpts) (d.id, '${d.id} · ${d.name}'),
+  for (final g in kDptGroups) (g.id, g.label),
+  if (current.isNotEmpty && !kDptGroups.any((g) => g.id == current)) (current, dptLabel(current)),
 ];
 
 /// Text field that keeps its own controller in sync with an external value.

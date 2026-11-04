@@ -310,7 +310,11 @@ class _GaTableState extends State<GaTable> {
               SearchField(onChanged: (v) => setState(() => query = v)),
               EvoDropdown<String>(
                 value: filter,
-                items: [('all', 'Tất cả DPT'), ('none', 'Chưa có DPT ($nNone)'), for (final m in mains) ('$m', 'DPT $m.x')],
+                items: [
+                  ('all', 'Tất cả DPT'),
+                  ('none', 'Chưa có DPT ($nNone)'),
+                  for (final m in mains) ('$m', kDptGroups.where((g) => g.main == m).map((g) => g.label).firstOrNull ?? 'DPT $m.*'),
+                ],
                 onChanged: (v) => setState(() => filter = v),
               ),
               const SizedBox(width: 24),

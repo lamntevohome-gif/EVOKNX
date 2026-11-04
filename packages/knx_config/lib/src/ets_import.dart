@@ -242,24 +242,25 @@ Map<String, String> _dptsFromComObjects(String projectXml, ZipReader zip, List<S
     }
   }
 
-  // Application programs, loaded on demand: ComObjectRef id → (dpt, ComObject id), ComObject id → dpt.
-  final apps = <String, ({Map<String, (String, String)> refs, Map<String, String> objs})?>{};
-  ({Map<String, (String, String)> refs, Map<String, String> objs})? app(String appId) {
+  // Application programs, loaded on demand:
+  // ComObjectRef id → (dpt, ComObject id, size), ComObject id → (dpt, size).
+  final apps = <String, ({Map<String, (String, String, String)> refs, Map<String, (String, String)> objs})?>{};
+  ({Map<String, (String, String, String)> refs, Map<String, (String, String)> objs})? app(String appId) {
     if (apps.containsKey(appId)) return apps[appId];
     final mf = appId.split('_').first;
     final file = names.firstWhere((n) => n.toLowerCase() == '$mf/$appId.xml'.toLowerCase(), orElse: () => '');
     final x = file.isEmpty ? null : zip.read(file);
     if (x == null) return apps[appId] = null;
     final t = decodeText(x);
-    final refs = <String, (String, String)>{};
-    final objs = <String, String>{};
+    final refs = <String, (String, String, String)>{};
+    final objs = <String, (String, String)>{};
     for (final m in RegExp(r'<ComObjectRef\b[^>]*>').allMatches(t)) {
       final tag = m.group(0)!;
-      refs[_attr(tag, 'Id')] = (_attr(tag, 'DatapointType'), _attr(tag, 'RefId'));
+      refs[_attr(tag, 'Id')] = (_attr(tag, 'DatapointType'), _attr(tag, 'RefId'), _attr(tag, 'ObjectSize'));
     }
     for (final m in RegExp(r'<ComObject\b[^>]*>').allMatches(t)) {
       final tag = m.group(0)!;
-      objs[_attr(tag, 'Id')] = _attr(tag, 'DatapointType');
+      objs[_attr(tag, 'Id')] = (_attr(tag, 'DatapointType'), _attr(tag, 'ObjectSize'));
     }
     return apps[appId] = (refs: refs, objs: objs);
   }
@@ -280,8 +281,11 @@ Map<String, String> _dptsFromComObjects(String projectXml, ZipReader zip, List<S
         final a = app(appId);
         final refId = _attr(tag, 'RefId');
         final r = a?.refs['${appId}_$refId'] ?? a?.refs[refId];
+        final o = r == null ? null : a?.objs[r.$2];
         dpt = normalizeDpt(r?.$1);
-        if (dpt.isEmpty && r != null) dpt = normalizeDpt(a?.objs[r.$2]);
+        if (dpt.isEmpty) dpt = normalizeDpt(o?.$1);
+        // No type anywhere: use the object length ("1 Bit", "2 Bytes"…).
+        if (dpt.isEmpty) dpt = dptFromSize(r != null && r.$3.isNotEmpty ? r.$3 : o?.$2);
       }
       if (dpt.isEmpty) continue;
       for (final l in links) {
