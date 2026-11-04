@@ -2,6 +2,7 @@ import 'package:evoknx_ui/evoknx_ui.dart';
 import 'package:flutter/material.dart';
 
 import 'app_store.dart';
+import 'receive_dialog.dart';
 
 /// Shown until a configuration from the Editor is loaded.
 class WelcomeScreen extends StatefulWidget {
@@ -78,6 +79,21 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                       ),
                       icon: const Icon(Icons.folder_open_outlined),
                       label: const Text('Mở cấu hình', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: OutlinedButton.icon(
+                      onPressed: busy ? null : () => showReceiveDialog(context, widget.store, pal),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: pal.ink,
+                        side: BorderSide(color: pal.lineStrong),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
+                      icon: const Icon(Icons.wifi_tethering),
+                      label: const Text('Nhận từ máy tính (Wi-Fi)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
                     ),
                   ),
                   if (error != null) ...[

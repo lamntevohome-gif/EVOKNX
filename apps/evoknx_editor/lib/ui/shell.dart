@@ -12,6 +12,7 @@ import 'connections_page.dart';
 import 'editor_settings_dialog.dart';
 import 'import_dialog.dart';
 import 'new_project_dialog.dart';
+import 'send_to_app_dialog.dart';
 import 'structure_page.dart';
 import 'test_page.dart';
 
@@ -290,7 +291,12 @@ class _ShellState extends State<Shell> {
           onPressed: () => runEtsImport(context, p),
           child: const Text('Nhập địa chỉ nhóm từ ETS…'),
         ),
-        MenuItemButton(leadingIcon: const Icon(Icons.download_outlined), onPressed: _export, child: const Text('Xuất cấu hình cho App…')),
+        MenuItemButton(
+          leadingIcon: const Icon(Icons.wifi_tethering),
+          onPressed: () => showSendToAppDialog(context, p),
+          child: const Text('Gửi sang App qua Wi-Fi…'),
+        ),
+        MenuItemButton(leadingIcon: const Icon(Icons.download_outlined), onPressed: _export, child: const Text('Xuất cấu hình ra file…')),
         const Divider(),
         MenuItemButton(
           leadingIcon: const Icon(Icons.settings_outlined),

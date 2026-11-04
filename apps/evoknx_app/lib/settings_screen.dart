@@ -4,6 +4,7 @@ import 'package:knx_config/knx_config.dart';
 
 import 'app_store.dart';
 import 'knx_link.dart';
+import 'receive_dialog.dart';
 
 /// Settings: theme, KNX connection, another configuration, about.
 class SettingsScreen extends StatelessWidget {
@@ -143,8 +144,17 @@ class SettingsScreen extends StatelessWidget {
                     sub: 'Phiên bản cấu hình ${jsonMap(store.config?['project'])['revision'] ?? 0}',
                   ),
                   row(
+                    Icon(Icons.wifi_tethering, color: pal.muted),
+                    'Nhận từ máy tính (Wi-Fi)',
+                    sub: 'Editor → menu EVOKNX → Gửi sang App qua Wi-Fi',
+                    onTap: () async {
+                      final ok = await showReceiveDialog(context, store, pal);
+                      if (ok && context.mounted) Navigator.of(context).popUntil((x) => x.isFirst);
+                    },
+                  ),
+                  row(
                     Icon(Icons.folder_open_outlined, color: pal.muted),
-                    'Mở cấu hình khác',
+                    'Mở file cấu hình khác',
                     sub: 'Chọn file .json xuất từ EVOKNX Editor',
                     onTap: () async {
                       final r = await store.importConfig();

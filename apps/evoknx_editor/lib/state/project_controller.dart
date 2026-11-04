@@ -328,6 +328,17 @@ class ProjectController extends ChangeNotifier {
   }
 
   /// Exports the configuration file for the mobile/tablet app.
+  /// The configuration as the App needs it, without changing the project
+  /// (used when sending to the App over Wi-Fi).
+  Json appConfig() {
+    final c = (jsonDecode(jsonEncode(doc)) as Map).cast<String, dynamic>();
+    c['menu'] = {'style': 'grid', 'items': jsonList(c['pages']).map((r) => r['id']).toList()};
+    final p = jsonMap(c['project']);
+    p['updatedAt'] = DateTime.now().toIso8601String();
+    c['project'] = p;
+    return exportProject(c);
+  }
+
   Future<String?> exportConfig() async {
     final loc = await getSaveLocation(
       acceptedTypeGroups: const [

@@ -20,6 +20,9 @@ class AppStore extends ChangeNotifier {
   bool keepScreenOn = false;
   String? lastRoom, lastSub, connectionId;
 
+  /// Last address typed when receiving from the Editor (e.g. 192.168.1.20:47800).
+  String? editorAddress;
+
   final Map<String, Json> _views = {};
 
   Future<File> _file(String name) async {
@@ -45,6 +48,7 @@ class AppStore extends ChangeNotifier {
           lastRoom = p['room'] as String?;
           lastSub = p['sub'] as String?;
           connectionId = p['conn'] as String?;
+          editorAddress = p['editor'] as String?;
         }
       }
     } catch (_) {}
@@ -53,7 +57,9 @@ class AppStore extends ChangeNotifier {
   Future<void> savePrefs() async {
     try {
       final f = await _file('evoknx_prefs.json');
-      await f.writeAsString(jsonEncode({'theme': themeMode, 'keepOn': keepScreenOn, 'room': lastRoom, 'sub': lastSub, 'conn': connectionId}));
+      await f.writeAsString(
+        jsonEncode({'theme': themeMode, 'keepOn': keepScreenOn, 'room': lastRoom, 'sub': lastSub, 'conn': connectionId, 'editor': editorAddress}),
+      );
     } catch (_) {}
   }
 
@@ -75,7 +81,13 @@ class AppStore extends ChangeNotifier {
       return 'File “${f.name}” không phải cấu hình EVOKNX.';
     }
     if (!isProject(o)) return 'File “${f.name}” không phải cấu hình EVOKNX.';
-    final doc = exportProject(migrate((o as Map).cast<String, dynamic>()));
+    await adopt((o as Map).cast<String, dynamic>());
+    return null;
+  }
+
+  /// Keeps a configuration (from a file or received from the Editor).
+  Future<void> adopt(Json o) async {
+    final doc = exportProject(migrate(o));
     config = doc;
     configVersion++;
     _views.clear();
@@ -88,7 +100,6 @@ class AppStore extends ChangeNotifier {
     } catch (_) {}
     await savePrefs();
     notifyListeners();
-    return null;
   }
 
   String get projectName => (jsonMap(config?['project'])['name'] ?? 'EVOKNX').toString();
