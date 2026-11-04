@@ -57,22 +57,22 @@ class _ImportDialogState extends State<_ImportDialog> {
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           border: Border.all(color: warn && n > 0 ? c.warn : c.line),
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(5),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               '$n',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600, color: warn && n > 0 ? c.warn : c.ink),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: warn && n > 0 ? c.warn : c.ink),
             ),
-            Text(t, style: TextStyle(fontSize: 12.5, color: c.muted)),
+            Text(t, style: TextStyle(fontSize: 11.5, color: c.muted)),
           ],
         ),
       ),
     );
     Widget option(bool value, String title, String desc) => InkWell(
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(5),
       onTap: () => setState(() => replace = value),
       child: Container(
         margin: const EdgeInsets.only(top: 8),
@@ -80,7 +80,7 @@ class _ImportDialogState extends State<_ImportDialog> {
         decoration: BoxDecoration(
           color: replace == value ? c.accentSoft : null,
           border: Border.all(color: replace == value ? c.accent : c.line),
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(5),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -93,7 +93,10 @@ class _ImportDialogState extends State<_ImportDialog> {
                 children: [
                   Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
                   const SizedBox(height: 2),
-                  Text(desc, style: TextStyle(fontSize: 13, color: c.muted)),
+                  Text(
+                    desc,
+                    style: TextStyle(fontSize: kUiText, color: c.muted),
+                  ),
                 ],
               ),
             ),
@@ -102,7 +105,7 @@ class _ImportDialogState extends State<_ImportDialog> {
       ),
     );
     return AlertDialog(
-      title: const Text('Nhập địa chỉ nhóm từ ETS', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
+      title: const Text('Nhập địa chỉ nhóm từ ETS', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
       content: SizedBox(
         width: 520,
         child: Column(
@@ -136,7 +139,7 @@ class _ImportDialogState extends State<_ImportDialog> {
               controlAffinity: ListTileControlAffinity.leading,
               title: Text(
                 'Giữ tên tôi đã sửa${s.edited > 0 ? ' (${s.edited} địa chỉ)' : ''}, không ghi đè bằng tên trong file',
-                style: const TextStyle(fontSize: 13.5),
+                style: const TextStyle(fontSize: kUiText),
               ),
             ),
           ],

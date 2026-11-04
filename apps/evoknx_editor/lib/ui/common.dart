@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:knx_core/knx_core.dart';
 
 import '../app/theme.dart';
+import '../state/app_settings.dart';
 
 void toast(BuildContext context, String message) {
   ScaffoldMessenger.of(context)
@@ -9,7 +10,8 @@ void toast(BuildContext context, String message) {
     ..showSnackBar(SnackBar(content: Text(message), duration: const Duration(seconds: 3)));
 }
 
-/// Flat EVOKNX button (outlined, primary or danger).
+/// Compact button: primary (blue fill), secondary (hairline border),
+/// danger (red text) or icon-only (no border, grey on hover).
 class EvoButton extends StatelessWidget {
   const EvoButton({super.key, required this.label, this.icon, this.onPressed, this.primary = false, this.danger = false, this.small = false, this.tooltip});
   final String label;
@@ -22,34 +24,34 @@ class EvoButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = context.evo;
     final enabled = onPressed != null;
-    final bg = primary ? c.accent : c.panel;
+    final iconOnly = label.isEmpty;
+    final h = small ? 24.0 : 28.0;
+    final bg = primary ? c.accent : (iconOnly ? Colors.transparent : c.panel);
     final fg = primary ? Colors.white : (danger ? c.danger : c.ink);
-    final border = primary ? c.accent : c.line;
+    final side = primary || iconOnly ? BorderSide.none : BorderSide(color: c.line);
     Widget child = Opacity(
       opacity: enabled ? 1 : 0.4,
       child: Material(
         color: bg,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-          side: BorderSide(color: border),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5), side: side),
+        clipBehavior: Clip.antiAlias,
         child: InkWell(
-          borderRadius: BorderRadius.circular(8),
           onTap: onPressed,
+          hoverColor: primary ? Colors.black.withValues(alpha: 0.08) : (danger ? c.dangerSoft : c.paper),
           child: Container(
-            height: small ? 30 : 34,
-            padding: EdgeInsets.symmetric(horizontal: label.isEmpty ? 0 : (small ? 10 : 12)),
-            constraints: BoxConstraints(minWidth: small ? 30 : 34),
+            height: h,
+            padding: EdgeInsets.symmetric(horizontal: iconOnly ? 0 : (small ? 8 : 10)),
+            constraints: BoxConstraints(minWidth: h),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                if (icon != null) Icon(icon, size: small ? 16 : 17, color: fg),
-                if (icon != null && label.isNotEmpty) const SizedBox(width: 6),
-                if (label.isNotEmpty)
+                if (icon != null) Icon(icon, size: small ? 14 : 15, color: fg),
+                if (icon != null && !iconOnly) const SizedBox(width: 5),
+                if (!iconOnly)
                   Text(
                     label,
-                    style: TextStyle(color: fg, fontSize: small ? 13 : 13.5, fontWeight: FontWeight.w600),
+                    style: TextStyle(color: fg, fontSize: small ? 11.5 : kUiText, fontWeight: FontWeight.w500),
                   ),
               ],
             ),
@@ -62,7 +64,7 @@ class EvoButton extends StatelessWidget {
   }
 }
 
-/// Segmented control.
+/// Segmented control (grey track, white selected item).
 class Seg<T> extends StatelessWidget {
   const Seg({super.key, required this.items, required this.value, required this.onChanged});
   final List<(T, String)> items;
@@ -74,11 +76,7 @@ class Seg<T> extends StatelessWidget {
     final c = context.evo;
     return Container(
       padding: const EdgeInsets.all(2),
-      decoration: BoxDecoration(
-        color: c.paper,
-        border: Border.all(color: c.line),
-        borderRadius: BorderRadius.circular(9),
-      ),
+      decoration: BoxDecoration(color: c.paper, borderRadius: BorderRadius.circular(6)),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -87,19 +85,22 @@ class Seg<T> extends StatelessWidget {
               onTap: () => onChanged(it.$1),
               child: MouseRegion(
                 cursor: SystemMouseCursors.click,
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 120),
-                  height: 30,
-                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                child: Container(
+                  height: 22,
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
                     color: it.$1 == value ? c.panel : Colors.transparent,
-                    borderRadius: BorderRadius.circular(7),
-                    boxShadow: it.$1 == value ? const [BoxShadow(color: Color(0x1A000000), blurRadius: 2, offset: Offset(0, 1))] : null,
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: it.$1 == value ? c.line : Colors.transparent),
                   ),
                   child: Text(
                     it.$2,
-                    style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: it.$1 == value ? c.ink : c.muted),
+                    style: TextStyle(
+                      fontSize: kUiText,
+                      fontWeight: it.$1 == value ? FontWeight.w600 : FontWeight.w400,
+                      color: it.$1 == value ? c.ink : c.muted,
+                    ),
                   ),
                 ),
               ),
@@ -117,17 +118,20 @@ class SectionTitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              text,
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: context.evo.muted),
+      padding: const EdgeInsets.only(bottom: 8),
+      child: SizedBox(
+        height: 24,
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                text,
+                style: TextStyle(fontSize: kUiText, fontWeight: FontWeight.w600, color: context.evo.ink),
+              ),
             ),
-          ),
-          if (trailing != null) trailing!,
-        ],
+            if (trailing != null) trailing!,
+          ],
+        ),
       ),
     );
   }
@@ -143,11 +147,8 @@ class FieldLabel extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(
-          label,
-          style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w500, color: context.evo.muted),
-        ),
-        const SizedBox(height: 5),
+        Text(label, style: TextStyle(fontSize: 11, color: context.evo.muted)),
+        const SizedBox(height: 4),
         child,
       ],
     );
@@ -169,12 +170,12 @@ class EvoDropdown<T> extends StatelessWidget {
     final has = items.any((i) => i.$1 == value);
     return Container(
       width: width,
-      height: 34,
-      padding: const EdgeInsets.symmetric(horizontal: 10),
+      height: 28,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
       decoration: BoxDecoration(
         color: c.panel,
         border: Border.all(color: warn ? c.warn : c.line),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(4),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<T>(
@@ -182,7 +183,11 @@ class EvoDropdown<T> extends StatelessWidget {
           isExpanded: width != null,
           isDense: true,
           focusColor: Colors.transparent,
-          style: TextStyle(fontSize: 13.5, color: warn ? c.warn : c.ink, fontFamily: 'Segoe UI'),
+          iconSize: 16,
+          iconEnabledColor: c.muted,
+          dropdownColor: c.panel,
+          borderRadius: BorderRadius.circular(6),
+          style: TextStyle(fontSize: kUiText, color: warn ? c.warn : c.ink, fontFamily: 'Segoe UI'),
           items: [
             for (final i in items)
               DropdownMenuItem<T>(
@@ -254,19 +259,20 @@ class _SyncedFieldState extends State<SyncedField> {
       focusNode: _f,
       onChanged: widget.onChanged,
       keyboardType: widget.number ? TextInputType.number : TextInputType.text,
-      style: TextStyle(fontSize: 14, fontWeight: widget.bold ? FontWeight.w600 : FontWeight.w400, color: c.ink),
+      style: TextStyle(fontSize: widget.bold ? 13 : kUiText, fontWeight: widget.bold ? FontWeight.w600 : FontWeight.w400, color: c.ink),
       decoration: InputDecoration(
         hintText: widget.hint,
         filled: !widget.borderless,
         fillColor: widget.borderless ? Colors.transparent : c.panel,
-        border: widget.borderless ? OutlineInputBorder(borderSide: BorderSide.none, borderRadius: BorderRadius.circular(6)) : null,
+        border: widget.borderless ? OutlineInputBorder(borderSide: BorderSide.none, borderRadius: BorderRadius.circular(4)) : null,
         enabledBorder: widget.borderless
             ? OutlineInputBorder(
                 borderSide: const BorderSide(color: Colors.transparent),
-                borderRadius: BorderRadius.circular(6),
+                borderRadius: BorderRadius.circular(4),
               )
             : null,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 9),
+        hoverColor: widget.borderless ? c.paper : null,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       ),
     );
     return widget.width == null ? field : SizedBox(width: widget.width, child: field);
@@ -279,15 +285,11 @@ class StatusDot extends StatelessWidget {
   final double size;
   @override
   Widget build(BuildContext context) {
-    final col = on ? const Color(0xFF2FA36B) : const Color(0xFFD9463B);
+    final col = on ? const Color(0xFF14AE5C) : const Color(0xFFE5482A);
     return Container(
       width: size,
       height: size,
-      decoration: BoxDecoration(
-        color: col,
-        shape: BoxShape.circle,
-        boxShadow: [BoxShadow(color: col.withValues(alpha: 0.3), spreadRadius: 3)],
-      ),
+      decoration: BoxDecoration(color: col, shape: BoxShape.circle),
     );
   }
 }
@@ -303,8 +305,15 @@ class SearchField extends StatelessWidget {
       width: width,
       child: TextField(
         onChanged: onChanged,
-        style: const TextStyle(fontSize: 13.5),
-        decoration: InputDecoration(hintText: hint, prefixIcon: const Icon(Icons.search, size: 18), prefixIconConstraints: const BoxConstraints(minWidth: 34)),
+        style: const TextStyle(fontSize: kUiText),
+        decoration: InputDecoration(
+          hintText: hint,
+          fillColor: context.evo.paper,
+          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide.none),
+          prefixIcon: Icon(Icons.search, size: 15, color: context.evo.muted),
+          prefixIconConstraints: const BoxConstraints(minWidth: 28),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 6, vertical: 7),
+        ),
       ),
     );
   }
@@ -320,4 +329,19 @@ String fold(String s) {
     b.write(i >= 0 ? to[i] : ch);
   }
   return b.toString();
+}
+
+/// Explanatory text under a field. Hidden unless "Hiện chữ hướng dẫn" is on
+/// in the Editor settings, so the panels stay compact.
+class Hint extends StatelessWidget {
+  const Hint(this.text, {super.key});
+  final String text;
+
+  static bool get visible => appSettings.showHints;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!visible) return const SizedBox.shrink();
+    return Text(text, style: TextStyle(fontSize: 11, height: 1.4, color: context.evo.muted));
+  }
 }

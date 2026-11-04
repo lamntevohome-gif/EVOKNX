@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'dart:math';
-import 'dart:ui' show ImageFilter, PointerDeviceKind;
+import 'dart:ui' show ImageFilter, PointerDeviceKind, TileMode;
 
 import 'package:flutter/material.dart';
 import 'package:knx_config/knx_config.dart';
@@ -62,63 +62,92 @@ class DesignCanvas extends StatelessWidget {
     final tablet = dev != 'mobile';
     final scale = tablet ? tabletScale(doc) : 1.0;
     final logical = Size(size.width / scale, size.height / scale);
+    final ec = context.evo;
+    final roomName = (d.room?['title'] ?? '').toString();
+    final subName = (d.sub?['title'] ?? '').toString();
+    final frameName = switch (d.view) {
+      'overview' => 'Tổng quan',
+      'floor' => (d.floor?['title'] ?? '').toString(),
+      _ => [roomName, if (subsOf(d.room ?? const {}).length > 1) subName].where((x) => x.isNotEmpty).join(' · '),
+    };
     return Padding(
-      padding: const EdgeInsets.all(24),
-      child: FittedBox(
-        fit: BoxFit.contain,
-        child: Container(
-          width: size.width + 22,
-          height: size.height + 22,
-          padding: const EdgeInsets.all(11),
-          decoration: BoxDecoration(
-            color: const Color(0xFF1C2226),
-            borderRadius: BorderRadius.circular(tablet ? 30 : 48),
-            boxShadow: const [BoxShadow(color: Color(0x33000000), blurRadius: 30, offset: Offset(0, 12))],
+      padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+      child: Column(
+        children: [
+          // Frame name and screen size, like a frame label in design tools.
+          SizedBox(
+            height: 22,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(frameName, style: TextStyle(fontSize: 11, color: ec.muted)),
+                const SizedBox(width: 8),
+                Text('${size.width.round()} × ${size.height.round()}', style: TextStyle(fontSize: 11, color: ec.lineStrong)),
+              ],
+            ),
           ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(tablet ? 20 : 38),
-            child: DecoratedBox(
-              decoration: bg.decoration,
-              child: FittedBox(
-                child: SizedBox(
-                  width: logical.width,
-                  height: logical.height,
-                  child: Stack(
-                    children: [
-                      Positioned.fill(
-                        child: AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 280),
-                          child: pageBg == null
-                              ? const SizedBox.expand(key: ValueKey('page-bg-none'))
-                              : DecoratedBox(
-                                  key: ValueKey('page-bg-${d.sub?['id']}-${jsonMap(d.sub?['bg']).hashCode}'),
-                                  decoration: pageBg.decoration,
-                                  child: const SizedBox.expand(),
-                                ),
+          Expanded(
+            child: FittedBox(
+              fit: BoxFit.contain,
+              child: Container(
+                width: size.width + 12,
+                height: size.height + 12,
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1E1E1E),
+                  borderRadius: BorderRadius.circular(tablet ? 26 : 44),
+                  boxShadow: const [BoxShadow(color: Color(0x1F000000), blurRadius: 18, offset: Offset(0, 6))],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(tablet ? 20 : 38),
+                  child: DecoratedBox(
+                    decoration: bg.decoration,
+                    child: FittedBox(
+                      child: SizedBox(
+                        width: logical.width,
+                        height: logical.height,
+                        child: Stack(
+                          children: [
+                            Positioned.fill(
+                              child: AnimatedSwitcher(
+                                duration: const Duration(milliseconds: 280),
+                                child: pageBg == null
+                                    ? const SizedBox.expand(key: ValueKey('page-bg-none'))
+                                    : ClipRect(
+                                        key: ValueKey('page-bg-${pageBg.key}'),
+                                        child: ImageFiltered(
+                                          enabled: pageBg.blur > 0,
+                                          imageFilter: ImageFilter.blur(sigmaX: pageBg.blur, sigmaY: pageBg.blur, tileMode: TileMode.clamp),
+                                          child: DecoratedBox(decoration: pageBg.decoration, child: const SizedBox.expand()),
+                                        ),
+                                      ),
+                              ),
+                            ),
+                            Positioned.fill(
+                              child: ScrollConfiguration(
+                                behavior: const _DragScroll(),
+                                child: _Screen(d: d, pal: pal, issues: issues, size: logical, dev: dev),
+                              ),
+                            ),
+                            if (d.popupFor != null && d.test)
+                              Positioned.fill(
+                                child: _ScenePopup(d: d, w: d.popupFor!, pal: pal),
+                              ),
+                            if (d.appSettingsOpen)
+                              Positioned.fill(
+                                child: _AppSettingsSheet(d: d, pal: pal),
+                              ),
+                            if (d.splashPreview) Positioned.fill(child: _Splash(d: d)),
+                          ],
                         ),
                       ),
-                      Positioned.fill(
-                        child: ScrollConfiguration(
-                          behavior: const _DragScroll(),
-                          child: _Screen(d: d, pal: pal, issues: issues, size: logical, dev: dev),
-                        ),
-                      ),
-                      if (d.popupFor != null && d.test)
-                        Positioned.fill(
-                          child: _ScenePopup(d: d, w: d.popupFor!, pal: pal),
-                        ),
-                      if (d.appSettingsOpen)
-                        Positioned.fill(
-                          child: _AppSettingsSheet(d: d, pal: pal),
-                        ),
-                      if (d.splashPreview) Positioned.fill(child: _Splash(d: d)),
-                    ],
+                    ),
                   ),
                 ),
               ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -940,6 +969,53 @@ class _GridAreaState extends State<_GridArea> {
               ),
             ),
           );
+          // Selection in the style of design tools: blue outline, corner
+          // handles and the card size (columns × rows) under it.
+          if (selected) {
+            const sel = kEditorSelection;
+            Widget handle() => Container(
+              width: 7,
+              height: 7,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                border: Border.all(color: sel, width: 1.2),
+              ),
+            );
+            final below = rc.bottom + 22 <= bc.maxHeight;
+            children.add(
+              Positioned(
+                left: rc.left - 3,
+                top: rc.top - 3,
+                width: rc.width + 6,
+                height: rc.height + 6 + (below ? 20 : 0),
+                child: IgnorePointer(
+                  child: Stack(
+                    children: [
+                      Positioned(left: 0, top: 0, child: handle()),
+                      Positioned(right: 0, top: 0, child: handle()),
+                      Positioned(left: 0, top: rc.height - 1, child: handle()),
+                      Positioned(right: 0, top: rc.height - 1, child: handle()),
+                      Positioned(
+                        left: 0,
+                        right: 0,
+                        top: below ? rc.height + 8 : rc.height - 18,
+                        child: Center(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                            decoration: BoxDecoration(color: sel, borderRadius: BorderRadius.circular(3)),
+                            child: Text(
+                              '${pi(w, 'w')} × ${pi(w, 'h')}',
+                              style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }
         }
         final g = ghost;
         if (g != null && !test) {
@@ -1037,8 +1113,8 @@ class _GroupFrame extends StatelessWidget {
         border: !selected && style != 'none' && pal.border <= 0
             ? null
             : Border.all(
-                color: selected ? pal.accent : (style == 'none' ? (d.test ? Colors.transparent : pal.lineStrong.withValues(alpha: 0.5)) : pal.edge),
-                width: selected ? 2 : (style == 'none' ? 1 : pal.border),
+                color: selected ? kEditorSelection : (style == 'none' ? (d.test ? Colors.transparent : pal.lineStrong.withValues(alpha: 0.5)) : pal.edge),
+                width: selected ? 1.5 : (style == 'none' ? 1 : pal.border),
               ),
         boxShadow: style == 'card' ? pal.shadows : const [],
       ),
@@ -1247,9 +1323,15 @@ class _PagedGridState extends State<_PagedGrid> {
 /// Screen background (default, colour or image) and the text colours that
 /// stay readable on it.
 class ScreenBg {
-  const ScreenBg(this.decoration, this.ink, this.muted);
+  const ScreenBg(this.decoration, this.ink, this.muted, {this.blur = 0, this.key = ''});
   final BoxDecoration decoration;
   final Color ink, muted;
+
+  /// Blur of a page background image (0 = sharp).
+  final double blur;
+
+  /// Identifies the look, so the fade between pages runs only when it changes.
+  final String key;
 }
 
 String? _bgData;
@@ -1274,7 +1356,7 @@ ScreenBg? pageBackground(Json? sub, ScreenBg screen, Json theme) {
   if (mode == 'color') {
     final c = (hexColor(b['color']) ?? under).withValues(alpha: op);
     final tx = text(Color.alphaBlend(c, under).computeLuminance() < 0.35);
-    return ScreenBg(BoxDecoration(color: c), tx.ink, tx.muted);
+    return ScreenBg(BoxDecoration(color: c), tx.ink, tx.muted, key: 'c|${sub?['id']}|${b['color']}|$op');
   }
   final data = (b['image'] ?? '').toString();
   final i = data.indexOf('base64,');
@@ -1290,6 +1372,7 @@ ScreenBg? pageBackground(Json? sub, ScreenBg screen, Json theme) {
     }
   }
   final dim = (((b['dim'] as num?) ?? 30).toDouble().clamp(0, 80)) / 100;
+  final blur = ((b['blur'] as num?) ?? 0).toDouble().clamp(0, 20).toDouble();
   final tx = text(op >= 0.5 ? dim >= 0.25 : under.computeLuminance() < 0.35);
   return ScreenBg(
     BoxDecoration(
@@ -1302,6 +1385,8 @@ ScreenBg? pageBackground(Json? sub, ScreenBg screen, Json theme) {
     ),
     tx.ink,
     tx.muted,
+    blur: blur,
+    key: 'i|${sub?['id']}|${data.length}|$op|$dim|$blur',
   );
 }
 

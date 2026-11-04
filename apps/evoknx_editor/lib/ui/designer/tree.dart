@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:knx_config/knx_config.dart';
 
 import '../../app/theme.dart';
-import '../common.dart';
 import 'designer.dart';
 import 'icons.dart';
 import 'model.dart';
@@ -26,100 +25,67 @@ class StructureTree extends StatelessWidget {
       required VoidCallback onTap,
       double indent = 0,
       bool bold = false,
-    }) => Padding(
-      padding: EdgeInsets.only(left: indent, bottom: 2),
-      child: Material(
-        color: on ? c.accentSoft : Colors.transparent,
-        borderRadius: BorderRadius.circular(8),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(8),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-            child: Row(
-              children: [
-                leading,
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    text,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 14, fontWeight: bold ? FontWeight.w600 : FontWeight.w400, color: on ? c.accentInk : c.ink),
-                  ),
+    }) => Material(
+      color: on ? c.accentSoft : Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          height: 28,
+          padding: EdgeInsets.only(left: 12 + indent, right: 12),
+          child: Row(
+            children: [
+              SizedBox(width: 16, child: Center(child: leading)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  text,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: kUiText, fontWeight: bold ? FontWeight.w600 : FontWeight.w400, color: c.ink),
                 ),
-                if (trailing != null) Text(trailing, style: TextStyle(fontSize: 12, color: c.muted)),
-              ],
-            ),
+              ),
+              if (trailing != null) Text(trailing, style: TextStyle(fontSize: 11, color: c.muted)),
+            ],
           ),
         ),
       ),
     );
-    Widget link(String text, VoidCallback onTap, double indent) => Padding(
-      padding: EdgeInsets.only(left: indent, bottom: 4),
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: TextButton.icon(
-          onPressed: onTap,
-          icon: const Icon(Icons.add, size: 16),
-          label: Text(text, style: const TextStyle(fontSize: 13)),
+    Widget link(String text, VoidCallback onTap, double indent) => InkWell(
+      onTap: onTap,
+      child: Container(
+        height: 26,
+        padding: EdgeInsets.only(left: 12 + indent),
+        child: Row(
+          children: [
+            SizedBox(width: 16, child: Icon(Icons.add, size: 13, color: c.muted)),
+            const SizedBox(width: 8),
+            Text(text, style: TextStyle(fontSize: 11.5, color: c.muted)),
+          ],
         ),
       ),
     );
     return ListView(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.symmetric(vertical: 6),
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: Material(
-                color: d.view == 'overview' ? c.accentSoft : c.panel,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  side: BorderSide(color: d.view == 'overview' ? c.accent : c.line),
-                ),
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(8),
-                  onTap: d.overview,
-                  child: SizedBox(
-                    height: 32,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.settings_outlined, size: 15, color: c.accent),
-                        const SizedBox(width: 6),
-                        Text(
-                          'Tổng quan',
-                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: d.view == 'overview' ? c.accentInk : c.ink),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: SizedBox(
-                height: 32,
-                child: EvoButton(label: 'Thêm tầng', icon: Icons.add, small: true, onPressed: d.addFloor),
-              ),
-            ),
-          ],
+        row(
+          leading: Icon(Icons.tune, size: 14, color: c.muted),
+          text: 'Tổng quan',
+          on: d.view == 'overview',
+          onTap: d.overview,
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 6),
         for (final f in floorsOf(doc)) ...[
           row(
-            leading: iconWidget(f['icon'] as String? ?? 'stairs', 18, c.muted),
+            leading: iconWidget(f['icon'] as String? ?? 'stairs', 14, c.muted),
             text: (f['title'] ?? '').toString(),
-            trailing: '${roomsOf(doc, f['id'] as String?).length} phòng',
+            trailing: '${roomsOf(doc, f['id'] as String?).length}',
             on: d.view == 'floor' && d.floor?['id'] == f['id'],
             bold: true,
             onTap: () => d.selectFloor(f['id'] as String),
           ),
           for (final r in roomsOf(doc, f['id'] as String?)) ...[
             row(
-              indent: 12,
-              leading: iconWidget(r['icon'] as String?, 18, c.muted),
+              indent: 16,
+              leading: iconWidget(r['icon'] as String?, 14, c.muted),
               text: (r['title'] ?? '').toString(),
               trailing: '${subsOf(r).fold<int>(0, (n, s) => n + jsonList(s['widgets']).length)}',
               on: false,
@@ -128,21 +94,17 @@ class StructureTree extends StatelessWidget {
             if (curRoom?['id'] == r['id'])
               for (final s in subsOf(r))
                 row(
-                  indent: 36,
-                  leading: Container(
-                    width: 6,
-                    height: 6,
-                    decoration: BoxDecoration(color: s['id'] == curSub?['id'] ? c.accent : c.lineStrong, shape: BoxShape.circle),
-                  ),
+                  indent: 32,
+                  leading: Icon(Icons.crop_portrait, size: 13, color: s['id'] == curSub?['id'] ? c.accent : c.muted),
                   text: (s['title'] ?? '').toString(),
                   trailing: '${jsonList(s['widgets']).length}',
                   on: d.view == 'room' && s['id'] == curSub?['id'],
                   onTap: () => d.selectSub(r['id'] as String, s['id'] as String),
                 ),
-            if (curRoom?['id'] == r['id']) link('Thêm trang trong phòng', d.addSub, 36),
+            if (curRoom?['id'] == r['id']) link('Thêm trang', d.addSub, 32),
           ],
-          link('Thêm phòng', () => d.addRoom(f['id'] as String), 12),
-          const SizedBox(height: 6),
+          link('Thêm phòng', () => d.addRoom(f['id'] as String), 16),
+          const SizedBox(height: 4),
         ],
       ],
     );

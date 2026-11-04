@@ -86,7 +86,7 @@ class _ConnectionList extends StatelessWidget {
             decoration: BoxDecoration(
               color: c.panel,
               border: Border.all(color: i == 0 ? c.accent.withValues(alpha: 0.6) : c.line),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(6),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -105,7 +105,7 @@ class _ConnectionList extends StatelessWidget {
                       const SizedBox(width: 8),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(color: c.accentSoft, borderRadius: BorderRadius.circular(10)),
+                        decoration: BoxDecoration(color: c.accentSoft, borderRadius: BorderRadius.circular(5)),
                         child: Text(
                           'Mặc định',
                           style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: c.accentInk),
@@ -273,7 +273,7 @@ class _GaTableState extends State<GaTable> {
     Widget head(String t, {double? w, int flex = 0}) {
       final txt = Text(
         t,
-        style: TextStyle(fontSize: 12.5, color: c.muted, fontWeight: FontWeight.w500),
+        style: TextStyle(fontSize: 11.5, color: c.muted, fontWeight: FontWeight.w500),
       );
       return flex > 0 ? Expanded(flex: flex, child: txt) : SizedBox(width: w, child: txt);
     }
@@ -297,11 +297,11 @@ class _GaTableState extends State<GaTable> {
                   children: [
                     const TextSpan(
                       text: 'Địa chỉ nhóm ',
-                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
                     ),
                     TextSpan(
                       text: '${p.groupAddresses.length}',
-                      style: TextStyle(fontSize: 15, color: c.muted),
+                      style: TextStyle(fontSize: 13, color: c.muted),
                     ),
                   ],
                 ),
@@ -460,7 +460,7 @@ class _GaTableState extends State<GaTable> {
                           ),
                           SizedBox(
                             width: 120,
-                            child: Text(used[id] != null ? '${used[id]} thành phần' : '', style: TextStyle(fontSize: 12.5, color: c.muted)),
+                            child: Text(used[id] != null ? '${used[id]} thành phần' : '', style: TextStyle(fontSize: 11.5, color: c.muted)),
                           ),
                           SizedBox(
                             width: 40,
@@ -518,7 +518,7 @@ class _AddGaDialogState extends State<_AddGaDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Thêm địa chỉ nhóm', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
+      title: const Text('Thêm địa chỉ nhóm', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
       content: SizedBox(
         width: 440,
         child: Column(
@@ -559,7 +559,10 @@ class _AddGaDialogState extends State<_AddGaDialog> {
             if (error != null)
               Padding(
                 padding: const EdgeInsets.only(top: 10),
-                child: Text(error!, style: TextStyle(color: context.evo.danger, fontSize: 13)),
+                child: Text(
+                  error!,
+                  style: TextStyle(color: context.evo.danger, fontSize: kUiText),
+                ),
               ),
           ],
         ),

@@ -135,7 +135,7 @@ class _TestPageState extends State<TestPage> {
                   child: Text(
                     bus.error!,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(color: c.danger, fontSize: 13),
+                    style: TextStyle(color: c.danger, fontSize: kUiText),
                   ),
                 ),
               ],
@@ -170,7 +170,12 @@ class _TestPageState extends State<TestPage> {
       child: Text(
         t,
         overflow: TextOverflow.ellipsis,
-        style: TextStyle(fontSize: 13, fontWeight: bold ? FontWeight.w600 : FontWeight.w400, color: color, fontFeatures: const [FontFeature.tabularFigures()]),
+        style: TextStyle(
+          fontSize: kUiText,
+          fontWeight: bold ? FontWeight.w600 : FontWeight.w400,
+          color: color,
+          fontFeatures: const [FontFeature.tabularFigures()],
+        ),
       ),
     );
     Widget chip(MonitorRow r) {
@@ -181,7 +186,7 @@ class _TestPageState extends State<TestPage> {
       };
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-        decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(10)),
+        decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(5)),
         child: Text(
           r.typeText,
           style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: fg),
@@ -208,7 +213,10 @@ class _TestPageState extends State<TestPage> {
                 onChanged: (v) => setState(() => type = v),
               ),
               const Spacer(),
-              Text('${bus.rows.length} telegram', style: TextStyle(color: c.muted, fontSize: 13)),
+              Text(
+                '${bus.rows.length} telegram',
+                style: TextStyle(color: c.muted, fontSize: kUiText),
+              ),
               const SizedBox(width: 10),
               EvoButton(
                 label: bus.paused ? 'Tiếp tục' : 'Tạm dừng',
@@ -246,7 +254,10 @@ class _TestPageState extends State<TestPage> {
               cell('Nguồn', 90, color: c.muted),
               cell('Đích', 90, color: c.muted),
               Expanded(
-                child: Text('Tên', style: TextStyle(fontSize: 13, color: c.muted)),
+                child: Text(
+                  'Tên',
+                  style: TextStyle(fontSize: kUiText, color: c.muted),
+                ),
               ),
               cell('Loại', 96, color: c.muted),
               cell('Giá trị', 170, color: c.muted),
@@ -279,7 +290,11 @@ class _TestPageState extends State<TestPage> {
                           cell(r.source, 90),
                           cell(r.destination, 90, bold: true),
                           Expanded(
-                            child: Text(r.name, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13)),
+                            child: Text(
+                              r.name,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontSize: kUiText),
+                            ),
                           ),
                           SizedBox(
                             width: 96,
@@ -363,7 +378,7 @@ class _TestPageState extends State<TestPage> {
                   child: Text(
                     '${g['address']}  ${g['name']}',
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 13, fontWeight: on ? FontWeight.w600 : FontWeight.w400),
+                    style: TextStyle(fontSize: kUiText, fontWeight: on ? FontWeight.w600 : FontWeight.w400),
                   ),
                 ),
               );
@@ -374,12 +389,15 @@ class _TestPageState extends State<TestPage> {
         if (ga != null)
           Container(
             padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: c.paper, borderRadius: BorderRadius.circular(10)),
+            decoration: BoxDecoration(color: c.paper, borderRadius: BorderRadius.circular(5)),
             child: Row(
               children: [
-                Text('Giá trị hiện tại', style: TextStyle(color: c.muted, fontSize: 13)),
+                Text(
+                  'Giá trị hiện tại',
+                  style: TextStyle(color: c.muted, fontSize: kUiText),
+                ),
                 const Spacer(),
-                Text(curText, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                Text(curText, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
               ],
             ),
           ),

@@ -69,6 +69,41 @@ void removeWidget(Json sub, String id) {
   rawList(box, 'widgets').removeWhere((x) => x is Map && x['id'] == id);
 }
 
+/// Removes a grid frame but keeps its cards: they move onto the page where
+/// the frame was (scaled from the frame's own grid), or to the next free spot.
+/// Returns how many cards were kept.
+int removeGroupKeepCards(Json sub, String id) {
+  final list = rawList(sub, 'widgets');
+  final g = jsonList(sub['widgets']).where((x) => x['id'] == id).firstOrNull;
+  if (g == null || g['type'] != 'group') {
+    removeWidget(sub, id);
+    return 0;
+  }
+  final gp = jsonMap(g['pos']);
+  final gx = ((gp['x'] as num?) ?? 0).toInt(), gy = ((gp['y'] as num?) ?? 0).toInt();
+  final gw = ((gp['w'] as num?) ?? 1).toInt(), gh = ((gp['h'] as num?) ?? 1).toInt();
+  final sx = gw / max(1, cols(g)), sy = gh / max(1, rows(g));
+  final kids = [for (final k in jsonList(g['widgets'])) deepCopy(k)];
+  list.removeWhere((x) => x is Map && x['id'] == id);
+  final c = cols(sub);
+  for (final k in kids) {
+    final p = jsonMap(k['pos']);
+    final pw = min(c, max(1, (((p['w'] as num?) ?? 1) * sx).round()));
+    final ph = max(1, (((p['h'] as num?) ?? 1) * sy).round());
+    var px = min(c - pw, gx + (((p['x'] as num?) ?? 0) * sx).floor());
+    var py = gy + (((p['y'] as num?) ?? 0) * sy).floor();
+    if (!isFree(sub, px, py, pw, ph)) {
+      final f = findFree(sub, pw, ph);
+      px = f.x;
+      py = f.y;
+    }
+    k['pos'] = {'x': px, 'y': py, 'w': pw, 'h': ph};
+    k.remove('posBy');
+    list.add(k);
+  }
+  return kids.length;
+}
+
 /// Places a new widget of [type] at (x, y), shrinking its width to fit.
 ({int x, int y, int w, int h})? placeAt(Json box, String type, int x, int y) {
   final t = kWidgetTypes[type]!;

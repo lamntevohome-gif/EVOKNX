@@ -21,6 +21,9 @@ class AppSettings extends ChangeNotifier {
 
   /// History copies (made by Ctrl+S): days to keep (0 = forever) and whether
   /// days older than a week keep only their last copy.
+  /// Show the explanatory text under fields in the properties panel.
+  bool showHints = false;
+
   int historyKeepDays = 90;
   bool historyThin = true;
   static const List<int> historyChoices = [30, 90, 180, 365, 0];
@@ -46,6 +49,7 @@ class AppSettings extends ChangeNotifier {
       final hk = (j['historyKeepDays'] as num?)?.toInt();
       if (hk != null && historyChoices.contains(hk)) historyKeepDays = hk;
       if (j['historyThin'] is bool) historyThin = j['historyThin'] as bool;
+      if (j['showHints'] is bool) showHints = j['showHints'] as bool;
       final dir = j['defaultFolder'];
       if (dir is String && dir.isNotEmpty) defaultFolder = dir;
     } catch (_) {}
@@ -62,6 +66,7 @@ class AppSettings extends ChangeNotifier {
           'defaultFolder': defaultFolder,
           'historyKeepDays': historyKeepDays,
           'historyThin': historyThin,
+          'showHints': showHints,
         }),
       );
     } catch (_) {}
@@ -82,6 +87,12 @@ class AppSettings extends ChangeNotifier {
   Future<void> setHistory({int? keepDays, bool? thin}) async {
     if (keepDays != null && historyChoices.contains(keepDays)) historyKeepDays = keepDays;
     if (thin != null) historyThin = thin;
+    notifyListeners();
+    await _persist();
+  }
+
+  Future<void> setShowHints(bool v) async {
+    showHints = v;
     notifyListeners();
     await _persist();
   }

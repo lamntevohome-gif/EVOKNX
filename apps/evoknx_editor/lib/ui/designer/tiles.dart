@@ -10,6 +10,9 @@ import 'icons.dart';
 import 'model.dart';
 
 /// Colours of the simulated app screen (light/dark like the real app).
+/// Selection colour of the Editor (not part of the App's palette).
+const Color kEditorSelection = Color(0xFF0D99FF);
+
 class AppPalette {
   final Color screen, tile, tileEdge, panel, ink, muted, line, lineStrong, accent, accentSoft, led, ledSoft, danger;
 
@@ -288,7 +291,7 @@ class TileView extends StatelessWidget {
       foregroundDecoration: selected
           ? BoxDecoration(
               borderRadius: BorderRadius.circular(pal.radius),
-              border: Border.all(color: pal.accent, width: 2),
+              border: Border.all(color: kEditorSelection, width: 1.5),
             )
           : null,
       padding: imageBtn ? const EdgeInsets.all(8) : const EdgeInsets.fromLTRB(12, 10, 12, 10),

@@ -39,7 +39,7 @@ class _ShellState extends State<Shell> {
         await showDialog<bool>(
           context: context,
           builder: (c) => AlertDialog(
-            title: Text(title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
+            title: Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
             content: SizedBox(width: 460, child: Text(message)),
             actions: [
               EvoButton(label: 'Huỷ', onPressed: () => Navigator.pop(c, false)),
@@ -65,7 +65,7 @@ class _ShellState extends State<Shell> {
       context: context,
       barrierDismissible: false,
       builder: (c) => AlertDialog(
-        title: const Text('Lưu thay đổi trước khi đóng?', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
+        title: const Text('Lưu thay đổi trước khi đóng?', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
         content: SizedBox(
           width: 440,
           child: Text(
@@ -155,114 +155,177 @@ class _ShellState extends State<Shell> {
     return p.lastSaveWasAuto ? 'Tự lưu lúc $hm' : 'Đã lưu lúc $hm';
   }
 
+  /// Top bar: app menu and workspaces on the left, project name and save
+  /// state in the middle, undo/redo and the one primary action on the right.
   Widget _topBar(BuildContext context) {
     final c = context.evo;
-    final compact = MediaQuery.sizeOf(context).width < 1500;
+    Widget tab(int i, String label) {
+      final on = ws == i;
+      return InkWell(
+        onTap: () => setState(() => ws = i),
+        borderRadius: BorderRadius.circular(5),
+        child: Container(
+          height: 28,
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(color: on ? c.paper : null, borderRadius: BorderRadius.circular(5)),
+          child: Text(
+            label,
+            style: TextStyle(fontSize: kUiText, fontWeight: on ? FontWeight.w600 : FontWeight.w400, color: on ? c.ink : c.muted),
+          ),
+        ),
+      );
+    }
+
     return Container(
-      height: 56,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      height: 44,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
       decoration: BoxDecoration(
         color: c.panel,
         border: Border(bottom: BorderSide(color: c.line)),
       ),
       child: Row(
         children: [
-          Container(
-            width: 9,
-            height: 9,
-            decoration: BoxDecoration(
-              color: c.led,
-              shape: BoxShape.circle,
-              boxShadow: [BoxShadow(color: c.led.withValues(alpha: 0.25), spreadRadius: 3)],
+          _appMenu(context),
+          Container(width: 1, height: 20, margin: const EdgeInsets.symmetric(horizontal: 8), color: c.line),
+          tab(0, 'Cấu trúc'),
+          tab(1, 'Kết nối'),
+          tab(2, 'Kiểm tra'),
+          Expanded(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Flexible(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 260),
+                    child: Tooltip(
+                      message: 'Bấm để đổi tên dự án',
+                      child: SyncedField(
+                        value: p.projectName,
+                        bold: true,
+                        borderless: true,
+                        onChanged: (v) => p.mutate((d) => (d['project'] as Map)['name'] = v, coalesce: 'pname'),
+                      ),
+                    ),
+                  ),
+                ),
+                Tooltip(
+                  message: p.path ?? 'Dự án chưa được lưu thành file',
+                  child: Text(
+                    _status(),
+                    style: TextStyle(fontSize: kUiText, color: p.dirty ? c.warn : c.muted),
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(width: 10),
-          const Text('EVOKNX', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, letterSpacing: 0.3)),
-          const SizedBox(width: 8),
-          Text(
-            'Editor',
-            style: TextStyle(fontSize: 13, color: c.muted, fontWeight: FontWeight.w500),
-          ),
-          const SizedBox(width: 18),
-          SyncedField(
-            width: 220,
-            value: p.projectName,
-            bold: true,
-            borderless: true,
-            onChanged: (v) => p.mutate((d) => (d['project'] as Map)['name'] = v, coalesce: 'pname'),
-          ),
-          const SizedBox(width: 8),
-          Tooltip(
-            message: p.path ?? 'Dự án chưa được lưu thành file',
-            child: Text(_status(), style: TextStyle(fontSize: 12.5, color: p.dirty ? c.warn : c.muted)),
-          ),
-          const SizedBox(width: 18),
-          Seg<int>(items: const [(0, 'Cấu trúc'), (1, 'Kết nối'), (2, 'Kiểm tra')], value: ws, onChanged: (v) => setState(() => ws = v)),
-          const Spacer(),
-          IconButton(tooltip: 'Hoàn tác (Ctrl+Z)', onPressed: p.canUndo ? p.undo : null, icon: const Icon(Icons.undo, size: 19)),
-          IconButton(tooltip: 'Làm lại (Ctrl+Y)', onPressed: p.canRedo ? p.redo : null, icon: const Icon(Icons.redo, size: 19)),
-          const SizedBox(width: 8),
-          EvoButton(label: compact ? '' : 'Mới', icon: Icons.note_add_outlined, tooltip: 'Dự án mới (Ctrl+N)', onPressed: _new),
-          const SizedBox(width: 8),
-          _openButton(compact),
-          const SizedBox(width: 8),
-          EvoButton(label: compact ? '' : 'Lưu', icon: Icons.save_outlined, tooltip: 'Lưu (Ctrl+S)', onPressed: () => _save()),
-          const SizedBox(width: 8),
-          EvoButton(
-            label: compact ? '' : 'Lưu thành',
-            icon: Icons.save_as_outlined,
-            tooltip: 'Lưu thành file khác (Ctrl+Shift+S)',
-            onPressed: () => _save(saveAs: true),
-          ),
-          const SizedBox(width: 8),
-          EvoButton(
-            label: compact ? '' : 'Nhập từ ETS',
-            icon: Icons.upload_outlined,
-            tooltip: 'Nhập địa chỉ nhóm từ ETS',
-            onPressed: () => runEtsImport(context, p),
-          ),
-          const SizedBox(width: 8),
-          EvoButton(
-            label: compact ? '' : 'Xuất cấu hình',
-            icon: Icons.download_outlined,
-            primary: true,
-            tooltip: 'Xuất file cấu hình cho App',
-            onPressed: _export,
-          ),
+          IconButton(tooltip: 'Hoàn tác (Ctrl+Z)', onPressed: p.canUndo ? p.undo : null, icon: const Icon(Icons.undo)),
+          IconButton(tooltip: 'Làm lại (Ctrl+Y)', onPressed: p.canRedo ? p.redo : null, icon: const Icon(Icons.redo)),
+          IconButton(tooltip: 'Lưu (Ctrl+S)', onPressed: () => _save(), icon: const Icon(Icons.save_outlined)),
           const SizedBox(width: 6),
-          IconButton(tooltip: 'Cài đặt Editor', onPressed: () => EditorSettingsDialog.show(context), icon: const Icon(Icons.settings_outlined, size: 20)),
+          EvoButton(label: 'Xuất cấu hình', primary: true, tooltip: 'Xuất file cấu hình cho App', onPressed: _export),
         ],
       ),
     );
   }
 
-  Widget _openButton(bool compact) {
-    return PopupMenuButton<String>(
-      tooltip: 'Mở dự án (Ctrl+O)',
-      position: PopupMenuPosition.under,
-      onSelected: (v) {
-        if (v == '__folder') {
-          final dir = p.projectDir;
-          if (dir != null) Process.run('explorer', [dir]);
-          return;
-        }
-        v == '__browse' ? _open() : _open(v);
-      },
-      itemBuilder: (_) => [
-        const PopupMenuItem(value: '__browse', child: Text('Mở file…')),
-        if (p.projectDir != null) const PopupMenuItem(value: '__folder', child: Text('Mở folder dự án (xem lịch sử lưu)')),
-        if (p.recent.isNotEmpty) const PopupMenuDivider(),
-        for (final r in p.recent)
-          PopupMenuItem(
-            value: r,
-            child: Text(r, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13)),
-          ),
+  /// The application menu (logo button), like the main menu of design tools.
+  Widget _appMenu(BuildContext context) {
+    final c = context.evo;
+    const ctrl = true;
+    return MenuAnchor(
+      alignmentOffset: const Offset(0, 4),
+      menuChildren: [
+        MenuItemButton(
+          leadingIcon: const Icon(Icons.note_add_outlined),
+          shortcut: const SingleActivator(LogicalKeyboardKey.keyN, control: ctrl),
+          onPressed: _new,
+          child: const Text('Dự án mới…'),
+        ),
+        MenuItemButton(
+          leadingIcon: const Icon(Icons.folder_open_outlined),
+          shortcut: const SingleActivator(LogicalKeyboardKey.keyO, control: ctrl),
+          onPressed: () => _open(),
+          child: const Text('Mở…'),
+        ),
+        SubmenuButton(
+          leadingIcon: const Icon(Icons.history),
+          menuChildren: [
+            if (p.recent.isEmpty) const MenuItemButton(child: Text('Chưa có dự án gần đây')),
+            for (final r in p.recent)
+              MenuItemButton(
+                onPressed: () => _open(r),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 420),
+                  child: Text(r, overflow: TextOverflow.ellipsis),
+                ),
+              ),
+          ],
+          child: const Text('Mở gần đây'),
+        ),
+        MenuItemButton(
+          leadingIcon: const Icon(Icons.drive_folder_upload_outlined),
+          onPressed: p.projectDir == null ? null : () => Process.run('explorer', [p.projectDir!]),
+          child: const Text('Mở folder dự án (lịch sử lưu)'),
+        ),
+        const Divider(),
+        MenuItemButton(
+          leadingIcon: const Icon(Icons.save_outlined),
+          shortcut: const SingleActivator(LogicalKeyboardKey.keyS, control: ctrl),
+          onPressed: () => _save(),
+          child: const Text('Lưu'),
+        ),
+        MenuItemButton(
+          leadingIcon: const Icon(Icons.save_as_outlined),
+          shortcut: const SingleActivator(LogicalKeyboardKey.keyS, control: ctrl, shift: true),
+          onPressed: () => _save(saveAs: true),
+          child: const Text('Lưu thành…'),
+        ),
+        const Divider(),
+        MenuItemButton(
+          leadingIcon: const Icon(Icons.upload_outlined),
+          onPressed: () => runEtsImport(context, p),
+          child: const Text('Nhập địa chỉ nhóm từ ETS…'),
+        ),
+        MenuItemButton(leadingIcon: const Icon(Icons.download_outlined), onPressed: _export, child: const Text('Xuất cấu hình cho App…')),
+        const Divider(),
+        MenuItemButton(
+          leadingIcon: const Icon(Icons.settings_outlined),
+          onPressed: () => EditorSettingsDialog.show(context),
+          child: const Text('Cài đặt Editor…'),
+        ),
       ],
-      child: IgnorePointer(
-        child: EvoButton(label: compact ? '' : 'Mở', icon: Icons.folder_open_outlined, onPressed: _noop),
+      builder: (context, ctl, _) => InkWell(
+        borderRadius: BorderRadius.circular(5),
+        onTap: () => ctl.isOpen ? ctl.close() : ctl.open(),
+        child: Container(
+          height: 32,
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          decoration: BoxDecoration(color: ctl.isOpen ? c.paper : null, borderRadius: BorderRadius.circular(5)),
+          child: Row(
+            children: [
+              Container(
+                width: 20,
+                height: 20,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(color: c.ink, borderRadius: BorderRadius.circular(5)),
+                child: Container(
+                  width: 7,
+                  height: 7,
+                  decoration: BoxDecoration(color: c.led, shape: BoxShape.circle),
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Text(
+                'EVOKNX',
+                style: TextStyle(fontSize: kUiText, fontWeight: FontWeight.w700, letterSpacing: 0.2),
+              ),
+              const SizedBox(width: 2),
+              Icon(Icons.keyboard_arrow_down, size: 16, color: c.muted),
+            ],
+          ),
+        ),
       ),
     );
   }
 }
-
-void _noop() {}

@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:knx_config/knx_config.dart';
 
 import '../../app/theme.dart';
+import '../../state/app_settings.dart';
 import '../common.dart';
 import 'designer.dart';
 import 'icon_picker.dart';
@@ -37,7 +38,10 @@ class PropsPanel extends StatelessWidget {
         if (d.room == null) const _Hint('Chọn một phòng ở cột bên trái, hoặc thêm phòng mới.'),
       ];
     }
-    return ListView(padding: const EdgeInsets.fromLTRB(16, 14, 16, 30), children: body);
+    return ListenableBuilder(
+      listenable: appSettings,
+      builder: (context, _) => ListView(padding: const EdgeInsets.fromLTRB(12, 4, 12, 24), children: body),
+    );
   }
 }
 
@@ -45,7 +49,13 @@ class _Hint extends StatelessWidget {
   const _Hint(this.text);
   final String text;
   @override
-  Widget build(BuildContext context) => Text(text, style: TextStyle(color: context.evo.muted));
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 12),
+    child: Text(
+      text,
+      style: TextStyle(fontSize: kUiText, color: context.evo.muted),
+    ),
+  );
 }
 
 class _Section extends StatelessWidget {
@@ -54,16 +64,23 @@ class _Section extends StatelessWidget {
   final List<Widget> children;
   final Widget? trailing;
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: 18),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        SectionTitle(title, trailing: trailing),
-        for (var i = 0; i < children.length; i++) ...[children[i], if (i < children.length - 1) const SizedBox(height: 12)],
-      ],
-    ),
-  );
+  Widget build(BuildContext context) {
+    // Hidden hints take no room (and no gap around them).
+    final items = children.where((w) => w is! Hint || Hint.visible).toList();
+    return Container(
+      padding: const EdgeInsets.only(top: 10, bottom: 12),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: context.evo.line)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SectionTitle(title, trailing: trailing),
+          for (var i = 0; i < items.length; i++) ...[items[i], if (i < items.length - 1) const SizedBox(height: 8)],
+        ],
+      ),
+    );
+  }
 }
 
 class StepRow extends StatelessWidget {
@@ -86,30 +103,36 @@ class StepRow extends StatelessWidget {
     final c = context.evo;
     Widget b(IconData i, int d) => InkWell(
       onTap: (d < 0 ? value <= min : value >= max) ? null : () => onChanged((value + d).clamp(min, max)),
-      child: SizedBox(width: 30, height: 30, child: Icon(i, size: 16, color: (d < 0 ? value <= min : value >= max) ? c.lineStrong : c.ink)),
+      child: SizedBox(width: 24, height: 26, child: Icon(i, size: 14, color: (d < 0 ? value <= min : value >= max) ? c.lineStrong : c.muted)),
     );
     return Row(
       children: [
         Expanded(
-          child: Text(label, style: TextStyle(fontSize: 13.5, color: c.ink)),
+          child: Text(
+            label,
+            style: TextStyle(fontSize: kUiText, color: c.ink),
+          ),
         ),
         Container(
           decoration: BoxDecoration(
             border: Border.all(color: c.line),
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(4),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               b(Icons.remove, -step),
               Container(
-                width: 58,
-                height: 30,
+                width: 52,
+                height: 26,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   border: Border.symmetric(vertical: BorderSide(color: c.line)),
                 ),
-                child: Text('$value $unit', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                child: Text(
+                  unit.isEmpty ? '$value' : '$value $unit',
+                  style: const TextStyle(fontSize: kUiText, fontWeight: FontWeight.w500),
+                ),
               ),
               b(Icons.add, step),
             ],
@@ -172,47 +195,38 @@ class _WidgetPropsState extends State<_WidgetProps> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
-          children: [
-            Icon(iconOf(def?.icon), size: 20, color: c.accent),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                def?.name ?? type,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Row(
+            children: [
+              Icon(iconOf(def?.icon), size: 16, color: c.muted),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  def?.name ?? type,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: kUiText, fontWeight: FontWeight.w600),
+                ),
               ),
-            ),
-          ],
+              IconButton(
+                tooltip: 'Sao chép (Ctrl+C)',
+                icon: const Icon(Icons.copy_outlined),
+                onPressed: () {
+                  final m = d.copy();
+                  if (m != null) toast(context, m);
+                },
+              ),
+              IconButton(tooltip: 'Xuất thẻ ra file để dùng lại', icon: const Icon(Icons.file_upload_outlined), onPressed: () => exportCard(context, d, w)),
+              IconButton(
+                tooltip: 'Xoá (Delete)',
+                icon: Icon(Icons.delete_outline, color: c.danger),
+                onPressed: d.deleteWidget,
+              ),
+            ],
+          ),
         ),
-        const SizedBox(height: 10),
-        // Actions on their own row so a narrow panel never squeezes the title.
-        Wrap(
-          spacing: 0,
-          runSpacing: 6,
-          children: [
-            EvoButton(
-              label: 'Sao chép',
-              icon: Icons.copy_outlined,
-              small: true,
-              onPressed: () {
-                final m = d.copy();
-                if (m != null) toast(context, m);
-              },
-            ),
-            const SizedBox(width: 6),
-            EvoButton(
-              label: 'Xuất',
-              icon: Icons.file_upload_outlined,
-              small: true,
-              tooltip: 'Xuất thẻ ra file để dùng lại ở trang hoặc dự án khác',
-              onPressed: () => exportCard(context, d, w),
-            ),
-            const SizedBox(width: 6),
-            EvoButton(label: 'Xoá', icon: Icons.delete_outline, small: true, danger: true, onPressed: d.deleteWidget),
-          ],
-        ),
+        Divider(color: c.line),
         const SizedBox(height: 16),
         _Section('Chung', [
           FieldLabel(
@@ -265,7 +279,7 @@ class _WidgetPropsState extends State<_WidgetProps> {
               ),
             ],
           ),
-          if (inGroup) Text('Nằm trong khung lưới “${box['label'] ?? ''}”: vị trí tính theo lưới của khung.', style: TextStyle(fontSize: 12.5, color: c.muted)),
+          if (inGroup) Hint('Nằm trong khung lưới “${box['label'] ?? ''}”: vị trí tính theo lưới của khung.'),
         ]),
         ..._typeSpecific(context, type),
         _Section('Cỡ chữ', [
@@ -396,13 +410,12 @@ class _WidgetPropsState extends State<_WidgetProps> {
                 onChanged: (v) => set('look', v),
               ),
             ),
-            Text(
+            Hint(
               simple
                   ? (w['type'] == 'dimmer'
                         ? 'Chỉ có biểu tượng và tên; khi bật, thẻ đổi sang màu khi bật. Bấm thẻ để bật/tắt, bấm biểu tượng chỉnh để mở thanh độ sáng${feat['tw'] == true || feat['rgb'] == true ? ', nhiệt độ màu, màu RGB' : ''}.'
                         : 'Chỉ có biểu tượng và tên; khi bật, cả thẻ đổi sang màu khi bật.')
                   : 'Biểu tượng, tên và dòng trạng thái.',
-              style: TextStyle(fontSize: 12, color: context.evo.muted),
             ),
             if (simple && w['type'] == 'dimmer')
               FieldLabel(
@@ -572,10 +585,7 @@ class _WidgetPropsState extends State<_WidgetProps> {
               ),
             ),
             if (w['look'] == 'simple') ...[
-              Text(
-                'Biểu tượng bật/tắt, nhiệt độ cài với nút − +, tốc độ quạt. Bấm biểu tượng chỉnh để mở đầy đủ chế độ.',
-                style: TextStyle(fontSize: 12, color: context.evo.muted),
-              ),
+              Hint('Biểu tượng bật/tắt, nhiệt độ cài với nút − +, tốc độ quạt. Bấm biểu tượng chỉnh để mở đầy đủ chế độ.'),
               FieldLabel(
                 'Biểu tượng mở đầy đủ chế độ',
                 IconField(d: d, value: (ac['moreIcon'] ?? 'mdi:tune-variant').toString(), scope: IconScope.widget, onChanged: (v) => setAc('moreIcon', v)),
@@ -611,10 +621,7 @@ class _WidgetPropsState extends State<_WidgetProps> {
                   ),
                 ],
               ),
-              Text(
-                'Giá trị gửi cho từng mức (mặc định theo DPT 5.010: Tự động = 0, mức 1…N = 1…N; nếu địa chỉ dùng phần trăm, nhập ví dụ 33, 67, 100):',
-                style: TextStyle(fontSize: 12, color: context.evo.muted),
-              ),
+              Hint('Giá trị gửi cho từng mức (mặc định theo DPT 5.010: Tự động = 0, mức 1…N = 1…N; nếu địa chỉ dùng phần trăm, nhập ví dụ 33, 67, 100):'),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
@@ -705,7 +712,7 @@ class _WidgetPropsState extends State<_WidgetProps> {
                 }),
               ),
             ),
-            Text('Chế độ: đánh dấu để hiện, đặt tên và giá trị gửi', style: TextStyle(fontSize: 12.5, color: context.evo.muted)),
+            Hint('Chế độ: đánh dấu để hiện, đặt tên và giá trị gửi'),
             Row(
               children: [
                 const SizedBox(width: 40),
@@ -784,10 +791,7 @@ class _WidgetPropsState extends State<_WidgetProps> {
                 onChanged: (v) => set('sendValue', v.trim(), coalesce: 'sv-$id'),
               ),
             ),
-            Text(
-              'Giá trị gửi tới địa chỉ ghi khi bấm, giống nút nhấn. Với địa chỉ cảnh KNX (DPT 17.001), cảnh 1 = 0, cảnh 2 = 1…',
-              style: TextStyle(fontSize: 12, color: context.evo.muted),
-            ),
+            Hint('Giá trị gửi tới địa chỉ ghi khi bấm, giống nút nhấn. Với địa chỉ cảnh KNX (DPT 17.001), cảnh 1 = 0, cảnh 2 = 1…'),
             FieldLabel(
               'Kiểu hiển thị',
               Seg<String>(items: const [('card', 'Thẻ thường'), ('image', 'Hình ảnh')], value: sImg ? 'image' : 'card', onChanged: (v) => set('btnStyle', v)),
@@ -843,7 +847,7 @@ class _WidgetPropsState extends State<_WidgetProps> {
                   onChanged: (v) => setPop('seconds', v),
                 ),
               ),
-              Text('Thử ở chế độ Chạy thử: bấm thẻ cảnh để xem popup. Bấm vào popup để tắt sớm.', style: TextStyle(fontSize: 12, color: context.evo.muted)),
+              Hint('Thử ở chế độ Chạy thử: bấm thẻ cảnh để xem popup. Bấm vào popup để tắt sớm.'),
             ],
           ]),
         ];
@@ -937,11 +941,10 @@ class _WidgetPropsState extends State<_WidgetProps> {
                 decoration: BoxDecoration(color: context.evo.paper, borderRadius: BorderRadius.circular(8)),
                 child: SelectableText(cameraUrl(cam, hidePass: true), style: const TextStyle(fontSize: 12, fontFamily: 'Consolas')),
               ),
-            Text(
+            Hint(
               rtsp
                   ? 'Đường dẫn thường gặp: Hikvision /Streaming/Channels/101 (luồng chính) hoặc 102 (luồng phụ, nhẹ hơn); Dahua /cam/realmonitor?channel=1&subtype=1. Nên dùng luồng phụ cho điện thoại.'
                   : 'HTTP: đường dẫn ảnh chụp (snapshot) hoặc luồng MJPEG của camera. Ở Chạy thử, Editor hiện ảnh chụp để kiểm tra địa chỉ; video RTSP chỉ phát trong App.',
-              style: TextStyle(fontSize: 12, color: context.evo.muted),
             ),
             Text(
               'Mật khẩu camera được lưu trong file dự án và file cấu hình App. Nên tạo tài khoản chỉ có quyền xem trên camera.',
@@ -954,11 +957,10 @@ class _WidgetPropsState extends State<_WidgetProps> {
               value: cam['view'] == 'button' ? 'button' : 'live',
               onChanged: (v) => setCam('view', v),
             ),
-            Text(
+            Hint(
               cam['view'] == 'button'
                   ? 'Thẻ như một nút bấm; bấm vào sẽ mở video camera trong popup.'
                   : 'Video phát trực tiếp ngay trong thẻ, như trang web nhúng. Nên đặt thẻ rộng 4 cột, cao 3 hàng trở lên.',
-              style: TextStyle(fontSize: 12, color: context.evo.muted),
             ),
             if (cam['view'] != 'button')
               Row(
@@ -1011,11 +1013,10 @@ class _WidgetPropsState extends State<_WidgetProps> {
                 }),
               ),
             ),
-            Text(
+            Hint(
               stateStyle
                   ? 'Mỗi giá trị nhận từ bus hiện chữ, biểu tượng và màu riêng (ví dụ 0 = Đóng, 1 = Mở). Ở Chạy thử, bấm thẻ để xem lần lượt từng trạng thái.'
                   : 'Hiện con số kèm đơn vị, như nhiệt độ, độ ẩm, công suất.',
-              style: TextStyle(fontSize: 12, color: context.evo.muted),
             ),
             if (!stateStyle)
               FieldLabel(
@@ -1026,8 +1027,7 @@ class _WidgetPropsState extends State<_WidgetProps> {
                   onChanged: (v) => set('look', v),
                 ),
               ),
-            if (!stateStyle && w['look'] == 'simple')
-              Text('Một hàng: biểu tượng và tên bên trái, giá trị bên phải. Hợp với thẻ cao 1 ô.', style: TextStyle(fontSize: 12, color: context.evo.muted)),
+            if (!stateStyle && w['look'] == 'simple') Hint('Một hàng: biểu tượng và tên bên trái, giá trị bên phải. Hợp với thẻ cao 1 ô.'),
             if (!stateStyle)
               Row(
                 children: [
@@ -1145,8 +1145,8 @@ class _CellBox extends StatelessWidget {
     final c = d.cell!;
     final g = c.g == null || d.sub == null ? null : findWidget(d.sub!, c.g);
     return _Section('Ô đã chọn', [
-      Text('${g != null ? 'Trong khung “${g['label'] ?? ''}”, ' : ''}hàng ${c.y + 1}, cột ${c.x + 1}', style: const TextStyle(fontSize: 14)),
-      Text('Bấm một thành phần trên thanh công cụ để thêm vào đúng ô này.', style: TextStyle(fontSize: 12.5, color: context.evo.muted)),
+      Text('${g != null ? 'Trong khung “${g['label'] ?? ''}”, ' : ''}hàng ${c.y + 1}, cột ${c.x + 1}', style: const TextStyle(fontSize: kUiText)),
+      Hint('Bấm một thành phần trên thanh công cụ để thêm vào đúng ô này.'),
       if (d.clip != null)
         Align(
           alignment: Alignment.centerLeft,
@@ -1296,9 +1296,8 @@ class _RoomProps extends StatelessWidget {
                       onChanged: (v) => d.editSub((x) => x['scrollRows'] = v),
                     ),
                   ),
-                  Text(
+                  Hint(
                     'Người dùng cuộn lên xuống trong trang này, vẫn vuốt ngang để sang trang khác. Thẻ có thanh kéo ngang (đèn dim, rèm) dùng bình thường; tránh đặt thanh kéo dọc. Bố cục tablet luôn cố định.',
-                    style: TextStyle(fontSize: 12, color: context.evo.muted),
                   ),
                 ],
               ],
@@ -1337,9 +1336,8 @@ class _RoomProps extends StatelessWidget {
                 : null,
           ),
         if (s != null) _PageBgSettings(d: d, s: s),
-        Text(
+        Hint(
           'Kéo thành phần từ thanh công cụ vào ô trống, hoặc bấm vào một ô trống rồi bấm thành phần. Bấm vào thành phần để chỉnh tên, kích thước và địa chỉ nhóm.',
-          style: TextStyle(fontSize: 12.5, color: context.evo.muted),
         ),
       ],
     );
@@ -1392,7 +1390,7 @@ class _FloorProps extends StatelessWidget {
             EvoButton(label: 'Xuống', icon: Icons.arrow_downward, small: true, onPressed: () => d.moveInList('floors', fid, 1)),
           ],
         ),
-        Text('Tầng này có $n phòng.', style: TextStyle(fontSize: 12.5, color: context.evo.muted)),
+        Text('Tầng này có $n phòng.', style: TextStyle(fontSize: 11.5, color: context.evo.muted)),
         PartButtons(d: d, kind: 'floor', id: fid, importHint: 'Nhập phòng vào tầng này…'),
       ],
       trailing: EvoButton(
@@ -1430,15 +1428,14 @@ class _OverviewProps extends StatelessWidget {
           children: [
             Icon(Icons.settings_outlined, size: 20, color: context.evo.accent),
             const SizedBox(width: 8),
-            const Text('Tổng quan', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+            const Text('Tổng quan', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
           ],
         ),
         const SizedBox(height: 16),
         _Section('Nhập tầng / phòng / trang / thẻ', [
-          Text(
+          Hint(
             'Nhập từ file .evoknxpart (xuất ở bảng thuộc tính của tầng, phòng, trang hoặc thẻ). '
             'Tầng được thêm vào cuối, phòng vào tầng đang chọn, trang vào phòng đang chọn, thẻ vào trang đang mở.',
-            style: TextStyle(fontSize: 12.5, color: context.evo.muted),
           ),
           PartButtons(d: d, kind: null, importHint: 'Nhập từ file…'),
         ]),
@@ -1504,10 +1501,7 @@ class _OverviewProps extends StatelessWidget {
             max: 20,
             onChanged: (v) => editTheme((x) => x['cardShadow'] = v, coalesce: 'cshd'),
           ),
-          Text(
-            'Mặc định: góc 12, viền 1, nền và viền đậm 100%, không đổ bóng. Áp dụng cho mọi thẻ và khung lưới.',
-            style: TextStyle(fontSize: 12, color: context.evo.muted),
-          ),
+          Hint('Mặc định: góc 12, viền 1, nền và viền đậm 100%, không đổ bóng. Áp dụng cho mọi thẻ và khung lưới.'),
         ]),
         _Section('Giao diện App', [
           StepRow(
@@ -1578,7 +1572,9 @@ class _Check extends StatelessWidget {
           width: 32,
           child: Checkbox(value: value, onChanged: (v) => onChanged(v ?? false)),
         ),
-        Expanded(child: Text(label, style: const TextStyle(fontSize: 13.5))),
+        Expanded(
+          child: Text(label, style: const TextStyle(fontSize: kUiText)),
+        ),
       ],
     ),
   );
@@ -1734,10 +1730,7 @@ class _SplashSettings extends StatelessWidget {
       Container(
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(color: c.paper, borderRadius: BorderRadius.circular(8)),
-        child: Text(
-          'PNG nền trong suốt. Logo vuông 512 × 512 px, logo ngang 1024 × 512 px. Dung lượng dưới 300 KB.',
-          style: TextStyle(fontSize: 12.5, color: c.muted),
-        ),
+        child: Hint('PNG nền trong suốt. Logo vuông 512 × 512 px, logo ngang 1024 × 512 px. Dung lượng dưới 300 KB.'),
       ),
       FieldLabel(
         'Lời chào',
@@ -1817,7 +1810,7 @@ class _BgPicker extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           child: Text(
             text,
-            style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: on ? c.accentInk : c.ink),
+            style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: on ? c.accentInk : c.ink),
           ),
         ),
       ),
@@ -1835,13 +1828,12 @@ class _BgPicker extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 6),
-        Text(
+        Hint(
           transparent
               ? 'Không nền, không viền'
               : outline
               ? 'Không nền, chỉ giữ viền'
               : (isDefault ? 'Theo giao diện của App' : 'Chữ tự đổi sáng/tối cho dễ đọc'),
-          style: TextStyle(fontSize: 12, color: c.muted),
         ),
         const SizedBox(height: 8),
         _ColorPicker(value: isDefault || transparent || outline ? '' : value!, swatches: _kBgSwatches, onChanged: onChanged),
@@ -1878,7 +1870,7 @@ class _ScreenBgSettings extends StatelessWidget {
         value: mode,
         onChanged: (v) => _set({'bgMode': v, if (v == 'color' && t['bgColor'] == null) 'bgColor': '#E3F1E9'}),
       ),
-      if (mode == 'default') Text('Dùng màu nền theo giao diện Sáng/Tối của App.', style: TextStyle(fontSize: 12.5, color: c.muted)),
+      if (mode == 'default') Hint('Dùng màu nền theo giao diện Sáng/Tối của App.'),
       if (mode == 'color')
         _ColorPicker(
           value: (t['bgColor'] ?? '#E3F1E9').toString(),
@@ -1888,7 +1880,7 @@ class _ScreenBgSettings extends StatelessWidget {
       if (mode == 'image') ...[
         Text(
           'Dự án đang dùng ảnh nền chung (cách cũ). Từ nay ảnh nền được đặt riêng cho từng trang, trong thuộc tính của trang.',
-          style: TextStyle(fontSize: 12.5, color: c.warn),
+          style: TextStyle(fontSize: 11.5, color: c.warn),
         ),
         EvoButton(
           label: 'Bỏ ảnh nền chung',
@@ -1986,9 +1978,7 @@ class _ButtonImageSettings extends StatelessWidget {
                 children: [
                   ChoiceChip(label: const Text('Mặc định'), selected: iconColor == null, onSelected: (_) => d.editWidget(id, (x) => x.remove('imgColor'))),
                   const SizedBox(width: 8),
-                  Expanded(
-                    child: Text('Mặc định: theo màu chữ của thẻ', style: TextStyle(fontSize: 12, color: c.muted)),
-                  ),
+                  Expanded(child: Hint('Mặc định: theo màu chữ của thẻ')),
                 ],
               ),
               const SizedBox(height: 8),
@@ -2032,10 +2022,7 @@ class _ButtonImageSettings extends StatelessWidget {
                     ),
                   ],
                   const SizedBox(height: 8),
-                  Text(
-                    'PNG nền trong suốt, JPG hoặc SVG; nên dùng ảnh vuông khoảng 512 × 512 px, dưới 500 KB.',
-                    style: TextStyle(fontSize: 12, color: c.muted),
-                  ),
+                  Hint('PNG nền trong suốt, JPG hoặc SVG; nên dùng ảnh vuông khoảng 512 × 512 px, dưới 500 KB.'),
                 ],
               ),
             ),
@@ -2168,7 +2155,7 @@ class _PageBgSettings extends StatelessWidget {
         value: mode,
         onChanged: (v) => _set({'mode': v, if (v == 'color' && b['color'] == null) 'color': '#E3F1E9'}),
       ),
-      if (mode == 'default') Text('Dùng nền chung ở Tổng quan.', style: TextStyle(fontSize: 12.5, color: c.muted)),
+      if (mode == 'default') Text('Dùng nền chung ở Tổng quan.', style: TextStyle(fontSize: 11.5, color: c.muted)),
       if (mode == 'color')
         _ColorPicker(
           value: (b['color'] ?? '#E3F1E9').toString(),
@@ -2211,11 +2198,21 @@ class _PageBgSettings extends StatelessWidget {
                     ),
                   ],
                   const SizedBox(height: 8),
-                  Text('JPG hoặc PNG, ảnh dọc, nên dùng 1290 × 2796 px, dưới 2 MB.', style: TextStyle(fontSize: 12, color: c.muted)),
+                  Hint('JPG hoặc PNG, ảnh dọc, nên dùng 1290 × 2796 px, dưới 2 MB.'),
                 ],
               ),
             ),
           ],
+        ),
+      if (mode == 'image')
+        StepRow(
+          label: 'Làm mờ ảnh',
+          unit: '',
+          step: 1,
+          value: ((b['blur'] as num?) ?? 0).toInt(),
+          min: 0,
+          max: 20,
+          onChanged: (v) => _set({'blur': v}, co: 'pbgblur'),
         ),
       if (mode == 'image')
         StepRow(
@@ -2238,9 +2235,10 @@ class _PageBgSettings extends StatelessWidget {
           onChanged: (v) => _set({'opacity': v}, co: 'pbgop'),
         ),
       if (mode != 'default')
-        Text(
-          'Dưới 100%: nhìn xuyên thấy nền chung ở Tổng quan. Màu chữ trên nền theo cài đặt "Màu chữ trên nền" ở Tổng quan.',
-          style: TextStyle(fontSize: 12, color: c.muted),
+        Hint(
+          mode == 'image'
+              ? 'Làm mờ: nhoè ảnh (0 = nét). Làm tối: phủ tối cho chữ dễ đọc. Độ đậm: dưới 100% thì nhìn xuyên thấy nền chung ở Tổng quan.'
+              : 'Độ đậm dưới 100%: nhìn xuyên thấy nền chung ở Tổng quan.',
         ),
     ]);
   }
@@ -2311,7 +2309,7 @@ class _StatesEditor extends StatelessWidget {
     final v = await showDialog<String>(
       context: context,
       builder: (c) => AlertDialog(
-        title: const Text('Màu của trạng thái', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+        title: const Text('Màu của trạng thái', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
         content: SizedBox(
           width: 340,
           child: _ColorPicker(value: cur ?? '', onChanged: (h) => Navigator.pop(c, h)),
@@ -2331,7 +2329,7 @@ class _StatesEditor extends StatelessWidget {
     final c = context.evo;
     final rows = jsonList(w['states']);
     return _Section('Trạng thái', [
-      Text('Giá trị · Chữ hiển thị · Biểu tượng · Màu · Báo động', style: TextStyle(fontSize: 12, color: c.muted)),
+      Hint('Giá trị · Chữ hiển thị · Biểu tượng · Màu · Báo động'),
       for (var i = 0; i < rows.length; i++)
         Row(
           children: [
@@ -2424,10 +2422,7 @@ class _StatesEditor extends StatelessWidget {
           ),
         ],
       ),
-      Text(
-        'Giá trị là con số nhận từ địa chỉ trạng thái (1 bit: 0 / 1; 1 byte: 0–255…). Giá trị chưa có trong bảng sẽ hiện nguyên con số.',
-        style: TextStyle(fontSize: 12, color: c.muted),
-      ),
+      Hint('Giá trị là con số nhận từ địa chỉ trạng thái (1 bit: 0 / 1; 1 byte: 0–255…). Giá trị chưa có trong bảng sẽ hiện nguyên con số.'),
     ]);
   }
 }

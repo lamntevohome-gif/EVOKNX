@@ -24,7 +24,7 @@ class EditorSettingsDialog extends StatelessWidget {
             children: [
               Text(
                 title,
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: c.muted),
+                style: TextStyle(fontSize: kUiText, fontWeight: FontWeight.w600, color: c.muted),
               ),
               const SizedBox(height: 10),
               ...children,
@@ -37,7 +37,7 @@ class EditorSettingsDialog extends StatelessWidget {
             children: [
               Icon(Icons.settings_outlined, color: c.accent),
               const SizedBox(width: 10),
-              const Text('Cài đặt Editor', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
+              const Text('Cài đặt Editor', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
             ],
           ),
           content: SizedBox(
@@ -64,7 +64,16 @@ class EditorSettingsDialog extends StatelessWidget {
                     Text(
                       'Chỉ áp dụng cho dự án đã lưu thành file. Ngoài ra Editor luôn sao lưu ngầm phiên làm việc, '
                       'nên nếu máy tắt đột ngột, lần mở sau dự án vẫn còn nguyên.',
-                      style: TextStyle(fontSize: 12.5, color: c.muted),
+                      style: TextStyle(fontSize: 11.5, color: c.muted),
+                    ),
+                  ]),
+                  section('Bảng thuộc tính', [
+                    Row(
+                      children: [
+                        Checkbox(value: appSettings.showHints, onChanged: (v) => appSettings.setShowHints(v == true)),
+                        const SizedBox(width: 6),
+                        const Expanded(child: Text('Hiện chữ hướng dẫn dưới các ô cài đặt')),
+                      ],
                     ),
                   ]),
                   section('Thư mục lưu mặc định', [
@@ -77,7 +86,7 @@ class EditorSettingsDialog extends StatelessWidget {
                       ),
                       child: Text(
                         folder ?? 'Chưa chọn (dùng thư mục Windows đề xuất)',
-                        style: TextStyle(fontSize: 13, color: folder == null ? c.muted : c.ink),
+                        style: TextStyle(fontSize: kUiText, color: folder == null ? c.muted : c.ink),
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -110,7 +119,7 @@ class EditorSettingsDialog extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: 10),
-                        const Text('EVOKNX Editor', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                        const Text('EVOKNX Editor', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
                         const SizedBox(width: 8),
                         Text('phiên bản $kEditorVersion', style: TextStyle(color: c.muted)),
                       ],
@@ -118,7 +127,7 @@ class EditorSettingsDialog extends StatelessWidget {
                     const SizedBox(height: 6),
                     Text(
                       'Thiết kế giao diện điều khiển nhà thông minh KNX.\n© ${DateTime.now().year} Evohome. Bảo lưu mọi quyền.\n\nBiểu tượng: Material Design Icons của Pictogrammers, giấy phép Apache 2.0.',
-                      style: TextStyle(fontSize: 13, color: c.muted),
+                      style: TextStyle(fontSize: kUiText, color: c.muted),
                     ),
                   ]),
                 ],

@@ -405,7 +405,8 @@ class Designer extends ChangeNotifier {
   void deleteWidget() {
     final id = widgetId;
     if (id == null) return;
-    editSub((s) => removeWidget(s, id));
+    // Deleting a grid frame keeps the cards inside it on the page.
+    editSub((s) => removeGroupKeepCards(s, id));
     widgetId = null;
     _n();
   }
