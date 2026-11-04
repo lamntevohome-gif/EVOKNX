@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:ui' show ImageFilter, TileMode;
 
+import 'dart:math' show max;
+
 import 'package:evoknx_ui/evoknx_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:knx_config/knx_config.dart';
@@ -12,6 +14,7 @@ import 'app_store.dart';
 import 'knx_link.dart';
 import 'popups.dart';
 import 'settings_screen.dart';
+import 'web_card.dart';
 
 /// Main screen: floors › rooms › pages with the cards, controlling KNX.
 class HomeScreen extends StatefulWidget {
@@ -67,6 +70,7 @@ class _HomeScreenState extends State<HomeScreen> {
     store.removeListener(_rebuild);
     knx.disconnect(notify: false);
     _pages?.dispose();
+    _floorScroll.dispose();
     super.dispose();
   }
 
@@ -191,7 +195,7 @@ class _HomeScreenState extends State<HomeScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 _banner(pal),
-                _header(d, pal, floor, r),
+                _header(d, pal, floor, r, floors.length > 1),
                 if (rooms.length > 1) _roomsBar(d, pal, rooms),
                 Expanded(
                   child: r == null
@@ -247,31 +251,39 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _header(Json d, AppPalette pal, Json? floor, Json? r) {
+  /// "Tầng 1 › Phòng 1" on one row (floor shown only when there are several),
+  /// settings button on the right: as in the Editor preview.
+  Widget _header(Json d, AppPalette pal, Json? floor, Json? r, bool multi) {
     final hide = jsonMap(d['theme'])['hideTitle'] == true;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 10, 12, 6),
+      padding: const EdgeInsets.fromLTRB(20, 10, 12, 8),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (floor != null)
-                  Text(
-                    '${floor['title'] ?? ''} ›',
-                    style: TextStyle(fontSize: tfs(d, 'crumb'), color: pal.sMuted, fontWeight: FontWeight.w500),
+            child: hide
+                ? Text(
+                    multi ? (floor?['title'] ?? '').toString() : '',
+                    style: TextStyle(fontSize: tfs(d, 'crumb') * 1.15, color: pal.sMuted, fontWeight: FontWeight.w500),
+                  )
+                : Row(
+                    crossAxisAlignment: CrossAxisAlignment.baseline,
+                    textBaseline: TextBaseline.alphabetic,
+                    children: [
+                      if (multi)
+                        Text(
+                          '${floor?['title'] ?? ''} ›  ',
+                          style: TextStyle(fontSize: tfs(d, 'crumb'), color: pal.sMuted, fontWeight: FontWeight.w500),
+                        ),
+                      Flexible(
+                        child: Text(
+                          (r?['title'] ?? '').toString(),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontSize: tfs(d, 'titleSize'), fontWeight: FontWeight.w600, color: pal.sInk),
+                        ),
+                      ),
+                    ],
                   ),
-                if (!hide && r != null)
-                  Text(
-                    (r['title'] ?? '').toString(),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: tfs(d, 'titleSize'), fontWeight: FontWeight.w600, color: pal.sInk),
-                  ),
-              ],
-            ),
           ),
           Material(
             color: pal.panel,
@@ -356,46 +368,75 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  final ScrollController _floorScroll = ScrollController();
+  String? _floorShown;
+
+  /// Floor bar: [slots] floors visible at a time (3 on a phone, 5 on a
+  /// tablet); more floors scroll sideways. A floor can hide its icon.
   Widget _floorBar(Json d, AppPalette pal, List<Json> floors) {
     final f = tfs(d, 'floorBar');
+    final slots = _dev == 'mobile' ? 3 : 5;
     return Padding(
       padding: const EdgeInsets.fromLTRB(14, 4, 14, 0),
       child: Container(
-        height: f * 2.4 + 14,
-        padding: const EdgeInsets.all(4),
+        height: max(48.0, f * 2.4 + 14),
+        padding: const EdgeInsets.all(5),
         decoration: BoxDecoration(
-          color: pal.panel.withValues(alpha: 0.92),
-          borderRadius: BorderRadius.circular(40),
+          color: pal.panel.withValues(alpha: 0.9),
+          borderRadius: BorderRadius.circular(30),
           border: Border.all(color: pal.tileEdge),
         ),
-        child: Row(
-          children: [
-            for (final fl in floors)
-              Expanded(
-                child: GestureDetector(
-                  onTap: () => _goFloor(fl['id'] as String),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(color: fl['id'] == floorId ? pal.ink : Colors.transparent, borderRadius: BorderRadius.circular(40)),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        iconWidget(fl['icon'] as String? ?? 'stairs', f * 1.25, fl['id'] == floorId ? pal.screen : pal.muted),
-                        SizedBox(width: f * 0.4),
-                        Flexible(
-                          child: Text(
-                            (fl['title'] ?? '').toString(),
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(fontSize: f, fontWeight: FontWeight.w500, color: fl['id'] == floorId ? pal.screen : pal.ink),
-                          ),
+        child: LayoutBuilder(
+          builder: (context, c) {
+            final w = (c.maxWidth - 4 * (slots - 1)) / slots;
+            // Bring the selected floor into view when it changes.
+            if (_floorShown != floorId) {
+              _floorShown = floorId;
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (!_floorScroll.hasClients) return;
+                final i = floors.indexWhere((x) => x['id'] == floorId);
+                if (i < 0) return;
+                final target = (i * (w + 4) - (c.maxWidth - w) / 2).clamp(0.0, _floorScroll.position.maxScrollExtent).toDouble();
+                if ((target - _floorScroll.offset).abs() > 1)
+                  _floorScroll.animateTo(target, duration: const Duration(milliseconds: 250), curve: Curves.easeOutCubic);
+              });
+            }
+            return ListView(
+              controller: _floorScroll,
+              scrollDirection: Axis.horizontal,
+              children: [
+                if (floors.length < slots) SizedBox(width: (c.maxWidth - floors.length * (w + 4)) / 2),
+                for (final fl in floors)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 4),
+                    child: GestureDetector(
+                      onTap: () => _goFloor(fl['id'] as String),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        width: w,
+                        decoration: BoxDecoration(color: fl['id'] == floorId ? pal.ink : Colors.transparent, borderRadius: BorderRadius.circular(26)),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            if (fl['showIcon'] != false) ...[
+                              iconWidget(fl['icon'] as String? ?? 'stairs', f * 1.25, fl['id'] == floorId ? pal.screen : pal.muted),
+                              SizedBox(width: f * 0.45),
+                            ],
+                            Flexible(
+                              child: Text(
+                                (fl['title'] ?? '').toString(),
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(fontSize: f, fontWeight: FontWeight.w600, color: fl['id'] == floorId ? pal.screen : pal.muted),
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
                   ),
-                ),
-              ),
-          ],
+              ],
+            );
+          },
         ),
       ),
     );
@@ -467,8 +508,9 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _card(Json w, AppPalette pal, List<Json> gas) {
     final id = w['id'] as String;
     final type = w['type'] as String? ?? '';
+    if (type == 'webview') return WebCard(w: w, pal: pal);
     final tile = TileView(w: w, pal: pal, gas: gas, sim: engine.st(id), act: (a, [x]) => _act(w, a, x));
-    final tap = const ['switch', 'dimmer', 'button', 'scene', 'link', 'webview'].contains(type) || (type == 'camera' && jsonMap(w['cam'])['view'] == 'button');
+    final tap = const ['switch', 'dimmer', 'button', 'scene', 'link'].contains(type) || (type == 'camera' && jsonMap(w['cam'])['view'] == 'button');
     if (!tap) return tile;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -489,6 +531,17 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     if (type == 'camera') {
       if (jsonMap(w['cam'])['view'] == 'button') showCamera(context, w);
+      return;
+    }
+    if (type == 'link') {
+      final u = webUri(w['url']);
+      if (u == null) {
+        _toast('Thẻ này chưa có địa chỉ web.');
+      } else if (w['openIn'] == 'external') {
+        launchUrl(u, mode: LaunchMode.externalApplication);
+      } else {
+        openWebPage(context, (w['label'] ?? '').toString(), u, store.palette);
+      }
       return;
     }
     engine.act(w, action, arg);

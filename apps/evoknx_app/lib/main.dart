@@ -37,6 +37,12 @@ class EvoknxApp extends StatelessWidget {
             colorSchemeSeed: pal.accent,
             scaffoldBackgroundColor: pal.screen,
           ),
+          // Text follows the App's own size setting, not the phone's, so the
+          // cards look as designed in the Editor.
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(store.textScale)),
+            child: child!,
+          ),
           home: store.config == null
               ? WelcomeScreen(store: store)
               : HomeScreen(

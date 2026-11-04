@@ -110,6 +110,40 @@ class SettingsScreen extends StatelessWidget {
                       trailing: k == store.mode ? Icon(Icons.check, color: pal.accent) : null,
                       onTap: () => store.setTheme(k),
                     ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.format_size, color: pal.muted),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Text('Cỡ chữ', style: TextStyle(fontSize: 16, color: pal.ink)),
+                            ),
+                            Text(
+                              '${(store.textScale * 100).round()}%',
+                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: pal.accent),
+                            ),
+                          ],
+                        ),
+                        Slider(
+                          value: store.textScale,
+                          min: 0.8,
+                          max: 1.5,
+                          divisions: 14,
+                          activeColor: pal.accent,
+                          onChanged: (v) => store.setTextScale(v, save: false),
+                          onChangeEnd: (v) => store.setTextScale(v),
+                        ),
+                        Text(
+                          '100% là đúng cỡ chữ đã thiết kế trong Editor. Không phụ thuộc cỡ chữ của điện thoại.',
+                          style: TextStyle(fontSize: 13, color: pal.muted),
+                        ),
+                      ],
+                    ),
+                  ),
                   row(
                     Icon(Icons.screen_lock_portrait_outlined, color: pal.muted),
                     'Giữ màn hình luôn sáng',

@@ -18,6 +18,10 @@ class AppStore extends ChangeNotifier {
   /// Theme chosen on this phone (null = the project's default theme).
   String? themeMode;
   bool keepScreenOn = false;
+
+  /// Text size chosen in the App (0.8–1.5, 1 = as designed in the Editor).
+  /// The phone's own font-size setting is ignored: cards sit on a fixed grid.
+  double textScale = 1;
   String? lastRoom, lastSub, connectionId;
 
   /// Last address typed when receiving from the Editor (e.g. 192.168.1.20:47800).
@@ -45,6 +49,7 @@ class AppStore extends ChangeNotifier {
         if (p is Map) {
           themeMode = p['theme'] as String?;
           keepScreenOn = p['keepOn'] == true;
+          textScale = ((p['textScale'] as num?) ?? 1).toDouble().clamp(0.8, 1.5).toDouble();
           lastRoom = p['room'] as String?;
           lastSub = p['sub'] as String?;
           connectionId = p['conn'] as String?;
@@ -58,7 +63,15 @@ class AppStore extends ChangeNotifier {
     try {
       final f = await _file('evoknx_prefs.json');
       await f.writeAsString(
-        jsonEncode({'theme': themeMode, 'keepOn': keepScreenOn, 'room': lastRoom, 'sub': lastSub, 'conn': connectionId, 'editor': editorAddress}),
+        jsonEncode({
+          'theme': themeMode,
+          'keepOn': keepScreenOn,
+          'textScale': textScale,
+          'room': lastRoom,
+          'sub': lastSub,
+          'conn': connectionId,
+          'editor': editorAddress,
+        }),
       );
     } catch (_) {}
   }
@@ -114,6 +127,13 @@ class AppStore extends ChangeNotifier {
     themeMode = m;
     notifyListeners();
     await savePrefs();
+  }
+
+  /// [save] false while the slider is being dragged.
+  Future<void> setTextScale(double v, {bool save = true}) async {
+    textScale = v.clamp(0.8, 1.5).toDouble();
+    notifyListeners();
+    if (save) await savePrefs();
   }
 
   Future<void> setKeepScreenOn(bool v) async {
