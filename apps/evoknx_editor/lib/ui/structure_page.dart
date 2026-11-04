@@ -249,7 +249,7 @@ class _StructurePageState extends State<StructurePage> {
           Expanded(
             child: Text(
               title,
-              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: c.muted),
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: c.muted),
             ),
           ),
           if (trailing != null) trailing,
@@ -305,7 +305,7 @@ class _StructurePageState extends State<StructurePage> {
               child: list.isEmpty
                   ? Padding(
                       padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-                      child: Text('Chưa có thẻ. Xuất một thẻ đã cấu hình, hoặc bấm + để thêm từ file.', style: TextStyle(fontSize: 11, color: c.muted)),
+                      child: Text('Chưa có thẻ. Xuất một thẻ đã cấu hình, hoặc bấm + để thêm từ file.', style: TextStyle(fontSize: 12, color: c.muted)),
                     )
                   : ReorderableListView.builder(
                       buildDefaultDragHandles: false,
@@ -420,7 +420,7 @@ class _StructurePageState extends State<StructurePage> {
                     ? (widget.bus.connected ? 'Đang điều khiển bus KNX thật' : 'Chưa kết nối bus: mở khu Kiểm tra để kết nối')
                     : 'Lệnh chỉ ghi vào nhật ký, chưa gửi xuống bus',
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 11.5, color: d.live && !widget.bus.connected ? c.danger : c.muted),
+                style: TextStyle(fontSize: 12.5, color: d.live && !widget.bus.connected ? c.danger : c.muted),
               ),
             ),
           ],
@@ -462,7 +462,7 @@ class _StructurePageState extends State<StructurePage> {
             Icon(Icons.play_circle_outline, size: 16, color: c.muted),
             const SizedBox(width: 8),
             const Expanded(
-              child: Text('Nhật ký lệnh', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+              child: Text('Nhật ký lệnh', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
             ),
             if (d.log.isNotEmpty) TextButton(onPressed: () => setState(d.log.clear), child: const Text('Xoá')),
           ],
@@ -472,7 +472,7 @@ class _StructurePageState extends State<StructurePage> {
           d.live && widget.bus.connected
               ? 'Đang điều khiển bus KNX thật. Mọi thay đổi trên bus cũng hiện ngay trên màn hình mô phỏng.'
               : 'Lệnh được ghi lại dưới đây, chưa gửi xuống bus.',
-          style: TextStyle(fontSize: 11, color: c.muted),
+          style: TextStyle(fontSize: 12, color: c.muted),
         ),
         const SizedBox(height: 12),
         const SectionTitle('Lệnh gửi'),

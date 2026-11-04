@@ -66,7 +66,7 @@ extension EvoTheme on BuildContext {
 }
 
 /// Base text size of the Editor (dense, like design tools).
-const double kUiText = 12;
+const double kUiText = 13;
 
 ThemeData buildTheme(Brightness b) {
   final c = b == Brightness.dark ? EvoColors.dark : EvoColors.light;
@@ -98,9 +98,9 @@ ThemeData buildTheme(Brightness b) {
         .apply(bodyColor: c.ink, displayColor: c.ink)
         .copyWith(
           bodyMedium: TextStyle(fontSize: kUiText, color: c.ink),
-          bodySmall: TextStyle(fontSize: 11, color: c.muted),
+          bodySmall: TextStyle(fontSize: 12, color: c.muted),
           labelLarge: TextStyle(fontSize: kUiText, fontWeight: FontWeight.w500, color: c.ink),
-          titleMedium: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: c.ink),
+          titleMedium: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: c.ink),
         ),
     inputDecorationTheme: InputDecorationTheme(
       isDense: true,
@@ -146,7 +146,7 @@ ThemeData buildTheme(Brightness b) {
       waitDuration: const Duration(milliseconds: 400),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
       decoration: BoxDecoration(color: const Color(0xFF1E1E1E), borderRadius: BorderRadius.circular(4)),
-      textStyle: const TextStyle(color: Colors.white, fontSize: 11.5),
+      textStyle: const TextStyle(color: Colors.white, fontSize: 12.5),
     ),
     dialogTheme: DialogThemeData(
       backgroundColor: c.panel,
@@ -155,7 +155,7 @@ ThemeData buildTheme(Brightness b) {
         borderRadius: BorderRadius.circular(8),
         side: BorderSide(color: c.line),
       ),
-      titleTextStyle: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: c.ink, fontFamily: 'Inter'),
+      titleTextStyle: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: c.ink, fontFamily: 'Inter'),
       contentTextStyle: TextStyle(fontSize: kUiText, color: c.ink, fontFamily: 'Inter', height: 1.45),
     ),
     popupMenuTheme: PopupMenuThemeData(

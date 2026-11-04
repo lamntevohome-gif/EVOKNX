@@ -38,7 +38,7 @@ class _ShellState extends State<Shell> {
         await showDialog<bool>(
           context: context,
           builder: (c) => AlertDialog(
-            title: Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+            title: Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
             content: SizedBox(width: 460, child: Text(message)),
             actions: [
               EvoButton(label: 'Huỷ', onPressed: () => Navigator.pop(c, false)),
@@ -64,7 +64,7 @@ class _ShellState extends State<Shell> {
       context: context,
       barrierDismissible: false,
       builder: (c) => AlertDialog(
-        title: const Text('Lưu thay đổi trước khi đóng?', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+        title: const Text('Lưu thay đổi trước khi đóng?', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
         content: SizedBox(
           width: 440,
           child: Text(
@@ -159,7 +159,7 @@ class _ShellState extends State<Shell> {
   Widget _topBar(BuildContext context) =>
       // Always dark, like the toolbar of design tools.
       Theme(
-        data: buildTheme(Brightness.dark),
+        data: _barTheme(),
         child: Builder(builder: _darkTopBar),
       );
 
@@ -187,8 +187,8 @@ class _ShellState extends State<Shell> {
       height: 44,
       padding: const EdgeInsets.symmetric(horizontal: 8),
       decoration: const BoxDecoration(
-        color: Color(0xFF2C2C2C),
-        border: Border(bottom: BorderSide(color: Color(0xFF1E1E1E))),
+        color: _kBar,
+        border: Border(bottom: BorderSide(color: Color(0xFF2A2A2A))),
       ),
       child: Row(
         children: [
@@ -304,7 +304,7 @@ class _ShellState extends State<Shell> {
         child: Container(
           height: 32,
           padding: const EdgeInsets.symmetric(horizontal: 8),
-          decoration: BoxDecoration(color: ctl.isOpen ? const Color(0xFF383838) : null, borderRadius: BorderRadius.circular(5)),
+          decoration: BoxDecoration(color: ctl.isOpen ? _kBarHover : null, borderRadius: BorderRadius.circular(5)),
           child: Row(
             children: [
               Container(
@@ -319,9 +319,9 @@ class _ShellState extends State<Shell> {
                 ),
               ),
               const SizedBox(width: 8),
-              const Text(
+              Text(
                 'EVOKNX',
-                style: TextStyle(fontSize: kUiText, fontWeight: FontWeight.w700, letterSpacing: 0.2),
+                style: TextStyle(fontSize: kUiText, fontWeight: FontWeight.w700, letterSpacing: 0.2, color: Colors.white),
               ),
               const SizedBox(width: 2),
               Icon(Icons.keyboard_arrow_down, size: 16, color: c.muted),
@@ -331,4 +331,27 @@ class _ShellState extends State<Shell> {
       ),
     );
   }
+}
+
+/// Top bar colours: a mid charcoal (lighter than Figma's near-black) so the
+/// logo and labels stay clearly visible.
+const Color _kBar = Color(0xFF3A3A3A);
+const Color _kBarHover = Color(0xFF4A4A4A);
+
+ThemeData _barTheme() {
+  final t = buildTheme(Brightness.dark);
+  return t.copyWith(
+    hoverColor: _kBarHover,
+    iconButtonTheme: IconButtonThemeData(
+      style: IconButton.styleFrom(
+        iconSize: 16,
+        minimumSize: const Size(28, 28),
+        fixedSize: const Size(28, 28),
+        padding: EdgeInsets.zero,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
+        foregroundColor: Colors.white,
+        hoverColor: _kBarHover,
+      ),
+    ),
+  );
 }

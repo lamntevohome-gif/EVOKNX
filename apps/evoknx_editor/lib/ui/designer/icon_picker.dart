@@ -224,7 +224,7 @@ class _IconPickerDialogState extends State<_IconPickerDialog> {
     final v = await showDialog<String>(
       context: context,
       builder: (c) => AlertDialog(
-        title: const Text('Đổi tên biểu tượng', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+        title: const Text('Đổi tên biểu tượng', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
         content: SizedBox(
           width: 360,
           child: TextField(controller: ctl, autofocus: true, onSubmitted: (s) => Navigator.pop(c, s)),
@@ -251,7 +251,7 @@ class _IconPickerDialogState extends State<_IconPickerDialog> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
-        title: Text('Xoá biểu tượng “${ci.name}”?', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+        title: Text('Xoá biểu tượng “${ci.name}”?', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
         content: SizedBox(
           width: 400,
           child: Text(
@@ -294,7 +294,7 @@ class _IconPickerDialogState extends State<_IconPickerDialog> {
     final items = _items();
     final searching = q.trim().isNotEmpty;
     return AlertDialog(
-      title: const Text('Chọn biểu tượng', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+      title: const Text('Chọn biểu tượng', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
       content: SizedBox(
         width: 760,
         height: 480,
@@ -332,7 +332,7 @@ class _IconPickerDialogState extends State<_IconPickerDialog> {
                     Expanded(
                       child: Text(
                         'Material Design Icons · Pictogrammers. Gõ tìm bằng tiếng Việt (đèn, rèm, quạt…) hoặc tiếng Anh.',
-                        style: TextStyle(fontSize: 12, color: c.muted),
+                        style: TextStyle(fontSize: 13, color: c.muted),
                       ),
                     ),
                   ],
@@ -348,7 +348,7 @@ class _IconPickerDialogState extends State<_IconPickerDialog> {
                     Expanded(
                       child: Text(
                         'SVG hoặc PNG, ảnh vuông 96 × 96 px, dưới 100 KB. Nên dùng biểu tượng một màu trên nền trong suốt: App sẽ tự tô màu theo trạng thái bật/tắt.',
-                        style: TextStyle(fontSize: 11.5, color: c.muted),
+                        style: TextStyle(fontSize: 12.5, color: c.muted),
                       ),
                     ),
                     const SizedBox(width: 10),
@@ -402,7 +402,7 @@ class _IconPickerDialogState extends State<_IconPickerDialog> {
                                             maxLines: 2,
                                             textAlign: TextAlign.center,
                                             overflow: TextOverflow.ellipsis,
-                                            style: TextStyle(fontSize: 11, color: c.muted, height: 1.2),
+                                            style: TextStyle(fontSize: 12, color: c.muted, height: 1.2),
                                           ),
                                         ],
                                       ),

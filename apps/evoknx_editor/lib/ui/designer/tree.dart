@@ -107,7 +107,7 @@ class StructureTree extends StatelessWidget {
                     style: TextStyle(fontSize: kUiText, fontWeight: bold ? FontWeight.w600 : FontWeight.w400, color: c.ink),
                   ),
                 ),
-                if (trailing != null) Text(trailing, style: TextStyle(fontSize: 11, color: c.muted)),
+                if (trailing != null) Text(trailing, style: TextStyle(fontSize: 12, color: c.muted)),
               ],
             ),
           ),

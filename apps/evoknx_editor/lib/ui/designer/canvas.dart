@@ -81,9 +81,9 @@ class DesignCanvas extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(frameName, style: TextStyle(fontSize: 11, color: ec.muted)),
+                Text(frameName, style: TextStyle(fontSize: 12, color: ec.muted)),
                 const SizedBox(width: 8),
-                Text('${size.width.round()} × ${size.height.round()}', style: TextStyle(fontSize: 11, color: ec.lineStrong)),
+                Text('${size.width.round()} × ${size.height.round()}', style: TextStyle(fontSize: 12, color: ec.lineStrong)),
               ],
             ),
           ),
@@ -992,11 +992,15 @@ class _GridAreaState extends State<_GridArea> {
               ),
             );
             final below = rr.bottom + 22 <= bc.maxHeight;
-            if (rz != null) {
-              children.add(
-                Positioned.fromRect(
-                  rect: rr,
-                  child: IgnorePointer(
+            // Always present (invisible when idle) so the drag zones below
+            // keep their place and are not rebuilt in the middle of a drag.
+            children.add(
+              Positioned.fromRect(
+                key: const ValueKey('resize-preview'),
+                rect: rr,
+                child: IgnorePointer(
+                  child: Opacity(
+                    opacity: rz == null ? 0 : 1,
                     child: DecoratedBox(
                       decoration: BoxDecoration(
                         color: col.withValues(alpha: 0.08),
@@ -1006,8 +1010,8 @@ class _GridAreaState extends State<_GridArea> {
                     ),
                   ),
                 ),
-              );
-            }
+              ),
+            );
             children.add(
               Positioned(
                 left: rr.left - 3,
@@ -1054,7 +1058,8 @@ class _GridAreaState extends State<_GridArea> {
               // A new column/row is taken once the pointer passes 40 % of it.
               final nw = ((p.dx - rc.left + gap) / (cw + gap) + 0.1).round().clamp(1, max(1, maxW)).toInt();
               final nh = ((p.dy - rc.top + gap) / (ch + gap) + 0.1).round().clamp(1, max(1, maxH)).toInt();
-              return (w: mode == 'h' ? cur.w : nw, h: mode == 'w' ? cur.h : nh);
+              // Every zone resizes both ways: the card follows the pointer.
+              return (w: nw, h: nh);
             }
 
             Widget zone(String mode, MouseCursor cursor, Widget? child) => MouseRegion(
@@ -1087,24 +1092,27 @@ class _GridAreaState extends State<_GridArea> {
             double inY(double y, double size) => y.clamp(0.0, max(0.0, (scroll ? totalH : bc.maxHeight) - size)).toDouble();
             children.add(
               Positioned(
+                key: const ValueKey('resize-right'),
                 left: inX(rr.right - edge / 2, edge),
                 top: rr.top + corner / 2,
                 width: edge,
                 height: max(0.0, rr.height - corner),
-                child: zone('w', SystemMouseCursors.resizeLeftRight, null),
+                child: zone('wh', SystemMouseCursors.resizeLeftRight, null),
               ),
             );
             children.add(
               Positioned(
+                key: const ValueKey('resize-bottom'),
                 left: rr.left + corner / 2,
                 top: inY(rr.bottom - edge / 2, edge),
                 width: max(0.0, rr.width - corner),
                 height: edge,
-                child: zone('h', SystemMouseCursors.resizeUpDown, null),
+                child: zone('wh', SystemMouseCursors.resizeUpDown, null),
               ),
             );
             children.add(
               Positioned(
+                key: const ValueKey('resize-corner'),
                 left: inX(rr.right - corner / 2, corner),
                 top: inY(rr.bottom - corner / 2, corner),
                 width: corner,

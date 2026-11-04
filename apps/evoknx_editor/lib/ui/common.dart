@@ -86,7 +86,7 @@ class Seg<T> extends StatelessWidget {
               child: MouseRegion(
                 cursor: SystemMouseCursors.click,
                 child: Container(
-                  height: 22,
+                  height: 24,
                   padding: const EdgeInsets.symmetric(horizontal: 10),
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
@@ -147,7 +147,7 @@ class FieldLabel extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(label, style: TextStyle(fontSize: 11, color: context.evo.muted)),
+        Text(label, style: TextStyle(fontSize: 12, color: context.evo.muted)),
         const SizedBox(height: 4),
         child,
       ],
@@ -342,6 +342,6 @@ class Hint extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (!visible) return const SizedBox.shrink();
-    return Text(text, style: TextStyle(fontSize: 11, height: 1.4, color: context.evo.muted));
+    return Text(text, style: TextStyle(fontSize: 12, height: 1.4, color: context.evo.muted));
   }
 }

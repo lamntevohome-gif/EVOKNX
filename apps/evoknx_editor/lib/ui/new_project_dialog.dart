@@ -127,7 +127,7 @@ class _NewProjectDialogState extends State<_NewProjectDialog> {
   Future<String?> _icon(String current, List<(String, String)> items) => showDialog<String>(
     context: context,
     builder: (c) => AlertDialog(
-      title: const Text('Chọn biểu tượng', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+      title: const Text('Chọn biểu tượng', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
       content: SizedBox(
         width: 460,
         child: Wrap(
@@ -158,7 +158,7 @@ class _NewProjectDialogState extends State<_NewProjectDialog> {
                           maxLines: 2,
                           textAlign: TextAlign.center,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontSize: 11, color: c.evo.muted),
+                          style: TextStyle(fontSize: 12, color: c.evo.muted),
                         ),
                       ],
                     ),
@@ -242,7 +242,7 @@ class _NewProjectDialogState extends State<_NewProjectDialog> {
               children: [
                 Icon(icon, size: 26, color: c.accent),
                 const SizedBox(height: 10),
-                Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
                 const SizedBox(height: 4),
                 Text(
                   desc,
@@ -375,7 +375,7 @@ class _NewProjectDialogState extends State<_NewProjectDialog> {
                         : ets != null
                         ? '$etsFile: ${ets!.items.length} địa chỉ nhóm${ets!.projectName.isNotEmpty ? ' (project “${ets!.projectName}”)' : ''}'
                         : '.knxproj, hoặc danh sách địa chỉ nhóm CSV/XML',
-                    style: TextStyle(fontSize: 11.5, color: etsError != null ? c.danger : (ets != null ? c.accentInk : c.muted)),
+                    style: TextStyle(fontSize: 12.5, color: etsError != null ? c.danger : (ets != null ? c.accentInk : c.muted)),
                   ),
                 ),
                 if (ets != null || etsError != null)
@@ -403,7 +403,7 @@ class _NewProjectDialogState extends State<_NewProjectDialog> {
         'quick' => 'Tạo dự án nhanh',
         'manual' => 'Tạo dự án thủ công',
         _ => 'Tạo dự án mới',
-      }, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+      }, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
       content: SizedBox(width: 600, child: content),
       actions: actions,
     );
