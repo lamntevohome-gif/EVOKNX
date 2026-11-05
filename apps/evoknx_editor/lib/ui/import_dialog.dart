@@ -4,10 +4,11 @@ import 'package:knx_config/knx_config.dart';
 import '../app/theme.dart';
 import '../state/project_controller.dart';
 import 'common.dart';
+import 'ets_password_dialog.dart';
 
 /// Picks an ETS file and imports it, asking replace/update when needed.
 Future<void> runEtsImport(BuildContext context, ProjectController project) async {
-  final r = await project.pickEts();
+  final r = await project.pickEts(askPassword: (name, wrong) => askEtsPassword(context, name, wrong: wrong));
   if (!context.mounted) return;
   if (r.error != null) {
     toast(context, r.error!);

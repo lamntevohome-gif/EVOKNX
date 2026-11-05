@@ -373,7 +373,10 @@ class ProjectController extends ChangeNotifier {
 
   // -------------------------------------------------------------- ETS
 
-  Future<({EtsResult? result, String? error, String? fileName})> pickEts() async {
+  /// Picks and reads an ETS file. For a password-protected project,
+  /// [askPassword] is asked (again, with wrong = true, until it opens or the
+  /// user cancels, which returns nothing).
+  Future<({EtsResult? result, String? error, String? fileName})> pickEts({Future<String?> Function(String fileName, bool wrong)? askPassword}) async {
     final f = await openFile(
       acceptedTypeGroups: const [
         XTypeGroup(label: 'ETS', extensions: ['knxproj', 'csv', 'xml', 'txt']),
@@ -383,7 +386,20 @@ class ProjectController extends ChangeNotifier {
     if (f == null) return (result: null, error: null, fileName: null);
     try {
       final bytes = await f.readAsBytes();
-      return (result: parseEts(bytes, fileName: f.name), error: null, fileName: f.name);
+      String? pw;
+      var wrong = false;
+      while (true) {
+        try {
+          return (result: parseEts(bytes, fileName: f.name, password: pw), error: null, fileName: f.name);
+        } on EtsPasswordRequired {
+          if (askPassword == null) rethrow;
+        } on EtsWrongPassword {
+          if (askPassword == null) rethrow;
+          wrong = true;
+        }
+        pw = await askPassword(f.name, wrong);
+        if (pw == null) return (result: null, error: null, fileName: null);
+      }
     } on EtsException catch (e) {
       return (result: null, error: e.message, fileName: f.name);
     } catch (e) {

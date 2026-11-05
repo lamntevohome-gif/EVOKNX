@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:knx_core/knx_core.dart';
 
+import 'crypto_lite.dart';
 import 'zip_reader.dart';
 
 class EtsItem {
@@ -16,6 +17,16 @@ class EtsResult {
   final List<EtsItem> items;
   final String projectName;
   const EtsResult(this.items, [this.projectName = '']);
+}
+
+/// The project is protected: ask the user for its password and retry.
+class EtsPasswordRequired extends EtsException {
+  EtsPasswordRequired() : super('Project ETS này có mật khẩu. Hãy nhập mật khẩu để nhập.');
+}
+
+/// A password was given but it does not open the project.
+class EtsWrongPassword extends EtsException {
+  EtsWrongPassword() : super('Mật khẩu không đúng.');
 }
 
 class EtsException implements Exception {
@@ -36,8 +47,7 @@ String decodeText(List<int> bytes) {
   }
 }
 
-String _gaFromInt(int n, {bool twoLevel = false}) =>
-    twoLevel ? '${(n >> 11) & 31}/${n & 2047}' : '${(n >> 11) & 31}/${(n >> 8) & 7}/${n & 255}';
+String _gaFromInt(int n, {bool twoLevel = false}) => twoLevel ? '${(n >> 11) & 31}/${n & 2047}' : '${(n >> 11) & 31}/${(n >> 8) & 7}/${n & 255}';
 
 String _attr(String tag, String name) {
   final m = RegExp('\\b$name="([^"]*)"').firstMatch(tag);
@@ -137,18 +147,22 @@ List<EtsItem> _parseCsvItems(String text) {
         }
       }
     }
-    final dptCell = iDpt >= 0 && iDpt < cells.length ? cells[iDpt] : cells.firstWhere((c) => RegExp(r'DPS?T-\d', caseSensitive: false).hasMatch(c), orElse: () => '');
+    final dptCell =
+        iDpt >= 0 && iDpt < cells.length ? cells[iDpt] : cells.firstWhere((c) => RegExp(r'DPS?T-\d', caseSensitive: false).hasMatch(c), orElse: () => '');
     out.add(EtsItem(cells[ai], name, normalizeDpt(dptCell)));
   }
   return out;
 }
 
 /// Parses an ETS export: .knxproj (zip), XML or CSV. Duplicates are removed.
-EtsResult parseEts(Uint8List bytes, {String fileName = ''}) {
+///
+/// A password-protected .knxproj throws [EtsPasswordRequired]; call again with
+/// [password]. A wrong one throws [EtsWrongPassword].
+EtsResult parseEts(Uint8List bytes, {String fileName = '', String? password}) {
   final isZip = bytes.length > 2 && bytes[0] == 0x50 && bytes[1] == 0x4B;
   EtsResult res;
   if (isZip || fileName.toLowerCase().endsWith('.knxproj')) {
-    res = _parseKnxproj(bytes);
+    res = _parseKnxproj(bytes, password);
   } else {
     final text = decodeText(bytes);
     res = EtsResult(text.trimLeft().startsWith('<') ? _parseXml(text) : _parseCsvItems(text));
@@ -159,7 +173,37 @@ EtsResult parseEts(Uint8List bytes, {String fileName = ''}) {
   return EtsResult(items, res.projectName);
 }
 
-EtsResult _parseKnxproj(Uint8List bytes) {
+/// ETS 6 zip password: base64(PBKDF2-HMAC-SHA256(UTF-16LE(password),
+/// "21.project.ets.knx.org", 65536 rounds, 32 bytes)).
+Uint8List _ets6Password(String password) {
+  final utf16 = Uint8List.fromList([
+    for (final c in password.codeUnits) ...[c & 0xFF, c >> 8]
+  ]);
+  final key = pbkdf2(Sha256.new, utf16, Uint8List.fromList(utf8.encode('21.project.ets.knx.org')), 65536, 32);
+  return Uint8List.fromList(utf8.encode(base64.encode(key)));
+}
+
+/// Opens the protected project zip (P-xxxx.zip) with the password: ETS 5 uses
+/// the password itself, ETS 6 the derived one. Returns the reader, or throws.
+ZipReader _openProtected(Uint8List inner, String password) {
+  final raw = Uint8List.fromList(utf8.encode(password));
+  Uint8List? derived;
+  for (final attempt in [0, 1]) {
+    final pwd = attempt == 0 ? raw : (derived ??= _ets6Password(password));
+    final z = ZipReader(inner, password: pwd);
+    final probe = z.names.firstWhere((n) => z.isEncrypted(n), orElse: () => '');
+    if (probe.isEmpty) return z;
+    try {
+      z.read(probe);
+      return z;
+    } on ZipPasswordException {
+      continue;
+    }
+  }
+  throw EtsWrongPassword();
+}
+
+EtsResult _parseKnxproj(Uint8List bytes, String? password) {
   final ZipReader zip;
   try {
     zip = ZipReader(bytes);
@@ -168,16 +212,25 @@ EtsResult _parseKnxproj(Uint8List bytes) {
   }
   final names = zip.names.toList();
   final xmlName = names.firstWhere((n) => RegExp(r'^P-[0-9A-F]+/0\.xml$', caseSensitive: false).hasMatch(n), orElse: () => '');
+  // Protected project: the data sits in an encrypted P-xxxx.zip.
+  ZipReader? prot;
   if (xmlName.isEmpty) {
-    if (names.any((n) => RegExp(r'^P-[0-9A-F]+\.zip$', caseSensitive: false).hasMatch(n))) {
-      throw EtsException('Project ETS này có đặt mật khẩu nên chưa đọc được. Hãy xuất lại từ ETS không đặt mật khẩu, hoặc xuất danh sách địa chỉ nhóm ra CSV.');
+    final innerName = names.firstWhere((n) => RegExp(r'^P-[0-9A-F]+\.zip$', caseSensitive: false).hasMatch(n), orElse: () => '');
+    if (innerName.isEmpty) throw EtsException('Không tìm thấy dữ liệu project trong file .knxproj.');
+    if (password == null || password.isEmpty) throw EtsPasswordRequired();
+    final innerBytes = zip.read(innerName);
+    if (innerBytes == null) throw EtsException('Không đọc được dữ liệu project (file bị hỏng).');
+    try {
+      prot = _openProtected(innerBytes, password);
+    } on FormatException {
+      throw EtsException('File .knxproj bị hỏng hoặc không đúng định dạng.');
     }
-    throw EtsException('Không tìm thấy dữ liệu project trong file .knxproj.');
   }
-  final dir = xmlName.split('/').first;
+  final dir = xmlName.isEmpty ? '' : xmlName.split('/').first;
   var twoLevel = false;
   var pname = '';
-  final pj = zip.read('$dir/project.xml');
+  Uint8List? readP(String n) => prot != null ? prot.read(n) : zip.read('$dir/$n');
+  final pj = readP('project.xml');
   if (pj != null) {
     final x = decodeText(pj);
     final m = RegExp(r'<ProjectInformation\b[^>]*>').firstMatch(x);
@@ -186,7 +239,7 @@ EtsResult _parseKnxproj(Uint8List bytes) {
       pname = _attr(m.group(0)!, 'Name').trim();
     }
   }
-  final data = zip.read(xmlName);
+  final data = readP('0.xml');
   if (data == null) throw EtsException('Không đọc được dữ liệu project (file có thể bị mã hoá).');
   final xml = decodeText(data);
   final items = _parseXml(xml, twoLevel: twoLevel);

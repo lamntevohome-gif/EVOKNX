@@ -12,7 +12,7 @@ class SettingsScreen extends StatelessWidget {
   final AppStore store;
   final KnxLink knx;
 
-  static const _themes = [('light', 'Sáng'), ('dark', 'Tối'), ('graphite', 'Xám than'), ('sand', 'Kem')];
+  static const _themes = [('light', 'Sáng'), ('dark', 'Tối'), ('graphite', 'Xám than'), ('sand', 'Kem'), ('ocean', 'Xanh biển')];
 
   @override
   Widget build(BuildContext context) {
@@ -29,7 +29,7 @@ class SettingsScreen extends StatelessWidget {
                 padding: const EdgeInsets.only(left: 6, bottom: 6),
                 child: Text(
                   title.toUpperCase(),
-                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, letterSpacing: 0.4, color: pal.muted),
+                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, letterSpacing: 0.4, color: pal.sMuted),
                 ),
               ),
               Container(
@@ -82,12 +82,12 @@ class SettingsScreen extends StatelessWidget {
             backgroundColor: pal.screen,
             appBar: AppBar(
               backgroundColor: pal.screen,
-              foregroundColor: pal.ink,
+              foregroundColor: pal.sInk,
               elevation: 0,
               scrolledUnderElevation: 0,
               title: Text(
                 'Cài đặt',
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: pal.ink),
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: pal.sInk),
               ),
             ),
             body: ListView(

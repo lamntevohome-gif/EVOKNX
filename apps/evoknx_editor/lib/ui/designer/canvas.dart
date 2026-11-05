@@ -4,6 +4,7 @@ import 'dart:ui' show ImageFilter, PointerDeviceKind, TileMode;
 
 import 'package:flutter/gestures.dart' show DragStartBehavior;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show HardwareKeyboard;
 import 'package:knx_config/knx_config.dart';
 
 import '../../app/theme.dart';
@@ -259,24 +260,55 @@ class _Screen extends StatelessWidget {
         ),
       ),
     );
+    // A floor that exists but has no room yet: the empty screen with the
+    // floor name, and a note that the room is not created.
     final empty = Expanded(
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(30),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.home_outlined, size: 40, color: pal.sMuted),
-              const SizedBox(height: 10),
-              Text(
-                'Tầng này chưa có phòng nào',
-                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: pal.sInk),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (floor != null)
+            Padding(
+              padding: EdgeInsets.fromLTRB(18, dev == 'tabletL' ? 10 : 6, 14, 10),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      (floor['title'] ?? '').toString(),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: tfs(doc, 'titleSize'), fontWeight: FontWeight.w600, color: pal.sInk),
+                    ),
+                  ),
+                  if (dev != 'tabletL') ...[_pill(), const SizedBox(width: 8), _gear()],
+                ],
               ),
-              const SizedBox(height: 6),
-              Text('Bấm “Thêm phòng” ở cột bên trái.', style: TextStyle(color: pal.sMuted)),
-            ],
+            ),
+          Expanded(
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(30),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.meeting_room_outlined, size: 44, color: pal.sMuted),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Phòng chưa được tạo',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: pal.sInk),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Chuột phải vào tầng trong cột Cấu trúc, chọn Thêm phòng.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: pal.sMuted, height: 1.4),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
-        ),
+        ],
       ),
     );
     Widget grid(Json room, Json s) => Expanded(
@@ -889,7 +921,7 @@ class _GridAreaState extends State<_GridArea> {
           final id = w['id'] as String;
           final rc = rect(pi(w, 'x'), pi(w, 'y'), pi(w, 'w'), pi(w, 'h'));
           final flagged = !test && widget.issues.any((i) => i.error && i.widgetId == id);
-          final selected = !test && d.widgetId == id;
+          final selected = !test && d.isSelected(id);
           final Widget tile = w['type'] == 'group'
               ? _GroupFrame(d: d, w: w, pal: pal, issues: widget.issues, selected: selected)
               : TileView(
@@ -934,7 +966,8 @@ class _GridAreaState extends State<_GridArea> {
               rect: rc,
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
-                onTap: () => d.selectWidget(id),
+                // Ctrl + click adds the card to the selection (or removes it).
+                onTap: () => HardwareKeyboard.instance.isControlPressed || HardwareKeyboard.instance.isMetaPressed ? d.toggleSelect(id) : d.selectWidget(id),
                 child: Draggable<DragItem>(
                   data: DragItem.widget(id),
                   // Keep the grab point under the cursor at the on-screen scale,
@@ -976,7 +1009,7 @@ class _GridAreaState extends State<_GridArea> {
           // Selection in the style of design tools: blue outline, corner
           // handles and the card size (columns × rows) under it. The
           // bottom-right handle resizes the card by dragging.
-          if (selected) {
+          if (selected && !d.hasMulti) {
             const sel = kEditorSelection;
             final rz = resizing?.id == id ? resizing : null;
             final gw = rz?.w ?? pi(w, 'w'), gh = rz?.h ?? pi(w, 'h');
@@ -1537,7 +1570,7 @@ ScreenBg? pageBackground(Json? sub, ScreenBg screen, Json theme) {
 
 ScreenBg screenBackground(Json doc, AppPalette base) {
   // Backgrounds are set per page now; the common one follows the App theme.
-  return ScreenBg(BoxDecoration(color: base.screen), base.ink, base.muted);
+  return ScreenBg(BoxDecoration(color: base.screen), base.sInk, base.sMuted);
 }
 
 /// The App's settings screen, opened from the gear button in the preview.
@@ -1546,7 +1579,7 @@ class _AppSettingsSheet extends StatelessWidget {
   final Designer d;
   final AppPalette pal;
 
-  static const _themes = [('light', 'Sáng'), ('dark', 'Tối'), ('graphite', 'Xám than'), ('sand', 'Kem')];
+  static const _themes = [('light', 'Sáng'), ('dark', 'Tối'), ('graphite', 'Xám than'), ('sand', 'Kem'), ('ocean', 'Xanh biển')];
 
   @override
   Widget build(BuildContext context) {

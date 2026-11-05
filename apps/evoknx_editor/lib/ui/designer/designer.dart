@@ -180,7 +180,46 @@ class Designer extends ChangeNotifier {
     _n();
   }
 
+  /// Cards selected together with Ctrl+click ([widgetId] = the one clicked last).
+  final Set<String> multi = <String>{};
+
+  Set<String> get selectedIds => multi.length > 1 && widgetId != null && multi.contains(widgetId) ? multi : <String>{if (widgetId != null) widgetId!};
+  bool isSelected(String id) => selectedIds.contains(id);
+  bool get hasMulti => selectedIds.length > 1;
+
+  /// Ctrl+click: adds the card to the selection, or removes it. Cards of
+  /// another frame start a new selection.
+  void toggleSelect(String id) {
+    final s = sub;
+    final cur = widgetId;
+    if (s == null || cur == null) {
+      selectWidget(id);
+      return;
+    }
+    final a = containerOf(s, cur), b = containerOf(s, id);
+    if (a == null || b == null || a['id'] != b['id']) {
+      selectWidget(id);
+      return;
+    }
+    final ids = {...selectedIds};
+    final adding = !ids.contains(id);
+    if (adding) {
+      ids.add(id);
+    } else {
+      ids.remove(id);
+    }
+    multi
+      ..clear()
+      ..addAll(ids);
+    widgetId = ids.isEmpty ? null : (adding ? id : (ids.contains(cur) ? cur : ids.last));
+    if (ids.length <= 1) multi.clear();
+    cell = null;
+    view = 'room';
+    _n();
+  }
+
   void selectWidget(String? id) {
+    multi.clear();
     widgetId = id;
     cell = null;
     if (id != null) view = 'room';
@@ -208,13 +247,16 @@ class Designer extends ChangeNotifier {
 
   // ------------------------------------------------------------ structure edits
 
+  /// A new floor comes with its first room, and the room with its first page.
   void addFloor() {
-    late Json f;
+    late Json r;
     p.mutate((d) {
-      f = makeFloor('Tầng ${floorsOf(d).length + 1}');
+      final f = makeFloor('Tầng ${floorsOf(d).length + 1}');
       rawList(d, 'floors').add(f);
+      r = makeRoom('Phòng 1', floorId: f['id'] as String);
+      rawList(d, 'pages').add(r);
     });
-    selectFloor(f['id'] as String);
+    selectRoom(r['id'] as String);
   }
 
   void addRoom(String floorId_) {
@@ -357,6 +399,41 @@ class Designer extends ChangeNotifier {
 
   Json? _box(Json s, String? g) => g == null ? s : findWidget(s, g);
 
+  int _maxRows(Json box) => box['type'] == 'group' ? rows(box) : pageRows(box, doc);
+
+  /// Where the selected cards land when the dragged one goes to (x, y):
+  /// the bounding box of all of them, ok when none leaves the page or hits
+  /// a card that is not part of the selection.
+  ({int x, int y, int w, int h, bool ok}) _moveFootprint(Json s, Json box, Set<String> ids, Json dragged, int x, int y) {
+    final src = containerOf(s, dragged['id'] as String);
+    final dx = x - pi(dragged, 'x'), dy = y - pi(dragged, 'y');
+    final maxR = _maxRows(box), c = cols(box);
+    var ok = src != null && src['id'] == box['id'];
+    var minX = 1 << 30, minY = 1 << 30, maxX = -(1 << 30), maxY = -(1 << 30);
+    final moved = <({int x, int y, int w, int h})>[];
+    for (final id in ids) {
+      final w = findWidget(s, id);
+      if (w == null) continue;
+      final nx = pi(w, 'x') + dx, ny = pi(w, 'y') + dy, nw = pi(w, 'w'), nh = pi(w, 'h');
+      if (nx < 0 || ny < 0 || nx + nw > c || ny + nh > maxR) ok = false;
+      moved.add((x: nx, y: ny, w: nw, h: nh));
+      minX = min(minX, nx);
+      minY = min(minY, ny);
+      maxX = max(maxX, nx + nw);
+      maxY = max(maxY, ny + nh);
+    }
+    if (ok) {
+      for (final o in jsonList(box['widgets'])) {
+        if (ids.contains(o['id'])) continue;
+        final ox = pi(o, 'x'), oy = pi(o, 'y'), ow = pi(o, 'w'), oh = pi(o, 'h');
+        for (final m in moved) {
+          if (m.x < ox + ow && m.x + m.w > ox && m.y < oy + oh && m.y + m.h > oy) ok = false;
+        }
+      }
+    }
+    return (x: minX, y: minY, w: maxX - minX, h: maxY - minY, ok: ok);
+  }
+
   ({int x, int y, int w, int h, bool ok})? footprint(DragItem it, String? g, int x, int y) {
     final s = sub;
     if (s == null) return null;
@@ -366,10 +443,12 @@ class Designer extends ChangeNotifier {
     if (it.kind == 'widget') {
       final w = findWidget(s, it.id);
       if (w == null) return null;
+      final ids = isSelected(it.id!) ? selectedIds : <String>{it.id!};
+      if (ids.length > 1) return _moveFootprint(s, box, ids, w, x, y);
       final ww = min(pi(w, 'w'), c), hh = g == null ? pi(w, 'h') : min(pi(w, 'h'), rows(box));
       final xx = min(x, c - ww);
       final nested = g != null && (w['type'] == 'group' || w['id'] == g);
-      return (x: xx, y: y, w: ww, h: hh, ok: !nested && isFree(box, xx, y, ww, hh, w['id'] as String?));
+      return (x: xx, y: y, w: ww, h: hh, ok: !nested && y + hh <= _maxRows(box) && isFree(box, xx, y, ww, hh, w['id'] as String?));
     }
     if (it.kind == 'lib') {
       final e = cardLibrary.byId(it.id ?? '');
@@ -377,11 +456,11 @@ class Designer extends ChangeNotifier {
       if (w == null) return null;
       final ww = min(pi(w, 'w'), c), hh = g == null ? pi(w, 'h') : min(pi(w, 'h'), rows(box) - y);
       final xx = min(x, c - ww);
-      return (x: xx, y: y, w: ww, h: hh, ok: !(g != null && w['type'] == 'group') && hh > 0 && isFree(box, xx, y, ww, hh));
+      return (x: xx, y: y, w: ww, h: hh, ok: !(g != null && w['type'] == 'group') && hh > 0 && y + hh <= _maxRows(box) && isFree(box, xx, y, ww, hh));
     }
     final t = kWidgetTypes[it.type]!;
     final ww = min(t.w, c - x), hh = g == null ? t.h : min(t.h, rows(box) - y);
-    return (x: x, y: y, w: ww, h: hh, ok: !(g != null && it.type == 'group') && ww > 0 && isFree(box, x, y, ww, hh));
+    return (x: x, y: y, w: ww, h: hh, ok: !(g != null && it.type == 'group') && ww > 0 && y + hh <= _maxRows(box) && isFree(box, x, y, ww, hh));
   }
 
   /// Drops [it] on cell (x, y) of box [g] (null = page). Returns an error.
@@ -408,7 +487,7 @@ class Designer extends ChangeNotifier {
     if (it.kind == 'palette') {
       if (g != null && it.type == 'group') return 'Không thể đặt khung lưới bên trong khung lưới khác.';
       final sp = placeAt(box, it.type!, x, y);
-      if (sp == null) return 'Không đủ chỗ ở vị trí này.';
+      if (sp == null || (g == null && sp.y + sp.h > _maxRows(box))) return 'Không đủ chỗ ở vị trí này.';
       late Json nw;
       editSub((ss) {
         final b = _box(ss, g)!;
@@ -417,6 +496,21 @@ class Designer extends ChangeNotifier {
         rawList(b, 'widgets').add(nw);
       });
       selectWidget(nw['id'] as String);
+      return null;
+    }
+    final dragged = findWidget(s, it.id);
+    final group = it.id == null || dragged == null ? <String>{} : (isSelected(it.id!) ? selectedIds : <String>{it.id!});
+    if (group.length > 1) {
+      final mf = footprint(it, g, x, y);
+      if (mf == null) return null;
+      if (!mf.ok) return 'Không đủ chỗ: các thẻ đã chọn sẽ trùng thẻ khác hoặc ra ngoài trang.';
+      final dx = x - pi(dragged!, 'x'), dy = y - pi(dragged, 'y');
+      editSub((ss) {
+        for (final id in group) {
+          final w = findWidget(ss, id);
+          if (w != null) w['pos'] = {'x': pi(w, 'x') + dx, 'y': pi(w, 'y') + dy, 'w': pi(w, 'w'), 'h': pi(w, 'h')};
+        }
+      });
       return null;
     }
     final fp = footprint(it, g, x, y);
@@ -448,6 +542,21 @@ class Designer extends ChangeNotifier {
   String? nudgeSelected({int dx = 0, int dy = 0, int dw = 0, int dh = 0}) {
     final id = widgetId, s = sub;
     if (id == null || s == null) return null;
+    if (hasMulti) {
+      if (dw != 0 || dh != 0) return null; // several cards: move only
+      final ids = selectedIds;
+      final first = findWidget(s, id);
+      if (first == null) return null;
+      final fp = _moveFootprint(s, containerOf(s, id)!, ids, first, pi(first, 'x') + dx, pi(first, 'y') + dy);
+      if (!fp.ok) return fp.x < 0 || fp.y < 0 ? null : 'Không đủ chỗ: trùng thẻ khác hoặc ra ngoài trang.';
+      editSub((ss) {
+        for (final i in ids) {
+          final w = findWidget(ss, i);
+          if (w != null) w['pos'] = {'x': pi(w, 'x') + dx, 'y': pi(w, 'y') + dy, 'w': pi(w, 'w'), 'h': pi(w, 'h')};
+        }
+      }, coalesce: 'nudge-multi');
+      return null;
+    }
     final w = findWidget(s, id), box = containerOf(s, id);
     if (w == null || box == null) return null;
     final nx = pi(w, 'x') + dx, ny = pi(w, 'y') + dy, nw = pi(w, 'w') + dw, nh = pi(w, 'h') + dh;
@@ -486,7 +595,9 @@ class Designer extends ChangeNotifier {
       return drop(DragItem.palette(type), c.g, c.x, c.y);
     }
     final t = kWidgetTypes[type]!;
-    final f = findFree(s, t.w, t.h);
+    // No selected cell: first free spot that is inside the page, never below it.
+    final f = findFreeWithin(s, t.w, t.h, pageRows(s, doc));
+    if (f == null) return 'Trang đã hết chỗ cho thẻ ${t.w} × ${t.h}. Hãy thu nhỏ hoặc xoá bớt thẻ, hoặc thêm trang mới.';
     late Json nw;
     editSub((ss) {
       nw = makeWidget(type, f.x, f.y, min(t.w, cols(ss)), t.h);
@@ -497,11 +608,16 @@ class Designer extends ChangeNotifier {
   }
 
   void deleteWidget() {
-    final id = widgetId;
-    if (id == null) return;
+    final ids = selectedIds.toList();
+    if (ids.isEmpty) return;
     // Deleting a grid frame keeps the cards inside it on the page.
-    editSub((s) => removeGroupKeepCards(s, id));
+    editSub((s) {
+      for (final id in ids) {
+        removeGroupKeepCards(s, id);
+      }
+    });
     widgetId = null;
+    multi.clear();
     _n();
   }
 
@@ -531,7 +647,8 @@ class Designer extends ChangeNotifier {
       y = c.y;
       if (!isFree(box, x, y, ww, hh)) return 'Ô đã chọn không đủ chỗ cho thành phần này.';
     } else {
-      final f = findFree(box, ww, hh);
+      final f = findFreeWithin(box, ww, hh, c?.g != null || !identical(box, s) ? rows(box) : pageRows(box, doc));
+      if (f == null) return 'Trang đã hết chỗ để dán thẻ này.';
       x = f.x;
       y = f.y;
     }

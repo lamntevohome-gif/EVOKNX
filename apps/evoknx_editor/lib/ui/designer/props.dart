@@ -25,7 +25,9 @@ class PropsPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final w = d.widget;
     final List<Widget> body;
-    if (w != null) {
+    if (d.hasMulti) {
+      body = [_MultiProps(d: d)];
+    } else if (w != null) {
       body = [_WidgetProps(key: ValueKey('wp-${w['id']}'), d: d, w: w)];
     } else if (d.view == 'overview') {
       body = [_OverviewProps(d: d)];
@@ -1555,8 +1557,8 @@ class _OverviewProps extends StatelessWidget {
           FieldLabel(
             'Giao diện mặc định',
             EvoDropdown<String>(
-              value: const ['light', 'dark', 'graphite', 'sand'].contains(theme['mode']) ? theme['mode'] as String : 'light',
-              items: const [('light', 'Sáng'), ('dark', 'Tối'), ('graphite', 'Xám than'), ('sand', 'Kem')],
+              value: const ['light', 'dark', 'graphite', 'sand', 'ocean'].contains(theme['mode']) ? theme['mode'] as String : 'light',
+              items: const [('light', 'Sáng'), ('dark', 'Tối'), ('graphite', 'Xám than'), ('sand', 'Kem'), ('ocean', 'Xanh biển')],
               onChanged: (v) => editTheme((x) => x['mode'] = v),
             ),
           ),
@@ -2389,6 +2391,50 @@ class _StatesEditor extends StatelessWidget {
         ],
       ),
       Hint('Giá trị là con số nhận từ địa chỉ trạng thái (1 bit: 0 / 1; 1 byte: 0–255…). Giá trị chưa có trong bảng sẽ hiện nguyên con số.'),
+    ]);
+  }
+}
+
+/// Several cards selected (Ctrl + click): what can be done with them together.
+class _MultiProps extends StatelessWidget {
+  const _MultiProps({required this.d});
+  final Designer d;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.evo;
+    final s = d.sub;
+    final ids = d.selectedIds;
+    final cards = [
+      for (final id in ids)
+        if (s != null && findWidget(s, id) != null) findWidget(s, id)!,
+    ];
+    return _Section('${cards.length} thẻ đã chọn', [
+      for (final w in cards.take(8))
+        Row(
+          children: [
+            iconWidget(w['icon'] as String?, 16, c.muted),
+            const SizedBox(width: 8),
+            Expanded(child: Text((w['label'] ?? '').toString(), overflow: TextOverflow.ellipsis)),
+            Text(
+              '${pi(w, 'w')} × ${pi(w, 'h')}',
+              style: TextStyle(fontSize: kUiText - 1, color: c.muted),
+            ),
+          ],
+        ),
+      if (cards.length > 8) Text('… và ${cards.length - 8} thẻ khác', style: TextStyle(color: c.muted)),
+      Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          EvoButton(label: 'Bỏ chọn', onPressed: () => d.selectWidget(null)),
+          EvoButton(label: 'Xoá ${cards.length} thẻ', icon: Icons.delete_outline, danger: true, onPressed: d.deleteWidget),
+        ],
+      ),
+      Text(
+        'Kéo một thẻ trong nhóm để dời cả nhóm; phím mũi tên dời cả nhóm một ô. Ctrl + chuột trái vào thẻ để thêm hoặc bớt khỏi nhóm.',
+        style: TextStyle(fontSize: kUiText - 1, height: 1.4, color: c.muted),
+      ),
     ]);
   }
 }

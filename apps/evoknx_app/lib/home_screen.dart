@@ -129,7 +129,15 @@ class _HomeScreenState extends State<HomeScreen> {
   void _goFloor(String id) {
     final rooms = roomsOf(doc, id);
     setState(() => floorId = id);
-    if (rooms.isNotEmpty) _goRoom(rooms.first['id'] as String);
+    if (rooms.isNotEmpty) {
+      _goRoom(rooms.first['id'] as String);
+    } else {
+      // A floor without rooms: show the empty screen, not the previous room.
+      setState(() {
+        roomId = null;
+        page = 0;
+      });
+    }
   }
 
   /// Phone, or tablet portrait / landscape when the project has that layout.
@@ -200,7 +208,27 @@ class _HomeScreenState extends State<HomeScreen> {
                 Expanded(
                   child: r == null
                       ? Center(
-                          child: Text('Cấu hình chưa có phòng nào.', style: TextStyle(color: pal.sMuted)),
+                          child: Padding(
+                            padding: const EdgeInsets.all(30),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.meeting_room_outlined, size: 48, color: pal.sMuted),
+                                const SizedBox(height: 12),
+                                Text(
+                                  'Phòng chưa được tạo',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: pal.sInk),
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  'Tầng này chưa có phòng nào.',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(fontSize: 14, color: pal.sMuted),
+                                ),
+                              ],
+                            ),
+                          ),
                         )
                       : PageView.builder(
                           key: ValueKey('pages-$roomId-$_dev'),
@@ -254,7 +282,7 @@ class _HomeScreenState extends State<HomeScreen> {
   /// "Tầng 1 › Phòng 1" on one row (floor shown only when there are several),
   /// settings button on the right: as in the Editor preview.
   Widget _header(Json d, AppPalette pal, Json? floor, Json? r, bool multi) {
-    final hide = jsonMap(d['theme'])['hideTitle'] == true;
+    final hide = jsonMap(d['theme'])['hideTitle'] == true && r != null;
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 10, 12, 8),
       child: Row(
@@ -269,14 +297,15 @@ class _HomeScreenState extends State<HomeScreen> {
                     crossAxisAlignment: CrossAxisAlignment.baseline,
                     textBaseline: TextBaseline.alphabetic,
                     children: [
-                      if (multi)
+                      if (multi && r != null)
                         Text(
                           '${floor?['title'] ?? ''} ›  ',
                           style: TextStyle(fontSize: tfs(d, 'crumb'), color: pal.sMuted, fontWeight: FontWeight.w500),
                         ),
                       Flexible(
                         child: Text(
-                          (r?['title'] ?? '').toString(),
+                          // No room on this floor: the floor name is the title.
+                          (r?['title'] ?? floor?['title'] ?? '').toString(),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(fontSize: tfs(d, 'titleSize'), fontWeight: FontWeight.w600, color: pal.sInk),

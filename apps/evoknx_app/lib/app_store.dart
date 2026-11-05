@@ -120,7 +120,7 @@ class AppStore extends ChangeNotifier {
   /// Theme in use: the phone's choice, else the project's default.
   String get mode {
     final m = themeMode ?? (jsonMap(config?['theme'])['mode'] ?? 'light').toString();
-    return const ['light', 'dark', 'graphite', 'sand'].contains(m) ? m : 'light';
+    return const ['light', 'dark', 'graphite', 'sand', 'ocean'].contains(m) ? m : 'light';
   }
 
   Future<void> setTheme(String? m) async {

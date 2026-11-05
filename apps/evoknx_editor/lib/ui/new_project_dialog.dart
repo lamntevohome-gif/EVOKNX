@@ -4,6 +4,7 @@ import 'package:knx_config/knx_config.dart';
 import '../app/theme.dart';
 import '../state/project_controller.dart';
 import 'common.dart';
+import 'ets_password_dialog.dart';
 
 import 'package:evoknx_ui/evoknx_ui.dart';
 
@@ -88,7 +89,7 @@ class _NewProjectDialogState extends State<_NewProjectDialog> {
 
   Future<void> _pickEts() async {
     setState(() => busy = true);
-    final r = await widget.p.pickEts();
+    final r = await widget.p.pickEts(askPassword: (name, wrong) => askEtsPassword(context, name, wrong: wrong));
     if (!mounted) return;
     setState(() {
       busy = false;

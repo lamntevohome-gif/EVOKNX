@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:evoknx_ui/evoknx_ui.dart';
+import 'package:flutter/gestures.dart' show EagerGestureRecognizer, OneSequenceGestureRecognizer;
 import 'package:flutter/material.dart';
 import 'package:knx_config/knx_config.dart';
 import 'package:webview_flutter/webview_flutter.dart';
@@ -131,7 +132,10 @@ class _WebCardState extends State<WebCard> {
                           )
                         : IgnorePointer(
                             ignoring: !interactive,
-                            child: WebViewWidget(controller: c),
+                            // The web page takes every touch and drag inside the card;
+                            // without this the App's page swipe wins and the page
+                            // cannot be scrolled or controlled.
+                            child: WebViewWidget(controller: c, gestureRecognizers: {Factory<OneSequenceGestureRecognizer>(() => EagerGestureRecognizer())}),
                           ),
                   ),
                   if (c != null && _progress < 100 && _error == null)

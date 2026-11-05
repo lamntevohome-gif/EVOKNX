@@ -88,6 +88,7 @@ void main() {
   final placed = jsonList(page2['widgets']).last;
   check(rm.error == null && jsonMap(placed['pos'])['x'] == 2 && jsonMap(placed['pos'])['y'] == 3, 'placed at drop cell');
   check(jsonMap(placed['bind'])['write'] == 'ga_x' && jsonList(b2['groupAddresses']).length == 1, 'only existing addresses kept');
+  fullPageTest();
 }
 
 Json applyPartFloor(Json d) {
@@ -95,4 +96,30 @@ Json applyPartFloor(Json d) {
   d['floors'] = [f];
   d['pages'] = [makeRoom('R', floorId: f['id'] as String)];
   return d;
+}
+
+// A full page refuses another card and changes nothing.
+void fullPageTest() {
+  final d = newProject('Full');
+  final f = makeFloor('T');
+  d['floors'] = [f];
+  final r = makeRoom('R', floorId: f['id'] as String);
+  d['pages'] = [r];
+  final sub = jsonList(r['subpages']).first;
+  final cols = (jsonMap(sub['layout'])['columns'] as num?)?.toInt() ?? 4;
+  final rows = (jsonMap(sub['layout'])['rows'] as num?)?.toInt() ?? 12;
+  var n = 0;
+  while (true) {
+    final p = findFreeWithin(sub, 2, 2, rows);
+    if (p == null) break;
+    (sub['widgets'] as List).add(makeWidget('switch', p.x, p.y, 2, 2));
+    n++;
+  }
+  check(n == (cols ~/ 2) * (rows ~/ 2), 'page fills up with $n cards of 2 x 2, then findFreeWithin says no room');
+  final w = makeWidget('switch', 0, 0);
+  final part = makeCardPart(d, w);
+  final gaBefore = jsonList(d['groupAddresses']).length;
+  final res = applyCardPart(d, part, sub);
+  check(res.error != null && jsonList(sub['widgets']).length == n && jsonList(d['groupAddresses']).length == gaBefore,
+      'full page: card import refused, nothing changed');
 }

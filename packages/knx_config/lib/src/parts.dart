@@ -257,7 +257,6 @@ PartResult applyPart(Json doc, Json part, {String? floorId, String? roomId}) {
   );
 }
 
-
 // ------------------------------------------------------------------ cards
 
 /// Builds a part file for one card (a grid frame carries its cards).
@@ -291,6 +290,18 @@ Json makeCardPart(Json doc, Json widget) {
 PartResult applyCardPart(Json doc, Json part, Json sub, {bool keepAddresses = true, bool matchExisting = false, int? atX, int? atY}) {
   if (!isPart(part) || part['kind'] != 'card') return PartResult(error: 'File không phải thẻ EVOKNX.');
   final p = Json.from(_copy(part) as Map);
+  // Check there is room before changing anything (addresses, icons).
+  {
+    final cols0 = (jsonMap(sub['layout'])['columns'] as num?)?.toInt() ?? 4;
+    final rows0 = (jsonMap(sub['layout'])['rows'] as num?)?.toInt() ?? 12;
+    for (final w0 in jsonList(p['widgets']).take(1)) {
+      final pos0 = jsonMap(w0['pos']);
+      final w1 = min(((pos0['w'] as num?) ?? 2).toInt(), cols0), h1 = ((pos0['h'] as num?) ?? 2).toInt();
+      if (findFreeWithin(sub, w1, h1, rows0) == null) {
+        return PartResult(error: 'Trang không đủ chỗ cho thẻ này. Hãy xoá bớt thẻ, thu nhỏ thẻ, hoặc chọn trang khác.');
+      }
+    }
+  }
   final gaMap = <String, String>{};
   var added = 0, reused = 0;
   if (matchExisting) {
@@ -360,6 +371,8 @@ PartResult applyCardPart(Json doc, Json part, Json sub, {bool keepAddresses = tr
 
   sub['widgets'] = _growable(sub['widgets']);
   final list = sub['widgets'] as List;
+  final maxRows = (jsonMap(sub['layout'])['rows'] as num?)?.toInt() ?? 12;
+  final addedHere = <Json>[];
   final cols = (jsonMap(sub['layout'])['columns'] as num?)?.toInt() ?? 4;
   var count = 0;
   String? first;
@@ -379,9 +392,15 @@ PartResult applyCardPart(Json doc, Json part, Json sub, {bool keepAddresses = tr
       w['layout'] = l;
     }
     final at = atX != null && atY != null && first == null && atX + ww <= cols && isFree(sub, atX, atY, ww, hh) ? (x: atX, y: atY) : null;
-    final f = at ?? findFree(sub, ww, hh);
+    final f = at ?? findFreeWithin(sub, ww, hh, maxRows);
+    if (f == null) {
+      // No room: undo what was placed so far and say why.
+      list.removeWhere((x) => addedHere.contains(x));
+      return PartResult(error: 'Trang không đủ chỗ cho thẻ này. Hãy xoá bớt thẻ, thu nhỏ thẻ, hoặc chọn trang khác.');
+    }
     w['pos'] = {'x': f.x, 'y': f.y, 'w': ww, 'h': hh};
     list.add(w);
+    addedHere.add(w);
     first ??= w['id'] as String;
   }
   return PartResult(widgets: count, newAddresses: added, reusedAddresses: reused, icons: icons, firstId: first);

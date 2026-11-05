@@ -52,7 +52,7 @@ const Map<String, WidgetTypeDef> kWidgetTypes = {
   'value': WidgetTypeDef('value', 'Giá trị', 'thermo', 2, 2, [
     SlotDef('status', 'Địa chỉ trạng thái', [5, 6, 7, 8, 9, 12, 13, 14], required: true),
   ]),
-  'button': WidgetTypeDef('button', 'Nút nhấn', 'button', 1, 2, [
+  'button': WidgetTypeDef('button', 'Nút nhấn', 'button', 2, 2, [
     SlotDef('write', 'Địa chỉ ghi', [1, 5, 17], required: true),
   ]),
   'shutter': WidgetTypeDef('shutter', 'Rèm', 'blind', 2, 2, [
@@ -65,8 +65,8 @@ const Map<String, WidgetTypeDef> kWidgetTypes = {
     SlotDef('write', 'Địa chỉ ghi', [1, 5, 17, 18], required: true),
   ]),
   'link': WidgetTypeDef('link', 'Mở trang web', 'link', 2, 2, []),
-  'webview': WidgetTypeDef('webview', 'Trang web nhúng', 'globe', 4, 6, []),
-  'ac': WidgetTypeDef('ac', 'Máy lạnh', 'snow', 4, 4, [
+  'webview': WidgetTypeDef('webview', 'Trang web nhúng', 'globe', 2, 2, []),
+  'ac': WidgetTypeDef('ac', 'Máy lạnh', 'snow', 2, 2, [
     SlotDef('power', 'Bật/tắt', [1], required: true),
     SlotDef('powerSt', 'Trạng thái bật/tắt', [1], recommended: true),
     SlotDef('setpoint', 'Nhiệt độ cài đặt', [9], required: true),
@@ -75,8 +75,8 @@ const Map<String, WidgetTypeDef> kWidgetTypes = {
     SlotDef('mode', 'Chế độ', [20, 5]),
     SlotDef('modeSt', 'Trạng thái chế độ', [20, 5]),
   ]),
-  'camera': WidgetTypeDef('camera', 'Camera', 'camera', 4, 3, []),
-  'group': WidgetTypeDef('group', 'Khung lưới', 'layout', 4, 4, []),
+  'camera': WidgetTypeDef('camera', 'Camera', 'camera', 2, 2, []),
+  'group': WidgetTypeDef('group', 'Khung lưới', 'layout', 2, 2, []),
 };
 
 class AcMode {
@@ -270,7 +270,7 @@ Json makeWidget(String type, int x, int y, [int? w, int? h]) {
     wd['cam'] = {'protocol': 'rtsp', 'host': '', 'port': 554, 'path': '/Streaming/Channels/101', 'user': 'admin', 'pass': '', 'view': 'live'};
   }
   if (type == 'group') {
-    wd['layout'] = {'type': 'grid', 'columns': min(w ?? t.w, 6), 'rows': 4};
+    wd['layout'] = {'type': 'grid', 'columns': min(w ?? t.w, 6), 'rows': min(h ?? t.h, 6)};
     wd['widgets'] = <Json>[];
     wd['gstyle'] = 'card';
     wd['showTitle'] = true;
@@ -479,6 +479,19 @@ bool isFree(Json box, int x, int y, int w, int h, [String? except]) {
     }
   }
   return (x: 0, y: 0);
+}
+
+/// First free spot for a [w] × [h] card that fits inside [maxRows] rows,
+/// or null when the page (or frame) has no room left.
+({int x, int y})? findFreeWithin(Json box, int w, int h, int maxRows) {
+  final cols = (jsonMap(box['layout'])['columns'] as num?)?.toInt() ?? 4;
+  final ww = min(w, cols);
+  for (var y = 0; y + h <= maxRows; y++) {
+    for (var x = 0; x + ww <= cols; x++) {
+      if (isFree(box, x, y, ww, h)) return (x: x, y: y);
+    }
+  }
+  return null;
 }
 
 const Map<String, List<int>> kDeviceDefaults = {

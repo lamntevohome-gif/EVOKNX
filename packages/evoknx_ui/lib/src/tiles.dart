@@ -133,18 +133,19 @@ class AppPalette {
     'dark' => dark,
     'graphite' => graphite,
     'sand' => sand,
+    'ocean' => ocean,
     _ => light,
   };
 
   /// Neutral dark grey (graphite), softer than full dark.
   static const graphite = AppPalette(
-    screen: Color(0xFF2B2F33),
-    tile: Color(0xFF383D42),
-    tileEdge: Color(0xFF464C52),
-    panel: Color(0xFF32373C),
+    screen: Color(0xFF23272B),
+    tile: Color(0xFF3F454B),
+    tileEdge: Color(0xFF50575E),
+    panel: Color(0xFF2E3338),
     ink: Color(0xFFF1F3F4),
     muted: Color(0xFFA9B0B6),
-    line: Color(0xFF444A50),
+    line: Color(0xFF454C52),
     lineStrong: Color(0xFF5A6168),
     accent: Color(0xFF4DB38A),
     accentSoft: Color(0xFF23392F),
@@ -155,13 +156,13 @@ class AppPalette {
 
   /// Neutral warm light (sand / ivory).
   static const sand = AppPalette(
-    screen: Color(0xFFE9E4DC),
-    tile: Color(0xFFFBF9F6),
-    tileEdge: Color(0xFFDDD6CB),
+    screen: Color(0xFFE0DACF),
+    tile: Color(0xFFFFFDF9),
+    tileEdge: Color(0xFFD0C8BA),
     panel: Color(0xFFFFFDFA),
     ink: Color(0xFF2A2622),
     muted: Color(0xFF7A7067),
-    line: Color(0xFFE4DDD2),
+    line: Color(0xFFE0D8CC),
     lineStrong: Color(0xFFCFC6B8),
     accent: Color(0xFF2F7D5B),
     accentSoft: Color(0xFFE3EFE6),
@@ -170,15 +171,35 @@ class AppPalette {
     danger: Color(0xFFC2412D),
   );
 
+  /// Blue theme (#0878A5): a blue screen with light cards.
+  static const ocean = AppPalette(
+    screen: Color(0xFF0878A5),
+    tile: Color(0xFFF3F9FC),
+    tileEdge: Color(0xFFC5E1EE),
+    panel: Color(0xFFFFFFFF),
+    ink: Color(0xFF0B2A38),
+    muted: Color(0xFF5F7F8F),
+    line: Color(0xFFD3E6EF),
+    lineStrong: Color(0xFFA9CBDB),
+    accent: Color(0xFF0878A5),
+    accentSoft: Color(0xFFDDF0F8),
+    led: Color(0xFFEE9B2A),
+    ledSoft: Color(0xFFFDF1DC),
+    danger: Color(0xFFC2412D),
+    // Text written straight on the blue screen.
+    onScreenInk: Color(0xFFFFFFFF),
+    onScreenMuted: Color(0xC0FFFFFF),
+  );
+
   static const light = AppPalette(
-    screen: Color(0xFFD8DBDF),
+    screen: Color(0xFFD0D4D9),
     tile: Color(0xFFFFFFFF),
-    tileEdge: Color(0xFFCDD1D6),
+    tileEdge: Color(0xFFC2C8CE),
     panel: Color(0xFFFFFFFF),
     ink: Color(0xFF1B2320),
     muted: Color(0xFF66716C),
     line: Color(0xFFDEE3E0),
-    lineStrong: Color(0xFFC3CBC7),
+    lineStrong: Color(0xFFBAC2BE),
     accent: Color(0xFF1E7F57),
     accentSoft: Color(0xFFE2F1E9),
     led: Color(0xFFEE9B2A),
@@ -187,13 +208,13 @@ class AppPalette {
   );
 
   static const dark = AppPalette(
-    screen: Color(0xFF191E20),
-    tile: Color(0xFF242A2C),
-    tileEdge: Color(0xFF323A3C),
-    panel: Color(0xFF1C2123),
+    screen: Color(0xFF121618),
+    tile: Color(0xFF2B3235),
+    tileEdge: Color(0xFF3B4447),
+    panel: Color(0xFF1D2326),
     ink: Color(0xFFE7ECE9),
     muted: Color(0xFF9AA59F),
-    line: Color(0xFF2E3537),
+    line: Color(0xFF2F3739),
     lineStrong: Color(0xFF434C4F),
     accent: Color(0xFF3DAA7A),
     accentSoft: Color(0xFF1D3328),
@@ -736,12 +757,12 @@ class TileView extends StatelessWidget {
         final p = ((sim['pos'] as num?) ?? 0).toInt();
         final b = jsonMap(w['bind']);
         final showPct = b['status'] != null || b['position'] != null;
-        final bi = fs(w, 'btnIcon');
+        final bi = fs(w, 'btnIcon') * 1.3;
         Widget btn(Object i, String a) => Expanded(
           child: _tap(
             a,
             Container(
-              height: bi + 12,
+              height: bi + 20,
               margin: const EdgeInsets.symmetric(horizontal: 3),
               decoration: BoxDecoration(
                 color: pal.panel,
@@ -857,6 +878,30 @@ class TileView extends StatelessWidget {
             ),
           ],
         );
+        // The number sits in a box of fixed width, so the − / + buttons keep
+        // their place when the setpoint changes (24,0 → 9,5, 16 → 100…).
+        Widget spBox() => SizedBox(
+          width: fs(w, 'valueSize') * 4.2,
+          child: Center(
+            child: FittedBox(fit: BoxFit.scaleDown, child: spText()),
+          ),
+        );
+        Widget spRow() => Center(
+          // Scales down instead of overflowing on a small card.
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                round(Icons.remove, 'minus'),
+                SizedBox(width: ab * 1.8),
+                spBox(),
+                SizedBox(width: ab * 1.8),
+                round(Icons.add, 'plus'),
+              ],
+            ),
+          ),
+        );
         if (w['look'] == 'simple') {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -890,18 +935,7 @@ class TileView extends StatelessWidget {
                   ],
                 ),
               ),
-              Expanded(
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    round(Icons.remove, 'minus'),
-                    SizedBox(width: ab * 1.3),
-                    spText(),
-                    SizedBox(width: ab * 1.3),
-                    round(Icons.add, 'plus'),
-                  ],
-                ),
-              ),
+              Expanded(child: spRow()),
             ],
           );
         }
@@ -970,18 +1004,7 @@ class TileView extends StatelessWidget {
                     )
                   : null,
             ),
-            Expanded(
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  round(Icons.remove, 'minus'),
-                  SizedBox(width: ab * 1.3),
-                  spText(),
-                  SizedBox(width: ab * 1.3),
-                  round(Icons.add, 'plus'),
-                ],
-              ),
-            ),
+            Expanded(child: spRow()),
             Row(
               children: [
                 modeBtn('off', nm('off', 'Tắt'), 'power', !acOn),
