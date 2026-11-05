@@ -1295,12 +1295,18 @@ class _RoomProps extends StatelessWidget {
                   ),
                   const SizedBox(width: 6),
                   Expanded(
-                    child: EvoButton(label: 'Nhập trang…', icon: Icons.file_download_outlined, small: true, fit: true, onPressed: () => importPart(context, d)),
+                    child: EvoButton(
+                      label: 'Nhập trang',
+                      icon: Icons.file_download_outlined,
+                      small: true,
+                      fit: true,
+                      onPressed: () => importPart(context, d, only: 'page'),
+                    ),
                   ),
                   const SizedBox(width: 6),
                   Expanded(
                     child: EvoButton(
-                      label: 'Xuất phòng…',
+                      label: 'Xuất phòng',
                       icon: Icons.file_upload_outlined,
                       small: true,
                       fit: true,
@@ -1346,17 +1352,17 @@ class _RoomProps extends StatelessWidget {
                 children: [
                   Expanded(
                     child: EvoButton(
-                      label: 'Nhập thẻ / trang…',
+                      label: 'Nhập thẻ',
                       icon: Icons.file_download_outlined,
                       small: true,
                       fit: true,
-                      onPressed: () => importPart(context, d),
+                      onPressed: () => importPart(context, d, only: 'card'),
                     ),
                   ),
                   const SizedBox(width: 6),
                   Expanded(
                     child: EvoButton(
-                      label: 'Xuất trang…',
+                      label: 'Xuất trang',
                       icon: Icons.file_upload_outlined,
                       small: true,
                       fit: true,
@@ -1483,12 +1489,18 @@ class _FloorProps extends StatelessWidget {
           ),
           const SizedBox(width: 6),
           Expanded(
-            child: EvoButton(label: 'Nhập phòng…', icon: Icons.file_download_outlined, small: true, fit: true, onPressed: () => importPart(context, d)),
+            child: EvoButton(
+              label: 'Nhập phòng',
+              icon: Icons.file_download_outlined,
+              small: true,
+              fit: true,
+              onPressed: () => importPart(context, d, only: 'room'),
+            ),
           ),
           const SizedBox(width: 6),
           Expanded(
             child: EvoButton(
-              label: 'Xuất tầng…',
+              label: 'Xuất tầng',
               icon: Icons.file_upload_outlined,
               small: true,
               fit: true,

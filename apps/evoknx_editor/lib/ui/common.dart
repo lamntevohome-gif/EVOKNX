@@ -71,14 +71,15 @@ class EvoButton extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        if (icon != null) Icon(icon, size: small ? 16 : 17, color: fg),
-        if (icon != null && !iconOnly) const SizedBox(width: 5),
+        if (icon != null) Icon(icon, size: fit ? 15 : (small ? 16 : 17), color: fg),
+        if (icon != null && !iconOnly) SizedBox(width: fit ? 4 : 5),
         if (!iconOnly)
           Text(
             label,
             maxLines: 1,
             softWrap: false,
-            style: TextStyle(color: fg, fontSize: small ? kUiText - 1 : kUiText, fontWeight: FontWeight.w500),
+            // Buttons that share a row use one size, so none looks bigger.
+            style: TextStyle(color: fg, fontSize: fit ? kUiText - 1.5 : (small ? kUiText - 1 : kUiText), fontWeight: FontWeight.w500),
           ),
       ],
     );

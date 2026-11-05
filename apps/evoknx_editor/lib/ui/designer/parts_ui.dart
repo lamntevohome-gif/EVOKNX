@@ -61,7 +61,9 @@ Future<void> exportPart(BuildContext context, Designer d, String kind, String id
 
 /// Imports a floor (added at the end), a room (into the selected floor) or a
 /// page (into the selected room).
-Future<void> importPart(BuildContext context, Designer d) async {
+/// [only] limits what the place accepts: the "Nhập trang" button of a room
+/// takes page files only, the one of a page takes cards only, and so on.
+Future<void> importPart(BuildContext context, Designer d, {String? only}) async {
   final f = await openFile(acceptedTypeGroups: const [_partType], confirmButtonText: 'Nhập');
   if (f == null) return;
   Object? o;
@@ -77,6 +79,18 @@ Future<void> importPart(BuildContext context, Designer d) async {
   }
   final part = o.cast<String, dynamic>();
   final kind = part['kind'] as String;
+  if (only != null && kind != only) {
+    toast(
+      context,
+      'File này là ${_kindName[kind]}, không phải ${_kindName[only]}. Nhập ${_kindName[kind]} ở ${switch (kind) {
+        'floor' => 'Tổng quan (chuột phải)',
+        'room' => 'tầng',
+        'page' => 'phòng',
+        _ => 'trang',
+      }}.',
+    );
+    return;
+  }
   if (kind == 'card') {
     await _importCard(context, d, part);
     return;

@@ -191,7 +191,7 @@ class StructureTree extends StatelessWidget {
           onTap: d.overview,
           onMenu: (at) => _menu(context, at, [
             (Icons.add, 'Thêm tầng', () async => d.addFloor()),
-            (Icons.file_download_outlined, 'Nhập tầng…', () => importPart(context, d)),
+            (Icons.file_download_outlined, 'Nhập tầng', () => importPart(context, d, only: 'floor')),
           ]),
         ),
         const SizedBox(height: 6),
@@ -211,13 +211,13 @@ class StructureTree extends StatelessWidget {
               (Icons.add, 'Thêm phòng', () async => d.addRoom(f['id'] as String)),
               (
                 Icons.file_download_outlined,
-                'Nhập phòng…',
+                'Nhập phòng',
                 () async {
                   d.selectFloor(f['id'] as String);
-                  await importPart(context, d);
+                  await importPart(context, d, only: 'room');
                 },
               ),
-              (Icons.file_upload_outlined, 'Xuất tầng…', () => exportPart(context, d, 'floor', f['id'] as String)),
+              (Icons.file_upload_outlined, 'Xuất tầng', () => exportPart(context, d, 'floor', f['id'] as String)),
               sep,
               (
                 Icons.delete_outline,
@@ -252,13 +252,13 @@ class StructureTree extends StatelessWidget {
                 ),
                 (
                   Icons.file_download_outlined,
-                  'Nhập trang…',
+                  'Nhập trang',
                   () async {
                     d.selectRoom(r['id'] as String);
-                    await importPart(context, d);
+                    await importPart(context, d, only: 'page');
                   },
                 ),
-                (Icons.file_upload_outlined, 'Xuất phòng…', () => exportPart(context, d, 'room', r['id'] as String)),
+                (Icons.file_upload_outlined, 'Xuất phòng', () => exportPart(context, d, 'room', r['id'] as String)),
                 sep,
                 (
                   Icons.delete_outline,
@@ -301,13 +301,13 @@ class StructureTree extends StatelessWidget {
                     ),
                     (
                       Icons.file_download_outlined,
-                      'Nhập thẻ…',
+                      'Nhập thẻ',
                       () async {
                         d.selectSub(r['id'] as String, s['id'] as String);
-                        await importPart(context, d);
+                        await importPart(context, d, only: 'card');
                       },
                     ),
-                    (Icons.file_upload_outlined, 'Xuất trang…', () => exportPart(context, d, 'page', s['id'] as String)),
+                    (Icons.file_upload_outlined, 'Xuất trang', () => exportPart(context, d, 'page', s['id'] as String)),
                     sep,
                     (
                       Icons.delete_outline,
