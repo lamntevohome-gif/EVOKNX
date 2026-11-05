@@ -13,12 +13,26 @@ void toast(BuildContext context, String message) {
 /// Compact button: primary (blue fill), secondary (hairline border),
 /// danger (red text) or icon-only (no border, grey on hover).
 class EvoButton extends StatelessWidget {
-  const EvoButton({super.key, required this.label, this.icon, this.onPressed, this.primary = false, this.danger = false, this.small = false, this.tooltip});
+  const EvoButton({
+    super.key,
+    required this.label,
+    this.icon,
+    this.onPressed,
+    this.primary = false,
+    this.danger = false,
+    this.small = false,
+    this.tooltip,
+    this.fit = false,
+  });
   final String label;
   final IconData? icon;
   final VoidCallback? onPressed;
   final bool primary, danger, small;
   final String? tooltip;
+
+  /// Fills the width it is given (put it in an Expanded) and shrinks its
+  /// icon and text to fit, so a row of buttons never wraps.
+  final bool fit;
 
   @override
   Widget build(BuildContext context) {
@@ -40,27 +54,35 @@ class EvoButton extends StatelessWidget {
           hoverColor: primary ? Colors.black.withValues(alpha: 0.08) : (danger ? c.dangerSoft : Theme.of(context).hoverColor),
           child: Container(
             height: h,
-            padding: EdgeInsets.symmetric(horizontal: iconOnly ? 0 : (small ? 10 : 12)),
+            padding: EdgeInsets.symmetric(horizontal: iconOnly ? 0 : (fit ? 6 : (small ? 10 : 12))),
             constraints: BoxConstraints(minWidth: h),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                if (icon != null) Icon(icon, size: small ? 16 : 17, color: fg),
-                if (icon != null && !iconOnly) const SizedBox(width: 5),
-                if (!iconOnly)
-                  Text(
-                    label,
-                    style: TextStyle(color: fg, fontSize: small ? kUiText - 1 : kUiText, fontWeight: FontWeight.w500),
-                  ),
-              ],
-            ),
+            alignment: fit ? Alignment.center : null,
+            child: _content(fg, small, iconOnly),
           ),
         ),
       ),
     );
     if (tooltip != null) child = Tooltip(message: tooltip!, child: child);
     return child;
+  }
+
+  Widget _content(Color fg, bool small, bool iconOnly) {
+    final row = Row(
+      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        if (icon != null) Icon(icon, size: small ? 16 : 17, color: fg),
+        if (icon != null && !iconOnly) const SizedBox(width: 5),
+        if (!iconOnly)
+          Text(
+            label,
+            maxLines: 1,
+            softWrap: false,
+            style: TextStyle(color: fg, fontSize: small ? kUiText - 1 : kUiText, fontWeight: FontWeight.w500),
+          ),
+      ],
+    );
+    return fit ? FittedBox(fit: BoxFit.scaleDown, child: row) : row;
   }
 }
 
@@ -225,12 +247,16 @@ class SyncedField extends StatefulWidget {
     this.number = false,
     this.bold = false,
     this.borderless = false,
+    this.center = false,
   });
   final String value;
   final ValueChanged<String> onChanged;
   final String? hint;
   final double? width;
   final bool number, bold, borderless;
+
+  /// Centre the text inside the box.
+  final bool center;
 
   @override
   State<SyncedField> createState() => _SyncedFieldState();
@@ -260,6 +286,7 @@ class _SyncedFieldState extends State<SyncedField> {
       controller: _c,
       focusNode: _f,
       onChanged: widget.onChanged,
+      textAlign: widget.center ? TextAlign.center : TextAlign.start,
       keyboardType: widget.number ? TextInputType.number : TextInputType.text,
       style: TextStyle(fontSize: widget.bold ? 13 : kUiText, fontWeight: widget.bold ? FontWeight.w600 : FontWeight.w400, color: c.ink),
       decoration: InputDecoration(

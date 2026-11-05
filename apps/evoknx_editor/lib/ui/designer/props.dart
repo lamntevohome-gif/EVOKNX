@@ -1288,13 +1288,25 @@ class _RoomProps extends StatelessWidget {
                 'Biểu tượng phòng',
                 IconField(d: d, value: (r['icon'] ?? 'sofa').toString(), scope: IconScope.room, onChanged: (v) => editRoom((x) => x['icon'] = v)),
               ),
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
+              Row(
                 children: [
-                  EvoButton(label: 'Thêm trang', icon: Icons.add, small: true, onPressed: d.addSub),
-                  EvoButton(label: 'Nhập trang…', icon: Icons.file_download_outlined, small: true, onPressed: () => importPart(context, d)),
-                  EvoButton(label: 'Xuất phòng…', icon: Icons.file_upload_outlined, small: true, onPressed: () => exportPart(context, d, 'room', rid)),
+                  Expanded(
+                    child: EvoButton(label: 'Thêm trang', icon: Icons.add, small: true, fit: true, onPressed: d.addSub),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: EvoButton(label: 'Nhập trang…', icon: Icons.file_download_outlined, small: true, fit: true, onPressed: () => importPart(context, d)),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: EvoButton(
+                      label: 'Xuất phòng…',
+                      icon: Icons.file_upload_outlined,
+                      small: true,
+                      fit: true,
+                      onPressed: () => exportPart(context, d, 'room', rid),
+                    ),
+                  ),
                 ],
               ),
             ],
@@ -1330,16 +1342,26 @@ class _RoomProps extends StatelessWidget {
                   onChanged: (v) => d.editSub((x) => x['title'] = v, coalesce: 'st-${s['id']}'),
                 ),
               ),
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
+              Row(
                 children: [
-                  EvoButton(label: 'Nhập thẻ / trang…', icon: Icons.file_download_outlined, small: true, onPressed: () => importPart(context, d)),
-                  EvoButton(
-                    label: 'Xuất trang…',
-                    icon: Icons.file_upload_outlined,
-                    small: true,
-                    onPressed: () => exportPart(context, d, 'page', s['id'] as String),
+                  Expanded(
+                    child: EvoButton(
+                      label: 'Nhập thẻ / trang…',
+                      icon: Icons.file_download_outlined,
+                      small: true,
+                      fit: true,
+                      onPressed: () => importPart(context, d),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: EvoButton(
+                      label: 'Xuất trang…',
+                      icon: Icons.file_upload_outlined,
+                      small: true,
+                      fit: true,
+                      onPressed: () => exportPart(context, d, 'page', s['id'] as String),
+                    ),
                   ),
                 ],
               ),
@@ -1454,13 +1476,25 @@ class _FloorProps extends StatelessWidget {
         title: const Text('Ẩn/hiện biểu tượng'),
       ),
       Text('Tầng này có $n phòng.', style: TextStyle(fontSize: 13, color: context.evo.muted)),
-      Wrap(
-        spacing: 6,
-        runSpacing: 6,
+      Row(
         children: [
-          EvoButton(label: 'Thêm phòng', icon: Icons.add, small: true, onPressed: () => d.addRoom(fid)),
-          EvoButton(label: 'Nhập phòng…', icon: Icons.file_download_outlined, small: true, onPressed: () => importPart(context, d)),
-          EvoButton(label: 'Xuất tầng…', icon: Icons.file_upload_outlined, small: true, onPressed: () => exportPart(context, d, 'floor', fid)),
+          Expanded(
+            child: EvoButton(label: 'Thêm phòng', icon: Icons.add, small: true, fit: true, onPressed: () => d.addRoom(fid)),
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: EvoButton(label: 'Nhập phòng…', icon: Icons.file_download_outlined, small: true, fit: true, onPressed: () => importPart(context, d)),
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: EvoButton(
+              label: 'Xuất tầng…',
+              icon: Icons.file_upload_outlined,
+              small: true,
+              fit: true,
+              onPressed: () => exportPart(context, d, 'floor', fid),
+            ),
+          ),
         ],
       ),
     ], trailing: EvoButton(label: 'Xoá tầng', icon: Icons.delete_outline, small: true, danger: true, onPressed: () => deleteTreeSelection(context, d)));

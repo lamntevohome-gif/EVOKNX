@@ -74,7 +74,7 @@ class SettingsScreen extends StatelessWidget {
         final cur = store.connection;
         return Theme(
           data: ThemeData(
-            brightness: pal.screen.computeLuminance() < 0.35 ? Brightness.dark : Brightness.light,
+            brightness: pal.sInk.computeLuminance() > 0.5 ? Brightness.dark : Brightness.light,
             fontFamily: kEvoFont,
             useMaterial3: true,
             colorSchemeSeed: pal.accent,
@@ -94,6 +94,92 @@ class SettingsScreen extends StatelessWidget {
             body: ListView(
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 28),
               children: [
+                card('Hồ sơ (nhà)', [
+                  for (final pf in store.profiles)
+                    row(
+                      Icon(pf.id == store.activeId ? Icons.home : Icons.home_outlined, color: pf.id == store.activeId ? pal.accent : pal.muted),
+                      pf.name,
+                      sub: pf.id == store.activeId
+                          ? 'Đang dùng · phiên bản cấu hình ${jsonMap(store.config?['project'])['revision'] ?? 0}'
+                          : 'Bấm để chuyển sang nhà này',
+                      trailing: PopupMenuButton<String>(
+                        tooltip: 'Tuỳ chọn',
+                        icon: Icon(Icons.more_vert, color: pal.muted),
+                        color: pal.panel,
+                        onSelected: (v) async {
+                          if (v != 'del') return;
+                          final ok = await showDialog<bool>(
+                            context: context,
+                            builder: (c) => AlertDialog(
+                              title: Text('Xoá hồ sơ “${pf.name}”?'),
+                              content: const Text('Cấu hình của nhà này sẽ bị xoá khỏi điện thoại. Bạn vẫn có thể thêm lại từ EVOKNX Editor.'),
+                              actions: [
+                                TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Huỷ')),
+                                TextButton(
+                                  onPressed: () => Navigator.pop(c, true),
+                                  child: Text('Xoá', style: TextStyle(color: pal.danger)),
+                                ),
+                              ],
+                            ),
+                          );
+                          if (ok != true) return;
+                          final wasActive = pf.id == store.activeId;
+                          await store.deleteProfile(pf.id);
+                          if (wasActive && context.mounted) Navigator.of(context).popUntil((x) => x.isFirst);
+                        },
+                        itemBuilder: (_) => [
+                          PopupMenuItem(
+                            value: 'del',
+                            child: Text('Xoá hồ sơ', style: TextStyle(color: pal.danger)),
+                          ),
+                        ],
+                      ),
+                      onTap: pf.id == store.activeId
+                          ? null
+                          : () async {
+                              await store.switchProfile(pf.id);
+                              if (context.mounted) Navigator.of(context).popUntil((x) => x.isFirst);
+                            },
+                    ),
+                  row(
+                    Icon(Icons.wifi_tethering, color: pal.muted),
+                    'Thêm hồ sơ từ máy tính (Wi-Fi)',
+                    sub: 'Editor → menu EVOKNX → Gửi sang App qua Wi-Fi',
+                    onTap: () async {
+                      final before = store.profiles.length;
+                      final ok = await showReceiveDialog(context, store, pal);
+                      if (!ok || !context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(store.profiles.length > before ? 'Đã thêm hồ sơ “${store.projectName}”.' : 'Đã cập nhật hồ sơ “${store.projectName}”.'),
+                        ),
+                      );
+                      Navigator.of(context).popUntil((x) => x.isFirst);
+                    },
+                  ),
+                  row(
+                    Icon(Icons.folder_open_outlined, color: pal.muted),
+                    'Thêm hồ sơ từ file cấu hình',
+                    sub: 'File .json xuất từ EVOKNX Editor. Cùng tên dự án thì cập nhật hồ sơ đó.',
+                    onTap: () async {
+                      final before = store.profiles.length;
+                      final r = await store.importConfig();
+                      if (!context.mounted) return;
+                      if (r != null && r.isNotEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(r)));
+                      } else if (r == null) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              store.profiles.length > before ? 'Đã thêm hồ sơ “${store.projectName}”.' : 'Đã cập nhật hồ sơ “${store.projectName}”.',
+                            ),
+                          ),
+                        );
+                        Navigator.of(context).popUntil((x) => x.isFirst);
+                      }
+                    },
+                  ),
+                ]),
                 card('Giao diện', [
                   for (final (k, n) in _themes)
                     row(
@@ -179,35 +265,6 @@ class SettingsScreen extends StatelessWidget {
                     Icon(knx.connected ? Icons.link : Icons.link_off, color: knx.connected ? pal.accent : pal.muted),
                     knx.statusText,
                     trailing: TextButton(onPressed: knx.connect, child: Text(knx.connected ? 'Kết nối lại' : 'Thử lại')),
-                  ),
-                ]),
-                card('Cấu hình', [
-                  row(
-                    Icon(Icons.home_work_outlined, color: pal.muted),
-                    store.projectName,
-                    sub: 'Phiên bản cấu hình ${jsonMap(store.config?['project'])['revision'] ?? 0}',
-                  ),
-                  row(
-                    Icon(Icons.wifi_tethering, color: pal.muted),
-                    'Nhận từ máy tính (Wi-Fi)',
-                    sub: 'Editor → menu EVOKNX → Gửi sang App qua Wi-Fi',
-                    onTap: () async {
-                      final ok = await showReceiveDialog(context, store, pal);
-                      if (ok && context.mounted) Navigator.of(context).popUntil((x) => x.isFirst);
-                    },
-                  ),
-                  row(
-                    Icon(Icons.folder_open_outlined, color: pal.muted),
-                    'Mở file cấu hình khác',
-                    sub: 'Chọn file .json xuất từ EVOKNX Editor',
-                    onTap: () async {
-                      final r = await store.importConfig();
-                      if (context.mounted && r != null && r.isNotEmpty) {
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(r)));
-                      } else if (context.mounted && r == null) {
-                        Navigator.of(context).popUntil((x) => x.isFirst);
-                      }
-                    },
                   ),
                 ]),
                 card('Giới thiệu', [

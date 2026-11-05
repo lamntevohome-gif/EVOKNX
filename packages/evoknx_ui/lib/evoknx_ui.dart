@@ -5,6 +5,7 @@ library evoknx_ui;
 export 'src/engine.dart';
 export 'src/icons.dart';
 export 'src/model.dart';
+export 'src/splash.dart';
 export 'src/tiles.dart';
 
 /// Font family of the EVOKNX interface (bundled in this package).

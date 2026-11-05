@@ -166,36 +166,36 @@ class AppPalette {
   /// Neutral mid grey ("Xám"): grey screen, lighter grey cards. Older
   /// projects that used the cream theme ('sand') show this one.
   static const gray = AppPalette(
-    screen: Color(0xFFB4B8BD),
-    tile: Color(0xFFDADDE0),
-    tileEdge: Color(0xFFA5A9AE),
-    panel: Color(0xFFE8EAEC),
-    ink: Color(0xFF1D2124),
-    muted: Color(0xFF4F565C),
-    line: Color(0xFFC4C8CC),
-    lineStrong: Color(0xFF9A9FA5),
-    accent: Color(0xFF1E7F57),
-    accentSoft: Color(0xFFD3E4DB),
-    led: Color(0xFFE08A1E),
-    ledSoft: Color(0xFFE9DCC4),
-    danger: Color(0xFFB83A27),
+    screen: Color(0xFF8D9298),
+    tile: Color(0xFFB8BCC1),
+    tileEdge: Color(0xFF7C8289),
+    panel: Color(0xFFC9CCD0),
+    ink: Color(0xFF14171A),
+    muted: Color(0xFF3E444A),
+    line: Color(0xFFA1A6AC),
+    lineStrong: Color(0xFF787E85),
+    accent: Color(0xFF176B49),
+    accentSoft: Color(0xFFB3CBBF),
+    led: Color(0xFFD97A0F),
+    ledSoft: Color(0xFFD4C4A4),
+    danger: Color(0xFFA6301F),
   );
 
   /// Sea blue ("Xanh biển"): a deep blue-green screen with cards of nearly
   /// the same tone, a little lighter.
   static const ocean = AppPalette(
-    screen: Color(0xFF076B86),
-    tile: Color(0xFF2F8499),
-    tileEdge: Color(0xFF4F9CAF),
-    panel: Color(0xFF4294A7),
+    screen: Color(0xFF054F66),
+    tile: Color(0xFF1B6E84),
+    tileEdge: Color(0xFF3A8397),
+    panel: Color(0xFF2C7E93),
     ink: Color(0xFFF2FAFC),
-    muted: Color(0xFFB6D9E3),
-    line: Color(0xFF4F97AA),
-    lineStrong: Color(0xFF72B3C3),
+    muted: Color(0xFFAFD3DD),
+    line: Color(0xFF3B8497),
+    lineStrong: Color(0xFF5C9DAE),
     accent: Color(0xFF1FB58F),
-    accentSoft: Color(0xFF2B7F91),
+    accentSoft: Color(0xFF1F6B7D),
     led: Color(0xFFF5B54A),
-    ledSoft: Color(0xFF55664F),
+    ledSoft: Color(0xFF455C4A),
     danger: Color(0xFFFF8F7A),
     // Text written straight on the screen.
     onScreenInk: Color(0xFFFFFFFF),
@@ -264,6 +264,30 @@ class TileView extends StatelessWidget {
 
   /// Test mode: called for control actions (up, down, stop, tune, plus, minus, off, mode).
   final void Function(String action, [Object? arg])? act;
+
+  /// Icon button used by every card (the curtain card's look): the button is
+  /// the icon size plus 12, so the icon fills about two thirds of it. The
+  /// same proportions everywhere keep buttons and icons in step.
+  Widget _ibtn(String action, Object icon, double s, {Object? arg, bool expand = true, bool circle = false, Color? fill, Color? edge, Color? fg}) {
+    final h = s + 12;
+    final color = fg ?? pal.ink;
+    final inner = Container(
+      width: circle ? h : null,
+      height: h,
+      margin: expand ? const EdgeInsets.symmetric(horizontal: 1.5) : null,
+      decoration: BoxDecoration(
+        color: fill ?? pal.panel,
+        shape: circle ? BoxShape.circle : BoxShape.rectangle,
+        borderRadius: circle ? null : BorderRadius.circular(s * 0.4 + 2),
+        border: Border.all(color: edge ?? pal.tileEdge),
+      ),
+      child: Center(
+        child: icon is IconData ? Icon(icon, size: s, color: color) : iconWidget(icon as String, s, color),
+      ),
+    );
+    final t = _tap(action, inner, arg);
+    return expand ? Expanded(child: t) : t;
+  }
 
   Widget _tap(String action, Widget child, [Object? arg]) => act == null
       ? child
@@ -767,23 +791,7 @@ class TileView extends StatelessWidget {
         final b = jsonMap(w['bind']);
         final showPct = b['status'] != null || b['position'] != null;
         final bi = fs(w, 'btnIcon') * 1.55;
-        Widget btn(Object i, String a) => Expanded(
-          child: _tap(
-            a,
-            Container(
-              height: bi + 12,
-              margin: const EdgeInsets.symmetric(horizontal: 1.5),
-              decoration: BoxDecoration(
-                color: pal.panel,
-                border: Border.all(color: pal.tileEdge),
-                borderRadius: BorderRadius.circular(bi * 0.4 + 2),
-              ),
-              child: Center(
-                child: i is IconData ? Icon(i, size: bi, color: pal.ink) : iconWidget(i as String, bi, pal.ink),
-              ),
-            ),
-          ),
-        );
+        Widget btn(Object i, String a) => _ibtn(a, i, bi);
         return _col([
           _head(
             pal.muted,
@@ -817,48 +825,46 @@ class TileView extends StatelessWidget {
         final ab = fs(w, 'acBtn'), am = fs(w, 'acMode');
         final modeLabel = (ac['modeLabel'] ?? 'icon').toString();
         final showCur = ac['showCur'] != false && jsonMap(w['bind'])['current'] != null;
-        Widget round(IconData i, String a) => _tap(
-          a,
-          Container(
-            width: ab * 2.2,
-            height: ab * 2.2,
-            decoration: BoxDecoration(
-              color: pal.panel,
-              shape: BoxShape.circle,
-              border: Border.all(color: pal.tileEdge),
-            ),
-            child: Icon(i, size: ab, color: pal.ink),
-          ),
-        );
-        Widget modeBtn(String key, String name, String icon, bool active) => Expanded(
-          child: _tap(
-            key == 'off' ? 'off' : 'mode',
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 2),
-              padding: EdgeInsets.symmetric(vertical: modeLabel == 'icon' ? am * 0.55 : am * 0.35),
-              decoration: BoxDecoration(
-                color: active ? pal.ink : pal.panel,
-                border: Border.all(color: active ? pal.ink : pal.tileEdge),
-                borderRadius: BorderRadius.circular(am * 0.62),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (modeLabel != 'text') iconWidget(icon, am, active ? pal.screen : pal.muted),
-                  if (modeLabel == 'both') const SizedBox(height: 2),
-                  if (modeLabel != 'icon')
-                    Text(
-                      name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: modeLabel == 'text' ? am * 0.85 : am * 0.7, color: active ? pal.screen : pal.muted),
+        Widget round(IconData i, String a) => _ibtn(a, i, ab * 1.2, expand: false, circle: true);
+        Widget modeBtn(String key, String name, String icon, bool active) => modeLabel == 'icon'
+            ? _ibtn(
+                key == 'off' ? 'off' : 'mode',
+                icon,
+                am * 1.5,
+                arg: key,
+                fill: active ? pal.ink : pal.panel,
+                edge: active ? pal.ink : pal.tileEdge,
+                fg: active ? pal.screen : pal.muted,
+              )
+            : Expanded(
+                child: _tap(
+                  key == 'off' ? 'off' : 'mode',
+                  Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 2),
+                    padding: EdgeInsets.symmetric(vertical: modeLabel == 'icon' ? am * 0.55 : am * 0.35),
+                    decoration: BoxDecoration(
+                      color: active ? pal.ink : pal.panel,
+                      border: Border.all(color: active ? pal.ink : pal.tileEdge),
+                      borderRadius: BorderRadius.circular(am * 0.62),
                     ),
-                ],
-              ),
-            ),
-            key,
-          ),
-        );
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (modeLabel != 'text') iconWidget(icon, am, active ? pal.screen : pal.muted),
+                        if (modeLabel == 'both') const SizedBox(height: 2),
+                        if (modeLabel != 'icon')
+                          Text(
+                            name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(fontSize: modeLabel == 'text' ? am * 0.85 : am * 0.7, color: active ? pal.screen : pal.muted),
+                          ),
+                      ],
+                    ),
+                  ),
+                  key,
+                ),
+              );
         String nm(String k, String d) => ((names[k] ?? '').toString().trim().isEmpty) ? d : names[k].toString();
         final fanOn = jsonMap(ac['fan'])['enabled'] == true;
         final fan = (sim['fan'] ?? 'auto').toString();
@@ -920,18 +926,15 @@ class TileView extends StatelessWidget {
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    _tap(
+                    _ibtn(
                       'power',
-                      Container(
-                        width: ab * 1.9,
-                        height: ab * 1.9,
-                        decoration: BoxDecoration(
-                          color: acOn ? pal.accent : pal.panel,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: acOn ? pal.accent : pal.tileEdge),
-                        ),
-                        child: Center(child: iconWidget('mdi:power', ab * 0.9, acOn ? Colors.white : pal.muted)),
-                      ),
+                      'mdi:power',
+                      ab * 1.2,
+                      expand: false,
+                      circle: true,
+                      fill: acOn ? pal.accent : pal.panel,
+                      edge: acOn ? pal.accent : pal.tileEdge,
+                      fg: acOn ? Colors.white : pal.muted,
                     ),
                     const SizedBox(width: 6),
                     _tap(
@@ -966,21 +969,14 @@ class TileView extends StatelessWidget {
                 Row(
                   children: [
                     for (final k in levels)
-                      Expanded(
-                        child: _tap(
-                          'fan',
-                          Container(
-                            margin: const EdgeInsets.symmetric(horizontal: 2),
-                            padding: EdgeInsets.symmetric(vertical: am * 0.45),
-                            decoration: BoxDecoration(
-                              color: acOn && fan == k ? pal.ink : pal.panel,
-                              border: Border.all(color: acOn && fan == k ? pal.ink : pal.tileEdge),
-                              borderRadius: BorderRadius.circular(am * 0.62),
-                            ),
-                            child: Center(child: iconWidget(fanIcon(k), am * 1.15, acOn && fan == k ? pal.screen : pal.muted)),
-                          ),
-                          k,
-                        ),
+                      _ibtn(
+                        'fan',
+                        fanIcon(k),
+                        am * 1.5,
+                        arg: k,
+                        fill: acOn && fan == k ? pal.ink : pal.panel,
+                        edge: acOn && fan == k ? pal.ink : pal.tileEdge,
+                        fg: acOn && fan == k ? pal.screen : pal.muted,
                       ),
                   ],
                 ),
@@ -1016,21 +1012,14 @@ class TileView extends StatelessWidget {
               Row(
                 children: [
                   for (final k in levels)
-                    Expanded(
-                      child: _tap(
-                        'fan',
-                        Container(
-                          margin: const EdgeInsets.symmetric(horizontal: 2),
-                          padding: EdgeInsets.symmetric(vertical: am * 0.3),
-                          decoration: BoxDecoration(
-                            color: acOn && fan == k ? pal.ink : pal.panel,
-                            border: Border.all(color: acOn && fan == k ? pal.ink : pal.tileEdge),
-                            borderRadius: BorderRadius.circular(am * 0.62),
-                          ),
-                          child: Center(child: iconWidget(fanIcon(k), am * 1.15, acOn && fan == k ? pal.screen : pal.muted)),
-                        ),
-                        k,
-                      ),
+                    _ibtn(
+                      'fan',
+                      fanIcon(k),
+                      am * 1.5,
+                      arg: k,
+                      fill: acOn && fan == k ? pal.ink : pal.panel,
+                      edge: acOn && fan == k ? pal.ink : pal.tileEdge,
+                      fg: acOn && fan == k ? pal.screen : pal.muted,
                     ),
                 ],
               ),

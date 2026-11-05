@@ -20,20 +20,6 @@ double tabletScale(Json doc) {
   return (v >= 100 && v <= 150 ? v : 120) / 100;
 }
 
-String greeting(Json sp) {
-  if (sp['greetMode'] == 'custom') return (sp['greet'] ?? 'Chào mừng về nhà').toString();
-  final h = DateTime.now().hour;
-  final g = h >= 5 && h < 11
-      ? 'Chào buổi sáng'
-      : h >= 11 && h < 13
-      ? 'Chào buổi trưa'
-      : h >= 13 && h < 18
-      ? 'Chào buổi chiều'
-      : 'Chào buổi tối';
-  final owner = (sp['owner'] ?? '').toString().trim();
-  return owner.isEmpty ? g : '$g, $owner';
-}
-
 /// The simulated phone/tablet screen with the editable grid.
 class DesignCanvas extends StatelessWidget {
   const DesignCanvas({super.key, required this.d, required this.issues});
@@ -138,7 +124,10 @@ class DesignCanvas extends StatelessWidget {
                               Positioned.fill(
                                 child: _AppSettingsSheet(d: d, pal: pal),
                               ),
-                            if (d.splashPreview) Positioned.fill(child: _Splash(d: d)),
+                            if (d.splashPreview)
+                              Positioned.fill(
+                                child: SplashView(splash: jsonMap(d.doc['splash']), onTap: d.skipSplash),
+                              ),
                           ],
                         ),
                       ),
@@ -149,67 +138,6 @@ class DesignCanvas extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _Splash extends StatelessWidget {
-  const _Splash({required this.d});
-  final Designer d;
-
-  @override
-  Widget build(BuildContext context) {
-    final sp = jsonMap(d.doc['splash']);
-    final bg = hexColor(sp['bg']) ?? const Color(0xFF1B2320);
-    final fg = bg.computeLuminance() < 0.35 ? Colors.white : const Color(0xFF1B2320);
-    final logo = (sp['logo'] ?? '').toString();
-    Widget mark;
-    if (logo.startsWith('data:image/png;base64,')) {
-      mark = ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 230, maxHeight: 200),
-        child: Image.memory(base64Decode(logo.substring(22)), fit: BoxFit.contain),
-      );
-    } else if (logo.startsWith('data:image/')) {
-      mark = Text('Logo SVG (hiển thị trên App)', style: TextStyle(color: fg.withValues(alpha: 0.7)));
-    } else {
-      mark = Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 12,
-            height: 12,
-            decoration: const BoxDecoration(color: Color(0xFFEE9B2A), shape: BoxShape.circle),
-          ),
-          const SizedBox(width: 10),
-          Text(
-            'EVOKNX',
-            style: TextStyle(color: fg, fontSize: 26, fontWeight: FontWeight.w700, letterSpacing: 0.5),
-          ),
-        ],
-      );
-    }
-    return GestureDetector(
-      onTap: d.skipSplash,
-      child: Container(
-        color: bg,
-        padding: const EdgeInsets.all(30),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            mark,
-            const SizedBox(height: 20),
-            Text(
-              greeting(sp),
-              textAlign: TextAlign.center,
-              style: TextStyle(color: fg, fontSize: 22, fontWeight: FontWeight.w500),
-            ),
-            if ((sp['sub'] ?? '').toString().isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text(sp['sub'].toString(), style: TextStyle(color: fg.withValues(alpha: 0.7), fontSize: 14)),
-            ],
-          ],
-        ),
       ),
     );
   }

@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 
 import 'app_store.dart';
 import 'home_screen.dart';
+import 'splash_gate.dart';
 import 'welcome_screen.dart';
 
 Future<void> main() async {
@@ -25,7 +26,8 @@ class EvoknxApp extends StatelessWidget {
       listenable: store,
       builder: (context, _) {
         final pal = AppPalette.of(store.config == null ? 'light' : store.mode);
-        final dark = pal.screen.computeLuminance() < 0.35;
+        // Light text on the screen = a dark theme (Xám has a mid-grey screen with dark text).
+        final dark = pal.sInk.computeLuminance() > 0.5;
         SystemChrome.setSystemUIOverlayStyle(dark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark);
         return MaterialApp(
           title: 'EVOKNX',
@@ -45,10 +47,16 @@ class EvoknxApp extends StatelessWidget {
           ),
           home: store.config == null
               ? WelcomeScreen(store: store)
-              : HomeScreen(
-                  // A new configuration starts a fresh home screen.
-                  key: ValueKey('config-${store.configVersion}'),
-                  store: store,
+              : SplashGate(
+                  // The Editor's splash plays each time a home screen starts
+                  // (App opened, or another profile chosen).
+                  key: ValueKey('splash-${store.configVersion}'),
+                  doc: store.config!,
+                  child: HomeScreen(
+                    // A new configuration starts a fresh home screen.
+                    key: ValueKey('config-${store.configVersion}'),
+                    store: store,
+                  ),
                 ),
         );
       },

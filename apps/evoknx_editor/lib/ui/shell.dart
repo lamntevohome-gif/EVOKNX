@@ -191,44 +191,71 @@ class _ShellState extends State<Shell> {
         color: _kBar,
         border: Border(bottom: BorderSide(color: Color(0xFF2A2A2A))),
       ),
-      child: Row(
-        children: [
-          _appMenu(context),
-          Container(width: 1, height: 20, margin: const EdgeInsets.symmetric(horizontal: 8), color: c.line),
-          tab(0, 'Cấu trúc'),
-          tab(1, 'Kết nối'),
-          tab(2, 'Kiểm tra'),
-          Expanded(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Flexible(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 260),
-                    child: Tooltip(
-                      message: 'Bấm để đổi tên dự án',
-                      child: SyncedField(
-                        value: p.projectName,
-                        bold: true,
-                        borderless: true,
-                        onChanged: (v) => p.mutate((d) => (d['project'] as Map)['name'] = v, coalesce: 'pname'),
-                      ),
+      child: LayoutBuilder(
+        builder: (context, bc) {
+          // The name is centred on the whole bar; on a narrow window (where it
+          // would run into the buttons) it sits between them instead.
+          final wide = bc.maxWidth >= 1300;
+          final name = Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Flexible(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 260, minWidth: 120),
+                  child: Tooltip(
+                    message: 'Bấm để đổi tên dự án',
+                    child: SyncedField(
+                      value: p.projectName,
+                      bold: true,
+                      borderless: true,
+                      center: true,
+                      onChanged: (v) => p.mutate((d) => (d['project'] as Map)['name'] = v, coalesce: 'pname'),
                     ),
                   ),
                 ),
-                Tooltip(
-                  message: p.path ?? 'Dự án chưa được lưu thành file',
-                  child: Text(
-                    _status(),
-                    style: TextStyle(fontSize: kUiText, color: p.dirty ? c.warn : c.muted),
-                  ),
+              ),
+              const SizedBox(width: 6),
+              Tooltip(
+                message: p.path ?? 'Dự án chưa được lưu thành file',
+                child: Text(
+                  _status(),
+                  style: TextStyle(fontSize: kUiText, color: p.dirty ? c.warn : c.muted),
                 ),
+              ),
+            ],
+          );
+          final left = <Widget>[
+            _appMenu(context),
+            Container(width: 1, height: 20, margin: const EdgeInsets.symmetric(horizontal: 8), color: c.line),
+            tab(0, 'Cấu trúc'),
+            tab(1, 'Kết nối'),
+            tab(2, 'Kiểm tra'),
+          ];
+          final right = <Widget>[
+            IconButton(tooltip: 'Hoàn tác (Ctrl+Z)', onPressed: p.canUndo ? p.undo : null, icon: const Icon(Icons.undo)),
+            IconButton(tooltip: 'Làm lại (Ctrl+Y)', onPressed: p.canRedo ? p.redo : null, icon: const Icon(Icons.redo)),
+          ];
+          if (!wide) {
+            return Row(
+              children: [
+                ...left,
+                Expanded(child: Center(child: name)),
+                ...right,
               ],
-            ),
-          ),
-          IconButton(tooltip: 'Hoàn tác (Ctrl+Z)', onPressed: p.canUndo ? p.undo : null, icon: const Icon(Icons.undo)),
-          IconButton(tooltip: 'Làm lại (Ctrl+Y)', onPressed: p.canRedo ? p.redo : null, icon: const Icon(Icons.redo)),
-        ],
+            );
+          }
+          return Stack(
+            alignment: Alignment.center,
+            children: [
+              Row(children: [...left, const Spacer(), ...right]),
+              // Keep clear of the left and right tools on either side.
+              ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: bc.maxWidth - 2 * 460),
+                child: name,
+              ),
+            ],
+          );
+        },
       ),
     );
   }

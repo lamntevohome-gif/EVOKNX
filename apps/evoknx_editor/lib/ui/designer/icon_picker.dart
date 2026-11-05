@@ -59,7 +59,6 @@ class IconField extends StatelessWidget {
               style: const TextStyle(fontSize: kUiText),
             ),
           ),
-          EvoButton(label: 'Đổi biểu tượng', small: true, onPressed: open),
         ],
       ),
     );
