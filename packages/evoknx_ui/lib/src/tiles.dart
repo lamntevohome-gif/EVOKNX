@@ -320,16 +320,19 @@ class TileView extends StatelessWidget {
       final tp = pal.copyWith(tile: Colors.transparent, ink: pal.sInk, muted: pal.sMuted, panel: pal.panel.withValues(alpha: 0.85));
       return TileView(w: w, pal: tp, gas: gas, sim: sim, selected: selected, flagged: flagged, act: act);
     }
-    final on = type == 'switch' ? sim['on'] == true : (type == 'dimmer' ? ((sim['val'] as num?) ?? 0) > 0 : false);
+    // An AC card lights up like a dimmer while it runs (any mode but off).
+    final on = type == 'switch' || type == 'ac' ? sim['on'] == true : (type == 'dimmer' ? ((sim['val'] as num?) ?? 0) > 0 : false);
     final rgb = type == 'dimmer' ? hexColor(sim['rgb']) : null;
     final colorOn = rgb ?? hexColor(style['colorOn']) ?? pal.led;
     final colorOff = hexColor(style['colorOff']) ?? pal.muted;
+    // The popups of an AC card (modes, fan) are not tinted.
+    final lit = on && w['look'] != 'controls' && w['look'] != 'controlsSp';
     // On: the card is tinted with the "on" colour (full and simple looks).
     // Value card, state style: a state marked as alarm tints the card red.
     final alarm = _stateRow()?['alarm'] == true;
     final bg = alarm
         ? Color.alphaBlend(pal.danger.withValues(alpha: 0.18), pal.tile)
-        : (on ? Color.alphaBlend(colorOn.withValues(alpha: 0.30), pal.tile) : pal.tile);
+        : (lit ? Color.alphaBlend(colorOn.withValues(alpha: 0.30), pal.tile) : pal.tile);
     final imageBtn = (type == 'button' || type == 'scene') && w['btnStyle'] == 'image';
     final self = this;
     return AnimatedContainer(
@@ -340,10 +343,10 @@ class TileView extends StatelessWidget {
         borderRadius: BorderRadius.circular(pal.radius),
         border: alarm
             ? Border.all(color: pal.danger, width: max(1.5, pal.border))
-            : pal.border <= 0 || (noBorder && !on)
+            : pal.border <= 0 || (noBorder && !lit)
             ? null
             : Border.all(
-                color: on ? colorOn.withValues(alpha: 0.6 * pal.edgeOpacity) : pal.edge,
+                color: lit ? colorOn.withValues(alpha: 0.6 * pal.edgeOpacity) : pal.edge,
                 width: pal.border,
               ),
         boxShadow: pal.tile == Colors.transparent ? const [] : pal.shadows,
@@ -895,7 +898,8 @@ class TileView extends StatelessWidget {
         final dec = (step * 10 - (step * 10).roundToDouble()).abs() < 1e-9 ? 1 : 2;
         String tempText(num v) => v % 1 == 0 ? fmtNum(v, 0) : fmtNum(v, dec);
         final curMode = kAcModes.where((m) => m.key == mode).firstOrNull;
-        final status = acOn ? ['Đang bật', if (curMode != null) nm(curMode.key, curMode.name), '${tempText(sp)}°C'].join(' · ') : 'Đang tắt';
+        // "Đang tắt", or the mode and the setpoint ("Cool - 25°C"); the fan-only mode has no setpoint.
+        final status = !acOn ? 'Đang tắt' : [if (curMode != null) nm(curMode.key, curMode.name), if (curMode?.key != 'fan') '${tempText(sp)}°C'].join(' - ');
         final stepButtons = ac['stepButtons'] != false;
         Widget spSlider({bool always = false}) => Row(
           children: [
@@ -903,7 +907,7 @@ class TileView extends StatelessWidget {
             Expanded(
               child: Padding(
                 padding: EdgeInsets.symmetric(horizontal: stepButtons ? 10 : 0),
-                child: _slider(acFraction(ac, sp), acOn ? pal.accent : pal.lineStrong, bubble: '${tempText(sp)}°', showBubble: always || sim['drag'] == true),
+                child: _slider(acFraction(ac, sp), acOn ? colorOn : pal.lineStrong, bubble: '${tempText(sp)}°', showBubble: always || sim['drag'] == true),
               ),
             ),
             if (stepButtons) _ibtn('plus', Icons.add, ab * 1.2, expand: false, circle: true),
@@ -963,7 +967,7 @@ class TileView extends StatelessWidget {
         if (w['look'] == 'simple') {
           return Row(
             children: [
-              if (!isNoIcon(w['icon'] as String?)) ...[_icon(acOn ? pal.accent : pal.muted), const SizedBox(width: 10)],
+              if (!isNoIcon(w['icon'] as String?)) ...[_icon(acOn ? colorOn : pal.muted), const SizedBox(width: 10)],
               Expanded(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -978,7 +982,7 @@ class TileView extends StatelessWidget {
         }
         return _col([
           _head(
-            acOn ? pal.accent : pal.muted,
+            acOn ? colorOn : pal.muted,
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
