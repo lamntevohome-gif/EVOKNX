@@ -21,7 +21,7 @@ String themeKey(Object? mode) {
 
 /// The text style of a card's name. Frame titles use it too, so every name in
 /// the Editor preview and the App looks the same.
-TextStyle evoLabelStyle(Json w, Color color) => TextStyle(fontSize: fs(w, 'labelSize'), fontWeight: FontWeight.w500, color: color, height: 1.2);
+TextStyle evoLabelStyle(Json w, Color color) => TextStyle(fontSize: fs(w, 'labelSize'), fontWeight: FontWeight.w400, color: color, height: 1.2);
 
 /// Selection colour of the Editor (not part of the App's palette).
 const Color kEditorSelection = Color(0xFF0D99FF);
