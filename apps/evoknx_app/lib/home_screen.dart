@@ -526,11 +526,7 @@ class _HomeScreenState extends State<HomeScreen> {
           if (showTitle)
             Padding(
               padding: const EdgeInsets.only(left: 4, right: 4, bottom: 8),
-              child: Text(
-                title,
-                textAlign: align,
-                style: TextStyle(fontSize: fs(w, 'labelSize'), fontWeight: FontWeight.w600, color: style == 'card' ? pal.ink : pal.sInk),
-              ),
+              child: Text(title, textAlign: align, maxLines: 1, overflow: TextOverflow.ellipsis, style: evoLabelStyle(w, style == 'card' ? pal.ink : pal.sInk)),
             ),
           Expanded(child: _grid(w, w, pal)),
         ],

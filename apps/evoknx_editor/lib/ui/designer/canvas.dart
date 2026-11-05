@@ -1238,13 +1238,7 @@ class _GroupFrame extends StatelessWidget {
           if (showTitle) ...[
             // Title centred between the frame edge and the grid below it.
             SizedBox(height: max(0.0, gapT - 8)),
-            Text(
-              (w['label'] ?? '').toString(),
-              textAlign: align,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: fs(w, 'labelSize'), fontWeight: FontWeight.w500, color: titleColor),
-            ),
+            Text((w['label'] ?? '').toString(), textAlign: align, maxLines: 1, overflow: TextOverflow.ellipsis, style: evoLabelStyle(w, titleColor)),
             SizedBox(height: gapT),
           ],
           Expanded(

@@ -19,6 +19,10 @@ String themeKey(Object? mode) {
   return kAppThemes.any((t) => t.$1 == m) ? m as String : 'light';
 }
 
+/// The text style of a card's name. Frame titles use it too, so every name in
+/// the Editor preview and the App looks the same.
+TextStyle evoLabelStyle(Json w, Color color) => TextStyle(fontSize: fs(w, 'labelSize'), fontWeight: FontWeight.w400, color: color, height: 1.2);
+
 /// Selection colour of the Editor (not part of the App's palette).
 const Color kEditorSelection = Color(0xFF0D99FF);
 
@@ -270,7 +274,7 @@ class TileView extends StatelessWidget {
   /// same proportions everywhere keep buttons and icons in step.
   Widget _ibtn(String action, Object icon, double s, {Object? arg, bool expand = true, bool circle = false, Color? fill, Color? edge, Color? fg}) {
     final h = s + 12;
-    final color = fg ?? pal.ink;
+    final color = fg ?? pal.muted;
     final inner = Container(
       width: circle ? h : null,
       height: h,
@@ -376,7 +380,7 @@ class TileView extends StatelessWidget {
     (w['label'] ?? '').toString(),
     maxLines: w['type'] == 'shutter' || w['type'] == 'value' || w['type'] == 'ac' ? 1 : 2,
     overflow: TextOverflow.ellipsis,
-    style: TextStyle(fontSize: fs(w, 'labelSize'), fontWeight: FontWeight.w400, color: pal.ink, height: 1.2),
+    style: evoLabelStyle(w, pal.ink),
   );
 
   Widget _state(String s) => Text(
@@ -571,12 +575,12 @@ class TileView extends StatelessWidget {
     final textOn = (style['textOn'] ?? 'Đang bật').toString(), textOff = (style['textOff'] ?? 'Đang tắt').toString();
     switch (type) {
       case 'switch':
-        if (w['look'] == 'simple') return _simple(on ? colorOn : colorOff);
-        return _col([_head(on ? colorOn : colorOff, trailing: _led(on, colorOn)), _state(on ? textOn : textOff)]);
+        if (w['look'] == 'simple') return _simple(pal.muted);
+        return _col([_head(pal.muted, trailing: _led(on, colorOn)), _state(on ? textOn : textOff)]);
       case 'dimmer':
         if (w['look'] == 'simple') {
           return _simple(
-            on ? colorOn : colorOff,
+            pal.muted,
             trailing: act == null && w['showTune'] == false
                 ? null
                 : _tap(
@@ -591,7 +595,7 @@ class TileView extends StatelessWidget {
         final v = ((sim['val'] as num?) ?? 0).toInt();
         return _col([
           _head(
-            on ? colorOn : colorOff,
+            pal.muted,
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -922,7 +926,7 @@ class TileView extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               _head(
-                acOn ? pal.accent : pal.muted,
+                pal.muted,
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
