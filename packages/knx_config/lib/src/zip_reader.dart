@@ -11,8 +11,9 @@ class ZipPasswordException implements Exception {
 }
 
 /// Minimal ZIP reader (stored + deflate), enough for ETS .knxproj files.
-/// With a [password] it also opens WinZip AES (AES-128/192/256) entries,
-/// the format ETS uses for password-protected projects.
+/// With a [password] it also opens password-protected entries: WinZip AES
+/// (AES-128/192/256, ETS 6) and the traditional "ZipCrypto" encryption
+/// (ETS 4 and ETS 5).
 class ZipReader {
   final Uint8List _b;
   final Uint8List? _pwd;
@@ -36,6 +37,8 @@ class ZipReader {
       if (bd.getUint32(p, Endian.little) != 0x02014b50) break;
       final flags = bd.getUint16(p + 8, Endian.little);
       final method = bd.getUint16(p + 10, Endian.little);
+      final time = bd.getUint16(p + 12, Endian.little);
+      final crc = bd.getUint32(p + 16, Endian.little);
       final csize = bd.getUint32(p + 20, Endian.little);
       final nameLen = bd.getUint16(p + 28, Endian.little);
       final extraLen = bd.getUint16(p + 30, Endian.little);
@@ -54,7 +57,7 @@ class ZipReader {
         }
         x += 4 + sz;
       }
-      _entries[name] = _Entry(method, csize, local, (flags & 1) != 0, strength, realMethod);
+      _entries[name] = _Entry(method, csize, local, (flags & 1) != 0, strength, realMethod, crc: crc, time: time, descriptor: (flags & 8) != 0);
       p += 46 + nameLen + extraLen + commentLen;
     }
   }
@@ -68,20 +71,94 @@ class ZipReader {
   Uint8List? read(String name) {
     final e = _entries[name];
     if (e == null) return null;
-    if (e.encrypted && (_pwd == null || e.method != 99)) return null;
+    if (e.encrypted && _pwd == null) return null;
     final bd = ByteData.sublistView(_b);
     final nameLen = bd.getUint16(e.local + 26, Endian.little);
     final extraLen = bd.getUint16(e.local + 28, Endian.little);
     final start = e.local + 30 + nameLen + extraLen;
     var data = _b.sublist(start, start + e.csize);
     var method = e.method;
+    final zipCrypto = e.encrypted && e.method != 99;
     if (e.encrypted) {
-      data = _decryptAes(data, e.strength);
-      method = e.realMethod;
+      if (zipCrypto) {
+        data = _decryptZipCrypto(data, e);
+      } else {
+        data = _decryptAes(data, e.strength);
+        method = e.realMethod;
+      }
     }
-    if (method == 0) return data;
-    if (method == 8) return Uint8List.fromList(ZLibCodec(raw: true).decode(data));
-    throw FormatException('Kiểu nén ZIP chưa hỗ trợ ($method).');
+    Uint8List out;
+    if (method == 0) {
+      out = data;
+    } else if (method == 8) {
+      try {
+        out = Uint8List.fromList(ZLibCodec(raw: true).decode(data));
+      } on FormatException {
+        // Garbage after decrypting: the password was not the right one.
+        if (zipCrypto) throw const ZipPasswordException();
+        rethrow;
+      }
+    } else {
+      throw FormatException('Kiểu nén ZIP chưa hỗ trợ ($method).');
+    }
+    // ZipCrypto has only a one-byte password check: the CRC settles it.
+    if (zipCrypto && _crc32(out) != e.crc) throw const ZipPasswordException();
+    return out;
+  }
+
+  // ---------------------------------------------------------- ZipCrypto
+
+  static final List<int> _crcTable = () {
+    final t = List<int>.filled(256, 0);
+    for (var n = 0; n < 256; n++) {
+      var c = n;
+      for (var k = 0; k < 8; k++) {
+        c = (c & 1) != 0 ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+      }
+      t[n] = c;
+    }
+    return t;
+  }();
+
+  static int _crcStep(int crc, int b) => (crc >>> 8) ^ _crcTable[(crc ^ b) & 0xFF];
+
+  static int _crc32(Uint8List d) {
+    var c = 0xFFFFFFFF;
+    for (final b in d) {
+      c = _crcStep(c, b);
+    }
+    return c ^ 0xFFFFFFFF;
+  }
+
+  /// Traditional PKWARE encryption (ETS 4 and 5): a 12-byte header, then the
+  /// data, both XOR-ed with a stream made from three rolling keys.
+  Uint8List _decryptZipCrypto(Uint8List d, _Entry e) {
+    if (d.length < 12) throw const FormatException('Dữ liệu mã hoá bị hỏng.');
+    var k0 = 0x12345678, k1 = 0x23456789, k2 = 0x34567890;
+    void update(int c) {
+      k0 = _crcStep(k0, c);
+      k1 = ((k1 + (k0 & 0xFF)) * 134775813 + 1) & 0xFFFFFFFF;
+      k2 = _crcStep(k2, k1 >>> 24);
+    }
+
+    for (final b in _pwd!) {
+      update(b);
+    }
+    // Last header byte: high byte of the CRC, or of the time when the sizes
+    // follow the data (bit 3).
+    final check = e.descriptor ? (e.time >>> 8) & 0xFF : (e.crc >>> 24) & 0xFF;
+    final out = Uint8List(d.length - 12);
+    for (var i = 0; i < d.length; i++) {
+      final t = (k2 | 2) & 0xFFFF;
+      final p = d[i] ^ (((t * (t ^ 1)) >>> 8) & 0xFF);
+      update(p);
+      if (i < 12) {
+        if (i == 11 && p != check) throw const ZipPasswordException();
+      } else {
+        out[i - 12] = p;
+      }
+    }
+    return out;
   }
 
   /// WinZip AES: salt | 2-byte check | AES-CTR data | 10-byte HMAC-SHA1.
@@ -120,7 +197,7 @@ class ZipReader {
 }
 
 class _Entry {
-  final int method, csize, local, strength, realMethod;
-  final bool encrypted;
-  _Entry(this.method, this.csize, this.local, this.encrypted, this.strength, this.realMethod);
+  final int method, csize, local, strength, realMethod, crc, time;
+  final bool encrypted, descriptor;
+  _Entry(this.method, this.csize, this.local, this.encrypted, this.strength, this.realMethod, {this.crc = 0, this.time = 0, this.descriptor = false});
 }

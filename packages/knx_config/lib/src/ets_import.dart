@@ -230,7 +230,8 @@ EtsResult _parseKnxproj(Uint8List bytes, String? password) {
   var twoLevel = false;
   var pname = '';
   Uint8List? readP(String n) => prot != null ? prot.read(n) : zip.read('$dir/$n');
-  final pj = readP('project.xml');
+  // ETS 4 writes "Project.xml" with a capital P.
+  final pj = readP('project.xml') ?? readP('Project.xml');
   if (pj != null) {
     final x = decodeText(pj);
     final m = RegExp(r'<ProjectInformation\b[^>]*>').firstMatch(x);
