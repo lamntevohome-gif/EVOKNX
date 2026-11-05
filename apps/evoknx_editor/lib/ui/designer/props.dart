@@ -663,8 +663,19 @@ class _WidgetPropsState extends State<_WidgetProps> {
             ),
             Hint(
               w['look'] == 'simple'
-                  ? 'Biểu tượng, tên và trạng thái (Đang bật · Làm lạnh · 25°C). Bấm nút chỉnh để mở thanh nhiệt độ, chế độ và tốc độ quạt.'
-                  : 'Biểu tượng, tên, trạng thái và thanh trượt nhiệt độ. Bấm nút chỉnh để chọn chế độ và tốc độ quạt. Bấm thẻ để bật/tắt.',
+                  ? 'Biểu tượng, tên và trạng thái (Cool - 25°C). Bấm nút chỉnh để mở thanh nhiệt độ, chế độ và tốc độ quạt. Khi máy chạy, thẻ sáng lên như đèn dim.'
+                  : 'Biểu tượng, tên, trạng thái và thanh trượt nhiệt độ. Bấm nút chỉnh để chọn chế độ và tốc độ quạt. Bấm thẻ để bật/tắt. Khi máy chạy, thẻ sáng lên như đèn dim.',
+            ),
+            FieldLabel(
+              'Màu khi bật',
+              _ColorPicker(
+                value: (jsonMap(w['style'])['colorOn'] ?? '#EE9B2A').toString(),
+                onChanged: (v) => d.editWidget(id, (x) {
+                  final m = jsonMap(x['style']);
+                  m['colorOn'] = v;
+                  x['style'] = m;
+                }, coalesce: 'con-$id'),
+              ),
             ),
             FieldLabel(
               'Biểu tượng nút chỉnh',
