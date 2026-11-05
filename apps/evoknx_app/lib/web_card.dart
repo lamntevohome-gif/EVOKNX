@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:evoknx_ui/evoknx_ui.dart';
+import 'package:flutter/foundation.dart' show Factory;
 import 'package:flutter/gestures.dart' show EagerGestureRecognizer, OneSequenceGestureRecognizer;
 import 'package:flutter/material.dart';
 import 'package:knx_config/knx_config.dart';
