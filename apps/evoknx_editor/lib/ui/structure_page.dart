@@ -57,6 +57,12 @@ class _StructurePageState extends State<StructurePage> {
       d.deleteWidget();
       return KeyEventResult.handled;
     }
+    // No card selected: Delete removes the floor / room / page(s) selected in
+    // the structure tree (asks first).
+    if (k == LogicalKeyboardKey.delete && !d.test && (d.treeSel.isNotEmpty || d.primaryTreeKey != null)) {
+      deleteTreeSelection(context, d);
+      return KeyEventResult.handled;
+    }
     if (ctrl && k == LogicalKeyboardKey.keyC && d.widgetId != null) {
       final m = d.copy();
       if (m != null) toast(context, m);
@@ -249,7 +255,7 @@ class _StructurePageState extends State<StructurePage> {
           Expanded(
             child: Text(
               title,
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: c.muted),
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: c.muted),
             ),
           ),
           if (trailing != null) trailing,
@@ -310,7 +316,7 @@ class _StructurePageState extends State<StructurePage> {
               child: list.isEmpty
                   ? Padding(
                       padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-                      child: Text('Chưa có thẻ. Xuất một thẻ đã cấu hình, hoặc bấm + để thêm từ file.', style: TextStyle(fontSize: 14, color: c.muted)),
+                      child: Text('Chưa có thẻ. Xuất một thẻ đã cấu hình, hoặc bấm + để thêm từ file.', style: TextStyle(fontSize: 13, color: c.muted)),
                     )
                   : ReorderableListView.builder(
                       buildDefaultDragHandles: false,
@@ -392,12 +398,35 @@ class _StructurePageState extends State<StructurePage> {
       },
     );
 
-    return Column(
+    final body = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Expanded(flex: 3, child: types),
         Divider(color: c.line),
         Expanded(flex: 2, child: library),
+      ],
+    );
+    // Cards cannot be added while testing: the list is greyed out.
+    if (!d.test) return body;
+    return Stack(
+      children: [
+        Opacity(opacity: 0.45, child: IgnorePointer(child: body)),
+        Positioned(
+          left: 12,
+          right: 12,
+          bottom: 12,
+          child: Material(
+            color: c.paper,
+            borderRadius: BorderRadius.circular(6),
+            child: Padding(
+              padding: const EdgeInsets.all(10),
+              child: Text(
+                'Đang Chạy thử. Chuyển sang Thiết kế để thêm thẻ.',
+                style: TextStyle(fontSize: kUiText - 1, color: c.muted),
+              ),
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -429,7 +458,7 @@ class _StructurePageState extends State<StructurePage> {
                     ? (widget.bus.connected ? 'Đang điều khiển bus KNX thật' : 'Chưa kết nối bus: mở khu Kiểm tra để kết nối')
                     : 'Lệnh chỉ ghi vào nhật ký, chưa gửi xuống bus',
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 14.5, color: d.live && !widget.bus.connected ? c.danger : c.muted),
+                style: TextStyle(fontSize: 13.5, color: d.live && !widget.bus.connected ? c.danger : c.muted),
               ),
             ),
           ],
@@ -471,7 +500,7 @@ class _StructurePageState extends State<StructurePage> {
             Icon(Icons.play_circle_outline, size: 16, color: c.muted),
             const SizedBox(width: 8),
             const Expanded(
-              child: Text('Nhật ký lệnh', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+              child: Text('Nhật ký lệnh', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
             ),
             if (d.log.isNotEmpty) TextButton(onPressed: () => setState(d.log.clear), child: const Text('Xoá')),
           ],
@@ -481,7 +510,7 @@ class _StructurePageState extends State<StructurePage> {
           d.live && widget.bus.connected
               ? 'Đang điều khiển bus KNX thật. Mọi thay đổi trên bus cũng hiện ngay trên màn hình mô phỏng.'
               : 'Lệnh được ghi lại dưới đây, chưa gửi xuống bus.',
-          style: TextStyle(fontSize: 14, color: c.muted),
+          style: TextStyle(fontSize: 13, color: c.muted),
         ),
         const SizedBox(height: 12),
         const SectionTitle('Lệnh gửi'),

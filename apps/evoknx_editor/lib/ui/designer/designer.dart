@@ -128,7 +128,115 @@ class Designer extends ChangeNotifier {
 
   // ------------------------------------------------------------ selection
 
+  /// Items selected together in the structure tree (Ctrl/Shift+click):
+  /// 'f:<floor id>', 'r:<room id>' or 's:<room id>:<page id>'.
+  final Set<String> treeSel = <String>{};
+
+  /// The tree key of the single selected floor / room / page, if any.
+  String? get primaryTreeKey => switch (view) {
+    'floor' => floorId == null ? null : 'f:$floorId',
+    'room' => roomId == null ? null : (roomFocus ? 'r:$roomId' : (subId == null ? null : 's:$roomId:$subId')),
+    _ => null,
+  };
+
+  /// Ctrl+click: adds or removes a row (the row selected before joins in).
+  void treeToggle(String key) {
+    final cur = primaryTreeKey;
+    if (treeSel.isEmpty && cur != null) treeSel.add(cur);
+    if (!treeSel.add(key)) treeSel.remove(key);
+    _n();
+  }
+
+  /// Shift+click: selects every visible row between the current one and [key].
+  void treeRange(List<String> order, String key) {
+    final a = order.indexOf(primaryTreeKey ?? ''), b = order.indexOf(key);
+    if (b < 0) return;
+    final from = a < 0 ? b : min(a, b), to = a < 0 ? b : max(a, b);
+    treeSel
+      ..clear()
+      ..addAll(order.sublist(from, to + 1));
+    _n();
+  }
+
+  /// What deleting [keys] would remove (rooms of a deleted floor and pages of
+  /// a deleted room go with it; a project keeps one floor and a room one page).
+  ({Set<String> floors, Set<String> rooms, Map<String, Set<String>> subs, int cards, List<String> notes}) planTreeDelete(Set<String> keys) {
+    final notes = <String>[];
+    final allFloors = floorsOf(doc);
+    var fl = <String>{
+      for (final k in keys)
+        if (k.startsWith('f:')) k.substring(2),
+    };
+    if (fl.isNotEmpty && fl.length >= allFloors.length) {
+      final keep = allFloors.first['id'] as String;
+      fl = fl.where((x) => x != keep).toSet();
+      notes.add('Dự án cần ít nhất một tầng nên tầng “${allFloors.first['title']}” được giữ lại.');
+    }
+    final rooms = <String>{
+      for (final k in keys)
+        if (k.startsWith('r:')) k.substring(2),
+    };
+    for (final r in jsonList(doc['pages'])) {
+      if (fl.contains(r['floorId'])) rooms.add(r['id'] as String);
+    }
+    final subs = <String, Set<String>>{};
+    for (final k in keys) {
+      if (!k.startsWith('s:')) continue;
+      final parts = k.split(':');
+      if (parts.length != 3 || rooms.contains(parts[1])) continue;
+      (subs[parts[1]] ??= <String>{}).add(parts[2]);
+    }
+    for (final e in subs.entries.toList()) {
+      final r = byId(jsonList(doc['pages']), e.key);
+      if (r == null) {
+        subs.remove(e.key);
+        continue;
+      }
+      final all = subsOf(r);
+      if (e.value.length >= all.length) {
+        e.value.remove(all.first['id']);
+        notes.add('Phòng “${r['title']}” cần ít nhất một trang nên “${all.first['title']}” được giữ lại.');
+      }
+    }
+    var cards = 0;
+    for (final r in jsonList(doc['pages'])) {
+      final rid = r['id'] as String;
+      for (final sp in subsOf(r)) {
+        if (rooms.contains(rid) || (subs[rid]?.contains(sp['id']) ?? false)) cards += jsonList(sp['widgets']).length;
+      }
+    }
+    return (floors: fl, rooms: rooms, subs: subs, cards: cards, notes: notes);
+  }
+
+  /// Deletes the tree rows in [keys]. Returns a short summary.
+  String deleteTreeItems(Set<String> keys) {
+    final plan = planTreeDelete(keys);
+    p.mutate((d) {
+      rawList(d, 'floors').removeWhere((x) => x is Map && plan.floors.contains(x['id']));
+      rawList(d, 'pages').removeWhere((x) => x is Map && plan.rooms.contains(x['id']));
+      for (final e in plan.subs.entries) {
+        final r = byId(jsonList(d['pages']), e.key);
+        if (r != null) rawList(r, 'subpages').removeWhere((x) => x is Map && e.value.contains(x['id']));
+      }
+    });
+    treeSel.clear();
+    final gone = plan.floors.contains(floorId) || plan.rooms.contains(roomId) || (plan.subs[roomId]?.contains(subId) ?? false);
+    if (gone) {
+      roomId = null;
+      subId = null;
+      floorId = null;
+      overview();
+    } else {
+      widgetId = null;
+      _n();
+    }
+    final n = plan.subs.values.fold<int>(0, (a, b) => a + b.length);
+    final parts = [if (plan.floors.isNotEmpty) '${plan.floors.length} tầng', if (plan.rooms.isNotEmpty) '${plan.rooms.length} phòng', if (n > 0) '$n trang'];
+    return 'Đã xoá ${parts.isEmpty ? 'không mục nào' : parts.join(', ')}.${plan.notes.isEmpty ? '' : ' ${plan.notes.join(' ')}'}';
+  }
+
   void overview() {
+    treeSel.clear();
     view = 'overview';
     widgetId = null;
     cell = null;
@@ -136,6 +244,7 @@ class Designer extends ChangeNotifier {
   }
 
   void selectFloor(String id) {
+    treeSel.clear();
     view = 'floor';
     floorId = id;
     final rs = roomsOf(doc, id);
@@ -151,6 +260,7 @@ class Designer extends ChangeNotifier {
   bool roomFocus = false;
 
   void selectRoom(String id) {
+    treeSel.clear();
     roomFocus = true;
     view = 'room';
     roomId = id;
@@ -170,6 +280,7 @@ class Designer extends ChangeNotifier {
     } else {
       lastDir = 0;
     }
+    treeSel.clear();
     view = 'room';
     roomFocus = false;
     roomId = roomId_;
@@ -465,6 +576,7 @@ class Designer extends ChangeNotifier {
 
   /// Drops [it] on cell (x, y) of box [g] (null = page). Returns an error.
   String? drop(DragItem it, String? g, int x, int y) {
+    if (test) return 'Đang ở chế độ Chạy thử: chuyển sang Thiết kế để thêm hoặc sửa thẻ.';
     final s = sub;
     if (s == null) return 'Hãy chọn một phòng trước.';
     final box = _box(s, g);
@@ -570,6 +682,7 @@ class Designer extends ChangeNotifier {
   /// Adds a card from the card library to the selected cell, or to the first
   /// free spot of the page.
   String? addLibCard(String entryId) {
+    if (test) return 'Đang ở chế độ Chạy thử: chuyển sang Thiết kế để thêm hoặc sửa thẻ.';
     if (room == null) return 'Hãy chọn một phòng trước.';
     final c = cell;
     if (c != null) return drop(DragItem.lib(entryId), c.g, c.x, c.y);
@@ -579,6 +692,7 @@ class Designer extends ChangeNotifier {
   }
 
   String? addWidget(String type) {
+    if (test) return 'Đang ở chế độ Chạy thử: chuyển sang Thiết kế để thêm hoặc sửa thẻ.';
     if (room == null) {
       final f = floor;
       if (f == null) return 'Hãy thêm tầng trước.';
@@ -630,6 +744,7 @@ class Designer extends ChangeNotifier {
   }
 
   String? paste() {
+    if (test) return 'Đang ở chế độ Chạy thử: chuyển sang Thiết kế để thêm hoặc sửa thẻ.';
     final cp = clip;
     final s = sub;
     if (cp == null) return null;

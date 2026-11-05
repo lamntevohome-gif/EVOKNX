@@ -49,7 +49,7 @@ class IconField extends StatelessWidget {
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: c.line),
             ),
-            child: iconWidget(value, 22, c.ink),
+            child: isNoIcon(value) ? Icon(Icons.block, size: 20, color: c.lineStrong) : iconWidget(value, 22, c.ink),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -123,8 +123,8 @@ class _IconPickerDialogState extends State<_IconPickerDialog> {
       // the MDI library (English names, Vietnamese keywords).
       final seen = <String>{};
       base = [
-        for (final i in [..._suggest, ..._group('custom')])
-          if (fold(i.$2).contains(fq) && seen.add(i.$1)) i,
+        for (final i in [(kNoIcon, 'Không có'), ..._suggest, ..._group('custom')])
+          if ((fold(i.$2).contains(fq) || (i.$1 == kNoIcon && 'none'.contains(fq))) && seen.add(i.$1)) i,
         for (final m in Mdi.search(fq))
           if (seen.add(m.key)) (m.key, m.name),
       ];
@@ -135,7 +135,7 @@ class _IconPickerDialogState extends State<_IconPickerDialog> {
   }
 
   List<(String, String)> _group(String g) => switch (g) {
-    'suggest' => _suggest,
+    'suggest' => [(kNoIcon, 'Không có'), ..._suggest],
     'mdi' => [for (final m in Mdi.search('', tag: mdiTag < 0 ? null : mdiTag)) (m.key, m.name)],
     _ => [for (final c in customIcons) (c.id, c.name)],
   };
@@ -227,7 +227,7 @@ class _IconPickerDialogState extends State<_IconPickerDialog> {
     final v = await showDialog<String>(
       context: context,
       builder: (c) => AlertDialog(
-        title: const Text('Đổi tên biểu tượng', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
+        title: const Text('Đổi tên biểu tượng', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
         content: SizedBox(
           width: 360,
           child: TextField(controller: ctl, autofocus: true, onSubmitted: (s) => Navigator.pop(c, s)),
@@ -254,7 +254,7 @@ class _IconPickerDialogState extends State<_IconPickerDialog> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
-        title: Text('Xoá biểu tượng “${ci.name}”?', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
+        title: Text('Xoá biểu tượng “${ci.name}”?', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
         content: SizedBox(
           width: 400,
           child: Text(
@@ -297,7 +297,7 @@ class _IconPickerDialogState extends State<_IconPickerDialog> {
     final items = _items();
     final searching = q.trim().isNotEmpty;
     return AlertDialog(
-      title: const Text('Chọn biểu tượng', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
+      title: const Text('Chọn biểu tượng', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
       content: SizedBox(
         width: 760,
         height: 480,
@@ -335,7 +335,7 @@ class _IconPickerDialogState extends State<_IconPickerDialog> {
                     Expanded(
                       child: Text(
                         'Material Design Icons · Pictogrammers. Gõ tìm bằng tiếng Việt (đèn, rèm, quạt…) hoặc tiếng Anh.',
-                        style: TextStyle(fontSize: 15, color: c.muted),
+                        style: TextStyle(fontSize: 14, color: c.muted),
                       ),
                     ),
                   ],
@@ -351,7 +351,7 @@ class _IconPickerDialogState extends State<_IconPickerDialog> {
                     Expanded(
                       child: Text(
                         'SVG hoặc PNG, ảnh vuông 96 × 96 px, dưới 100 KB. Nên dùng biểu tượng một màu trên nền trong suốt: App sẽ tự tô màu theo trạng thái bật/tắt.',
-                        style: TextStyle(fontSize: 14.5, color: c.muted),
+                        style: TextStyle(fontSize: 13.5, color: c.muted),
                       ),
                     ),
                     const SizedBox(width: 10),
@@ -398,14 +398,16 @@ class _IconPickerDialogState extends State<_IconPickerDialog> {
                                       padding: const EdgeInsets.fromLTRB(4, 12, 4, 6),
                                       child: Column(
                                         children: [
-                                          iconWidget(key, 28, on ? c.accentInk : c.ink),
+                                          isNoIcon(key)
+                                              ? Icon(Icons.block, size: 26, color: on ? c.accentInk : c.lineStrong)
+                                              : iconWidget(key, 28, on ? c.accentInk : c.ink),
                                           const Spacer(),
                                           Text(
                                             name,
                                             maxLines: 2,
                                             textAlign: TextAlign.center,
                                             overflow: TextOverflow.ellipsis,
-                                            style: TextStyle(fontSize: 14, color: c.muted, height: 1.2),
+                                            style: TextStyle(fontSize: 13, color: c.muted, height: 1.2),
                                           ),
                                         ],
                                       ),

@@ -223,7 +223,7 @@ Json makeRoom(String title, {String icon = 'sofa', String? floorId}) => {
       'subpages': [makeSub('Trang 1')],
     };
 
-Json makeFloor(String title, {String icon = 'stairs'}) => {'id': uid('fl_'), 'title': title, 'icon': icon, 'rows': 12, 'cols': 4};
+Json makeFloor(String title, {String icon = 'none'}) => {'id': uid('fl_'), 'title': title, 'icon': icon, 'rows': 12, 'cols': 4};
 
 Json makeWidget(String type, int x, int y, [int? w, int? h]) {
   final t = kWidgetTypes[type]!;

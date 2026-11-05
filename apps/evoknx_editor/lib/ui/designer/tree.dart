@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show HardwareKeyboard;
 import 'package:knx_config/knx_config.dart';
 
 import '../../app/theme.dart';
@@ -75,6 +76,30 @@ class StructureTree extends StatelessWidget {
     final curSub = d.sub;
     const sep = (Icons.remove, '', null);
 
+    // Visible rows in order, for Shift+click ranges.
+    final order = <String>[
+      for (final f in floorsOf(doc)) ...[
+        'f:${f['id']}',
+        for (final r in roomsOf(doc, f['id'] as String?)) ...[
+          'r:${r['id']}',
+          if (curRoom?['id'] == r['id'])
+            for (final s in subsOf(r)) 's:${r['id']}:${s['id']}',
+        ],
+      ],
+    ];
+
+    void tapRow(String key, VoidCallback normal) {
+      final kb = HardwareKeyboard.instance;
+      if (kb.isControlPressed || kb.isMetaPressed) {
+        d.treeToggle(key);
+      } else if (kb.isShiftPressed) {
+        d.treeRange(order, key);
+      } else {
+        d.treeSel.clear();
+        normal();
+      }
+    }
+
     Widget row({
       required Widget leading,
       required String text,
@@ -82,17 +107,28 @@ class StructureTree extends StatelessWidget {
       required bool on,
       required VoidCallback onTap,
       required void Function(Offset at) onMenu,
+      String? selKey,
       double indent = 0,
       bool bold = false,
       _TreeDrag? drag,
       bool Function(_TreeDrag t)? accepts,
       void Function(_TreeDrag t)? onDrop,
     }) {
+      // With several rows selected, those rows are highlighted instead.
+      final isOn = selKey != null && d.treeSel.isNotEmpty ? d.treeSel.contains(selKey) : on;
+      void menu(Offset at) {
+        if (selKey != null && d.treeSel.length > 1 && d.treeSel.contains(selKey)) {
+          _menu(context, at, [(Icons.delete_outline, 'Xoá ${d.treeSel.length} mục đã chọn…', () => deleteTreeSelection(context, d))]);
+        } else {
+          onMenu(at);
+        }
+      }
+
       Widget body(bool hover) => Material(
-        color: on ? c.accentSoft : Colors.transparent,
+        color: isOn ? c.accentSoft : Colors.transparent,
         child: InkWell(
-          onTap: onTap,
-          onSecondaryTapDown: (e) => onMenu(e.globalPosition),
+          onTap: selKey == null ? onTap : () => tapRow(selKey, onTap),
+          onSecondaryTapDown: (e) => menu(e.globalPosition),
           child: Container(
             height: 34,
             padding: EdgeInsets.only(left: 12 + indent, right: 12),
@@ -108,7 +144,7 @@ class StructureTree extends StatelessWidget {
                     style: TextStyle(fontSize: kUiText, fontWeight: bold ? FontWeight.w600 : FontWeight.w400, color: c.ink),
                   ),
                 ),
-                if (trailing != null) Text(trailing, style: TextStyle(fontSize: 14, color: c.muted)),
+                if (trailing != null) Text(trailing, style: TextStyle(fontSize: 13, color: c.muted)),
               ],
             ),
           ),
@@ -166,6 +202,7 @@ class StructureTree extends StatelessWidget {
             trailing: '${roomsOf(doc, f['id'] as String?).length}',
             on: d.view == 'floor' && d.floor?['id'] == f['id'],
             bold: true,
+            selKey: 'f:${f['id']}',
             onTap: () => d.selectFloor(f['id'] as String),
             drag: _TreeDrag('floor', f['id'] as String),
             accepts: (t) => t.kind == 'floor' || t.kind == 'room',
@@ -199,6 +236,7 @@ class StructureTree extends StatelessWidget {
               text: (r['title'] ?? '').toString(),
               trailing: '${subsOf(r).fold<int>(0, (n, s) => n + jsonList(s['widgets']).length)}',
               on: d.view == 'room' && d.roomFocus && curRoom?['id'] == r['id'],
+              selKey: 'r:${r['id']}',
               onTap: () => d.selectRoom(r['id'] as String),
               drag: _TreeDrag('room', r['id'] as String),
               accepts: (t) => t.kind == 'room',
@@ -247,6 +285,7 @@ class StructureTree extends StatelessWidget {
                   text: (s['title'] ?? '').toString(),
                   trailing: '${jsonList(s['widgets']).length}',
                   on: d.view == 'room' && !d.roomFocus && s['id'] == curSub?['id'],
+                  selKey: 's:${r['id']}:${s['id']}',
                   onTap: () => d.selectSub(r['id'] as String, s['id'] as String),
                   drag: _TreeDrag('sub', s['id'] as String, r['id'] as String),
                   accepts: (t) => t.kind == 'sub' && t.roomId == r['id'],
@@ -287,4 +326,41 @@ class StructureTree extends StatelessWidget {
       ],
     );
   }
+}
+
+/// Confirms and deletes the selected floors, rooms and pages (Delete key or
+/// the right-click menu). A floor takes its rooms with it, a room its pages.
+Future<void> deleteTreeSelection(BuildContext context, Designer d) async {
+  final keys = d.treeSel.isNotEmpty ? {...d.treeSel} : <String>{if (d.primaryTreeKey != null) d.primaryTreeKey!};
+  if (keys.isEmpty) return;
+  final plan = d.planTreeDelete(keys);
+  final nSubs = plan.subs.values.fold<int>(0, (a, b) => a + b.length);
+  if (plan.floors.isEmpty && plan.rooms.isEmpty && nSubs == 0) {
+    toast(context, plan.notes.isEmpty ? 'Không có gì để xoá.' : plan.notes.join(' '));
+    return;
+  }
+  final parts = [
+    if (plan.floors.isNotEmpty) '${plan.floors.length} tầng',
+    if (plan.rooms.isNotEmpty) '${plan.rooms.length} phòng',
+    if (nSubs > 0) '$nSubs trang',
+  ];
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (c) => AlertDialog(
+      title: Text('Xoá ${parts.join(', ')}?'),
+      content: SizedBox(
+        width: 400,
+        child: Text(
+          '${plan.cards > 0 ? 'Gồm ${plan.cards} thẻ bên trong sẽ bị xoá theo. ' : ''}'
+          'Có thể hoàn tác bằng Ctrl+Z.${plan.notes.isEmpty ? '' : '\n\n${plan.notes.join('\n')}'}',
+        ),
+      ),
+      actions: [
+        EvoButton(label: 'Huỷ', onPressed: () => Navigator.pop(c, false)),
+        EvoButton(label: 'Xoá', danger: true, onPressed: () => Navigator.pop(c, true)),
+      ],
+    ),
+  );
+  if (ok != true || !context.mounted) return;
+  toast(context, d.deleteTreeItems(keys));
 }

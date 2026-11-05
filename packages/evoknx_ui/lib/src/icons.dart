@@ -240,7 +240,12 @@ List<CustomIcon> get customIcons => _custom.values.toList();
 bool isCustomIcon(String? key) => key != null && _custom.containsKey(key);
 
 /// Draws an icon by key: built-in Material icon or a custom (tinted) icon.
+/// The icon key meaning "no icon": nothing is drawn.
+const String kNoIcon = 'none';
+bool isNoIcon(String? key) => key == kNoIcon;
+
 Widget iconWidget(String? key, double size, Color color) {
+  if (isNoIcon(key)) return const SizedBox.shrink();
   key = mdiKeyOf(key);
   if (key != null && key.startsWith('mdi:')) {
     final m = Mdi.byName[key.substring(4)];
@@ -261,6 +266,7 @@ Widget iconWidget(String? key, double size, Color color) {
 }
 
 String iconLabel(String? key) {
+  if (isNoIcon(key)) return 'Không có';
   if (kLegacyToMdi.containsKey(key)) return iconName(key);
   if (key != null && key.startsWith('mdi:')) return key.substring(4);
   return _custom[key]?.name ?? iconName(key);

@@ -150,10 +150,21 @@ const kFs = {
   'acMode': FsDef('acMode', 'Nút chế độ', 16, 12, 28),
 };
 
+/// Scale applied to every card/bar text and icon size. The Editor keeps 1.
+/// The App sets it on Android phones, whose logical screen width differs a
+/// lot from device to device (about 360–540 dp), so that text and icons keep
+/// the proportions of the Editor preview (393 dp wide). iOS stays at 1.
+class EvoScale {
+  static double k = 1;
+
+  /// Design width of the phone preview in the Editor (dp).
+  static const double phoneDesignWidth = 393;
+}
+
 double fs(Json w, String key) {
   final d = kFs[key]!;
   final v = (jsonMap(w['text'])[key] as num?)?.toInt();
-  return (v != null && v >= d.min && v <= d.max ? v : d.def).toDouble();
+  return (v != null && v >= d.min && v <= d.max ? v : d.def).toDouble() * EvoScale.k;
 }
 
 List<String> fsKeysFor(String type) => switch (type) {
@@ -185,7 +196,7 @@ const kTfs = [
 double tfs(Json doc, String key) {
   final d = kTfs.firstWhere((x) => x.key == key);
   final v = (jsonMap(doc['theme'])[key] as num?)?.toInt();
-  return (v != null && v >= d.min && v <= d.max ? v : d.def).toDouble();
+  return (v != null && v >= d.min && v <= d.max ? v : d.def).toDouble() * EvoScale.k;
 }
 
 // ------------------------------------------------------------- issues

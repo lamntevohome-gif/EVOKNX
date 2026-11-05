@@ -8,4 +8,4 @@ export 'src/model.dart';
 export 'src/tiles.dart';
 
 /// Font family of the EVOKNX interface (bundled in this package).
-const String kEvoFont = 'packages/evoknx_ui/Inter';
+const String kEvoFont = 'packages/evoknx_ui/InterTight';

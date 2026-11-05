@@ -67,7 +67,7 @@ class _ImportDialogState extends State<_ImportDialog> {
               '$n',
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600, color: warn && n > 0 ? c.warn : c.ink),
             ),
-            Text(t, style: TextStyle(fontSize: 14.5, color: c.muted)),
+            Text(t, style: TextStyle(fontSize: 13.5, color: c.muted)),
           ],
         ),
       ),
@@ -106,7 +106,7 @@ class _ImportDialogState extends State<_ImportDialog> {
       ),
     );
     return AlertDialog(
-      title: const Text('Nhập địa chỉ nhóm từ ETS', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
+      title: const Text('Nhập địa chỉ nhóm từ ETS', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
       content: SizedBox(
         width: 520,
         child: Column(

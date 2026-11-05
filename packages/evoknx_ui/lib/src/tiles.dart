@@ -10,6 +10,15 @@ import 'icons.dart';
 import 'model.dart';
 
 /// Colours of the simulated app screen (light/dark like the real app).
+/// The App themes shown in the pickers: (key, Vietnamese name).
+const List<(String, String)> kAppThemes = [('light', 'Sáng'), ('dark', 'Tối'), ('graphite', 'Xám than'), ('gray', 'Xám'), ('ocean', 'Xanh biển')];
+
+/// A valid theme key ('sand', the old cream theme, becomes 'gray').
+String themeKey(Object? mode) {
+  final m = mode == 'sand' ? 'gray' : mode;
+  return kAppThemes.any((t) => t.$1 == m) ? m as String : 'light';
+}
+
 /// Selection colour of the Editor (not part of the App's palette).
 const Color kEditorSelection = Color(0xFF0D99FF);
 
@@ -127,12 +136,12 @@ class AppPalette {
     );
   }
 
-  /// App themes: Sáng, Tối, and two neutral themes (Xám than, Kem).
+  /// App themes: Sáng, Tối, Xám than, Xám and Xanh biển.
   /// Older projects using "system" fall back to Sáng.
   static AppPalette of(String? mode) => switch (mode) {
     'dark' => dark,
     'graphite' => graphite,
-    'sand' => sand,
+    'gray' || 'sand' => gray,
     'ocean' => ocean,
     _ => light,
   };
@@ -154,39 +163,41 @@ class AppPalette {
     danger: Color(0xFFEE7B66),
   );
 
-  /// Neutral warm light (sand / ivory).
-  static const sand = AppPalette(
-    screen: Color(0xFFE0DACF),
-    tile: Color(0xFFFFFDF9),
-    tileEdge: Color(0xFFD0C8BA),
-    panel: Color(0xFFFFFDFA),
-    ink: Color(0xFF2A2622),
-    muted: Color(0xFF7A7067),
-    line: Color(0xFFE0D8CC),
-    lineStrong: Color(0xFFCFC6B8),
-    accent: Color(0xFF2F7D5B),
-    accentSoft: Color(0xFFE3EFE6),
-    led: Color(0xFFE08E2B),
-    ledSoft: Color(0xFFF8EBD7),
-    danger: Color(0xFFC2412D),
+  /// Neutral mid grey ("Xám"): grey screen, lighter grey cards. Older
+  /// projects that used the cream theme ('sand') show this one.
+  static const gray = AppPalette(
+    screen: Color(0xFFB4B8BD),
+    tile: Color(0xFFDADDE0),
+    tileEdge: Color(0xFFA5A9AE),
+    panel: Color(0xFFE8EAEC),
+    ink: Color(0xFF1D2124),
+    muted: Color(0xFF4F565C),
+    line: Color(0xFFC4C8CC),
+    lineStrong: Color(0xFF9A9FA5),
+    accent: Color(0xFF1E7F57),
+    accentSoft: Color(0xFFD3E4DB),
+    led: Color(0xFFE08A1E),
+    ledSoft: Color(0xFFE9DCC4),
+    danger: Color(0xFFB83A27),
   );
 
-  /// Blue theme (#0878A5): a blue screen with light cards.
+  /// Sea blue ("Xanh biển"): a deep blue-green screen with cards of nearly
+  /// the same tone, a little lighter.
   static const ocean = AppPalette(
-    screen: Color(0xFF0878A5),
-    tile: Color(0xFFF3F9FC),
-    tileEdge: Color(0xFFC5E1EE),
-    panel: Color(0xFFFFFFFF),
-    ink: Color(0xFF0B2A38),
-    muted: Color(0xFF5F7F8F),
-    line: Color(0xFFD3E6EF),
-    lineStrong: Color(0xFFA9CBDB),
-    accent: Color(0xFF0878A5),
-    accentSoft: Color(0xFFDDF0F8),
-    led: Color(0xFFEE9B2A),
-    ledSoft: Color(0xFFFDF1DC),
-    danger: Color(0xFFC2412D),
-    // Text written straight on the blue screen.
+    screen: Color(0xFF076B86),
+    tile: Color(0xFF2F8499),
+    tileEdge: Color(0xFF4F9CAF),
+    panel: Color(0xFF4294A7),
+    ink: Color(0xFFF2FAFC),
+    muted: Color(0xFFB6D9E3),
+    line: Color(0xFF4F97AA),
+    lineStrong: Color(0xFF72B3C3),
+    accent: Color(0xFF1FB58F),
+    accentSoft: Color(0xFF2B7F91),
+    led: Color(0xFFF5B54A),
+    ledSoft: Color(0xFF55664F),
+    danger: Color(0xFFFF8F7A),
+    // Text written straight on the screen.
     onScreenInk: Color(0xFFFFFFFF),
     onScreenMuted: Color(0xC0FFFFFF),
   );
@@ -355,8 +366,7 @@ class TileView extends StatelessWidget {
 
   Widget _head(Color iconColor, {Widget? trailing}) => Row(
     children: [
-      _icon(iconColor),
-      const SizedBox(width: 8),
+      if (!isNoIcon(w['icon'] as String?)) ...[_icon(iconColor), const SizedBox(width: 8)],
       Expanded(child: _label()),
       if (trailing != null) ...[const SizedBox(width: 6), trailing],
     ],
@@ -445,9 +455,9 @@ class TileView extends StatelessWidget {
   Widget _liveDot() => Container(
     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
     decoration: BoxDecoration(color: const Color(0xFFE5484D), borderRadius: BorderRadius.circular(6)),
-    child: const Text(
+    child: Text(
       'LIVE',
-      style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w700, color: Colors.white, letterSpacing: 0.5),
+      style: TextStyle(fontSize: 9.5 * EvoScale.k, fontWeight: FontWeight.w700, color: Colors.white, letterSpacing: 0.5),
     ),
   );
 
@@ -455,8 +465,7 @@ class TileView extends StatelessWidget {
   /// text; on/off is shown by the card colour.
   Widget _simple(Color iconColor, {Widget? trailing}) => Row(
     children: [
-      _icon(iconColor),
-      const SizedBox(width: 10),
+      if (!isNoIcon(w['icon'] as String?)) ...[_icon(iconColor), const SizedBox(width: 10)],
       Expanded(
         child: Text(
           (w['label'] ?? '').toString(),
@@ -508,7 +517,7 @@ class TileView extends StatelessWidget {
                             'Chưa có ảnh',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: TextStyle(fontSize: 11, color: pal.muted),
+                            style: TextStyle(fontSize: 11 * EvoScale.k, color: pal.muted),
                           ),
                         ),
                       ],
@@ -723,7 +732,7 @@ class TileView extends StatelessWidget {
                             child: Text(
                               host.isEmpty ? 'Chưa có địa chỉ web' : host,
                               overflow: TextOverflow.ellipsis,
-                              style: TextStyle(fontSize: 11, color: pal.muted),
+                              style: TextStyle(fontSize: 11 * EvoScale.k, color: pal.muted),
                             ),
                           ),
                         ],
@@ -739,7 +748,7 @@ class TileView extends StatelessWidget {
                             Text(
                               host.isEmpty ? 'Nhập địa chỉ web trong thuộc tính' : 'Trang web hiển thị tại đây trong App',
                               textAlign: TextAlign.center,
-                              style: TextStyle(fontSize: 12, color: pal.muted),
+                              style: TextStyle(fontSize: 12 * EvoScale.k, color: pal.muted),
                             ),
                           ],
                         ),
@@ -757,17 +766,17 @@ class TileView extends StatelessWidget {
         final p = ((sim['pos'] as num?) ?? 0).toInt();
         final b = jsonMap(w['bind']);
         final showPct = b['status'] != null || b['position'] != null;
-        final bi = fs(w, 'btnIcon') * 1.3;
+        final bi = fs(w, 'btnIcon') * 1.55;
         Widget btn(Object i, String a) => Expanded(
           child: _tap(
             a,
             Container(
-              height: bi + 20,
-              margin: const EdgeInsets.symmetric(horizontal: 3),
+              height: bi + 12,
+              margin: const EdgeInsets.symmetric(horizontal: 1.5),
               decoration: BoxDecoration(
                 color: pal.panel,
                 border: Border.all(color: pal.tileEdge),
-                borderRadius: BorderRadius.circular(bi * 0.5 + 2),
+                borderRadius: BorderRadius.circular(bi * 0.4 + 2),
               ),
               child: Center(
                 child: i is IconData ? Icon(i, size: bi, color: pal.ink) : iconWidget(i as String, bi, pal.ink),
@@ -806,7 +815,7 @@ class TileView extends StatelessWidget {
         final modes = jsonMap(ac['modes']);
         final names = jsonMap(ac['names']);
         final ab = fs(w, 'acBtn'), am = fs(w, 'acMode');
-        final modeLabel = (ac['modeLabel'] ?? 'both').toString();
+        final modeLabel = (ac['modeLabel'] ?? 'icon').toString();
         final showCur = ac['showCur'] != false && jsonMap(w['bind'])['current'] != null;
         Widget round(IconData i, String a) => _tap(
           a,
@@ -826,7 +835,7 @@ class TileView extends StatelessWidget {
             key == 'off' ? 'off' : 'mode',
             Container(
               margin: const EdgeInsets.symmetric(horizontal: 2),
-              padding: EdgeInsets.symmetric(vertical: am * 0.35),
+              padding: EdgeInsets.symmetric(vertical: modeLabel == 'icon' ? am * 0.55 : am * 0.35),
               decoration: BoxDecoration(
                 color: active ? pal.ink : pal.panel,
                 border: Border.all(color: active ? pal.ink : pal.tileEdge),
@@ -945,11 +954,6 @@ class TileView extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(
-                'Chế độ',
-                style: TextStyle(fontSize: fs(w, 'stateSize'), color: pal.muted),
-              ),
-              SizedBox(height: am * 0.4),
               Row(
                 children: [
                   modeBtn('off', nm('off', 'Tắt'), 'power', !acOn),
@@ -958,12 +962,7 @@ class TileView extends StatelessWidget {
                 ],
               ),
               if (fanOn) ...[
-                SizedBox(height: am),
-                Text(
-                  'Tốc độ quạt',
-                  style: TextStyle(fontSize: fs(w, 'stateSize'), color: pal.muted),
-                ),
-                SizedBox(height: am * 0.4),
+                SizedBox(height: am * 0.8),
                 Row(
                   children: [
                     for (final k in levels)
@@ -1158,7 +1157,7 @@ class CameraView extends StatelessWidget {
             Text(
               text,
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 11.5, color: Colors.white.withValues(alpha: 0.7)),
+              style: TextStyle(fontSize: 11.5 * EvoScale.k, color: Colors.white.withValues(alpha: 0.7)),
             ),
           ],
         ),

@@ -147,7 +147,7 @@ class FieldLabel extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(label, style: TextStyle(fontSize: 14, color: context.evo.muted)),
+        Text(label, style: TextStyle(fontSize: 13, color: context.evo.muted)),
         const SizedBox(height: 4),
         child,
       ],
@@ -187,7 +187,7 @@ class EvoDropdown<T> extends StatelessWidget {
           iconEnabledColor: c.muted,
           dropdownColor: c.panel,
           borderRadius: BorderRadius.circular(6),
-          style: TextStyle(fontSize: kUiText, color: warn ? c.warn : c.ink, fontFamily: 'packages/evoknx_ui/Inter'),
+          style: TextStyle(fontSize: kUiText, color: warn ? c.warn : c.ink, fontFamily: 'packages/evoknx_ui/InterTight'),
           items: [
             for (final i in items)
               DropdownMenuItem<T>(
@@ -344,6 +344,6 @@ class Hint extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (!visible) return const SizedBox.shrink();
-    return Text(text, style: TextStyle(fontSize: 14, height: 1.4, color: context.evo.muted));
+    return Text(text, style: TextStyle(fontSize: 13, height: 1.4, color: context.evo.muted));
   }
 }

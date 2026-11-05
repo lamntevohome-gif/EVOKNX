@@ -81,9 +81,9 @@ class DesignCanvas extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(frameName, style: TextStyle(fontSize: 14, color: ec.muted)),
+                Text(frameName, style: TextStyle(fontSize: 13, color: ec.muted)),
                 const SizedBox(width: 8),
-                Text('${size.width.round()} × ${size.height.round()}', style: TextStyle(fontSize: 14, color: ec.lineStrong)),
+                Text('${size.width.round()} × ${size.height.round()}', style: TextStyle(fontSize: 13, color: ec.lineStrong)),
               ],
             ),
           ),
@@ -493,7 +493,10 @@ class _Screen extends StatelessWidget {
                       padding: const EdgeInsets.fromLTRB(8, 10, 8, 4),
                       child: Row(
                         children: [
-                          if (f['showIcon'] != false) ...[iconWidget(f['icon'] as String? ?? 'stairs', 14, pal.muted), const SizedBox(width: 6)],
+                          if (f['showIcon'] != false && !isNoIcon(f['icon'] as String?)) ...[
+                            iconWidget(f['icon'] as String? ?? 'stairs', 14, pal.muted),
+                            const SizedBox(width: 6),
+                          ],
                           Text(
                             (f['title'] ?? '').toString(),
                             style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: pal.muted),
@@ -511,8 +514,10 @@ class _Screen extends StatelessWidget {
                         decoration: BoxDecoration(color: r['id'] == room?['id'] ? pal.ink : Colors.transparent, borderRadius: BorderRadius.circular(12)),
                         child: Row(
                           children: [
-                            iconWidget(r['icon'] as String?, 20, r['id'] == room?['id'] ? pal.screen : pal.muted),
-                            const SizedBox(width: 10),
+                            if (!isNoIcon(r['icon'] as String?)) ...[
+                              iconWidget(r['icon'] as String?, 20, r['id'] == room?['id'] ? pal.screen : pal.muted),
+                              const SizedBox(width: 10),
+                            ],
                             Expanded(
                               child: Text(
                                 (r['title'] ?? '').toString(),
@@ -562,8 +567,10 @@ class _Screen extends StatelessWidget {
                   ),
                   child: Row(
                     children: [
-                      iconWidget(r['icon'] as String?, f * 1.25, r['id'] == room['id'] ? pal.screen : pal.muted),
-                      SizedBox(width: f * 0.45),
+                      if (!isNoIcon(r['icon'] as String?)) ...[
+                        iconWidget(r['icon'] as String?, f * 1.25, r['id'] == room['id'] ? pal.screen : pal.muted),
+                        SizedBox(width: f * 0.45),
+                      ],
                       Text(
                         (r['title'] ?? '').toString(),
                         style: TextStyle(fontSize: f, fontWeight: FontWeight.w500, color: r['id'] == room['id'] ? pal.screen : pal.ink),
@@ -727,7 +734,7 @@ class _Screen extends StatelessWidget {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            if (fl['showIcon'] != false) ...[
+                            if (fl['showIcon'] != false && !isNoIcon(fl['icon'] as String?)) ...[
                               iconWidget(fl['icon'] as String? ?? 'stairs', f * 1.25, fl['id'] == floor?['id'] ? pal.screen : pal.muted),
                               SizedBox(width: f * 0.45),
                             ],
@@ -908,7 +915,7 @@ class _GridAreaState extends State<_GridArea> {
                         // Selected cell: outline only (Editor selection blue), no fill.
                         color: Colors.transparent,
                         borderRadius: BorderRadius.circular(widget.groupId == null ? 14 : 10),
-                        border: Border.all(color: sel ? kEditorSelection : pal.lineStrong.withValues(alpha: 0.6), width: sel ? 2 : 1),
+                        border: Border.all(color: sel ? kEditorSelection.withValues(alpha: 0.7) : pal.lineStrong.withValues(alpha: 0.6), width: sel ? 1.25 : 1),
                       ),
                     ),
                   ),
@@ -1579,12 +1586,12 @@ class _AppSettingsSheet extends StatelessWidget {
   final Designer d;
   final AppPalette pal;
 
-  static const _themes = [('light', 'Sáng'), ('dark', 'Tối'), ('graphite', 'Xám than'), ('sand', 'Kem'), ('ocean', 'Xanh biển')];
+  static const _themes = kAppThemes;
 
   @override
   Widget build(BuildContext context) {
     final doc = d.doc;
-    final projMode = (jsonMap(doc['theme'])['mode'] ?? 'light').toString();
+    final projMode = themeKey(jsonMap(doc['theme'])['mode']);
     final cur = d.previewTheme ?? projMode;
     final online = d.bus?.connected == true && d.live;
     Widget card(String title, List<Widget> children) => Padding(

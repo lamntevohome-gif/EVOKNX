@@ -61,26 +61,26 @@ class DptGroup {
   final String id, size, name;
   final int main;
   const DptGroup(this.id, this.size, this.main, this.name);
-  String get label => '$size – DPT $main.* $name';
+  String get label => '$size - (DPT $main.*) $name';
 }
 
 const List<DptGroup> kDptGroups = [
-  DptGroup('1.001', '1 Bit', 1, 'Boolean (bật/tắt)'),
-  DptGroup('3.007', '4 Bit', 3, 'Điều khiển / Dim'),
-  DptGroup('5.001', '8 Bit', 5, 'Số không dấu'),
-  DptGroup('6.010', '8 Bit', 6, 'Số có dấu'),
-  DptGroup('7.001', '16 Bit', 7, 'Số không dấu'),
-  DptGroup('8.001', '16 Bit', 8, 'Số có dấu'),
-  DptGroup('9.001', '16 Bit', 9, 'Số thực'),
-  DptGroup('12.001', '32 Bit', 12, 'Số không dấu'),
-  DptGroup('13.001', '32 Bit', 13, 'Số có dấu'),
-  DptGroup('14', '32 Bit', 14, 'Số thực'),
-  DptGroup('19.001', '8 Byte', 19, 'Ngày và giờ'),
-  DptGroup('16.000', '14 Byte', 16, 'Chuỗi ký tự'),
+  DptGroup('1.001', '1 Bit', 1, 'Boolean'),
+  DptGroup('3.007', '4 Bit', 3, 'Controlled / Dimming'),
+  DptGroup('5.001', '8 Bit', 5, 'Unsigned Value'),
+  DptGroup('6.010', '8 Bit', 6, 'Signed Value'),
+  DptGroup('7.001', '16 Bit', 7, 'Unsigned Value'),
+  DptGroup('8.001', '16 Bit', 8, 'Signed Value'),
+  DptGroup('9.001', '16 Bit', 9, 'Float Value'),
+  DptGroup('12.001', '32 Bit', 12, 'Unsigned Value'),
+  DptGroup('13.001', '32 Bit', 13, 'Signed Value'),
+  DptGroup('14', '32 Bit', 14, 'Float Value'),
+  DptGroup('19.001', '8 Byte', 19, 'Date and Time'),
+  DptGroup('16.000', '14 Byte', 16, 'String Value'),
 ];
 
 /// Readable name of a type: its size group, plus the exact sub-type when it
-/// is not the group's default (e.g. "16 Bit – DPT 9.* Số thực (9.004)").
+/// is not the group's default (e.g. "16 Bit - (DPT 9.*) Float Value (9.004)").
 String dptLabel(String dpt) {
   final m = dptMain(dpt);
   final g = kDptGroups.where((x) => x.main == m).firstOrNull;

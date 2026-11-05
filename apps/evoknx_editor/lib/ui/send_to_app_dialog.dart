@@ -121,7 +121,7 @@ class _SendDialogState extends State<_SendDialog> {
                                           children: [
                                             TextSpan(
                                               text: '${a.ip}:${share.port}',
-                                              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                                              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
                                             ),
                                             TextSpan(
                                               text: '   ${a.interfaceName}',

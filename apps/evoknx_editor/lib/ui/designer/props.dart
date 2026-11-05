@@ -11,6 +11,7 @@ import '../../state/app_settings.dart';
 import '../common.dart';
 import 'designer.dart';
 import 'icon_picker.dart';
+import 'tree.dart' show deleteTreeSelection;
 
 import 'package:evoknx_ui/evoknx_ui.dart';
 
@@ -763,7 +764,7 @@ class _WidgetPropsState extends State<_WidgetProps> {
             FieldLabel(
               'Nút chế độ hiển thị',
               EvoDropdown<String>(
-                value: (ac['modeLabel'] ?? 'both').toString(),
+                value: (ac['modeLabel'] ?? 'icon').toString(),
                 items: const [('both', 'Biểu tượng và chữ'), ('icon', 'Chỉ biểu tượng'), ('text', 'Chỉ chữ')],
                 onChanged: (v) => setAc('modeLabel', v),
               ),
@@ -807,7 +808,7 @@ class _WidgetPropsState extends State<_WidgetProps> {
                   child: Text(
                     'Bật/tắt',
                     textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 15, color: context.evo.muted),
+                    style: TextStyle(fontSize: 14, color: context.evo.muted),
                   ),
                 ),
               ],
@@ -838,7 +839,7 @@ class _WidgetPropsState extends State<_WidgetProps> {
                         ? Text(
                             'Gửi 1',
                             textAlign: TextAlign.center,
-                            style: TextStyle(fontSize: 15, color: context.evo.muted),
+                            style: TextStyle(fontSize: 14, color: context.evo.muted),
                           )
                         : SyncedField(
                             value: '${values[m.key] ?? m.value}',
@@ -1015,7 +1016,7 @@ class _WidgetPropsState extends State<_WidgetProps> {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(color: context.evo.paper, borderRadius: BorderRadius.circular(8)),
-                child: SelectableText(cameraUrl(cam, hidePass: true), style: const TextStyle(fontSize: 15, fontFamily: 'Consolas')),
+                child: SelectableText(cameraUrl(cam, hidePass: true), style: const TextStyle(fontSize: 14, fontFamily: 'Consolas')),
               ),
             Hint(
               rtsp
@@ -1024,7 +1025,7 @@ class _WidgetPropsState extends State<_WidgetProps> {
             ),
             Text(
               'Mật khẩu camera được lưu trong file dự án và file cấu hình App. Nên tạo tài khoản chỉ có quyền xem trên camera.',
-              style: TextStyle(fontSize: 15, color: context.evo.warn),
+              style: TextStyle(fontSize: 14, color: context.evo.warn),
             ),
           ]),
           _Section('Kiểu hiển thị', [
@@ -1287,6 +1288,15 @@ class _RoomProps extends StatelessWidget {
                 'Biểu tượng phòng',
                 IconField(d: d, value: (r['icon'] ?? 'sofa').toString(), scope: IconScope.room, onChanged: (v) => editRoom((x) => x['icon'] = v)),
               ),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [
+                  EvoButton(label: 'Thêm trang', icon: Icons.add, small: true, onPressed: d.addSub),
+                  EvoButton(label: 'Nhập trang…', icon: Icons.file_download_outlined, small: true, onPressed: () => importPart(context, d)),
+                  EvoButton(label: 'Xuất phòng…', icon: Icons.file_upload_outlined, small: true, onPressed: () => exportPart(context, d, 'room', rid)),
+                ],
+              ),
             ],
             trailing: EvoButton(
               label: 'Xoá phòng',
@@ -1319,6 +1329,19 @@ class _RoomProps extends StatelessWidget {
                   value: (s['title'] ?? '').toString(),
                   onChanged: (v) => d.editSub((x) => x['title'] = v, coalesce: 'st-${s['id']}'),
                 ),
+              ),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [
+                  EvoButton(label: 'Nhập thẻ / trang…', icon: Icons.file_download_outlined, small: true, onPressed: () => importPart(context, d)),
+                  EvoButton(
+                    label: 'Xuất trang…',
+                    icon: Icons.file_upload_outlined,
+                    small: true,
+                    onPressed: () => exportPart(context, d, 'page', s['id'] as String),
+                  ),
+                ],
               ),
               Row(
                 children: [
@@ -1410,41 +1433,37 @@ class _FloorProps extends StatelessWidget {
       if (x != null) fn(x);
     }, coalesce: coalesce);
     final n = roomsOf(d.doc, fid).length;
-    return _Section(
-      'Tầng',
-      [
-        FieldLabel(
-          'Tên tầng',
-          SyncedField(
-            value: (f['title'] ?? '').toString(),
-            onChanged: (v) => editFloor((x) => x['title'] = v, coalesce: 'ft-$fid'),
-          ),
+    return _Section('Tầng', [
+      FieldLabel(
+        'Tên tầng',
+        SyncedField(
+          value: (f['title'] ?? '').toString(),
+          onChanged: (v) => editFloor((x) => x['title'] = v, coalesce: 'ft-$fid'),
         ),
-        FieldLabel(
-          'Biểu tượng tầng',
-          IconField(d: d, value: (f['icon'] ?? 'stairs').toString(), scope: IconScope.floor, onChanged: (v) => editFloor((x) => x['icon'] = v)),
-        ),
-        CheckboxListTile(
-          value: f['showIcon'] != false,
-          onChanged: (v) => editFloor((x) => x['showIcon'] = v ?? true),
-          dense: true,
-          contentPadding: EdgeInsets.zero,
-          controlAffinity: ListTileControlAffinity.leading,
-          title: const Text('Ẩn/hiện biểu tượng'),
-        ),
-        Text('Tầng này có $n phòng. Chuột phải vào tầng ở cột Cấu trúc để thêm phòng, nhập, xuất.', style: TextStyle(fontSize: 14, color: context.evo.muted)),
-      ],
-      trailing: EvoButton(
-        label: 'Xoá tầng',
-        icon: Icons.delete_outline,
-        small: true,
-        danger: true,
-        onPressed: () {
-          final m = d.deleteFloor(fid);
-          if (m != null) toast(context, m);
-        },
       ),
-    );
+      FieldLabel(
+        'Biểu tượng tầng',
+        IconField(d: d, value: (f['icon'] ?? 'stairs').toString(), scope: IconScope.floor, onChanged: (v) => editFloor((x) => x['icon'] = v)),
+      ),
+      CheckboxListTile(
+        value: f['showIcon'] != false,
+        onChanged: (v) => editFloor((x) => x['showIcon'] = v ?? true),
+        dense: true,
+        contentPadding: EdgeInsets.zero,
+        controlAffinity: ListTileControlAffinity.leading,
+        title: const Text('Ẩn/hiện biểu tượng'),
+      ),
+      Text('Tầng này có $n phòng.', style: TextStyle(fontSize: 13, color: context.evo.muted)),
+      Wrap(
+        spacing: 6,
+        runSpacing: 6,
+        children: [
+          EvoButton(label: 'Thêm phòng', icon: Icons.add, small: true, onPressed: () => d.addRoom(fid)),
+          EvoButton(label: 'Nhập phòng…', icon: Icons.file_download_outlined, small: true, onPressed: () => importPart(context, d)),
+          EvoButton(label: 'Xuất tầng…', icon: Icons.file_upload_outlined, small: true, onPressed: () => exportPart(context, d, 'floor', fid)),
+        ],
+      ),
+    ], trailing: EvoButton(label: 'Xoá tầng', icon: Icons.delete_outline, small: true, danger: true, onPressed: () => deleteTreeSelection(context, d)));
   }
 }
 
@@ -1469,7 +1488,7 @@ class _OverviewProps extends StatelessWidget {
           children: [
             Icon(Icons.settings_outlined, size: 20, color: context.evo.accent),
             const SizedBox(width: 8),
-            const Text('Tổng quan', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+            const Text('Tổng quan', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
           ],
         ),
         const SizedBox(height: 16),
@@ -1556,11 +1575,7 @@ class _OverviewProps extends StatelessWidget {
             ),
           FieldLabel(
             'Giao diện mặc định',
-            EvoDropdown<String>(
-              value: const ['light', 'dark', 'graphite', 'sand', 'ocean'].contains(theme['mode']) ? theme['mode'] as String : 'light',
-              items: const [('light', 'Sáng'), ('dark', 'Tối'), ('graphite', 'Xám than'), ('sand', 'Kem'), ('ocean', 'Xanh biển')],
-              onChanged: (v) => editTheme((x) => x['mode'] = v),
-            ),
+            EvoDropdown<String>(value: themeKey(theme['mode']), items: kAppThemes, onChanged: (v) => editTheme((x) => x['mode'] = v)),
           ),
           CheckboxListTile(
             value: theme['hideTitle'] == true,
@@ -1743,7 +1758,7 @@ class _SplashSettings extends StatelessWidget {
                     padding: const EdgeInsets.all(8),
                     child: Image.memory(base64Decode(logo.substring(22)), fit: BoxFit.contain),
                   )
-                : Text(logo.isEmpty ? 'Chưa có' : 'SVG', style: const TextStyle(color: Color(0xFF9AA59F), fontSize: 15)),
+                : Text(logo.isEmpty ? 'Chưa có' : 'SVG', style: const TextStyle(color: Color(0xFF9AA59F), fontSize: 14)),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -1843,7 +1858,7 @@ class _BgPicker extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           child: Text(
             text,
-            style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600, color: on ? c.accentInk : c.ink),
+            style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: on ? c.accentInk : c.ink),
           ),
         ),
       ),
@@ -2161,7 +2176,7 @@ class _PageBgSettings extends StatelessWidget {
                     EvoButton(label: 'Bỏ ảnh', small: true, danger: true, onPressed: () => _set({'image': null, 'mode': 'default'})),
                   ],
                   const SizedBox(height: 6),
-                  Text('JPG/PNG dọc, dưới 2 MB', style: TextStyle(fontSize: 14, color: c.muted)),
+                  Text('JPG/PNG dọc, dưới 2 MB', style: TextStyle(fontSize: 13, color: c.muted)),
                 ],
               ),
             ),
@@ -2277,7 +2292,7 @@ class _StatesEditor extends StatelessWidget {
     final v = await showDialog<String>(
       context: context,
       builder: (c) => AlertDialog(
-        title: const Text('Màu của trạng thái', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
+        title: const Text('Màu của trạng thái', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
         content: SizedBox(
           width: 340,
           child: _ColorPicker(value: cur ?? '', onChanged: (h) => Navigator.pop(c, h)),

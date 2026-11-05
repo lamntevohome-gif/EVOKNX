@@ -1,4 +1,5 @@
 import 'package:evoknx_ui/evoknx_ui.dart';
+import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:knx_config/knx_config.dart';
 
@@ -12,7 +13,7 @@ class SettingsScreen extends StatelessWidget {
   final AppStore store;
   final KnxLink knx;
 
-  static const _themes = [('light', 'Sáng'), ('dark', 'Tối'), ('graphite', 'Xám than'), ('sand', 'Kem'), ('ocean', 'Xanh biển')];
+  static const _themes = kAppThemes;
 
   @override
   Widget build(BuildContext context) {
@@ -144,6 +145,15 @@ class SettingsScreen extends StatelessWidget {
                       ],
                     ),
                   ),
+                  if (defaultTargetPlatform == TargetPlatform.android)
+                    row(
+                      Icon(Icons.aspect_ratio, color: pal.muted),
+                      'Tự cân cỡ chữ theo màn hình',
+                      sub:
+                          'Màn hình ${MediaQuery.sizeOf(context).width.round()} × ${MediaQuery.sizeOf(context).height.round()} dp · '
+                          'hệ số ${store.uiScaleFor(MediaQuery.sizeOf(context)).toStringAsFixed(2)}',
+                      trailing: Switch(value: store.autoScale, onChanged: store.setAutoScale, activeColor: pal.accent),
+                    ),
                   row(
                     Icon(Icons.screen_lock_portrait_outlined, color: pal.muted),
                     'Giữ màn hình luôn sáng',

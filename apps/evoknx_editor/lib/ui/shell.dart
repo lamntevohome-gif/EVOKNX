@@ -39,7 +39,7 @@ class _ShellState extends State<Shell> {
         await showDialog<bool>(
           context: context,
           builder: (c) => AlertDialog(
-            title: Text(title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
+            title: Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
             content: SizedBox(width: 460, child: Text(message)),
             actions: [
               EvoButton(label: 'Huỷ', onPressed: () => Navigator.pop(c, false)),
@@ -65,7 +65,7 @@ class _ShellState extends State<Shell> {
       context: context,
       barrierDismissible: false,
       builder: (c) => AlertDialog(
-        title: const Text('Lưu thay đổi trước khi đóng?', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
+        title: const Text('Lưu thay đổi trước khi đóng?', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
         content: SizedBox(
           width: 440,
           child: Text(

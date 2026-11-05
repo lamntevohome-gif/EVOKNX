@@ -162,6 +162,8 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final mq = MediaQuery.of(context);
+    // Text and icons follow the screen width on Android (iOS unchanged).
+    EvoScale.k = store.uiScaleFor(mq.size);
     final dev = _deviceFor(mq.size, mq.orientation);
     if (dev != _dev) {
       _dev = dev;
@@ -351,8 +353,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    iconWidget(r['icon'] as String?, f * 1.25, on ? pal.screen : pal.muted),
-                    SizedBox(width: f * 0.45),
+                    if (!isNoIcon(r['icon'] as String?)) ...[
+                      iconWidget(r['icon'] as String?, f * 1.25, on ? pal.screen : pal.muted),
+                      SizedBox(width: f * 0.45),
+                    ],
                     Text(
                       (r['title'] ?? '').toString(),
                       style: TextStyle(fontSize: f, fontWeight: FontWeight.w500, color: on ? pal.screen : pal.ink),
@@ -447,7 +451,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            if (fl['showIcon'] != false) ...[
+                            if (fl['showIcon'] != false && !isNoIcon(fl['icon'] as String?)) ...[
                               iconWidget(fl['icon'] as String? ?? 'stairs', f * 1.25, fl['id'] == floorId ? pal.screen : pal.muted),
                               SizedBox(width: f * 0.45),
                             ],

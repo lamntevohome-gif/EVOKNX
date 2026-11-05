@@ -66,14 +66,14 @@ extension EvoTheme on BuildContext {
 }
 
 /// Base text size of the Editor (dense, like design tools).
-const double kUiText = 15;
+const double kUiText = 14;
 
 ThemeData buildTheme(Brightness b) {
   final c = b == Brightness.dark ? EvoColors.dark : EvoColors.light;
   final base = ThemeData(
     useMaterial3: true,
     brightness: b,
-    fontFamily: 'packages/evoknx_ui/Inter',
+    fontFamily: 'packages/evoknx_ui/InterTight',
     colorScheme: ColorScheme.fromSeed(seedColor: c.accent, brightness: b, primary: c.accent, surface: c.panel),
     scaffoldBackgroundColor: c.paper,
     dividerColor: c.line,
@@ -98,9 +98,9 @@ ThemeData buildTheme(Brightness b) {
         .apply(bodyColor: c.ink, displayColor: c.ink)
         .copyWith(
           bodyMedium: TextStyle(fontSize: kUiText, color: c.ink),
-          bodySmall: TextStyle(fontSize: 14, color: c.muted),
+          bodySmall: TextStyle(fontSize: 13, color: c.muted),
           labelLarge: TextStyle(fontSize: kUiText, fontWeight: FontWeight.w500, color: c.ink),
-          titleMedium: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: c.ink),
+          titleMedium: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: c.ink),
         ),
     inputDecorationTheme: InputDecorationTheme(
       isDense: true,
@@ -146,7 +146,7 @@ ThemeData buildTheme(Brightness b) {
       waitDuration: const Duration(milliseconds: 400),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
       decoration: BoxDecoration(color: const Color(0xFF1E1E1E), borderRadius: BorderRadius.circular(4)),
-      textStyle: const TextStyle(color: Colors.white, fontSize: 14.5),
+      textStyle: const TextStyle(color: Colors.white, fontSize: 13.5),
     ),
     dialogTheme: DialogThemeData(
       backgroundColor: c.panel,
@@ -155,8 +155,8 @@ ThemeData buildTheme(Brightness b) {
         borderRadius: BorderRadius.circular(8),
         side: BorderSide(color: c.line),
       ),
-      titleTextStyle: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: c.ink, fontFamily: 'packages/evoknx_ui/Inter'),
-      contentTextStyle: TextStyle(fontSize: kUiText, color: c.ink, fontFamily: 'packages/evoknx_ui/Inter', height: 1.45),
+      titleTextStyle: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: c.ink, fontFamily: 'packages/evoknx_ui/InterTight'),
+      contentTextStyle: TextStyle(fontSize: kUiText, color: c.ink, fontFamily: 'packages/evoknx_ui/InterTight', height: 1.45),
     ),
     popupMenuTheme: PopupMenuThemeData(
       color: c.panel,
@@ -166,7 +166,7 @@ ThemeData buildTheme(Brightness b) {
         borderRadius: BorderRadius.circular(6),
         side: BorderSide(color: c.line),
       ),
-      textStyle: TextStyle(fontSize: kUiText, color: c.ink, fontFamily: 'packages/evoknx_ui/Inter'),
+      textStyle: TextStyle(fontSize: kUiText, color: c.ink, fontFamily: 'packages/evoknx_ui/InterTight'),
     ),
     menuTheme: MenuThemeData(
       style: MenuStyle(
@@ -181,7 +181,7 @@ ThemeData buildTheme(Brightness b) {
       style: ButtonStyle(
         minimumSize: const WidgetStatePropertyAll(Size(240, 34)),
         padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 12)),
-        textStyle: WidgetStatePropertyAll(TextStyle(fontSize: kUiText, fontFamily: 'packages/evoknx_ui/Inter', color: c.ink)),
+        textStyle: WidgetStatePropertyAll(TextStyle(fontSize: kUiText, fontFamily: 'packages/evoknx_ui/InterTight', color: c.ink)),
         backgroundColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.hovered) || s.contains(WidgetState.focused) ? c.accent : null),
         foregroundColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.hovered) || s.contains(WidgetState.focused) ? Colors.white : c.ink),
         iconColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.hovered) || s.contains(WidgetState.focused) ? Colors.white : c.muted),

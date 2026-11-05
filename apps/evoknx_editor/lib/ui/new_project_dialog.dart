@@ -50,7 +50,7 @@ class _Floor {
 }
 
 _Room _newRoom(int k) => _Room('Phòng ${k + 1}', _roomDefaults[k % _roomDefaults.length].$1);
-_Floor _newFloor(int i) => _Floor(i == 0 ? 'Tầng 1' : 'Tầng ${i + 1}', 'stairs', [for (var k = 0; k < 3; k++) _newRoom(k)]);
+_Floor _newFloor(int i) => _Floor(i == 0 ? 'Tầng 1' : 'Tầng ${i + 1}', kNoIcon, [for (var k = 0; k < 3; k++) _newRoom(k)]);
 
 class _NewProjectDialog extends StatefulWidget {
   const _NewProjectDialog({required this.p});
@@ -129,7 +129,7 @@ class _NewProjectDialogState extends State<_NewProjectDialog> {
   Future<String?> _icon(String current, List<(String, String)> items) => showDialog<String>(
     context: context,
     builder: (c) => AlertDialog(
-      title: const Text('Chọn biểu tượng', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
+      title: const Text('Chọn biểu tượng', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
       content: SizedBox(
         width: 460,
         child: Wrap(
@@ -153,14 +153,14 @@ class _NewProjectDialogState extends State<_NewProjectDialog> {
                     ),
                     child: Column(
                       children: [
-                        iconWidget(k, 26, c.evo.ink),
+                        isNoIcon(k) ? Icon(Icons.block, size: 24, color: c.evo.lineStrong) : iconWidget(k, 26, c.evo.ink),
                         const Spacer(),
                         Text(
                           n,
                           maxLines: 2,
                           textAlign: TextAlign.center,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontSize: 14, color: c.evo.muted),
+                          style: TextStyle(fontSize: 13, color: c.evo.muted),
                         ),
                       ],
                     ),
@@ -190,7 +190,7 @@ class _NewProjectDialogState extends State<_NewProjectDialog> {
           border: Border.all(color: context.evo.line),
           borderRadius: BorderRadius.circular(8),
         ),
-        child: iconWidget(icon, 19, context.evo.accent),
+        child: isNoIcon(icon) ? Icon(Icons.block, size: 17, color: context.evo.lineStrong) : iconWidget(icon, 19, context.evo.accent),
       ),
     ),
   );
@@ -244,7 +244,7 @@ class _NewProjectDialogState extends State<_NewProjectDialog> {
               children: [
                 Icon(icon, size: 26, color: c.accent),
                 const SizedBox(height: 10),
-                Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
                 const SizedBox(height: 4),
                 Text(
                   desc,
@@ -327,7 +327,7 @@ class _NewProjectDialogState extends State<_NewProjectDialog> {
                   children: [
                     Row(
                       children: [
-                        _iconBtn(floors[i].icon, kFloorIcons, (v) => floors[i].icon = v),
+                        _iconBtn(floors[i].icon, const [(kNoIcon, 'Không có'), ...kFloorIcons], (v) => floors[i].icon = v),
                         const SizedBox(width: 8),
                         Expanded(
                           child: TextFormField(
@@ -346,7 +346,7 @@ class _NewProjectDialogState extends State<_NewProjectDialog> {
                         padding: const EdgeInsets.only(top: 6, left: 20),
                         child: Row(
                           children: [
-                            _iconBtn(floors[i].rooms[k].icon, kRoomIcons, (v) => floors[i].rooms[k].icon = v),
+                            _iconBtn(floors[i].rooms[k].icon, const [(kNoIcon, 'Không có'), ...kRoomIcons], (v) => floors[i].rooms[k].icon = v),
                             const SizedBox(width: 8),
                             Expanded(
                               child: TextFormField(
@@ -377,7 +377,7 @@ class _NewProjectDialogState extends State<_NewProjectDialog> {
                         : ets != null
                         ? '$etsFile: ${ets!.items.length} địa chỉ nhóm${ets!.projectName.isNotEmpty ? ' (project “${ets!.projectName}”)' : ''}'
                         : '.knxproj, hoặc danh sách địa chỉ nhóm CSV/XML',
-                    style: TextStyle(fontSize: 14.5, color: etsError != null ? c.danger : (ets != null ? c.accentInk : c.muted)),
+                    style: TextStyle(fontSize: 13.5, color: etsError != null ? c.danger : (ets != null ? c.accentInk : c.muted)),
                   ),
                 ),
                 if (ets != null || etsError != null)
@@ -405,7 +405,7 @@ class _NewProjectDialogState extends State<_NewProjectDialog> {
         'quick' => 'Tạo dự án nhanh',
         'manual' => 'Tạo dự án thủ công',
         _ => 'Tạo dự án mới',
-      }, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
+      }, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
       content: SizedBox(width: 600, child: content),
       actions: actions,
     );

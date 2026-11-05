@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:ui' show Size;
 
 import 'package:evoknx_ui/evoknx_ui.dart';
 import 'package:file_selector/file_selector.dart';
@@ -22,6 +23,9 @@ class AppStore extends ChangeNotifier {
   /// Text size chosen in the App (0.8–1.5, 1 = as designed in the Editor).
   /// The phone's own font-size setting is ignored: cards sit on a fixed grid.
   double textScale = 1;
+
+  /// Scale text and icons to the phone's screen width (Android phones only).
+  bool autoScale = true;
   String? lastRoom, lastSub, connectionId;
 
   /// Last address typed when receiving from the Editor (e.g. 192.168.1.20:47800).
@@ -50,6 +54,7 @@ class AppStore extends ChangeNotifier {
           themeMode = p['theme'] as String?;
           keepScreenOn = p['keepOn'] == true;
           textScale = ((p['textScale'] as num?) ?? 1).toDouble().clamp(0.8, 1.5).toDouble();
+          autoScale = p['autoScale'] != false;
           lastRoom = p['room'] as String?;
           lastSub = p['sub'] as String?;
           connectionId = p['conn'] as String?;
@@ -67,6 +72,7 @@ class AppStore extends ChangeNotifier {
           'theme': themeMode,
           'keepOn': keepScreenOn,
           'textScale': textScale,
+          'autoScale': autoScale,
           'room': lastRoom,
           'sub': lastSub,
           'conn': connectionId,
@@ -120,7 +126,7 @@ class AppStore extends ChangeNotifier {
   /// Theme in use: the phone's choice, else the project's default.
   String get mode {
     final m = themeMode ?? (jsonMap(config?['theme'])['mode'] ?? 'light').toString();
-    return const ['light', 'dark', 'graphite', 'sand', 'ocean'].contains(m) ? m : 'light';
+    return themeKey(m);
   }
 
   Future<void> setTheme(String? m) async {
@@ -134,6 +140,23 @@ class AppStore extends ChangeNotifier {
     textScale = v.clamp(0.8, 1.5).toDouble();
     notifyListeners();
     if (save) await savePrefs();
+  }
+
+  Future<void> setAutoScale(bool v) async {
+    autoScale = v;
+    notifyListeners();
+    await savePrefs();
+  }
+
+  /// Factor for text and icons so the screen looks like the Editor preview.
+  /// Android phones report widely different logical widths (360–540 dp), so
+  /// sizes are scaled by width / 393. iPhones (and tablets) are left as they
+  /// are, so the iOS look does not change.
+  double uiScaleFor(Size size) {
+    if (!autoScale || defaultTargetPlatform != TargetPlatform.android) return 1;
+    final w = size.shortestSide;
+    if (w >= 600) return 1;
+    return (w / EvoScale.phoneDesignWidth).clamp(0.85, 1.7).toDouble();
   }
 
   Future<void> setKeepScreenOn(bool v) async {
