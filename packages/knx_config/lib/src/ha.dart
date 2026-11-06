@@ -301,7 +301,7 @@ String haAddressFor(int main, int kind, String attrKey, int n, String role) {
       if (h is Map && h['room'] == rid && h['kind'] == kind) top = [top, (h['n'] as num?)?.toInt() ?? 0].reduce((a, b) => a > b ? a : b);
     }
     n = top + 1;
-    if (n > kHaMaxEntities) throw StateError('Phòng “${room['name']}” đã đủ $kHaMaxEntities thực thể loại “${kHaKindNames[kind]}”.');
+    if (n > kHaMaxEntities) throw StateError('Phòng “${room['name']}” đã đủ $kHaMaxEntities entity loại “${kHaKindNames[kind]}”.');
   }
   return (room: room, kind: kind, n: n, shown: shown);
 }
@@ -349,7 +349,7 @@ List<Json> addHaEntity(Json doc, HaEntity e, List<String> attrKeys, {required St
       final typed = addresses?['$key|$role']?.trim();
       final addr = (typed != null && typed.isNotEmpty) ? haCanonicalAddress(typed) : haAddressFor(main, plan.kind, key, plan.n, role);
       if (gas.any((g) => (g as Map)['address'] == addr)) {
-        if (typed != null && typed.isNotEmpty) throw StateError('Địa chỉ $addr đã dùng cho thực thể khác.');
+        if (typed != null && typed.isNotEmpty) throw StateError('Địa chỉ $addr đã dùng cho entity khác.');
         continue;
       }
       final ga = <String, dynamic>{
@@ -419,6 +419,25 @@ int readdressHaRoom(Json doc, String roomId) {
     g['ha']['n'] = number[(g['ha']['entity'] ?? '').toString()];
   }
   return changed;
+}
+
+/// Points an item at another HA entity of the same type (for example after it
+/// was renamed in Home Assistant). Returns an error text (nothing changed) or
+/// null. The addresses, the cards' links and the display name stay.
+String? haChangeEntityId(Json doc, String oldId, String newId) {
+  final id = newId.trim().toLowerCase();
+  if (!RegExp(r'^[a-z0-9_]+\.[a-z0-9_]+$').hasMatch(id)) return 'Mã entity có dạng loại.tên, ví dụ light.den1.';
+  if (id == oldId) return null;
+  if (id.split('.').first != oldId.split('.').first) return 'Phải cùng loại với entity cũ (${oldId.split('.').first}), vì mỗi loại có chức năng khác nhau.';
+  for (final g in jsonList(doc['groupAddresses'])) {
+    final h = g['ha'];
+    if (h is Map && h['entity'] == id) return 'Entity $id đã có trong dự án.';
+  }
+  for (final g in jsonList(doc['groupAddresses'])) {
+    final h = g['ha'];
+    if (h is Map && h['entity'] == oldId) h['entity'] = id;
+  }
+  return null;
 }
 
 /// Renames an entity (its display name only: the HA entity id stays).

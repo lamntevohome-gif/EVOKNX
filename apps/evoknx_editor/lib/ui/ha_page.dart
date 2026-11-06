@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:knx_config/knx_config.dart';
 
 import '../app/theme.dart';
+import '../state/ha_link.dart';
 import '../state/project_controller.dart';
 import 'common.dart';
 
@@ -10,8 +11,11 @@ import 'common.dart';
 /// addresses like any other; the App sends them to Home Assistant instead of
 /// the KNX bus.
 class HaPage extends StatefulWidget {
-  const HaPage({super.key, required this.project});
+  const HaPage({super.key, required this.project, required this.link});
   final ProjectController project;
+
+  /// The connection to Home Assistant, opened and closed with the buttons of this tab.
+  final HaLinkController link;
 
   @override
   State<HaPage> createState() => _HaPageState();
@@ -21,10 +25,6 @@ class HaPage extends StatefulWidget {
 const String _kNoRoom = '__none__';
 
 class _HaPageState extends State<HaPage> {
-  List<HaEntity>? entities;
-  String? status;
-  bool statusOk = false;
-  bool busy = false;
   String? roomId;
 
   /// Sub-tab of the room: the type of entity (the part of the entity id before the dot); empty = all.
@@ -38,6 +38,7 @@ class _HaPageState extends State<HaPage> {
   final Set<String> picked = {};
 
   ProjectController get p => widget.project;
+  HaLinkController get link => widget.link;
 
   void _setHa(String key, Object? v, {String? coalesce}) {
     p.mutate((d) {
@@ -47,41 +48,14 @@ class _HaPageState extends State<HaPage> {
     }, coalesce: coalesce ?? 'ha-$key');
   }
 
-  Future<bool> _fetch() async {
+  /// The first button: connects, or (when connected) disconnects.
+  Future<void> _toggleConnection() async {
+    if (link.connected) {
+      await link.disconnect();
+      return;
+    }
     final h = haSettings(p.doc);
-    final url = (h['url'] ?? '').toString().trim(), token = (h['token'] ?? '').toString().trim();
-    if (url.isEmpty || token.isEmpty) {
-      setState(() {
-        status = 'Nhập địa chỉ và token trước.';
-        statusOk = false;
-      });
-      return false;
-    }
-    setState(() {
-      busy = true;
-      status = 'Đang kết nối…';
-      statusOk = false;
-    });
-    try {
-      final r = await haFetchEntities(url, token);
-      if (!mounted) return false;
-      setState(() {
-        entities = r.entities;
-        status = 'Đã kết nối · Home Assistant ${r.version ?? ''} · ${r.entities.length} thực thể';
-        statusOk = true;
-        busy = false;
-      });
-      return true;
-    } on HaException catch (e) {
-      if (mounted) {
-        setState(() {
-          status = e.message;
-          statusOk = false;
-          busy = false;
-        });
-      }
-      return false;
-    }
+    await link.connect((h['url'] ?? '').toString(), (h['token'] ?? '').toString());
   }
 
   // ------------------------------------------------------------ rooms
@@ -135,7 +109,7 @@ class _HaPageState extends State<HaPage> {
       builder: (c) => AlertDialog(
         title: Text('Xoá phòng “${room['name']}”?'),
         content: Text(
-          '${ents.isEmpty ? 'Phòng chưa có thực thể nào.' : 'Xoá luôn ${ents.length} thực thể và các địa chỉ ảo của chúng.'}'
+          '${ents.isEmpty ? 'Phòng chưa có entity nào.' : 'Xoá luôn ${ents.length} entity và các địa chỉ ảo của chúng.'}'
           '${uses > 0 ? ' Có $uses ô địa chỉ của thẻ đang dùng, chúng sẽ bị gỡ liên kết.' : ''} Có thể hoàn tác (Ctrl+Z).',
         ),
         actions: [
@@ -178,21 +152,27 @@ class _HaPageState extends State<HaPage> {
 
   // ------------------------------------------------------------ entities
 
-  Future<void> _add() async {
+  /// The second button: asks Home Assistant for its entities and opens the list to add them.
+  Future<void> _pick() async {
+    if (!link.connected) return;
     if (haRooms(p.doc).isEmpty) {
       await _newRoom();
       if (haRooms(p.doc).isEmpty) return;
     }
-    if (entities == null && !await _fetch()) return;
+    final list = await link.fetchEntities();
+    if (list == null) {
+      if (mounted && link.message != null) toast(context, link.message!);
+      return;
+    }
     if (!mounted) return;
     await showDialog<void>(
       context: context,
-      builder: (_) => _AddEntityDialog(project: p, entities: entities!, initialRoom: _current(haRooms(p.doc))?['id'] as String?),
+      builder: (_) => _AddEntityDialog(project: p, entities: list, initialRoom: _current(haRooms(p.doc))?['id'] as String?),
     );
   }
 
   Future<void> _renameEntity(String entityId, String title) async {
-    final t = await _prompt(context, 'Đổi tên thực thể', 'Tên hiển thị (mã thực thể Home Assistant giữ nguyên: $entityId)', title);
+    final t = await _prompt(context, 'Đổi tên entity', 'Tên hiển thị (mã entity Home Assistant giữ nguyên: $entityId)', title);
     if (t != null && t.trim().isNotEmpty) p.mutate((d) => renameHaEntity(d, entityId, t));
   }
 
@@ -204,8 +184,8 @@ class _HaPageState extends State<HaPage> {
         title: Text('Gỡ “$title”?'),
         content: Text(
           uses > 0
-              ? 'Có $uses ô địa chỉ của thẻ đang dùng thực thể này; chúng sẽ bị gỡ liên kết. Có thể hoàn tác (Ctrl+Z).'
-              : 'Các địa chỉ ảo của thực thể này sẽ bị xoá. Có thể hoàn tác (Ctrl+Z).',
+              ? 'Có $uses ô địa chỉ của thẻ đang dùng entity này; chúng sẽ bị gỡ liên kết. Có thể hoàn tác (Ctrl+Z).'
+              : 'Các địa chỉ ảo của entity này sẽ bị xoá. Có thể hoàn tác (Ctrl+Z).',
         ),
         actions: [
           EvoButton(label: 'Huỷ', onPressed: () => Navigator.pop(c, false)),
@@ -225,6 +205,7 @@ class _HaPageState extends State<HaPage> {
       position: RelativeRect.fromRect(at & const Size(1, 1), Offset.zero & overlay.size),
       items: [
         const PopupMenuItem(value: 0, height: 34, child: Text('Sửa tên')),
+        const PopupMenuItem(value: 2, height: 34, child: Text('Sửa entity')),
         PopupMenuItem(
           value: 1,
           height: 34,
@@ -234,6 +215,60 @@ class _HaPageState extends State<HaPage> {
     );
     if (v == 0) await _renameEntity(entityId, title);
     if (v == 1) await _removeEntity(entityId, title);
+    if (v == 2) await _editEntityId(entityId);
+  }
+
+  /// Points an item at another HA entity of the same type (the addresses, the
+  /// cards' links and the display name stay).
+  Future<void> _editEntityId(String entityId) async {
+    final ctl = TextEditingController(text: entityId);
+    final known = {for (final e in link.entities ?? const <HaEntity>[]) e.id};
+    final newId = await showDialog<String>(
+      context: context,
+      builder: (c) => StatefulBuilder(
+        builder: (c, setS) {
+          final t = ctl.text.trim().toLowerCase();
+          final note = known.isEmpty || known.contains(t)
+              ? null
+              : 'Không thấy mã này trong danh sách Home Assistant đã tải (bấm “Lấy entity” để tải lại). Vẫn có thể lưu.';
+          return AlertDialog(
+            title: const Text('Sửa entity'),
+            content: SizedBox(
+              width: 420,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    'Đổi sang một entity khác của Home Assistant (ví dụ khi bạn đã đổi tên trong HA). Phải cùng loại (${entityId.split('.').first}). Địa chỉ và liên kết của thẻ giữ nguyên.',
+                    style: TextStyle(fontSize: kUiText - 1, color: c.evo.muted, height: 1.4),
+                  ),
+                  const SizedBox(height: 12),
+                  FieldLabel('Mã entity', TextField(controller: ctl, autofocus: true, onChanged: (_) => setS(() {}), onSubmitted: (v) => Navigator.pop(c, v))),
+                  if (note != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text(
+                        note,
+                        style: TextStyle(fontSize: kUiText - 2, color: c.evo.warn),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            actions: [
+              EvoButton(label: 'Huỷ', onPressed: () => Navigator.pop(c)),
+              EvoButton(label: 'Lưu', primary: true, onPressed: () => Navigator.pop(c, ctl.text)),
+            ],
+          );
+        },
+      ),
+    );
+    ctl.dispose();
+    if (newId == null) return;
+    String? err;
+    p.mutate((d) => err = haChangeEntityId(d, entityId, newId));
+    if (err != null && mounted) toast(context, err!);
   }
 
   /// Deletes the ticked entities together.
@@ -242,7 +277,7 @@ class _HaPageState extends State<HaPage> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
-        title: Text('Xoá ${ids.length} thực thể?'),
+        title: Text('Xoá ${ids.length} entity?'),
         content: Text(
           'Các địa chỉ ảo của chúng sẽ bị xoá.${uses > 0 ? ' Có $uses ô địa chỉ của thẻ đang dùng, chúng sẽ bị gỡ liên kết.' : ''} Có thể hoàn tác (Ctrl+Z).',
         ),
@@ -274,7 +309,7 @@ class _HaPageState extends State<HaPage> {
   Widget build(BuildContext context) {
     final c = context.evo;
     return ListenableBuilder(
-      listenable: p,
+      listenable: Listenable.merge([p, link]),
       builder: (context, _) {
         final h = haSettings(p.doc);
         final rooms = haRooms(p.doc);
@@ -326,25 +361,16 @@ class _HaPageState extends State<HaPage> {
                     const SizedBox(height: 14),
                     Row(
                       children: [
-                        EvoButton(label: 'Thử kết nối', primary: true, onPressed: busy ? null : _fetch),
+                        EvoButton(
+                          label: link.connected ? 'Ngắt kết nối' : 'Kết nối',
+                          primary: !link.connected,
+                          onPressed: link.connecting ? null : _toggleConnection,
+                        ),
                         const SizedBox(width: 8),
-                        EvoButton(label: 'Thêm thực thể…', icon: Icons.add, onPressed: busy ? null : _add),
+                        EvoButton(label: 'Lấy entity', icon: Icons.download_outlined, onPressed: link.connected ? _pick : null),
                       ],
                     ),
-                    if (status != null)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 12),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Icon(statusOk ? Icons.check_circle_outline : Icons.error_outline, size: 18, color: statusOk ? const Color(0xFF14AE5C) : c.warn),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(status!, style: TextStyle(color: statusOk ? c.ink : c.warn)),
-                            ),
-                          ],
-                        ),
-                      ),
+                    Padding(padding: const EdgeInsets.only(top: 12), child: _status(c)),
                   ],
                 ),
               ),
@@ -362,6 +388,31 @@ class _HaPageState extends State<HaPage> {
           ),
         );
       },
+    );
+  }
+
+  /// The connection state of Home Assistant, as a line under the buttons.
+  Widget _status(EvoColors c) {
+    final ok = link.connected && link.message == null;
+    final (IconData icon, Color color, String text) = switch (link.state) {
+      HaConnection.connected => (
+        link.message == null ? Icons.check_circle_outline : Icons.error_outline,
+        link.message == null ? const Color(0xFF14AE5C) : c.warn,
+        link.message ?? 'Đã kết nối · Home Assistant ${link.version ?? ''}${link.entities == null ? '' : ' · ${link.entities!.length} entity'}',
+      ),
+      HaConnection.connecting => (Icons.sync, c.muted, 'Đang kết nối…'),
+      HaConnection.failed => (Icons.error_outline, c.warn, link.message ?? 'Không kết nối được.'),
+      HaConnection.disconnected => (Icons.link_off, c.muted, 'Chưa kết nối.'),
+    };
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 18, color: color),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(text, style: TextStyle(color: ok || link.state == HaConnection.connecting || link.state == HaConnection.disconnected ? c.ink : c.warn)),
+        ),
+      ],
     );
   }
 
@@ -444,7 +495,7 @@ class _HaPageState extends State<HaPage> {
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Text(
-            'Chưa có phòng nào. Bấm + để tạo phòng, rồi “Thêm thực thể…” để chọn đèn, công tắc, rèm, máy lạnh… từ Home Assistant.',
+            'Chưa có phòng nào. Bấm + để tạo phòng, rồi “Thêm entity…” để chọn đèn, công tắc, rèm, máy lạnh… từ Home Assistant.',
             textAlign: TextAlign.center,
             style: TextStyle(color: c.muted),
           ),
@@ -541,7 +592,7 @@ class _HaPageState extends State<HaPage> {
                 Expanded(
                   child: SearchField(
                     key: ValueKey('room-search-$roomKey'),
-                    hint: 'Tìm thực thể trong phòng (tên, mã hoặc địa chỉ)',
+                    hint: 'Tìm entity trong phòng (tên, mã hoặc địa chỉ)',
                     width: double.infinity,
                     framed: true,
                     onChanged: (v) => setState(() {
@@ -591,12 +642,12 @@ class _HaPageState extends State<HaPage> {
         if (byEntity.isEmpty)
           Padding(
             padding: const EdgeInsets.only(top: 8),
-            child: Text('Chưa có thực thể trong phòng này. Bấm “Thêm thực thể…”.', style: TextStyle(color: c.muted)),
+            child: Text('Chưa có entity trong phòng này. Bấm “Thêm entity…”.', style: TextStyle(color: c.muted)),
           ),
         if (byEntity.isNotEmpty && shown.isEmpty)
           Padding(
             padding: const EdgeInsets.only(top: 8),
-            child: Text('Không có thực thể nào khớp “${query.trim()}”.', style: TextStyle(color: c.muted)),
+            child: Text('Không có entity nào khớp “${query.trim()}”.', style: TextStyle(color: c.muted)),
           ),
         for (final e in order) _entityCard(c, e, byEntity[e]!),
       ],
@@ -666,6 +717,7 @@ class _HaPageState extends State<HaPage> {
                       style: TextStyle(fontWeight: FontWeight.w600, color: c.ink),
                     ),
                   ),
+                  const SizedBox(width: 20),
                   Expanded(
                     child: Text(
                       kind == null ? entityId : '$entityId  ·  ${kHaKindNames[kind]}',
@@ -1024,7 +1076,7 @@ class _AddEntityDialogState extends State<_AddEntityDialog> {
     });
     toast(
       context,
-      ents == 0 && errors.isEmpty ? 'Các địa chỉ này đã có.' : 'Đã thêm $ents thực thể ($addrs địa chỉ).${errors.isEmpty ? '' : ' ${errors.first}'}',
+      ents == 0 && errors.isEmpty ? 'Các địa chỉ này đã có.' : 'Đã thêm $ents entity ($addrs địa chỉ).${errors.isEmpty ? '' : ' ${errors.first}'}',
     );
   }
 
@@ -1052,7 +1104,7 @@ class _AddEntityDialogState extends State<_AddEntityDialog> {
     final canAuto = picked.isNotEmpty && room.isNotEmpty;
     final canManual = focus != null && fields.isNotEmpty && errors.isEmpty && effectiveRoom.isNotEmpty;
     return AlertDialog(
-      title: const Text('Thêm thực thể từ Home Assistant'),
+      title: const Text('Thêm entity từ Home Assistant'),
       content: SizedBox(
         width: 780,
         height: 500,
@@ -1064,7 +1116,7 @@ class _AddEntityDialogState extends State<_AddEntityDialog> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  SearchField(hint: 'Tìm theo tên hoặc mã thực thể', width: double.infinity, onChanged: (v) => setState(() => q = v)),
+                  SearchField(hint: 'Tìm theo tên hoặc mã entity', width: double.infinity, onChanged: (v) => setState(() => q = v)),
                   const SizedBox(height: 8),
                   EvoDropdown<String>(
                     value: domain,
@@ -1080,7 +1132,7 @@ class _AddEntityDialogState extends State<_AddEntityDialog> {
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
-                          '${list.length} thực thể · đã chọn ${picked.length}',
+                          '${list.length} entity · đã chọn ${picked.length}',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(fontSize: kUiText - 1, color: c.muted),
@@ -1151,7 +1203,7 @@ class _AddEntityDialogState extends State<_AddEntityDialog> {
                     Padding(
                       padding: const EdgeInsets.only(top: 4),
                       child: Text(
-                        'Thực thể này đã có trong phòng đó.',
+                        'Entity này đã có trong phòng đó.',
                         style: TextStyle(fontSize: kUiText - 2, color: c.muted),
                       ),
                     ),
@@ -1159,8 +1211,8 @@ class _AddEntityDialogState extends State<_AddEntityDialog> {
                   if (focus == null)
                     Expanded(
                       child: Text(
-                        'Tick nhiều thực thể bên trái rồi bấm “Thêm tự động”: địa chỉ được gán theo quy tắc.\n\n'
-                        'Hoặc bấm vào một thực thể để chọn chức năng và tự nhập địa chỉ, rồi bấm “Thêm thủ công”.',
+                        'Tick nhiều entity bên trái rồi bấm “Thêm tự động”: địa chỉ được gán theo quy tắc.\n\n'
+                        'Hoặc bấm vào một entity để chọn chức năng và tự nhập địa chỉ, rồi bấm “Thêm thủ công”.',
                         style: TextStyle(color: c.muted, height: 1.45),
                       ),
                     )

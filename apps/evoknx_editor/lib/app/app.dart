@@ -2,14 +2,16 @@ import 'package:flutter/material.dart';
 
 import '../state/app_settings.dart';
 import '../state/bus_controller.dart';
+import '../state/ha_link.dart';
 import '../state/project_controller.dart';
 import '../ui/shell.dart';
 import 'theme.dart';
 
 class EvoknxApp extends StatelessWidget {
-  const EvoknxApp({super.key, required this.project, required this.bus});
+  const EvoknxApp({super.key, required this.project, required this.bus, required this.ha});
   final ProjectController project;
   final BusController bus;
+  final HaLinkController ha;
 
   @override
   Widget build(BuildContext context) {
@@ -21,7 +23,7 @@ class EvoknxApp extends StatelessWidget {
         theme: buildTheme(Brightness.light),
         darkTheme: buildTheme(Brightness.dark),
         themeMode: appSettings.themeMode,
-        home: Shell(project: project, bus: bus),
+        home: Shell(project: project, bus: bus, ha: ha),
       ),
     );
   }

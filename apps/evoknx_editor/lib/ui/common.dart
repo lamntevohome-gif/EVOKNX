@@ -485,6 +485,11 @@ class SearchField extends StatelessWidget {
       child: TextField(
         onChanged: onChanged,
         style: const TextStyle(fontSize: kUiText),
+        // Framed: fills the whole 34 px, exactly the height of the buttons next to it.
+        expands: framed,
+        maxLines: framed ? null : 1,
+        minLines: framed ? null : null,
+        textAlignVertical: framed ? TextAlignVertical.center : null,
         decoration: InputDecoration(
           hintText: hint,
           isDense: framed ? true : null,
@@ -501,7 +506,7 @@ class SearchField extends StatelessWidget {
               : null,
           prefixIcon: Icon(Icons.search, size: 15, color: c.muted),
           prefixIconConstraints: const BoxConstraints(minWidth: 28),
-          contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: framed ? 8 : 9),
+          contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: framed ? 0 : 9),
         ),
       ),
     );

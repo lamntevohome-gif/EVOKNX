@@ -343,6 +343,14 @@ Future<void> main() async {
   check(onoff['name'] == 'Đèn bàn · Bật/tắt (lệnh)' && onoff['ha']['entity'] == 'light.den1' && onoff['ha']['title'] == 'Đèn bàn',
       'rename: new name, same HA entity id');
 
+  // ---- point an item at another entity
+  check(haChangeEntityId(doc, 'light.den1', 'Light') != null, 'entity id: a bad format is refused');
+  check(haChangeEntityId(doc, 'light.den1', 'switch.den1') != null, 'entity id: another type is refused');
+  check(haChangeEntityId(doc, 'light.den1', 'light.den2') != null, 'entity id: an id already in the project is refused');
+  check(haChangeEntityId(doc, 'light.den1', 'light.den_moi') == null, 'entity id: a free id of the same type is accepted');
+  check(addr('light.den_moi', 'onoff', 'cmd') == '40/2/1' && addr('light.den1', 'onoff', 'cmd').isEmpty, 'entity id: addresses stay, only the entity changes');
+  check(haChangeEntityId(doc, 'light.den_moi', 'light.den1') == null && addr('light.den1', 'onoff', 'cmd') == '40/2/1', 'entity id: changed back');
+
   // ---- edit an address
   check(haValidateAddress(doc, 'abc') != null, 'edit address: bad format is refused');
   check(haValidateAddress(doc, '31/0/1') != null, 'edit address: main group 31 is refused');

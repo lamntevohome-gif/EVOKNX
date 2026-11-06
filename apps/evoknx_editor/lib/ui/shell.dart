@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 
 import '../app/theme.dart';
 import '../state/bus_controller.dart';
+import '../state/ha_link.dart';
 import '../state/project_controller.dart';
 import 'common.dart';
 import 'connections_page.dart';
@@ -18,9 +19,10 @@ import 'structure_page.dart';
 import 'test_page.dart';
 
 class Shell extends StatefulWidget {
-  const Shell({super.key, required this.project, required this.bus});
+  const Shell({super.key, required this.project, required this.bus, required this.ha});
   final ProjectController project;
   final BusController bus;
+  final HaLinkController ha;
   @override
   State<Shell> createState() => _ShellState();
 }
@@ -59,6 +61,13 @@ class _ShellState extends State<Shell> {
 
   /// Called when the window is being closed: offers to save changes.
   Future<AppExitResponse> _onExitRequested() async {
+    final r = await _askBeforeExit();
+    // Closing the Editor closes the Home Assistant connection.
+    if (r == AppExitResponse.exit) await widget.ha.disconnect();
+    return r;
+  }
+
+  Future<AppExitResponse> _askBeforeExit() async {
     if (!p.dirty || _asking || !mounted) return AppExitResponse.exit;
     _asking = true;
     final name = p.fileName;
@@ -130,7 +139,7 @@ class _ShellState extends State<Shell> {
                       StructurePage(project: p, bus: widget.bus),
                       ConnectionsPage(project: p),
                       TestPage(project: p, bus: widget.bus),
-                      HaPage(project: p),
+                      HaPage(project: p, link: widget.ha),
                     ],
                   ),
                 ),

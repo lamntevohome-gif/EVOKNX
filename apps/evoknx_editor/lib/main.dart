@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'app/app.dart';
 import 'state/app_settings.dart';
 import 'state/bus_controller.dart';
+import 'state/ha_link.dart';
 import 'state/card_library.dart';
 import 'state/project_controller.dart';
 
@@ -23,5 +24,5 @@ Future<void> main(List<String> args) async {
     if (a.toLowerCase().endsWith('.evoknx') && File(a).existsSync()) openPath = a;
   }
   await project.init(openPath: openPath);
-  runApp(EvoknxApp(project: project, bus: BusController(project)));
+  runApp(EvoknxApp(project: project, bus: BusController(project), ha: HaLinkController()));
 }
