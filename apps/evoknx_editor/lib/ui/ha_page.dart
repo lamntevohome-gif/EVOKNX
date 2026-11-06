@@ -27,6 +27,10 @@ class _HaPageState extends State<HaPage> {
   bool busy = false;
   String? roomId;
 
+  /// "Chọn" mode of a room: tick entities and delete them together.
+  bool selecting = false;
+  final Set<String> picked = {};
+
   ProjectController get p => widget.project;
 
   void _setHa(String key, Object? v, {String? coalesce}) {
@@ -113,6 +117,34 @@ class _HaPageState extends State<HaPage> {
     if (err != null && mounted) toast(context, err!);
   }
 
+  /// Puts every address of the room back on the rule (kind of entity, number,
+  /// function); the cards keep their links.
+  Future<void> _readdressRoom(Json room) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: Text('Đánh lại địa chỉ phòng “${room['name']}”?'),
+        content: const Text(
+          'Các địa chỉ của mọi thực thể trong phòng được đặt lại theo quy tắc: nhóm giữa theo loại thực thể (0 cảnh, 1 công tắc/đèn, 2 đèn dim, 3 rèm, 4 cảm biến, 5 media player, 6 máy lạnh), '
+          'chức năng phụ cộng thêm 10, nhóm phụ là số thứ tự, trạng thái cộng 100. Địa chỉ bạn đã sửa tay sẽ bị đặt lại. Các thẻ giữ nguyên liên kết. Có thể hoàn tác (Ctrl+Z).',
+        ),
+        actions: [
+          EvoButton(label: 'Huỷ', onPressed: () => Navigator.pop(c, false)),
+          EvoButton(label: 'Đánh lại', primary: true, onPressed: () => Navigator.pop(c, true)),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    var n = 0;
+    String? err;
+    try {
+      p.mutate((d) => n = readdressHaRoom(d, room['id'] as String));
+    } on StateError catch (e) {
+      err = e.message;
+    }
+    if (mounted) toast(context, err ?? (n == 0 ? 'Các địa chỉ đã đúng quy tắc.' : 'Đã đổi $n địa chỉ.'));
+  }
+
   Future<void> _deleteRoom(Json room) async {
     final id = room['id'] as String;
     final ents = {
@@ -148,6 +180,7 @@ class _HaPageState extends State<HaPage> {
       items: [
         const PopupMenuItem(value: 0, height: 34, child: Text('Sửa tên')),
         const PopupMenuItem(value: 1, height: 34, child: Text('Sửa nhóm chính (địa chỉ)')),
+        const PopupMenuItem(value: 3, height: 34, child: Text('Đánh lại địa chỉ theo quy tắc')),
         const PopupMenuDivider(height: 9),
         PopupMenuItem(
           value: 2,
@@ -163,6 +196,8 @@ class _HaPageState extends State<HaPage> {
         await _moveRoom(room);
       case 2:
         await _deleteRoom(room);
+      case 3:
+        await _readdressRoom(room);
     }
   }
 
@@ -204,6 +239,51 @@ class _HaPageState extends State<HaPage> {
       ),
     );
     if (ok == true) p.mutate((d) => removeHaEntity(d, entityId));
+  }
+
+  /// Right-click on an entity: rename or delete it.
+  Future<void> _entityMenu(Offset at, String entityId, String title) async {
+    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    final c = context.evo;
+    final v = await showMenu<int>(
+      context: context,
+      position: RelativeRect.fromRect(at & const Size(1, 1), Offset.zero & overlay.size),
+      items: [
+        const PopupMenuItem(value: 0, height: 34, child: Text('Sửa tên')),
+        PopupMenuItem(
+          value: 1,
+          height: 34,
+          child: Text('Xoá', style: TextStyle(color: c.danger)),
+        ),
+      ],
+    );
+    if (v == 0) await _renameEntity(entityId, title);
+    if (v == 1) await _removeEntity(entityId, title);
+  }
+
+  /// Deletes the ticked entities together.
+  Future<void> _removeMany(List<String> ids) async {
+    final uses = ids.fold<int>(0, (n, e) => n + haEntityUses(p.doc, e));
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: Text('Xoá ${ids.length} thực thể?'),
+        content: Text(
+          'Các địa chỉ ảo của chúng sẽ bị xoá.${uses > 0 ? ' Có $uses ô địa chỉ của thẻ đang dùng, chúng sẽ bị gỡ liên kết.' : ''} Có thể hoàn tác (Ctrl+Z).',
+        ),
+        actions: [
+          EvoButton(label: 'Huỷ', onPressed: () => Navigator.pop(c, false)),
+          EvoButton(label: 'Xoá', danger: true, onPressed: () => Navigator.pop(c, true)),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    p.mutate((d) {
+      for (final id in ids) {
+        removeHaEntity(d, id);
+      }
+    });
+    setState(picked.clear);
   }
 
   Json? _current(List<Json> rooms) {
@@ -351,10 +431,22 @@ class _HaPageState extends State<HaPage> {
                     r['name'].toString(),
                     '${r['main']}',
                     !orphansOn && r['id'] == cur?['id'],
-                    () => setState(() => roomId = r['id'] as String),
+                    () => setState(() {
+                      roomId = r['id'] as String;
+                      picked.clear();
+                    }),
                     onMenu: (at) => _roomMenu(at, r),
                   ),
-                if (hasOrphans) tab('Chưa phân phòng', null, orphansOn, () => setState(() => roomId = _kNoRoom)),
+                if (hasOrphans)
+                  tab(
+                    'Chưa phân phòng',
+                    null,
+                    orphansOn,
+                    () => setState(() {
+                      roomId = _kNoRoom;
+                      picked.clear();
+                    }),
+                  ),
               ],
             ),
           ),
@@ -393,16 +485,56 @@ class _HaPageState extends State<HaPage> {
     for (final g in gas) {
       (byEntity[(g['ha']['entity'] ?? '').toString()] ??= []).add(g);
     }
-    final order = byEntity.keys.toList()
-      ..sort((a, b) => ((byEntity[a]!.first['ha']['n'] as num?) ?? 0).compareTo((byEntity[b]!.first['ha']['n'] as num?) ?? 0));
+    int kindOf(String e) => (byEntity[e]!.first['ha']['kind'] as num?)?.toInt() ?? 99;
+    int numOf(String e) => (byEntity[e]!.first['ha']['n'] as num?)?.toInt() ?? 0;
+    final order = byEntity.keys.toList()..sort((a, b) => kindOf(a) != kindOf(b) ? kindOf(a).compareTo(kindOf(b)) : numOf(a).compareTo(numOf(b)));
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
         Padding(
           padding: const EdgeInsets.only(bottom: 10),
-          child: Text(
-            cur == null ? 'Địa chỉ chưa thuộc phòng nào' : 'Phòng ${cur['name']} · nhóm chính ${cur['main']} · ${byEntity.length} thực thể',
-            style: TextStyle(fontWeight: FontWeight.w600, color: c.ink),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  cur == null ? 'Địa chỉ chưa thuộc phòng nào' : 'Phòng ${cur['name']} · nhóm chính ${cur['main']} · ${byEntity.length} thực thể',
+                  style: TextStyle(fontWeight: FontWeight.w600, color: c.ink),
+                ),
+              ),
+              if (byEntity.isNotEmpty) ...[
+                if (selecting) ...[
+                  EvoButton(
+                    label: 'Chọn hết',
+                    small: true,
+                    onPressed: () => setState(
+                      () => picked
+                        ..clear()
+                        ..addAll(order),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  EvoButton(label: 'Bỏ chọn', small: true, onPressed: picked.isEmpty ? null : () => setState(picked.clear)),
+                  const SizedBox(width: 6),
+                  EvoButton(
+                    label: 'Xoá (${picked.length})',
+                    small: true,
+                    danger: true,
+                    icon: Icons.delete_outline,
+                    onPressed: picked.isEmpty ? null : () => _removeMany(picked.toList()),
+                  ),
+                  const SizedBox(width: 6),
+                ],
+                EvoButton(
+                  label: selecting ? 'Xong' : 'Chọn',
+                  small: true,
+                  icon: selecting ? Icons.check : Icons.checklist,
+                  onPressed: () => setState(() {
+                    selecting = !selecting;
+                    picked.clear();
+                  }),
+                ),
+              ],
+            ],
           ),
         ),
         if (byEntity.isEmpty)
@@ -423,7 +555,9 @@ class _HaPageState extends State<HaPage> {
       final h = g['ha'] as Map;
       (byAttr[(h['attr'] ?? '').toString()] ??= {})[(h['role'] ?? '').toString()] = g;
     }
-    final keys = byAttr.keys.toList()..sort((a, b) => kHaAttrs.indexWhere((x) => x.key == a).compareTo(kHaAttrs.indexWhere((x) => x.key == b)));
+    final kind = (gas.first['ha']['kind'] as num?)?.toInt();
+    int pos(String a) => kind == null ? kHaAttrs.indexWhere((x) => x.key == a) : haFunctionIndex(kind, a);
+    final keys = byAttr.keys.toList()..sort((a, b) => pos(a).compareTo(pos(b)));
     Widget addr(Json? g, String label) => g == null
         ? SizedBox(
             width: 210,
@@ -459,37 +593,43 @@ class _HaPageState extends State<HaPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(14, 6, 6, 6),
-            child: Row(
-              children: [
-                Flexible(
-                  child: Text(
-                    title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontWeight: FontWeight.w600, color: c.ink),
+          GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onSecondaryTapDown: (d) => _entityMenu(d.globalPosition, entityId, title),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(14, 6, 6, 6),
+              child: Row(
+                children: [
+                  if (selecting)
+                    Checkbox(value: picked.contains(entityId), onChanged: (v) => setState(() => v == true ? picked.add(entityId) : picked.remove(entityId))),
+                  Flexible(
+                    child: Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontWeight: FontWeight.w600, color: c.ink),
+                    ),
                   ),
-                ),
-                IconButton(
-                  tooltip: 'Đổi tên thực thể',
-                  icon: Icon(Icons.edit_outlined, size: 16, color: c.muted),
-                  onPressed: () => _renameEntity(entityId, title),
-                ),
-                Expanded(
-                  child: Text(
-                    entityId,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: kUiText - 1, color: c.muted),
+                  IconButton(
+                    tooltip: 'Đổi tên thực thể',
+                    icon: Icon(Icons.edit_outlined, size: 16, color: c.muted),
+                    onPressed: () => _renameEntity(entityId, title),
                   ),
-                ),
-                IconButton(
-                  tooltip: 'Gỡ thực thể này',
-                  icon: Icon(Icons.delete_outline, color: c.danger),
-                  onPressed: () => _removeEntity(entityId, title),
-                ),
-              ],
+                  Expanded(
+                    child: Text(
+                      kind == null ? entityId : '$entityId  ·  ${kHaKindNames[kind]}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: kUiText - 1, color: c.muted),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Gỡ thực thể này',
+                    icon: Icon(Icons.delete_outline, color: c.danger),
+                    onPressed: () => _removeEntity(entityId, title),
+                  ),
+                ],
+              ),
             ),
           ),
           Divider(height: 1, color: c.line),
@@ -719,7 +859,9 @@ Future<({String name, int main})?> _roomDialog(
   });
 }
 
-/// Picks entities of Home Assistant, the room and the functions to use.
+/// Picks entities of Home Assistant: tick several and add them automatically
+/// (their usual functions), add all that are listed, or add one by choosing its
+/// functions by hand. All additions go to the room chosen on the right.
 class _AddEntityDialog extends StatefulWidget {
   const _AddEntityDialog({required this.project, required this.entities, this.initialRoom});
   final ProjectController project;
@@ -733,8 +875,9 @@ class _AddEntityDialog extends StatefulWidget {
 class _AddEntityDialogState extends State<_AddEntityDialog> {
   String q = '';
   String domain = '';
-  HaEntity? sel;
+  HaEntity? focus;
   final Set<String> keys = {};
+  final Set<String> picked = {};
   int added = 0;
   late String room = widget.initialRoom ?? (haRooms(widget.project.doc).firstOrNull?['id'] as String? ?? '');
 
@@ -743,7 +886,62 @@ class _AddEntityDialogState extends State<_AddEntityDialog> {
       if (haSuggest(e).isNotEmpty) e,
   ];
 
-  String _fold(String s) => s.toLowerCase();
+  List<HaEntity> get filtered => [
+    for (final e in usable)
+      if ((domain.isEmpty || e.domain == domain) && (q.isEmpty || fold('${e.name} ${e.id}').contains(fold(q.trim())))) e,
+  ]..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+
+  /// Adds [es] to the room in one undo step; [only] gives the functions of
+  /// each one (otherwise their usual functions).
+  void _addMany(List<HaEntity> es, {Map<String, List<String>>? only}) {
+    if (es.isEmpty) return;
+    var ents = 0, addrs = 0;
+    final errors = <String>{};
+    widget.project.mutate((d) {
+      for (final e in es) {
+        try {
+          final n = addHaEntity(d, e, only?[e.id] ?? [for (final a in haSuggest(e)) a.key], roomId: room).length;
+          if (n > 0) {
+            ents++;
+            addrs += n;
+          }
+        } on StateError catch (x) {
+          errors.add(x.message);
+        }
+      }
+    });
+    setState(() {
+      added += ents;
+      picked.clear();
+      focus = null;
+    });
+    toast(
+      context,
+      ents == 0 && errors.isEmpty ? 'Các địa chỉ này đã có.' : 'Đã thêm $ents thực thể ($addrs địa chỉ).${errors.isEmpty ? '' : ' ${errors.first}'}',
+    );
+  }
+
+  Future<void> _addAll() async {
+    final list = filtered;
+    if (list.isEmpty) return;
+    if (list.length > 25) {
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (c) => AlertDialog(
+          title: Text('Thêm ${list.length} thực thể?'),
+          content: const Text(
+            'Tất cả thực thể đang hiện trong danh sách (theo ô tìm và loại đang chọn) sẽ được thêm vào phòng đã chọn với các chức năng thường dùng.',
+          ),
+          actions: [
+            EvoButton(label: 'Huỷ', onPressed: () => Navigator.pop(c, false)),
+            EvoButton(label: 'Thêm tất cả', primary: true, onPressed: () => Navigator.pop(c, true)),
+          ],
+        ),
+      );
+      if (ok != true) return;
+    }
+    _addMany(list);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -752,17 +950,15 @@ class _AddEntityDialogState extends State<_AddEntityDialog> {
     final rooms = haRooms(doc);
     final mappedIds = {for (final g in haAddresses(doc)) (g['ha']['entity'] ?? '').toString()};
     final domains = {for (final e in usable) e.domain}.toList()..sort();
-    final list = [
-      for (final e in usable)
-        if ((domain.isEmpty || e.domain == domain) && (q.isEmpty || _fold('${e.name} ${e.id}').contains(_fold(q)))) e,
-    ]..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+    final list = filtered;
     // An entity already in the project stays in its room.
-    final fixedRoom = sel == null ? null : haEntityRoom(doc, sel!.id);
+    final fixedRoom = focus == null ? null : haEntityRoom(doc, focus!.id);
     final effectiveRoom = fixedRoom ?? room;
+    final canAuto = picked.isNotEmpty && room.isNotEmpty;
     return AlertDialog(
       title: const Text('Thêm thực thể từ Home Assistant'),
       content: SizedBox(
-        width: 740,
+        width: 760,
         height: 480,
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -780,24 +976,42 @@ class _AddEntityDialogState extends State<_AddEntityDialog> {
                     onChanged: (v) => setState(() => domain = v),
                   ),
                   const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      EvoButton(label: 'Chọn hết', small: true, onPressed: list.isEmpty ? null : () => setState(() => picked.addAll(list.map((e) => e.id)))),
+                      const SizedBox(width: 6),
+                      EvoButton(label: 'Bỏ chọn', small: true, onPressed: picked.isEmpty ? null : () => setState(picked.clear)),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          '${list.length} thực thể · đã chọn ${picked.length}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontSize: kUiText - 1, color: c.muted),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
                   Expanded(
                     child: ListView.builder(
                       itemCount: list.length,
                       itemBuilder: (context, i) {
                         final e = list[i];
-                        final on = sel?.id == e.id;
+                        final on = focus?.id == e.id;
                         return InkWell(
                           onTap: () => setState(() {
-                            sel = e;
+                            focus = e;
                             keys
                               ..clear()
                               ..addAll(haSuggest(e).map((a) => a.key));
                           }),
                           child: Container(
                             color: on ? c.accentSoft : null,
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                            padding: const EdgeInsets.fromLTRB(0, 2, 8, 2),
                             child: Row(
                               children: [
+                                Checkbox(value: picked.contains(e.id), onChanged: (v) => setState(() => v == true ? picked.add(e.id) : picked.remove(e.id))),
                                 Expanded(
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -831,80 +1045,81 @@ class _AddEntityDialogState extends State<_AddEntityDialog> {
             const SizedBox(width: 16),
             Expanded(
               flex: 4,
-              child: sel == null
-                  ? Center(
-                      child: Text('Chọn một thực thể bên trái.', style: TextStyle(color: c.muted)),
-                    )
-                  : Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          sel!.name,
-                          style: TextStyle(fontWeight: FontWeight.w600, color: c.ink),
-                        ),
-                        Text(
-                          sel!.id,
-                          style: TextStyle(fontSize: kUiText - 1, color: c.muted),
-                        ),
-                        const SizedBox(height: 12),
-                        FieldLabel(
-                          'Thêm vào phòng',
-                          EvoDropdown<String>(
-                            value: effectiveRoom,
-                            items: [for (final r in rooms) (r['id'] as String, '${r['name']} (${r['main']})')],
-                            onChanged: fixedRoom != null ? null : (v) => setState(() => room = v),
-                          ),
-                        ),
-                        if (fixedRoom != null)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 4),
-                            child: Text(
-                              'Thực thể đã có trong phòng này.',
-                              style: TextStyle(fontSize: kUiText - 2, color: c.muted),
-                            ),
-                          ),
-                        const SizedBox(height: 10),
-                        Text('Dùng để:', style: TextStyle(color: c.muted)),
-                        for (final a in haSuggest(sel!))
-                          Row(
-                            children: [
-                              Checkbox(value: keys.contains(a.key), onChanged: (v) => setState(() => v == true ? keys.add(a.key) : keys.remove(a.key))),
-                              Expanded(child: Text('${a.label}  ·  DPT ${a.dpt}')),
-                            ],
-                          ),
-                        const Spacer(),
-                        EvoButton(
-                          label: 'Thêm vào dự án',
-                          primary: true,
-                          onPressed: keys.isEmpty || effectiveRoom.isEmpty
-                              ? null
-                              : () {
-                                  final e = sel!;
-                                  var n = 0;
-                                  String? err;
-                                  try {
-                                    widget.project.mutate((d) => n = addHaEntity(d, e, keys.toList(), roomId: effectiveRoom).length);
-                                  } on StateError catch (x) {
-                                    err = x.message;
-                                  }
-                                  if (err != null) {
-                                    toast(context, err);
-                                    return;
-                                  }
-                                  setState(() {
-                                    added += n > 0 ? 1 : 0;
-                                    sel = null;
-                                  });
-                                  if (n == 0) toast(context, 'Các địa chỉ này đã có.');
-                                },
-                        ),
-                      ],
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  FieldLabel(
+                    'Thêm vào phòng',
+                    EvoDropdown<String>(
+                      value: effectiveRoom,
+                      items: [for (final r in rooms) (r['id'] as String, '${r['name']} (${r['main']})')],
+                      onChanged: fixedRoom != null ? null : (v) => setState(() => room = v),
                     ),
+                  ),
+                  if (fixedRoom != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        'Thực thể này đã có trong phòng đó.',
+                        style: TextStyle(fontSize: kUiText - 2, color: c.muted),
+                      ),
+                    ),
+                  const SizedBox(height: 14),
+                  if (focus == null)
+                    Expanded(
+                      child: Text(
+                        'Tick nhiều thực thể bên trái rồi bấm “Thêm tự động” (chức năng thường dùng), hoặc bấm một thực thể để tự chọn chức năng rồi “Thêm thủ công”.',
+                        style: TextStyle(color: c.muted, height: 1.4),
+                      ),
+                    )
+                  else
+                    Expanded(
+                      child: ListView(
+                        children: [
+                          Text(
+                            focus!.name,
+                            style: TextStyle(fontWeight: FontWeight.w600, color: c.ink),
+                          ),
+                          Text(
+                            focus!.id,
+                            style: TextStyle(fontSize: kUiText - 1, color: c.muted),
+                          ),
+                          const SizedBox(height: 10),
+                          Text('Chức năng (cho “Thêm thủ công”):', style: TextStyle(color: c.muted)),
+                          for (final a in haSuggest(focus!))
+                            Row(
+                              children: [
+                                Checkbox(value: keys.contains(a.key), onChanged: (v) => setState(() => v == true ? keys.add(a.key) : keys.remove(a.key))),
+                                Expanded(child: Text('${a.label}  ·  DPT ${a.dpt}')),
+                              ],
+                            ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
             ),
           ],
         ),
       ),
-      actions: [EvoButton(label: added > 0 ? 'Xong ($added đã thêm)' : 'Đóng', primary: added > 0, onPressed: () => Navigator.pop(context))],
+      actions: [
+        EvoButton(
+          label: 'Thêm tự động${picked.isEmpty ? '' : ' (${picked.length})'}',
+          primary: true,
+          onPressed: canAuto
+              ? () => _addMany([
+                  for (final e in usable)
+                    if (picked.contains(e.id)) e,
+                ])
+              : null,
+        ),
+        EvoButton(
+          label: 'Thêm thủ công',
+          onPressed: focus == null || keys.isEmpty || effectiveRoom.isEmpty ? null : () => _addMany([focus!], only: {focus!.id: keys.toList()}),
+        ),
+        EvoButton(label: 'Thêm tất cả (${list.length})', onPressed: list.isEmpty || room.isEmpty ? null : _addAll),
+        EvoButton(label: added > 0 ? 'Đóng ($added đã thêm)' : 'Đóng', onPressed: () => Navigator.pop(context)),
+      ],
     );
   }
 }

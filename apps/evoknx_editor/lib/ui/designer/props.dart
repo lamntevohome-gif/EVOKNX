@@ -78,7 +78,7 @@ class _Section extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SectionTitle(title, trailing: trailing),
+          if (title.isNotEmpty) SectionTitle(title, trailing: trailing),
           for (var i = 0; i < items.length; i++) ...[items[i], if (i < items.length - 1) const SizedBox(height: 8)],
         ],
       ),
@@ -231,8 +231,6 @@ class _WidgetProps extends StatefulWidget {
 }
 
 class _WidgetPropsState extends State<_WidgetProps> {
-  String q = '';
-
   Designer get d => widget.d;
   Json get w => widget.w;
   String get id => w['id'] as String;
@@ -267,7 +265,6 @@ class _WidgetPropsState extends State<_WidgetProps> {
     final text = jsonMap(w['text']);
     final gas = jsonList(d.doc['groupAddresses']);
     final bind = jsonMap(w['bind']);
-    final fq = fold(q.trim());
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -379,20 +376,16 @@ class _WidgetPropsState extends State<_WidgetProps> {
             ),
         ]),
         if (slotsFor(w).isNotEmpty)
-          _Section('Liên kết địa chỉ nhóm', [
-            SearchField(hint: 'Tìm theo địa chỉ hoặc tên', width: double.infinity, onChanged: (v) => setState(() => q = v)),
+          _Section('', [
             for (final sl in slotsFor(w))
               FieldLabel(
                 '${sl.label}${sl.required ? ' *' : ''}',
-                EvoDropdown<String>(
+                GaPickerField(
                   value: (bind[sl.key] ?? '').toString(),
-                  warn: sl.required && bind[sl.key] == null,
                   items: [
-                    ('', fq.isEmpty ? 'Chưa gán' : 'Chưa gán (đang lọc: ${q.trim()})'),
+                    ('', 'Chưa gán'),
                     for (final g
-                        in (gas
-                            .where((g) => (slotAccepts(sl, g) && (fq.isEmpty || fold('${g['address']} ${g['name']}').contains(fq))) || g['id'] == bind[sl.key])
-                            .toList()
+                        in (gas.where((g) => slotAccepts(sl, g) || g['id'] == bind[sl.key]).toList()
                           ..sort((a, b) => gaSortKey(a['address'].toString()).compareTo(gaSortKey(b['address'].toString())))))
                       (g['id'].toString(), '${g['address']}   ${g['name']}'),
                     if (bind[sl.key] != null && byId(gas, bind[sl.key] as String) == null) (bind[sl.key].toString(), 'Địa chỉ đã bị xoá'),

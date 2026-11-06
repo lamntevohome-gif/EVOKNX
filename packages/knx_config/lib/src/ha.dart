@@ -11,9 +11,15 @@ import 'project.dart';
 // go to the KNX bus (the App sends them to HA). Each "phòng" (room) of the
 // "Mở rộng" tab has its own main group, which must be above 31 (KNX main
 // groups only go up to 31, so these never collide with a real address).
-// In a room, entity number n (1..155) gets, per function type t:
-//   command  main/(10*t)/n        status  main/(10*t)/(n+100)
-// t = 0 is on/off, 1 brightness, 2 colour temperature, 3 cover position...
+//
+// Inside a room the middle group is the KIND of entity:
+//   0 scene, script, automation      1 switch, light (on/off only)
+//   2 dimmable light                 3 cover
+//   4 sensor                         5 media player        6 climate
+// The first function of an entity uses that middle group, the next functions
+// add 10 each (a dimmable light: on/off in 2, brightness in 12, colour
+// temperature in 22). Entity number n counts from 1 per room and kind:
+//   command  main/mid/n        status  main/mid/(n+100)
 // ======================================================================
 
 /// KNX main groups only go up to 31: virtual main groups start above it.
@@ -47,7 +53,64 @@ const List<HaAttr> kHaAttrs = [
   HaAttr('sensor', 'Giá trị cảm biến', '9.001', cmd: false),
   HaAttr('binary', 'Trạng thái (bật/tắt)', '1.001', cmd: false),
   HaAttr('scene', 'Kích hoạt', '17.001', status: false),
+  HaAttr('playpause', 'Phát/Tạm dừng', '1.001', status: false),
+  HaAttr('mstop', 'Dừng phát', '1.001', status: false),
+  HaAttr('prev', 'Bài trước', '1.001', status: false),
+  HaAttr('next', 'Bài sau', '1.001', status: false),
+  HaAttr('volume', 'Âm lượng', '5.001'),
+  HaAttr('mute', 'Tắt tiếng', '1.001'),
+  HaAttr('playing', 'Đang phát', '1.001', cmd: false),
 ];
+
+/// Functions of each kind of entity, in the order that gives their middle group
+/// (kind + 10 × position). Sensors and binary sensors both use position 0.
+const Map<int, List<String>> kHaFunctions = {
+  0: ['scene'],
+  1: ['onoff'],
+  2: ['onoff', 'brightness', 'colortemp'],
+  3: ['move', 'stop', 'position'],
+  4: ['sensor'],
+  5: ['onoff', 'playpause', 'mstop', 'prev', 'next', 'volume', 'mute', 'playing'],
+  6: ['onoff', 'setpoint', 'current', 'mode'],
+};
+
+const List<String> kHaKindNames = ['Cảnh, script, tự động hoá', 'Công tắc, đèn', 'Đèn dim', 'Rèm', 'Cảm biến', 'Media player', 'Máy lạnh'];
+
+bool _lightDims(HaEntity e) {
+  final modes = [for (final x in (e.attributes['supported_color_modes'] as List? ?? const [])) x.toString()];
+  return modes.any((m) => m != 'onoff') || e.attributes.containsKey('brightness');
+}
+
+/// The kind (middle group) of an entity.
+int haKind(HaEntity e) {
+  switch (e.domain) {
+    case 'scene':
+    case 'script':
+    case 'automation':
+      return 0;
+    case 'light':
+      return _lightDims(e) ? 2 : 1;
+    case 'cover':
+      return 3;
+    case 'sensor':
+    case 'binary_sensor':
+      return 4;
+    case 'media_player':
+      return 5;
+    case 'climate':
+      return 6;
+  }
+  return 1;
+}
+
+/// Position of [attr] among the functions of [kind].
+int haFunctionIndex(int kind, String attr) {
+  if (kind == 4) return 0;
+  final i = (_functionsOf(kind)).indexOf(attr);
+  return i < 0 ? 0 : i;
+}
+
+List<String> _functionsOf(int kind) => kHaFunctions[kind] ?? const ['onoff'];
 
 HaAttr? haAttr(String key) {
   for (final a in kHaAttrs) {
@@ -76,13 +139,12 @@ List<HaAttr> haSuggest(HaEntity e) {
   List<HaAttr> pick(List<String> keys) => [for (final k in keys) haAttr(k)!];
   switch (e.domain) {
     case 'light':
+      final dims = _lightDims(e);
       final modes = [for (final x in (e.attributes['supported_color_modes'] as List? ?? const [])) x.toString()];
-      final dim = modes.any((m) => m != 'onoff') || e.attributes.containsKey('brightness');
-      return pick(['onoff', if (dim) 'brightness', if (modes.contains('color_temp')) 'colortemp']);
+      return pick(['onoff', if (dims) 'brightness', if (modes.contains('color_temp')) 'colortemp']);
     case 'switch':
     case 'input_boolean':
     case 'fan':
-    case 'automation':
       return pick(['onoff']);
     case 'cover':
       return pick(['move', 'stop', 'position']);
@@ -94,7 +156,10 @@ List<HaAttr> haSuggest(HaEntity e) {
       return pick(['binary']);
     case 'scene':
     case 'script':
+    case 'automation':
       return pick(['scene']);
+    case 'media_player':
+      return pick(['onoff', 'playpause', 'mstop', 'prev', 'next', 'volume', 'mute', 'playing']);
   }
   return const [];
 }
@@ -204,17 +269,16 @@ String? haEntityRoom(Json doc, String entityId) {
   return null;
 }
 
-/// The command address of attribute [attrKey] for entity number [n] of a room
-/// ([role] 'cmd'), or its status address.
-String haAddressFor(int main, String attrKey, int n, String role) {
-  final t = kHaAttrs.indexWhere((a) => a.key == attrKey);
-  return '$main/${10 * (t < 0 ? 0 : t)}/${role == 'cmd' ? n : n + 100}';
+/// The command ([role] 'cmd') or status address of function [attrKey] of
+/// entity number [n] of kind [kind] in a room whose main group is [main].
+String haAddressFor(int main, int kind, String attrKey, int n, String role) {
+  return '$main/${kind + 10 * haFunctionIndex(kind, attrKey)}/${role == 'cmd' ? n : n + 100}';
 }
 
-/// Adds the virtual addresses of [e] for the attributes [attrKeys] to a room
-/// of the project (both a command and a status address where the attribute has
-/// them). An entity keeps its number in the room. Returns the new entries;
-/// throws a [StateError] (with a message) when the room is unknown or full.
+/// Adds the virtual addresses of [e] for the functions [attrKeys] to a room of
+/// the project (both a command and a status address where the function has
+/// them). An entity keeps its kind and number. Returns the new entries; throws
+/// a [StateError] (with a message) when the room is unknown or full.
 List<Json> addHaEntity(Json doc, HaEntity e, List<String> attrKeys, {required String roomId, String? title}) {
   final gas = (doc['groupAddresses'] = List<dynamic>.from(doc['groupAddresses'] as List? ?? const []));
   // An entity stays in the room it was first added to.
@@ -222,6 +286,7 @@ List<Json> addHaEntity(Json doc, HaEntity e, List<String> attrKeys, {required St
   final room = haRoomById(doc, existing ?? roomId);
   if (room == null) throw StateError('Hãy tạo phòng trước.');
   final rid = room['id'] as String, main = (room['main'] as num).toInt();
+  final kind = haKind(e);
   var n = 0;
   String? shown;
   for (final g in gas) {
@@ -235,10 +300,10 @@ List<Json> addHaEntity(Json doc, HaEntity e, List<String> attrKeys, {required St
     var top = 0;
     for (final g in gas) {
       final h = (g as Map)['ha'];
-      if (h is Map && h['room'] == rid) top = [top, (h['n'] as num?)?.toInt() ?? 0].reduce((a, b) => a > b ? a : b);
+      if (h is Map && h['room'] == rid && h['kind'] == kind) top = [top, (h['n'] as num?)?.toInt() ?? 0].reduce((a, b) => a > b ? a : b);
     }
     n = top + 1;
-    if (n > kHaMaxEntities) throw StateError('Phòng “${room['name']}” đã đủ $kHaMaxEntities thực thể.');
+    if (n > kHaMaxEntities) throw StateError('Phòng “${room['name']}” đã đủ $kHaMaxEntities thực thể loại “${kHaKindNames[kind]}”.');
   }
   final name = (title ?? shown ?? e.name);
   final out = <Json>[];
@@ -247,20 +312,70 @@ List<Json> addHaEntity(Json doc, HaEntity e, List<String> attrKeys, {required St
     if (a == null) continue;
     for (final role in ['cmd', 'status']) {
       if ((role == 'cmd' && !a.cmd) || (role == 'status' && !a.status)) continue;
-      final addr = haAddressFor(main, key, n, role);
+      final addr = haAddressFor(main, kind, key, n, role);
       if (gas.any((g) => (g as Map)['address'] == addr)) continue;
       final ga = <String, dynamic>{
         'id': uid('ga_'),
         'address': addr,
         'name': '$name · ${a.label}${role == 'cmd' ? ' (lệnh)' : ' (trạng thái)'}',
         'dpt': a.dpt,
-        'ha': {'entity': e.id, 'attr': key, 'role': role, 'room': rid, 'n': n, 'title': name},
+        'ha': {'entity': e.id, 'attr': key, 'role': role, 'room': rid, 'kind': kind, 'n': n, 'title': name},
       };
       gas.add(ga);
       out.add(ga);
     }
   }
   return out;
+}
+
+/// Gives every entity of a room addresses by the rule (kind, number per kind,
+/// function). Cards keep their links. Returns how many addresses changed;
+/// throws a [StateError] when a new address would collide.
+int readdressHaRoom(Json doc, String roomId) {
+  final room = haRoomById(doc, roomId);
+  if (room == null) return 0;
+  final main = (room['main'] as num).toInt();
+  final mine = [
+    for (final g in jsonList(doc['groupAddresses']))
+      if (g['ha'] is Map && g['ha']['room'] == roomId) g
+  ];
+  // Entities in their old order; the kind comes from the id and the functions in use.
+  final order = <String>[];
+  final attrsOf = <String, Set<String>>{};
+  int oldN(String id) => (mine.firstWhere((g) => g['ha']['entity'] == id)['ha']['n'] as num?)?.toInt() ?? 0;
+  for (final g in mine) {
+    final id = (g['ha']['entity'] ?? '').toString();
+    if (!order.contains(id)) order.add(id);
+    (attrsOf[id] ??= {}).add((g['ha']['attr'] ?? '').toString());
+  }
+  order.sort((a, b) => oldN(a).compareTo(oldN(b)));
+  int kindOf(String id) => haKind(HaEntity(id, '', {if (attrsOf[id]!.contains('brightness') || attrsOf[id]!.contains('colortemp')) 'brightness': 1}));
+  final counters = <int, int>{};
+  final number = <String, int>{}, kinds = <String, int>{};
+  for (final id in order) {
+    final k = kindOf(id);
+    kinds[id] = k;
+    number[id] = counters[k] = (counters[k] ?? 0) + 1;
+  }
+  final fresh = <Object?, String>{};
+  for (final g in mine) {
+    final id = (g['ha']['entity'] ?? '').toString();
+    fresh[g['id']] = haAddressFor(main, kinds[id]!, (g['ha']['attr'] ?? '').toString(), number[id]!, (g['ha']['role'] ?? '').toString());
+  }
+  final others = {
+    for (final g in jsonList(doc['groupAddresses']))
+      if (!fresh.containsKey(g['id'])) g['address'].toString()
+  };
+  if (fresh.values.any(others.contains) || fresh.values.toSet().length != fresh.length) throw StateError('Có địa chỉ trùng với địa chỉ khác trong dự án.');
+  var changed = 0;
+  for (final g in mine) {
+    final a = fresh[g['id']]!;
+    if (g['address'] != a) changed++;
+    g['address'] = a;
+    g['ha']['kind'] = kinds[(g['ha']['entity'] ?? '').toString()];
+    g['ha']['n'] = number[(g['ha']['entity'] ?? '').toString()];
+  }
+  return changed;
 }
 
 /// Renames an entity (its display name only: the HA entity id stays).
@@ -369,7 +484,7 @@ HaCall? haCommand(HaEntity e, String attr, Object value) {
   switch (attr) {
     case 'onoff':
       final on = (n ?? 0) != 0;
-      final dom = const ['light', 'switch', 'fan', 'input_boolean', 'climate', 'automation', 'cover'].contains(d) ? d : 'homeassistant';
+      final dom = const ['light', 'switch', 'fan', 'input_boolean', 'climate', 'automation', 'cover', 'media_player'].contains(d) ? d : 'homeassistant';
       if (dom == 'cover') return HaCall('cover', on ? 'open_cover' : 'close_cover');
       return HaCall(dom, on ? 'turn_on' : 'turn_off');
     case 'brightness':
@@ -397,7 +512,20 @@ HaCall? haCommand(HaEntity e, String attr, Object value) {
       if (key == 'auto' && !modes.contains('auto') && modes.contains('heat_cool')) mode = 'heat_cool';
       return HaCall('climate', 'set_hvac_mode', {'hvac_mode': mode});
     case 'scene':
+      if (d == 'automation') return const HaCall('automation', 'trigger');
       return HaCall(d == 'script' ? 'script' : 'scene', 'turn_on');
+    case 'playpause':
+      return const HaCall('media_player', 'media_play_pause');
+    case 'mstop':
+      return const HaCall('media_player', 'media_stop');
+    case 'prev':
+      return const HaCall('media_player', 'media_previous_track');
+    case 'next':
+      return const HaCall('media_player', 'media_next_track');
+    case 'volume':
+      return HaCall('media_player', 'volume_set', {'volume_level': ((n ?? 0).clamp(0, 100)) / 100});
+    case 'mute':
+      return HaCall('media_player', 'volume_mute', {'is_volume_muted': (n ?? 0) != 0});
   }
   return null;
 }
@@ -409,7 +537,15 @@ Object? haStatusValue(String attr, HaEntity e) {
   if (s == 'unavailable' || s == 'unknown') return null;
   switch (attr) {
     case 'onoff':
+      if (e.domain == 'media_player') return s != 'off' && s != 'standby';
       return e.domain == 'cover' ? s != 'closed' : s != 'off';
+    case 'playing':
+      return s == 'playing';
+    case 'volume':
+      final v = e.attributes['volume_level'];
+      return v is num ? (v * 100).round() : null;
+    case 'mute':
+      return e.attributes['is_volume_muted'] == true;
     case 'binary':
       return s == 'on';
     case 'brightness':

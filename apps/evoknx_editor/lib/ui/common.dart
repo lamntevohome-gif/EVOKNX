@@ -229,6 +229,146 @@ class EvoDropdown<T> extends StatelessWidget {
   }
 }
 
+/// A box showing the chosen group address. Tapping it opens a list with a search
+/// box on top (by address or name); the list is two thirds as tall as a plain
+/// drop-down menu would be. [items] are (id, text), the first one is "none".
+class GaPickerField extends StatelessWidget {
+  const GaPickerField({super.key, required this.value, required this.items, required this.onChanged});
+  final String value;
+  final List<(String, String)> items;
+  final ValueChanged<String> onChanged;
+
+  Future<void> _open(BuildContext context) async {
+    final box = context.findRenderObject() as RenderBox;
+    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    final at = box.localToGlobal(Offset.zero, ancestor: overlay);
+    final w = box.size.width < 320 ? 320.0 : box.size.width;
+    final screenH = MediaQuery.sizeOf(context).height;
+    final height = ((52 + items.length * 30.0).clamp(0.0, (screenH - 32) * 2 / 3)).toDouble();
+    final r = await showMenu<String>(
+      context: context,
+      position: RelativeRect.fromLTRB(at.dx, at.dy + box.size.height + 2, overlay.size.width - at.dx - w, 0),
+      constraints: BoxConstraints(minWidth: w, maxWidth: w),
+      items: [
+        PopupMenuItem<String>(
+          enabled: false,
+          padding: EdgeInsets.zero,
+          child: _GaPickerPanel(items: items, value: value, width: w, height: height),
+        ),
+      ],
+    );
+    if (r != null) onChanged(r);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.evo;
+    final text = items.firstWhere((i) => i.$1 == value, orElse: () => items.first).$2;
+    return InkWell(
+      borderRadius: BorderRadius.circular(4),
+      onTap: () => _open(context),
+      child: Container(
+        height: 34,
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        decoration: BoxDecoration(
+          color: c.panel,
+          border: Border.all(color: c.line),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                text,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: kUiText, color: c.ink),
+              ),
+            ),
+            Icon(Icons.arrow_drop_down, size: 18, color: c.muted),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _GaPickerPanel extends StatefulWidget {
+  const _GaPickerPanel({required this.items, required this.value, required this.width, required this.height});
+  final List<(String, String)> items;
+  final String value;
+  final double width, height;
+
+  @override
+  State<_GaPickerPanel> createState() => _GaPickerPanelState();
+}
+
+class _GaPickerPanelState extends State<_GaPickerPanel> {
+  String q = '';
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.evo;
+    final fq = fold(q.trim());
+    // The first item ("none") stays on top; the others are filtered.
+    final rest = [
+      for (final i in widget.items.skip(1))
+        if (fq.isEmpty || fold(i.$2).contains(fq) || i.$1 == widget.value) i,
+    ];
+    final list = [widget.items.first, ...rest];
+    return SizedBox(
+      width: widget.width,
+      height: widget.height,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(8, 8, 8, 6),
+            child: SizedBox(
+              height: 34,
+              child: TextField(
+                autofocus: true,
+                style: TextStyle(fontSize: kUiText, color: c.ink),
+                decoration: InputDecoration(
+                  hintText: 'Tìm theo địa chỉ hoặc tên',
+                  prefixIcon: Icon(Icons.search, size: 16, color: c.muted),
+                  contentPadding: const EdgeInsets.symmetric(vertical: 0),
+                ),
+                onChanged: (v) => setState(() => q = v),
+              ),
+            ),
+          ),
+          Divider(height: 1, color: c.line),
+          Expanded(
+            child: ListView.builder(
+              itemCount: list.length,
+              itemExtent: 30,
+              itemBuilder: (context, i) {
+                final it = list[i];
+                final on = it.$1 == widget.value;
+                return InkWell(
+                  onTap: () => Navigator.pop(context, it.$1),
+                  child: Container(
+                    color: on ? c.accentSoft : null,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      it.$2,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: kUiText, color: it.$1.isEmpty ? c.muted : c.ink),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// DPT choices grouped by size, like the ETS type list. A more specific
 /// type already assigned (e.g. 9.004 from ETS) stays listed with its name.
 List<(String, String)> dptItems(String current, {String none = 'Chưa có DPT'}) => [

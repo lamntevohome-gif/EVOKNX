@@ -193,6 +193,21 @@ Future<void> main() async {
   check(haCommand(ent('climate.a', 'off'), 'onoff', true)!.service == 'turn_on' && haCommand(ent('switch.a', 'on'), 'onoff', false)!.service == 'turn_off',
       'command: power');
 
+  final mp = ent('media_player.tv', 'playing', {'volume_level': 0.35, 'is_volume_muted': false});
+  check(haStatusValue('volume', mp) == 35 && haStatusValue('mute', mp) == false && haStatusValue('playing', mp) == true && haStatusValue('onoff', mp) == true,
+      'status: media player volume, mute, playing, power');
+  check(haStatusValue('onoff', ent('media_player.a', 'standby')) == false, 'status: media player standby counts as off');
+  check(haCommand(mp, 'volume', 50)!.data['volume_level'] == 0.5 && haCommand(mp, 'mute', true)!.data['is_volume_muted'] == true,
+      'command: media player volume and mute');
+  check(
+      haCommand(mp, 'playpause', 1)!.service == 'media_play_pause' &&
+          haCommand(mp, 'next', 1)!.service == 'media_next_track' &&
+          haCommand(mp, 'prev', 1)!.service == 'media_previous_track' &&
+          haCommand(mp, 'mstop', 1)!.service == 'media_stop',
+      'command: media player buttons');
+  check(haCommand(mp, 'onoff', true)!.domain == 'media_player' && haCommand(ent('automation.a', 'on'), 'scene', 1)!.service == 'trigger',
+      'command: media player power, automation trigger');
+
   // ---- rooms
   final doc = <String, dynamic>{'groupAddresses': <dynamic>[]};
   check(haValidateMain(doc, 31) != null, 'room: main group 31 is refused (KNX range)');
@@ -215,18 +230,44 @@ Future<void> main() async {
   check(haSuggest(light).map((a) => a.key).join(',') == 'onoff,brightness', 'suggest: dimmable light');
   final added = addHaEntity(doc, light, ['onoff', 'brightness'], roomId: room1['id'] as String);
   final addrs = added.map((g) => g['address']).join(' ');
-  check(addrs == '40/0/1 40/0/101 40/10/1 40/10/101', 'addresses: 40/0/1 40/0/101 40/10/1 40/10/101 (got $addrs)');
+  check(addrs == '40/2/1 40/2/101 40/12/1 40/12/101', 'addresses: dimmable light = kind 2 (40/2/1 40/2/101), brightness +10 (40/12/1 40/12/101); got $addrs');
   addHaEntity(doc, ent('cover.rem1', 'open', {'friendly_name': 'Rèm 1'}), ['position'], roomId: room1['id'] as String);
-  check(
-      (doc['groupAddresses'] as List).any((g) => g['address'] == '40/30/2' || g['address'] == '40/3/2') ||
-          (doc['groupAddresses'] as List).any((g) => g['address'] == '40/30/102'),
-      'addresses: the second entity of the room is number 2');
+  check((doc['groupAddresses'] as List).any((g) => g['address'] == '40/23/1') && (doc['groupAddresses'] as List).any((g) => g['address'] == '40/23/101'),
+      'addresses: cover position = kind 3 + 20 (40/23/1 and 40/23/101)');
   addHaEntity(doc, light, ['colortemp'], roomId: room1['id'] as String);
-  check((doc['groupAddresses'] as List).any((g) => g['address'] == '40/20/1'), 'addresses: an entity keeps its number (colour temperature 40/20/1)');
+  check((doc['groupAddresses'] as List).any((g) => g['address'] == '40/22/1'), 'addresses: an entity keeps its number (colour temperature 40/22/1)');
   final ac = ent('climate.ac', 'cool', {'friendly_name': 'Máy lạnh'});
   addHaEntity(doc, ac, ['onoff', 'setpoint', 'current', 'mode'], roomId: room2['id'] as String);
   addHaEntity(doc, ent('sensor.t', '23.4', {'friendly_name': 'Nhiệt độ'}), ['sensor'], roomId: room2['id'] as String);
-  check(added.every((g) => g['dpt'] != null && isHaAddress(g) && g['ha']['room'] == room1['id']), 'addresses: have a DPT, the ha link and their room');
+  check(added.every((g) => g['dpt'] != null && isHaAddress(g) && g['ha']['room'] == room1['id'] && g['ha']['kind'] == 2),
+      'addresses: have a DPT, the ha link, their room and kind');
+  addHaEntity(doc, ent('light.den2', 'on', {'friendly_name': 'Đèn 2', 'brightness': 1}), ['onoff'], roomId: room1['id'] as String);
+  addHaEntity(doc, ent('switch.quat', 'on', {'friendly_name': 'Quạt'}), ['onoff'], roomId: room1['id'] as String);
+  addHaEntity(doc, ent('cover.rem2', 'open', {'friendly_name': 'Rèm 2'}), ['move', 'stop'], roomId: room1['id'] as String);
+  final tv = ent('media_player.tv', 'playing', {'friendly_name': 'TV'});
+  check(haKind(tv) == 5 && haSuggest(tv).map((a) => a.key).join(',') == 'onoff,playpause,mstop,prev,next,volume,mute,playing',
+      'media player: kind 5 and its functions');
+  addHaEntity(doc, tv, ['onoff', 'playpause', 'volume', 'mute', 'playing'], roomId: room1['id'] as String);
+  final all = (doc['groupAddresses'] as List).map((g) => g['address']).toSet();
+  check(
+    all.containsAll(['40/2/2', '40/1/1', '40/3/2', '40/13/2', '40/5/1', '40/15/1', '40/55/1', '40/55/101', '40/65/1', '40/65/101', '40/75/101']),
+    'addresses: numbers count per kind (second dim light 40/2/2, switch 40/1/1, second cover 40/3/2), media player 40/5/1, 40/15/1, volume 40/55/1, mute 40/65/1, playing 40/75/101',
+  );
+  check(haKind(ent('scene.a', 'scening')) == 0 && haKind(ent('script.a', 'off')) == 0 && haKind(ent('automation.a', 'on')) == 0,
+      'kind 0: scene, script, automation');
+  check(
+      haKind(ent('light.x', 'on', {
+                'supported_color_modes': ['onoff']
+              })) ==
+              1 &&
+          haKind(ent('switch.x', 'on')) == 1,
+      'kind 1: switch and light without dimming');
+  check(
+      haKind(ent('sensor.x', '1')) == 4 &&
+          haKind(ent('binary_sensor.x', 'on')) == 4 &&
+          haKind(ent('climate.x', 'off')) == 6 &&
+          haKind(ent('cover.x', 'open')) == 3,
+      'kinds 4, 6, 3');
   try {
     addHaEntity(doc, light, ['onoff'], roomId: 'khong-co');
     check(true, 'entity: stays in its first room');
@@ -248,6 +289,13 @@ Future<void> main() async {
     return '';
   }
 
+  check(
+      addr('climate.ac', 'setpoint', 'cmd') == '41/16/1' &&
+          addr('climate.ac', 'current', 'status') == '41/26/101' &&
+          addr('climate.ac', 'mode', 'cmd') == '41/36/1',
+      'addresses: climate = kind 6 (setpoint 41/16/1, room temperature 41/26/101, mode 41/36/1)');
+  check(addr('sensor.t', 'sensor', 'status') == '41/4/101', 'addresses: sensor = kind 4, status 41/4/101');
+
   Json ga(String address) => (doc['groupAddresses'] as List).firstWhere((g) => g['address'] == address) as Json;
 
   // ---- rename keeps the entity id
@@ -264,6 +312,19 @@ Future<void> main() async {
   haSetAddress(doc, onoff['id'] as String, '45/3/7');
   check(onoff['address'] == '45/3/7' && addr('light.den1', 'onoff', 'cmd') == '45/3/7', 'edit address: applied');
   haSetAddress(doc, onoff['id'] as String, '40/0/1');
+
+  // ---- re-addressing a room puts every address back on the rule and keeps the links
+  final ra = jsonDecode(jsonEncode(doc)) as Map<String, dynamic>;
+  final raRoom = haRooms(ra).first['id'] as String;
+  for (final g in ra['groupAddresses'] as List) {
+    if (g['ha'] is Map && g['ha']['room'] == raRoom) g['address'] = '${g['address']}'.replaceFirst('40/', '44/');
+  }
+  final raCount = (ra['groupAddresses'] as List).length;
+  check(readdressHaRoom(ra, raRoom) > 0, 'readdress: changes the addresses that were moved');
+  check((ra['groupAddresses'] as List).every((g) => g['ha'] is! Map || g['ha']['room'] != raRoom || '${g['address']}'.startsWith('40/')),
+      'readdress: back to the room main group');
+  check(readdressHaRoom(ra, raRoom) == 0, 'readdress: a second run changes nothing');
+  check((ra['groupAddresses'] as List).length == raCount, 'readdress: no address lost');
 
   // ---- moving a room changes its main group everywhere
   check(moveHaRoom(doc, room2['id'] as String, 31) != null, 'move room: 31 is refused');
