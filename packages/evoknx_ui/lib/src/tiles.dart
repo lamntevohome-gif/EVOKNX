@@ -485,7 +485,7 @@ class TileView extends StatelessWidget {
                   : [
                       ...pal.shadows,
                       // A lit card glows softly in its "on" colour.
-                      if (lit) BoxShadow(color: colorOn.withValues(alpha: 0.28), blurRadius: 14, offset: const Offset(0, 3)),
+                      if (lit) BoxShadow(color: colorOn.withValues(alpha: 0.12), blurRadius: 8, offset: const Offset(0, 2)),
                     ],
             ),
       foregroundDecoration: selected
@@ -586,7 +586,7 @@ class TileView extends StatelessWidget {
                 children: [
                   Container(
                     height: 6,
-                    decoration: BoxDecoration(color: pal.line, borderRadius: BorderRadius.circular(3)),
+                    decoration: BoxDecoration(color: _track, borderRadius: BorderRadius.circular(3)),
                   ),
                   FractionallySizedBox(
                     widthFactor: f,
@@ -637,9 +637,13 @@ class TileView extends StatelessWidget {
     );
   }
 
+  /// Track of a slider (the part not reached yet): a visible tint of the text
+  /// colour over the card, on every theme.
+  Color get _track => Color.alphaBlend(pal.ink.withValues(alpha: 0.24), pal.tile == Colors.transparent ? pal.screen : pal.tile);
+
   Widget _bar(double v, Color c) => ClipRRect(
     borderRadius: BorderRadius.circular(2),
-    child: LinearProgressIndicator(value: v.clamp(0, 1).toDouble(), minHeight: 4, backgroundColor: pal.line, color: c),
+    child: LinearProgressIndicator(value: v.clamp(0, 1).toDouble(), minHeight: 4, backgroundColor: _track, color: c),
   );
 
   Widget _liveDot() => Container(
@@ -1030,7 +1034,12 @@ class TileView extends StatelessWidget {
             Expanded(
               child: Padding(
                 padding: EdgeInsets.symmetric(horizontal: stepButtons ? 10 : 0),
-                child: _slider(acFraction(ac, sp), acOn ? colorOn : pal.lineStrong, bubble: '${tempText(sp)}°', showBubble: always || sim['drag'] == true),
+                child: _slider(
+                  acFraction(ac, sp),
+                  acOn ? colorOn : pal.muted.withValues(alpha: 0.7),
+                  bubble: '${tempText(sp)}°',
+                  showBubble: always || sim['drag'] == true,
+                ),
               ),
             ),
             if (stepButtons) _ibtn('plus', Icons.add, ab * 1.2, expand: false, circle: true),

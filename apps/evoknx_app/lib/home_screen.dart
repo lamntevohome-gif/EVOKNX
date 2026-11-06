@@ -162,7 +162,7 @@ class _HomeScreenState extends State<HomeScreen> {
             Padding(
               padding: const EdgeInsets.fromLTRB(22, 18, 22, 8),
               child: Text(
-                'Chuyển nhà',
+                'Chuyển hồ sơ',
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: pal.sInk),
               ),
             ),
@@ -364,7 +364,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           if (store.profiles.length > 1) ...[
             Tooltip(
-              message: 'Chuyển nhà (hồ sơ)',
+              message: 'Chuyển hồ sơ',
               child: DecoratedBox(
                 decoration: flatDecoration(pal, pal.chipFill, circle: true),
                 child: Material(

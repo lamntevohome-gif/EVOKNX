@@ -111,11 +111,25 @@ class _RtspCameraState extends State<_RtspCamera> {
     // The player reports many harmless warnings: they are only remembered and
     // judged by the watchdog, they do not restart the stream.
     _subs.add(_player.stream.error.listen((e) => _lastError = e));
+    // Several signals, because a stream does not repeat a value it already
+    // gave (the size is the same after a reconnect): size, height, or the
+    // playback position moving.
     _subs.add(
       _player.stream.width.listen((w) {
         if ((w ?? 0) > 0) _gotPicture();
       }),
     );
+    _subs.add(
+      _player.stream.height.listen((h) {
+        if ((h ?? 0) > 0) _gotPicture();
+      }),
+    );
+    _subs.add(
+      _player.stream.position.listen((p) {
+        if (p > Duration.zero) _gotPicture();
+      }),
+    );
+    _video.waitUntilFirstFrameRendered.then((_) => _gotPicture());
     _subs.add(
       _player.stream.completed.listen((c) {
         if (c) _fail('Mất luồng video.');

@@ -101,7 +101,7 @@ class SettingsScreen extends StatelessWidget {
                   labelStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
                   unselectedLabelStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
                   tabs: const [
-                    Tab(text: 'Hồ sơ (nhà)'),
+                    Tab(text: 'Hồ sơ'),
                     Tab(text: 'Giao diện'),
                     Tab(text: 'Kết nối KNX'),
                     Tab(text: 'Giới thiệu'),
@@ -111,7 +111,7 @@ class SettingsScreen extends StatelessWidget {
               body: TabBarView(
                 children: [
                   tab([
-                    card('Hồ sơ (nhà)', [
+                    card('Hồ sơ', [
                       for (final pf in store.profiles)
                         row(
                           Icon(pf.id == store.activeId ? Icons.home : Icons.home_outlined, color: pf.id == store.activeId ? pal.accent : pal.muted),
@@ -218,24 +218,43 @@ class SettingsScreen extends StatelessWidget {
                   ]),
                   tab([
                     card('Giao diện', [
-                      for (final (group, items) in kAppThemeGroups) ...[
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
-                          child: Text(
-                            group.toUpperCase(),
-                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 0.5, color: pal.muted),
+                      // Three groups (Sáng, Trung tính, Tối): tap one to show its three themes.
+                      for (final (group, items) in kAppThemeGroups)
+                        Theme(
+                          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                          child: ExpansionTile(
+                            key: PageStorageKey('theme-group-$group'),
+                            initiallyExpanded: items.any((t) => t.$1 == store.mode),
+                            tilePadding: const EdgeInsets.symmetric(horizontal: 16),
+                            childrenPadding: EdgeInsets.zero,
+                            iconColor: pal.muted,
+                            collapsedIconColor: pal.muted,
+                            shape: const Border(),
+                            collapsedShape: const Border(),
+                            title: Text(
+                              group,
+                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: pal.ink),
+                            ),
+                            subtitle: Padding(
+                              padding: const EdgeInsets.only(top: 6),
+                              child: Row(
+                                children: [
+                                  for (final (k, _) in items) ...[ThemeSwatch(AppPalette.of(k), size: 22), const SizedBox(width: 6)],
+                                ],
+                              ),
+                            ),
+                            children: [
+                              for (final (k, n) in items)
+                                row(
+                                  ThemeSwatch(AppPalette.of(k)),
+                                  n,
+                                  sub: k == themeKey(jsonMap(store.config?['theme'])['mode']) ? 'Mặc định của dự án' : null,
+                                  trailing: k == store.mode ? Icon(Icons.check, color: pal.accent) : null,
+                                  onTap: () => store.setTheme(k),
+                                ),
+                            ],
                           ),
                         ),
-                        for (final (k, n) in items)
-                          row(
-                            ThemeSwatch(AppPalette.of(k)),
-                            n,
-                            sub: k == themeKey(jsonMap(store.config?['theme'])['mode']) ? 'Mặc định của dự án' : null,
-                            trailing: k == store.mode ? Icon(Icons.check, color: pal.accent) : null,
-                            onTap: () => store.setTheme(k),
-                          ),
-                      ],
-
                       Padding(
                         padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
                         child: Column(
