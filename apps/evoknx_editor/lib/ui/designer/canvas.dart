@@ -45,7 +45,7 @@ class DesignCanvas extends StatelessWidget {
       radius: ((th['cardRadius'] as num?) ?? 12).toDouble().clamp(0, 32).toDouble(),
       border: ((th['cardBorder'] as num?) ?? 1).toDouble().clamp(0, 4).toDouble(),
       shadow: ((th['cardShadow'] as num?) ?? 0).toDouble().clamp(0, 20).toDouble(),
-      lift: liftOf(((th['btnRaise'] as num?) ?? 60).toDouble().clamp(0, 100)),
+      lift: (((th['btnRaise'] as num?) ?? 60).toDouble().clamp(0, 100)) / 100,
     );
     final tablet = dev != 'mobile';
     final scale = tablet ? tabletScale(doc) : 1.0;
