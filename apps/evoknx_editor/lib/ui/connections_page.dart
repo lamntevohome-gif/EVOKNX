@@ -16,19 +16,23 @@ class ConnectionsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.evo;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Container(
-          width: 360,
-          decoration: BoxDecoration(
-            color: c.panel,
-            border: Border(right: BorderSide(color: c.line)),
+    // The connections take 2/5 of the width (at least 380 px), the address
+    // table the rest.
+    return LayoutBuilder(
+      builder: (context, bc) => Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            width: (bc.maxWidth * 0.4).clamp(380.0, 760.0).toDouble(),
+            decoration: BoxDecoration(
+              color: c.panel,
+              border: Border(right: BorderSide(color: c.line)),
+            ),
+            child: _ConnectionList(project: project),
           ),
-          child: _ConnectionList(project: project),
-        ),
-        Expanded(child: GaTable(project: project)),
-      ],
+          Expanded(child: GaTable(project: project)),
+        ],
+      ),
     );
   }
 }
@@ -393,8 +397,8 @@ class _GaTableState extends State<GaTable> {
               ),
               head('Địa chỉ', w: 100),
               head('Tên', flex: 1),
-              head('DPT', w: 250),
-              head('Đang dùng', w: 120),
+              head('DPT', w: 232),
+              head('Đang dùng', w: 100),
               const SizedBox(width: 40),
             ],
           ),
@@ -450,11 +454,11 @@ class _GaTableState extends State<GaTable> {
                             ),
                           ),
                           SizedBox(
-                            width: 250,
+                            width: 232,
                             child: Align(
                               alignment: Alignment.centerLeft,
                               child: EvoDropdown<String>(
-                                width: 230,
+                                width: 212,
                                 value: dpt,
                                 warn: dpt.isEmpty,
                                 items: dptItems(dpt),
@@ -463,7 +467,7 @@ class _GaTableState extends State<GaTable> {
                             ),
                           ),
                           SizedBox(
-                            width: 120,
+                            width: 100,
                             child: Text(used[id] != null ? '${used[id]} thành phần' : '', style: TextStyle(fontSize: 13.5, color: c.muted)),
                           ),
                           SizedBox(

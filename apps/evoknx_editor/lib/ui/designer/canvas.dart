@@ -331,11 +331,7 @@ class _Screen extends StatelessWidget {
   Widget _gearIcon() => Container(
     width: 32,
     height: 32,
-    decoration: BoxDecoration(
-      color: pal.panel,
-      shape: BoxShape.circle,
-      border: Border.all(color: pal.tileEdge),
-    ),
+    decoration: raisedDecoration(pal, pal.chipFill, circle: true),
     child: Icon(Icons.settings_outlined, size: 17, color: pal.ink),
   );
 
@@ -439,18 +435,23 @@ class _Screen extends StatelessWidget {
                       child: Container(
                         height: 42,
                         padding: const EdgeInsets.symmetric(horizontal: 10),
-                        decoration: BoxDecoration(color: r['id'] == room?['id'] ? pal.ink : Colors.transparent, borderRadius: BorderRadius.circular(12)),
+                        decoration: raisedDecoration(
+                          pal,
+                          r['id'] == room?['id'] ? pal.chipSel : pal.chipFill,
+                          radius: BorderRadius.circular(12),
+                          glow: r['id'] == room?['id'] ? pal.chipSel : null,
+                        ),
                         child: Row(
                           children: [
                             if (!isNoIcon(r['icon'] as String?)) ...[
-                              iconWidget(r['icon'] as String?, 20, r['id'] == room?['id'] ? pal.screen : pal.muted),
+                              iconWidget(r['icon'] as String?, 20, r['id'] == room?['id'] ? pal.onChipSel : pal.muted),
                               const SizedBox(width: 10),
                             ],
                             Expanded(
                               child: Text(
                                 (r['title'] ?? '').toString(),
                                 overflow: TextOverflow.ellipsis,
-                                style: TextStyle(fontSize: 15, color: r['id'] == room?['id'] ? pal.screen : pal.ink),
+                                style: TextStyle(fontSize: 15, color: r['id'] == room?['id'] ? pal.onChipSel : pal.ink),
                               ),
                             ),
                           ],
@@ -488,20 +489,21 @@ class _Screen extends StatelessWidget {
                 onTap: () => d.selectRoom(r['id'] as String),
                 child: Container(
                   padding: EdgeInsets.symmetric(horizontal: f * 1.05),
-                  decoration: BoxDecoration(
-                    color: r['id'] == room['id'] ? pal.ink : pal.panel,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: r['id'] == room['id'] ? pal.ink : pal.tileEdge),
+                  decoration: raisedDecoration(
+                    pal,
+                    r['id'] == room['id'] ? pal.chipSel : pal.chipFill,
+                    radius: BorderRadius.circular(20),
+                    glow: r['id'] == room['id'] ? pal.chipSel : null,
                   ),
                   child: Row(
                     children: [
                       if (!isNoIcon(r['icon'] as String?)) ...[
-                        iconWidget(r['icon'] as String?, f * 1.25, r['id'] == room['id'] ? pal.screen : pal.muted),
+                        iconWidget(r['icon'] as String?, f * 1.25, r['id'] == room['id'] ? pal.onChipSel : pal.muted),
                         SizedBox(width: f * 0.45),
                       ],
                       Text(
                         (r['title'] ?? '').toString(),
-                        style: TextStyle(fontSize: f, fontWeight: FontWeight.w500, color: r['id'] == room['id'] ? pal.screen : pal.ink),
+                        style: TextStyle(fontSize: f, fontWeight: FontWeight.w500, color: r['id'] == room['id'] ? pal.onChipSel : pal.ink),
                       ),
                     ],
                   ),
@@ -532,14 +534,15 @@ class _Screen extends StatelessWidget {
                 child: Container(
                   padding: EdgeInsets.symmetric(horizontal: f * 1.2),
                   alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: s['id'] == sub['id'] ? pal.ink : pal.panel,
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(color: s['id'] == sub['id'] ? pal.ink : pal.tileEdge),
+                  decoration: raisedDecoration(
+                    pal,
+                    s['id'] == sub['id'] ? pal.chipSel : pal.chipFill,
+                    radius: BorderRadius.circular(18),
+                    glow: s['id'] == sub['id'] ? pal.chipSel : null,
                   ),
                   child: Text(
                     (s['title'] ?? '').toString(),
-                    style: TextStyle(fontSize: f * 1.05, fontWeight: FontWeight.w500, color: s['id'] == sub['id'] ? pal.screen : pal.muted),
+                    style: TextStyle(fontSize: f * 1.05, fontWeight: FontWeight.w500, color: s['id'] == sub['id'] ? pal.onChipSel : pal.muted),
                   ),
                 ),
               ),
@@ -639,7 +642,7 @@ class _Screen extends StatelessWidget {
         height: max(48.0, f * 2.4 + 14),
         padding: const EdgeInsets.all(5),
         decoration: BoxDecoration(
-          color: pal.panel.withValues(alpha: 0.9),
+          color: Color.lerp(pal.screen, pal.ink, 0.07),
           borderRadius: BorderRadius.circular(30),
           border: Border.all(color: pal.tileEdge),
         ),
@@ -658,19 +661,24 @@ class _Screen extends StatelessWidget {
                       onTap: () => d.selectFloor(fl['id'] as String),
                       child: Container(
                         width: w,
-                        decoration: BoxDecoration(color: fl['id'] == floor?['id'] ? pal.ink : Colors.transparent, borderRadius: BorderRadius.circular(26)),
+                        decoration: raisedDecoration(
+                          pal,
+                          fl['id'] == floor?['id'] ? pal.chipSel : pal.chipFill,
+                          radius: BorderRadius.circular(26),
+                          glow: fl['id'] == floor?['id'] ? pal.chipSel : null,
+                        ),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             if (fl['showIcon'] != false && !isNoIcon(fl['icon'] as String?)) ...[
-                              iconWidget(fl['icon'] as String? ?? 'stairs', f * 1.25, fl['id'] == floor?['id'] ? pal.screen : pal.muted),
+                              iconWidget(fl['icon'] as String? ?? 'stairs', f * 1.25, fl['id'] == floor?['id'] ? pal.onChipSel : pal.muted),
                               SizedBox(width: f * 0.45),
                             ],
                             Flexible(
                               child: Text(
                                 (fl['title'] ?? '').toString(),
                                 overflow: TextOverflow.ellipsis,
-                                style: TextStyle(fontSize: f, fontWeight: FontWeight.w600, color: fl['id'] == floor?['id'] ? pal.screen : pal.muted),
+                                style: TextStyle(fontSize: f, fontWeight: FontWeight.w600, color: fl['id'] == floor?['id'] ? pal.onChipSel : pal.ink),
                               ),
                             ),
                           ],
@@ -1509,8 +1517,6 @@ class _AppSettingsSheet extends StatelessWidget {
   final Designer d;
   final AppPalette pal;
 
-  static const _themes = kAppThemes;
-
   @override
   Widget build(BuildContext context) {
     final doc = d.doc;
@@ -1620,22 +1626,23 @@ class _AppSettingsSheet extends StatelessWidget {
                     ),
                   ]),
                   card('Giao diện', [
-                    for (final (k, n) in _themes)
-                      row(
-                        Container(
-                          width: 22,
-                          height: 22,
-                          decoration: BoxDecoration(
-                            color: AppPalette.of(k).screen,
-                            shape: BoxShape.circle,
-                            border: Border.all(color: pal.lineStrong),
-                          ),
+                    for (final (group, items) in kAppThemeGroups) ...[
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                        child: Text(
+                          group.toUpperCase(),
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 0.5, color: pal.muted),
                         ),
-                        n,
-                        sub: k == projMode ? 'Mặc định của dự án' : null,
-                        trailing: k == cur ? Icon(Icons.check, color: pal.accent, size: 20) : null,
-                        onTap: () => d.setPreviewTheme(k == projMode ? null : k),
                       ),
+                      for (final (k, n) in items)
+                        row(
+                          ThemeSwatch(AppPalette.of(k), size: 26),
+                          n,
+                          sub: k == projMode ? 'Mặc định của dự án' : null,
+                          trailing: k == cur ? Icon(Icons.check, color: pal.accent, size: 20) : null,
+                          onTap: () => d.setPreviewTheme(k == projMode ? null : k),
+                        ),
+                    ],
                   ]),
                   card('Kết nối KNX', [
                     for (final c in jsonList(doc['connections']))

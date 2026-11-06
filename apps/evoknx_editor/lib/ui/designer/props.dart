@@ -1051,7 +1051,7 @@ class _WidgetPropsState extends State<_WidgetProps> {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(color: context.evo.paper, borderRadius: BorderRadius.circular(8)),
-                child: SelectableText(cameraUrl(cam, hidePass: true), style: const TextStyle(fontSize: 14, fontFamily: 'Consolas')),
+                child: SelectableText(cameraUrl(cam, hidePass: true), style: const TextStyle(fontSize: 14)),
               ),
             Hint(
               rtsp

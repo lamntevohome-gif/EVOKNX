@@ -73,7 +73,7 @@ ThemeData buildTheme(Brightness b) {
   final base = ThemeData(
     useMaterial3: true,
     brightness: b,
-    fontFamily: 'packages/evoknx_ui/InterTight',
+    fontFamily: 'packages/evoknx_ui/Inter',
     colorScheme: ColorScheme.fromSeed(seedColor: c.accent, brightness: b, primary: c.accent, surface: c.panel),
     scaffoldBackgroundColor: c.paper,
     dividerColor: c.line,
@@ -155,8 +155,8 @@ ThemeData buildTheme(Brightness b) {
         borderRadius: BorderRadius.circular(8),
         side: BorderSide(color: c.line),
       ),
-      titleTextStyle: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: c.ink, fontFamily: 'packages/evoknx_ui/InterTight'),
-      contentTextStyle: TextStyle(fontSize: kUiText, color: c.ink, fontFamily: 'packages/evoknx_ui/InterTight', height: 1.45),
+      titleTextStyle: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: c.ink, fontFamily: 'packages/evoknx_ui/Inter'),
+      contentTextStyle: TextStyle(fontSize: kUiText, color: c.ink, fontFamily: 'packages/evoknx_ui/Inter', height: 1.45),
     ),
     popupMenuTheme: PopupMenuThemeData(
       color: c.panel,
@@ -166,7 +166,7 @@ ThemeData buildTheme(Brightness b) {
         borderRadius: BorderRadius.circular(6),
         side: BorderSide(color: c.line),
       ),
-      textStyle: TextStyle(fontSize: kUiText, color: c.ink, fontFamily: 'packages/evoknx_ui/InterTight'),
+      textStyle: TextStyle(fontSize: kUiText, color: c.ink, fontFamily: 'packages/evoknx_ui/Inter'),
     ),
     menuTheme: MenuThemeData(
       style: MenuStyle(
@@ -181,7 +181,7 @@ ThemeData buildTheme(Brightness b) {
       style: ButtonStyle(
         minimumSize: const WidgetStatePropertyAll(Size(240, 34)),
         padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 12)),
-        textStyle: WidgetStatePropertyAll(TextStyle(fontSize: kUiText, fontFamily: 'packages/evoknx_ui/InterTight', color: c.ink)),
+        textStyle: WidgetStatePropertyAll(TextStyle(fontSize: kUiText, fontFamily: 'packages/evoknx_ui/Inter', color: c.ink)),
         backgroundColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.hovered) || s.contains(WidgetState.focused) ? c.accent : null),
         foregroundColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.hovered) || s.contains(WidgetState.focused) ? Colors.white : c.ink),
         iconColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.hovered) || s.contains(WidgetState.focused) ? Colors.white : c.muted),

@@ -365,25 +365,29 @@ class _HomeScreenState extends State<HomeScreen> {
           if (store.profiles.length > 1) ...[
             Tooltip(
               message: 'Chuyển nhà (hồ sơ)',
-              child: Material(
-                color: pal.panel,
-                shape: CircleBorder(side: BorderSide(color: pal.tileEdge)),
-                child: InkWell(
-                  customBorder: const CircleBorder(),
-                  onTap: () => _openProfiles(pal),
-                  child: SizedBox(width: 40, height: 40, child: Icon(Icons.home_work_outlined, size: 20, color: pal.ink)),
+              child: DecoratedBox(
+                decoration: raisedDecoration(pal, pal.chipFill, circle: true),
+                child: Material(
+                  type: MaterialType.transparency,
+                  child: InkWell(
+                    customBorder: const CircleBorder(),
+                    onTap: () => _openProfiles(pal),
+                    child: SizedBox(width: 40, height: 40, child: Icon(Icons.home_work_outlined, size: 20, color: pal.ink)),
+                  ),
                 ),
               ),
             ),
             const SizedBox(width: 8),
           ],
-          Material(
-            color: pal.panel,
-            shape: CircleBorder(side: BorderSide(color: pal.tileEdge)),
-            child: InkWell(
-              customBorder: const CircleBorder(),
-              onTap: _openSettings,
-              child: SizedBox(width: 40, height: 40, child: Icon(Icons.settings_outlined, size: 20, color: pal.ink)),
+          DecoratedBox(
+            decoration: raisedDecoration(pal, pal.chipFill, circle: true),
+            child: Material(
+              type: MaterialType.transparency,
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                onTap: _openSettings,
+                child: SizedBox(width: 40, height: 40, child: Icon(Icons.settings_outlined, size: 20, color: pal.ink)),
+              ),
             ),
           ),
         ],
@@ -403,26 +407,28 @@ class _HomeScreenState extends State<HomeScreen> {
         itemBuilder: (context, i) {
           final r = rooms[i];
           final on = r['id'] == roomId;
-          return Material(
-            color: on ? pal.ink : pal.panel,
-            shape: StadiumBorder(side: BorderSide(color: on ? pal.ink : pal.tileEdge)),
-            child: InkWell(
-              customBorder: const StadiumBorder(),
-              onTap: () => _goRoom(r['id'] as String),
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: f * 1.1),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (!isNoIcon(r['icon'] as String?)) ...[
-                      iconWidget(r['icon'] as String?, f * 1.25, on ? pal.screen : pal.muted),
-                      SizedBox(width: f * 0.45),
+          return DecoratedBox(
+            decoration: raisedDecoration(pal, on ? pal.chipSel : pal.chipFill, radius: BorderRadius.circular(40), glow: on ? pal.chipSel : null),
+            child: Material(
+              type: MaterialType.transparency,
+              child: InkWell(
+                customBorder: const StadiumBorder(),
+                onTap: () => _goRoom(r['id'] as String),
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: f * 1.1),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (!isNoIcon(r['icon'] as String?)) ...[
+                        iconWidget(r['icon'] as String?, f * 1.25, on ? pal.onChipSel : pal.muted),
+                        SizedBox(width: f * 0.45),
+                      ],
+                      Text(
+                        (r['title'] ?? '').toString(),
+                        style: TextStyle(fontSize: f, fontWeight: FontWeight.w500, color: on ? pal.onChipSel : pal.ink),
+                      ),
                     ],
-                    Text(
-                      (r['title'] ?? '').toString(),
-                      style: TextStyle(fontSize: f, fontWeight: FontWeight.w500, color: on ? pal.screen : pal.ink),
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ),
@@ -476,7 +482,7 @@ class _HomeScreenState extends State<HomeScreen> {
         height: max(48.0, f * 2.4 + 14),
         padding: const EdgeInsets.all(5),
         decoration: BoxDecoration(
-          color: pal.panel.withValues(alpha: 0.9),
+          color: Color.lerp(pal.screen, pal.ink, 0.07),
           borderRadius: BorderRadius.circular(30),
           border: Border.all(color: pal.tileEdge),
         ),
@@ -508,19 +514,24 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 200),
                         width: w,
-                        decoration: BoxDecoration(color: fl['id'] == floorId ? pal.ink : Colors.transparent, borderRadius: BorderRadius.circular(26)),
+                        decoration: raisedDecoration(
+                          pal,
+                          fl['id'] == floorId ? pal.chipSel : pal.chipFill,
+                          radius: BorderRadius.circular(26),
+                          glow: fl['id'] == floorId ? pal.chipSel : null,
+                        ),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             if (fl['showIcon'] != false && !isNoIcon(fl['icon'] as String?)) ...[
-                              iconWidget(fl['icon'] as String? ?? 'stairs', f * 1.25, fl['id'] == floorId ? pal.screen : pal.muted),
+                              iconWidget(fl['icon'] as String? ?? 'stairs', f * 1.25, fl['id'] == floorId ? pal.onChipSel : pal.muted),
                               SizedBox(width: f * 0.45),
                             ],
                             Flexible(
                               child: Text(
                                 (fl['title'] ?? '').toString(),
                                 overflow: TextOverflow.ellipsis,
-                                style: TextStyle(fontSize: f, fontWeight: FontWeight.w600, color: fl['id'] == floorId ? pal.screen : pal.muted),
+                                style: TextStyle(fontSize: f, fontWeight: FontWeight.w600, color: fl['id'] == floorId ? pal.onChipSel : pal.ink),
                               ),
                             ),
                           ],

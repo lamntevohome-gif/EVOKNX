@@ -7,16 +7,36 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:knx_config/knx_config.dart';
 
 import 'icons.dart';
+import 'look.dart';
 import 'model.dart';
 
 /// Colours of the simulated app screen (light/dark like the real app).
-/// The App themes shown in the pickers: (key, Vietnamese name).
-const List<(String, String)> kAppThemes = [('light', 'Sáng'), ('dark', 'Tối'), ('graphite', 'Xám than'), ('gray', 'Xám'), ('ocean', 'Xanh biển')];
+/// The App themes, in three sets of three (colours from the design table):
+/// Sáng (L1–L3), Trung tính (G1–G3) and Tối (D1–D3).
+const List<(String, List<(String, String)>)> kAppThemeGroups = [
+  ('Sáng', [('l1', 'Glacier Blue'), ('l2', 'Fresh Green'), ('l3', 'Sand Beige')]),
+  ('Trung tính', [('g1', 'Slate Gray'), ('g2', 'Graphite Gray'), ('g3', 'Neutral Gray')]),
+  ('Tối', [('d1', 'Deep Blue'), ('d2', 'Forest Green'), ('d3', 'Warm Amber')]),
+];
 
-/// A valid theme key ('sand', the old cream theme, becomes 'gray').
+/// Flat list for drop-downs: (key, "Sáng · Glacier Blue").
+const List<(String, String)> kAppThemes = [
+  ('l1', 'Sáng · Glacier Blue'),
+  ('l2', 'Sáng · Fresh Green'),
+  ('l3', 'Sáng · Sand Beige'),
+  ('g1', 'Trung tính · Slate Gray'),
+  ('g2', 'Trung tính · Graphite Gray'),
+  ('g3', 'Trung tính · Neutral Gray'),
+  ('d1', 'Tối · Deep Blue'),
+  ('d2', 'Tối · Forest Green'),
+  ('d3', 'Tối · Warm Amber'),
+];
+
+/// A valid theme key. The five older themes become the nearest new one.
 String themeKey(Object? mode) {
-  final m = mode == 'sand' ? 'gray' : mode;
-  return kAppThemes.any((t) => t.$1 == m) ? m as String : 'light';
+  const legacy = {'light': 'l1', 'sand': 'l3', 'gray': 'g3', 'graphite': 'g2', 'dark': 'd1', 'ocean': 'd1'};
+  final m = legacy[mode] ?? mode;
+  return kAppThemes.any((t) => t.$1 == m) ? m as String : 'l1';
 }
 
 /// The text style of a card's name. Frame titles use it too, so every name in
@@ -28,6 +48,13 @@ const Color kEditorSelection = Color(0xFF0D99FF);
 
 class AppPalette {
   final Color screen, tile, tileEdge, panel, ink, muted, line, lineStrong, accent, accentSoft, led, ledSoft, danger;
+
+  /// Card background while on, and the floor / room buttons (idle, selected,
+  /// text on the selected one). Null = derived from the other colours.
+  final Color? tileOn, chip, chipOn, chipOnText;
+  Color get chipFill => chip ?? panel;
+  Color get chipSel => chipOn ?? ink;
+  Color get onChipSel => chipOnText ?? screen;
 
   /// Text colours used directly on the screen background (title, page name…),
   /// which may differ when a custom background colour or image is used.
@@ -65,6 +92,10 @@ class AppPalette {
     this.shadow = 0,
     this.tileOpacity = 1,
     this.edgeOpacity = 1,
+    this.tileOn,
+    this.chip,
+    this.chipOn,
+    this.chipOnText,
     required this.screen,
     required this.tile,
     required this.tileEdge,
@@ -96,6 +127,10 @@ class AppPalette {
     double? tileOpacity,
     double? edgeOpacity,
   }) => AppPalette(
+    tileOn: tileOn,
+    chip: chip,
+    chipOn: chipOn,
+    chipOnText: chipOnText,
     screen: screen,
     tile: tile ?? this.tile,
     tileEdge: tileEdge ?? this.tileEdge,
@@ -140,102 +175,169 @@ class AppPalette {
     );
   }
 
-  /// App themes: Sáng, Tối, Xám than, Xám and Xanh biển.
-  /// Older projects using "system" fall back to Sáng.
-  static AppPalette of(String? mode) => switch (mode) {
-    'dark' => dark,
-    'graphite' => graphite,
-    'gray' || 'sand' => gray,
-    'ocean' => ocean,
-    _ => light,
+  static AppPalette of(String? mode) => switch (themeKey(mode)) {
+    'l2' => l2,
+    'l3' => l3,
+    'g1' => g1,
+    'g2' => g2,
+    'g3' => g3,
+    'd1' => d1,
+    'd2' => d2,
+    'd3' => d3,
+    _ => l1,
   };
 
-  /// Neutral dark grey (graphite), softer than full dark.
-  static const graphite = AppPalette(
-    screen: Color(0xFF23272B),
-    tile: Color(0xFF3F454B),
-    tileEdge: Color(0xFF50575E),
-    panel: Color(0xFF2E3338),
-    ink: Color(0xFFF1F3F4),
-    muted: Color(0xFFA9B0B6),
-    line: Color(0xFF454C52),
-    lineStrong: Color(0xFF5A6168),
-    accent: Color(0xFF4DB38A),
-    accentSoft: Color(0xFF23392F),
-    led: Color(0xFFF2AA45),
-    ledSoft: Color(0xFF3E3220),
-    danger: Color(0xFFEE7B66),
+  /// The default light theme (also used by the welcome screen).
+  static AppPalette get light => l1;
+
+  static double _contrast(Color a, Color b) {
+    final x = a.computeLuminance() + 0.05, y = b.computeLuminance() + 0.05;
+    return x > y ? x / y : y / x;
+  }
+
+  /// Builds a theme from the seven colours of the design table:
+  /// Nền chung, Card OFF, Card ON, Nút t/p OFF, Nút t/p Selected, Chữ chính,
+  /// Chữ phụ. [on] is the colour of an "on" light, icon and slider.
+  static AppPalette _theme({
+    required bool dark,
+    required int screen,
+    required int tile,
+    required int tileOn,
+    required int chip,
+    required int chipOn,
+    required int ink,
+    required int muted,
+    int? on,
+    int? onText,
+  }) {
+    Color c(int v) => Color(0xFF000000 | v);
+    Color mix(Color a, Color b, double t) => Color.lerp(a, b, t)!;
+    final s = c(screen), t = c(tile), o = c(tileOn), ch = c(chip), sel = c(chipOn), i = c(ink), m = c(muted);
+    // The accent stays readable on the screen colour.
+    final accent = _contrast(sel, s) >= 3 ? sel : mix(sel, i, 0.55);
+    final lit = on != null ? c(on) : sel;
+    return AppPalette(
+      screen: s,
+      tile: t,
+      tileOn: o,
+      chip: ch,
+      chipOn: sel,
+      chipOnText: onText != null ? c(onText) : Colors.white,
+      tileEdge: mix(t, i, dark ? 0.16 : 0.10),
+      panel: ch,
+      ink: i,
+      muted: m,
+      line: mix(s, i, 0.12),
+      lineStrong: mix(s, i, 0.28),
+      accent: accent,
+      accentSoft: o,
+      led: lit,
+      ledSoft: o,
+      danger: dark ? const Color(0xFFFF8F7A) : const Color(0xFFD9432F),
+    );
+  }
+
+  // ---- Sáng
+  static final AppPalette l1 = _theme(
+    dark: false,
+    screen: 0xF2F6FF,
+    tile: 0xFFFFFF,
+    tileOn: 0xE6F0FF,
+    chip: 0xE4EAF4,
+    chipOn: 0x3B82F6,
+    ink: 0x172B46,
+    muted: 0x64748B,
+  );
+  static final AppPalette l2 = _theme(
+    dark: false,
+    screen: 0xF5F9F5,
+    tile: 0xFFFFFF,
+    tileOn: 0xE8F6ED,
+    chip: 0xE3EEE6,
+    chipOn: 0x22C55E,
+    ink: 0x1F2937,
+    muted: 0x6B7280,
+  );
+  static final AppPalette l3 = _theme(
+    dark: false,
+    screen: 0xFAF7F2,
+    tile: 0xFFFFFF,
+    tileOn: 0xF4E9DA,
+    chip: 0xEEE4D8,
+    chipOn: 0xC38B5C,
+    ink: 0x2E2A26,
+    muted: 0x7A6F64,
   );
 
-  /// Neutral mid grey ("Xám"): grey screen, lighter grey cards. Older
-  /// projects that used the cream theme ('sand') show this one.
-  static const gray = AppPalette(
-    screen: Color(0xFF8D9298),
-    tile: Color(0xFFB8BCC1),
-    tileEdge: Color(0xFF7C8289),
-    panel: Color(0xFFC9CCD0),
-    ink: Color(0xFF14171A),
-    muted: Color(0xFF3E444A),
-    line: Color(0xFFA1A6AC),
-    lineStrong: Color(0xFF787E85),
-    accent: Color(0xFF176B49),
-    accentSoft: Color(0xFFB3CBBF),
-    led: Color(0xFFD97A0F),
-    ledSoft: Color(0xFFD4C4A4),
-    danger: Color(0xFFA6301F),
+  // ---- Trung tính (grey)
+  static final AppPalette g1 = _theme(
+    dark: true,
+    screen: 0x2C3139,
+    tile: 0x3A4048,
+    tileOn: 0x4C5560,
+    chip: 0x3F4650,
+    chipOn: 0x67707B,
+    ink: 0xF1F3F5,
+    muted: 0x9AA3AD,
+    on: 0xF1F3F5,
+  );
+  static final AppPalette g2 = _theme(
+    dark: true,
+    screen: 0x1F242B,
+    tile: 0x2B3138,
+    tileOn: 0x3A4149,
+    chip: 0x323941,
+    chipOn: 0x4F5964,
+    ink: 0xECEFF3,
+    muted: 0x9AA4AE,
+    on: 0xECEFF3,
+  );
+  static final AppPalette g3 = _theme(
+    dark: true,
+    screen: 0x2E343C,
+    tile: 0x39424A,
+    tileOn: 0x4A535C,
+    chip: 0x3E4851,
+    chipOn: 0x59646F,
+    ink: 0xF1F4F7,
+    muted: 0xA6AFB8,
+    on: 0xF1F4F7,
   );
 
-  /// Sea blue ("Xanh biển"): a deep blue-green screen with cards of nearly
-  /// the same tone, a little lighter.
-  static const ocean = AppPalette(
-    screen: Color(0xFF054F66),
-    tile: Color(0xFF1B6E84),
-    tileEdge: Color(0xFF3A8397),
-    panel: Color(0xFF2C7E93),
-    ink: Color(0xFFF2FAFC),
-    muted: Color(0xFFAFD3DD),
-    line: Color(0xFF3B8497),
-    lineStrong: Color(0xFF5C9DAE),
-    accent: Color(0xFF1FB58F),
-    accentSoft: Color(0xFF1F6B7D),
-    led: Color(0xFFF5B54A),
-    ledSoft: Color(0xFF455C4A),
-    danger: Color(0xFFFF8F7A),
-    // Text written straight on the screen.
-    onScreenInk: Color(0xFFFFFFFF),
-    onScreenMuted: Color(0xC0FFFFFF),
+  // ---- Tối
+  static final AppPalette d1 = _theme(
+    dark: true,
+    screen: 0x0E1624,
+    tile: 0x172132,
+    tileOn: 0x1E3A6E,
+    chip: 0x233042,
+    chipOn: 0x2563EB,
+    ink: 0xE5E7EB,
+    muted: 0x94A3B8,
+    on: 0x7AA2F7,
   );
-
-  static const light = AppPalette(
-    screen: Color(0xFFD0D4D9),
-    tile: Color(0xFFFFFFFF),
-    tileEdge: Color(0xFFC2C8CE),
-    panel: Color(0xFFFFFFFF),
-    ink: Color(0xFF1B2320),
-    muted: Color(0xFF66716C),
-    line: Color(0xFFDEE3E0),
-    lineStrong: Color(0xFFBAC2BE),
-    accent: Color(0xFF1E7F57),
-    accentSoft: Color(0xFFE2F1E9),
-    led: Color(0xFFEE9B2A),
-    ledSoft: Color(0xFFFDF1DC),
-    danger: Color(0xFFC2412D),
+  static final AppPalette d2 = _theme(
+    dark: true,
+    screen: 0x0F1C17,
+    tile: 0x1B2A23,
+    tileOn: 0x1F4D3B,
+    chip: 0x254034,
+    chipOn: 0x10B981,
+    ink: 0xE6F2EC,
+    muted: 0x9DB2A8,
+    on: 0x5EDBB0,
   );
-
-  static const dark = AppPalette(
-    screen: Color(0xFF121618),
-    tile: Color(0xFF2B3235),
-    tileEdge: Color(0xFF3B4447),
-    panel: Color(0xFF1D2326),
-    ink: Color(0xFFE7ECE9),
-    muted: Color(0xFF9AA59F),
-    line: Color(0xFF2F3739),
-    lineStrong: Color(0xFF434C4F),
-    accent: Color(0xFF3DAA7A),
-    accentSoft: Color(0xFF1D3328),
-    led: Color(0xFFF2AA45),
-    ledSoft: Color(0xFF3A2D17),
-    danger: Color(0xFFE7735E),
+  static final AppPalette d3 = _theme(
+    dark: true,
+    screen: 0x1A140E,
+    tile: 0x2A221A,
+    tileOn: 0x4B3218,
+    chip: 0x3B3025,
+    chipOn: 0xD39B55,
+    ink: 0xF3EDE6,
+    muted: 0xB8A99A,
+    on: 0xF2B65C,
+    onText: 0x2A1B08,
   );
 }
 
@@ -275,15 +377,19 @@ class TileView extends StatelessWidget {
   Widget _ibtn(String action, Object icon, double s, {Object? arg, bool expand = true, bool circle = false, Color? fill, Color? edge, Color? fg}) {
     final h = s + 12;
     final color = fg ?? pal.muted;
+    // A selected button (filled with a strong colour) also glows a little.
+    final selected = fill != null && fill != pal.panel;
     final inner = Container(
       width: circle ? h : null,
       height: h,
       margin: expand ? const EdgeInsets.symmetric(horizontal: 1.5) : null,
-      decoration: BoxDecoration(
-        color: fill ?? pal.panel,
-        shape: circle ? BoxShape.circle : BoxShape.rectangle,
-        borderRadius: circle ? null : BorderRadius.circular(s * 0.4 + 2),
-        border: Border.all(color: edge ?? pal.tileEdge),
+      decoration: raisedDecoration(
+        pal,
+        fill ?? pal.panel,
+        radius: BorderRadius.circular(s * 0.4 + 2),
+        circle: circle,
+        edge: edge,
+        glow: selected ? fill : null,
       ),
       child: Center(
         child: icon is IconData ? Icon(icon, size: s, color: color) : iconWidget(icon as String, s, color),
@@ -323,7 +429,10 @@ class TileView extends StatelessWidget {
     // An AC card lights up like a dimmer while it runs (any mode but off).
     final on = type == 'switch' || type == 'ac' ? sim['on'] == true : (type == 'dimmer' ? ((sim['val'] as num?) ?? 0) > 0 : false);
     final rgb = type == 'dimmer' ? hexColor(sim['rgb']) : null;
-    final colorOn = rgb ?? hexColor(style['colorOn']) ?? pal.led;
+    // The orange stored in older cards as the default means "follow the theme".
+    final styleOn = hexColor(style['colorOn']);
+    final customOn = styleOn != null && styleOn != const Color(0xFFEE9B2A);
+    final colorOn = rgb ?? (customOn ? styleOn : pal.led);
     final colorOff = hexColor(style['colorOff']) ?? pal.muted;
     // The popups of an AC card (modes, fan) are not tinted.
     final lit = on && w['look'] != 'controls' && w['look'] != 'controlsSp';
@@ -332,7 +441,7 @@ class TileView extends StatelessWidget {
     final alarm = _stateRow()?['alarm'] == true;
     final bg = alarm
         ? Color.alphaBlend(pal.danger.withValues(alpha: 0.18), pal.tile)
-        : (lit ? Color.alphaBlend(colorOn.withValues(alpha: 0.30), pal.tile) : pal.tile);
+        : (lit ? (pal.tileOn != null && rgb == null && !customOn ? pal.tileOn! : Color.alphaBlend(colorOn.withValues(alpha: 0.30), pal.tile)) : pal.tile);
     final imageBtn = (type == 'button' || type == 'scene') && w['btnStyle'] == 'image';
     final self = this;
     return AnimatedContainer(
@@ -386,11 +495,12 @@ class TileView extends StatelessWidget {
     style: evoLabelStyle(w, pal.ink),
   );
 
-  Widget _state(String s) => Text(
+  /// The small state line; [color] lights it up while the card is on.
+  Widget _state(String s, {Color? color}) => Text(
     s,
     maxLines: 1,
     overflow: TextOverflow.ellipsis,
-    style: TextStyle(fontSize: fs(w, 'stateSize'), color: pal.muted, fontFeatures: const [FontFeature.tabularFigures()]),
+    style: TextStyle(fontSize: fs(w, 'stateSize'), color: color ?? pal.muted, fontFeatures: const [FontFeature.tabularFigures()]),
   );
 
   Widget _icon(Color color) => iconWidget(w['icon'] as String?, fs(w, 'iconSize'), color);
@@ -589,7 +699,7 @@ class TileView extends StatelessWidget {
     switch (type) {
       case 'switch':
         if (w['look'] == 'simple') return _simple(on ? colorOn : pal.muted);
-        return _col([_head(on ? colorOn : pal.muted, trailing: _led(on, colorOn)), _state(on ? textOn : textOff)]);
+        return _col([_head(on ? colorOn : pal.muted, trailing: _led(on, colorOn)), _state(on ? textOn : textOff, color: on ? colorOn : null)]);
       case 'dimmer':
         if (w['look'] == 'simple') {
           return _simple(
@@ -628,7 +738,11 @@ class TileView extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             mainAxisSize: MainAxisSize.min,
-            children: [_state(on ? '$textOn $v%' : textOff), const SizedBox(height: 6), _slider(v / 100, colorOn)],
+            children: [
+              _slider(v / 100, colorOn),
+              const SizedBox(height: 6),
+              _state(on ? '$textOn $v%' : textOff, color: on ? colorOn : null),
+            ],
           ),
         ]);
       case 'value':
@@ -843,15 +957,7 @@ class TileView extends StatelessWidget {
         final modeLabel = (ac['modeLabel'] ?? 'icon').toString();
         final showCur = ac['showCur'] != false && jsonMap(w['bind'])['current'] != null;
         Widget modeBtn(String key, String name, String icon, bool active) => modeLabel == 'icon'
-            ? _ibtn(
-                key == 'off' ? 'off' : 'mode',
-                icon,
-                am * 1.5,
-                arg: key,
-                fill: active ? pal.ink : pal.panel,
-                edge: active ? pal.ink : pal.tileEdge,
-                fg: active ? pal.screen : pal.muted,
-              )
+            ? _ibtn(key == 'off' ? 'off' : 'mode', icon, am * 1.5, arg: key, fill: active ? pal.chipSel : pal.panel, fg: active ? pal.onChipSel : pal.muted)
             : Expanded(
                 child: _tap(
                   key == 'off' ? 'off' : 'mode',
@@ -859,21 +965,21 @@ class TileView extends StatelessWidget {
                     margin: const EdgeInsets.symmetric(horizontal: 2),
                     padding: EdgeInsets.symmetric(vertical: modeLabel == 'icon' ? am * 0.55 : am * 0.35),
                     decoration: BoxDecoration(
-                      color: active ? pal.ink : pal.panel,
-                      border: Border.all(color: active ? pal.ink : pal.tileEdge),
+                      color: active ? pal.chipSel : pal.panel,
+                      border: Border.all(color: active ? pal.chipSel : pal.tileEdge),
                       borderRadius: BorderRadius.circular(am * 0.62),
                     ),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        if (modeLabel != 'text') iconWidget(icon, am, active ? pal.screen : pal.muted),
+                        if (modeLabel != 'text') iconWidget(icon, am, active ? pal.onChipSel : pal.muted),
                         if (modeLabel == 'both') const SizedBox(height: 2),
                         if (modeLabel != 'icon')
                           Text(
                             name,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: TextStyle(fontSize: modeLabel == 'text' ? am * 0.85 : am * 0.7, color: active ? pal.screen : pal.muted),
+                            style: TextStyle(fontSize: modeLabel == 'text' ? am * 0.85 : am * 0.7, color: active ? pal.onChipSel : pal.muted),
                           ),
                       ],
                     ),
@@ -923,15 +1029,7 @@ class TileView extends StatelessWidget {
         Widget fanRow() => Row(
           children: [
             for (final k in levels)
-              _ibtn(
-                'fan',
-                fanIcon(k),
-                am * 1.5,
-                arg: k,
-                fill: acOn && fan == k ? pal.ink : pal.panel,
-                edge: acOn && fan == k ? pal.ink : pal.tileEdge,
-                fg: acOn && fan == k ? pal.screen : pal.muted,
-              ),
+              _ibtn('fan', fanIcon(k), am * 1.5, arg: k, fill: acOn && fan == k ? pal.chipSel : pal.panel, fg: acOn && fan == k ? pal.onChipSel : pal.muted),
           ],
         );
         // Button of the card that opens the modes / fan popup.
@@ -972,7 +1070,11 @@ class TileView extends StatelessWidget {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [_label(), const SizedBox(height: 2), _state(status)],
+                  children: [
+                    _label(),
+                    const SizedBox(height: 2),
+                    _state(status, color: acOn ? colorOn : null),
+                  ],
                 ),
               ),
               const SizedBox(width: 6),
@@ -998,7 +1100,11 @@ class TileView extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             mainAxisSize: MainAxisSize.min,
-            children: [_state(status), const SizedBox(height: 6), spSlider()],
+            children: [
+              spSlider(),
+              const SizedBox(height: 6),
+              _state(status, color: acOn ? colorOn : null),
+            ],
           ),
         ]);
     }

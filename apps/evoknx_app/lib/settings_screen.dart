@@ -13,8 +13,6 @@ class SettingsScreen extends StatelessWidget {
   final AppStore store;
   final KnxLink knx;
 
-  static const _themes = kAppThemes;
-
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
@@ -197,22 +195,24 @@ class SettingsScreen extends StatelessWidget {
                   ),
                 ]),
                 card('Giao diện', [
-                  for (final (k, n) in _themes)
-                    row(
-                      Container(
-                        width: 24,
-                        height: 24,
-                        decoration: BoxDecoration(
-                          color: AppPalette.of(k).screen,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: pal.lineStrong),
-                        ),
+                  for (final (group, items) in kAppThemeGroups) ...[
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
+                      child: Text(
+                        group.toUpperCase(),
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 0.5, color: pal.muted),
                       ),
-                      n,
-                      sub: k == (jsonMap(store.config?['theme'])['mode'] ?? 'light') ? 'Mặc định của dự án' : null,
-                      trailing: k == store.mode ? Icon(Icons.check, color: pal.accent) : null,
-                      onTap: () => store.setTheme(k),
                     ),
+                    for (final (k, n) in items)
+                      row(
+                        ThemeSwatch(AppPalette.of(k)),
+                        n,
+                        sub: k == themeKey(jsonMap(store.config?['theme'])['mode']) ? 'Mặc định của dự án' : null,
+                        trailing: k == store.mode ? Icon(Icons.check, color: pal.accent) : null,
+                        onTap: () => store.setTheme(k),
+                      ),
+                  ],
+
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
                     child: Column(

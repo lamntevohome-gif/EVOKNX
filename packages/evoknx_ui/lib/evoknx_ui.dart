@@ -4,9 +4,10 @@ library evoknx_ui;
 
 export 'src/engine.dart';
 export 'src/icons.dart';
+export 'src/look.dart';
 export 'src/model.dart';
 export 'src/splash.dart';
 export 'src/tiles.dart';
 
 /// Font family of the EVOKNX interface (bundled in this package).
-const String kEvoFont = 'packages/evoknx_ui/InterTight';
+const String kEvoFont = 'packages/evoknx_ui/Inter';
