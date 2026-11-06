@@ -63,6 +63,10 @@ class AppPalette {
   /// Card shape (Tổng quan → Kiểu thẻ): corner radius, border width, shadow.
   final double radius, border, shadow;
 
+  /// How much the control buttons and the Nút nhấn / Cảnh cards stand out
+  /// (Tổng quan → Độ nổi nút): 0 = flat, 1.6 = default, up to about 2.7.
+  final double lift;
+
   /// Card background and border strength (Tổng quan → Kiểu thẻ), 0…1.
   final double tileOpacity, edgeOpacity;
 
@@ -92,6 +96,7 @@ class AppPalette {
     this.shadow = 0,
     this.tileOpacity = 1,
     this.edgeOpacity = 1,
+    this.lift = 1.6,
     this.tileOn,
     this.chip,
     this.chipOn,
@@ -126,6 +131,7 @@ class AppPalette {
     double? shadow,
     double? tileOpacity,
     double? edgeOpacity,
+    double? lift,
   }) => AppPalette(
     tileOn: tileOn,
     chip: chip,
@@ -151,6 +157,7 @@ class AppPalette {
     shadow: shadow ?? this.shadow,
     tileOpacity: tileOpacity ?? this.tileOpacity,
     edgeOpacity: edgeOpacity ?? this.edgeOpacity,
+    lift: lift ?? this.lift,
   );
 
   /// Palette for a card with a custom background: readable text on dark colours.
@@ -390,7 +397,7 @@ class TileView extends StatelessWidget {
         circle: circle,
         edge: edge,
         glow: selected ? fill : null,
-        lift: 1.6,
+        lift: pal.lift,
       ),
       child: Center(
         child: icon is IconData ? Icon(icon, size: s, color: color) : iconWidget(icon as String, s, color),
@@ -445,22 +452,26 @@ class TileView extends StatelessWidget {
         : (lit ? (pal.tileOn != null && rgb == null && !customOn ? pal.tileOn! : Color.alphaBlend(colorOn.withValues(alpha: 0.30), pal.tile)) : pal.tile);
     final imageBtn = (type == 'button' || type == 'scene') && w['btnStyle'] == 'image';
     final self = this;
+    // A Nút nhấn / Cảnh card is a button as a whole: it stands out like one.
+    final raisedCard = (type == 'button' || type == 'scene') && pal.tile != Colors.transparent && !alarm && pal.lift > 0.01;
     return AnimatedContainer(
       duration: const Duration(milliseconds: 220),
       curve: Curves.easeOutCubic,
-      decoration: BoxDecoration(
-        color: pal.fill(type == 'webview' ? pal.tile : bg),
-        borderRadius: BorderRadius.circular(pal.radius),
-        border: alarm
-            ? Border.all(color: pal.danger, width: max(1.5, pal.border))
-            : pal.border <= 0 || (noBorder && !lit)
-            ? null
-            : Border.all(
-                color: lit ? colorOn.withValues(alpha: 0.6 * pal.edgeOpacity) : pal.edge,
-                width: pal.border,
-              ),
-        boxShadow: pal.tile == Colors.transparent ? const [] : pal.shadows,
-      ),
+      decoration: raisedCard
+          ? raisedDecoration(pal, pal.fill(bg), radius: BorderRadius.circular(pal.radius), lift: pal.lift, edge: pal.border <= 0 ? Colors.transparent : null)
+          : BoxDecoration(
+              color: pal.fill(type == 'webview' ? pal.tile : bg),
+              borderRadius: BorderRadius.circular(pal.radius),
+              border: alarm
+                  ? Border.all(color: pal.danger, width: max(1.5, pal.border))
+                  : pal.border <= 0 || (noBorder && !lit)
+                  ? null
+                  : Border.all(
+                      color: lit ? colorOn.withValues(alpha: 0.6 * pal.edgeOpacity) : pal.edge,
+                      width: pal.border,
+                    ),
+              boxShadow: pal.tile == Colors.transparent ? const [] : pal.shadows,
+            ),
       foregroundDecoration: selected
           ? BoxDecoration(
               borderRadius: BorderRadius.circular(pal.radius),
@@ -957,7 +968,7 @@ class TileView extends StatelessWidget {
                       active ? pal.chipSel : pal.panel,
                       radius: BorderRadius.circular(am * 0.62),
                       glow: active ? pal.chipSel : null,
-                      lift: 1.6,
+                      lift: pal.lift,
                     ),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,

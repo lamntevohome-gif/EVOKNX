@@ -347,6 +347,7 @@ class AppStore extends ChangeNotifier {
       shadow: n('cardShadow', 0, 0, 20),
       tileOpacity: n('cardOpacity', 100, 0, 100) / 100,
       edgeOpacity: n('cardEdge', 100, 0, 100) / 100,
+      lift: liftOf(n('btnRaise', 60, 0, 100)),
     );
   }
 

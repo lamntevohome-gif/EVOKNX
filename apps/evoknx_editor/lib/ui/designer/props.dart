@@ -1635,6 +1635,16 @@ class _OverviewProps extends StatelessWidget {
             onChanged: (v) => editTheme((x) => x['cardShadow'] = v, coalesce: 'cshd'),
           ),
           Hint('Mặc định: góc 12, viền 1, nền và viền đậm 100%, không đổ bóng. Áp dụng cho mọi thẻ và khung lưới.'),
+          StepRow(
+            label: 'Độ nổi nút',
+            unit: '%',
+            step: 10,
+            value: ((theme['btnRaise'] as num?) ?? 60).toInt(),
+            min: 0,
+            max: 100,
+            onChanged: (v) => editTheme((x) => x['btnRaise'] = v, coalesce: 'braise'),
+          ),
+          Hint('Độ nổi của các nút điều khiển trong thẻ (rèm, máy lạnh, nút chỉnh) và của thẻ Nút nhấn, Cảnh. 0% là phẳng, mặc định 60%.'),
         ]),
         _Section('Giao diện App', [
           StepRow(

@@ -7,6 +7,15 @@ import 'tiles.dart';
 /// shade, so the button seems to stand above the card. [lift] makes the effect
 /// stronger or weaker; [glow] adds a coloured halo (selected buttons).
 BoxDecoration raisedDecoration(AppPalette pal, Color fill, {BorderRadius? radius, bool circle = false, Color? glow, Color? edge, double lift = 1}) {
+  // Lift 0 (Tổng quan → Độ nổi nút) = a flat button.
+  if (lift <= 0.01) {
+    return BoxDecoration(
+      color: fill,
+      shape: circle ? BoxShape.circle : BoxShape.rectangle,
+      borderRadius: circle ? null : radius,
+      border: Border.all(color: edge ?? pal.tileEdge),
+    );
+  }
   final dark = pal.ink.computeLuminance() > 0.5;
   final top = Color.lerp(fill, Colors.white, ((dark ? 0.10 : 0.45) * lift).clamp(0.0, 0.85))!;
   final bottom = Color.lerp(fill, Colors.black, ((dark ? 0.16 : 0.07) * lift).clamp(0.0, 0.5))!;
@@ -36,6 +45,9 @@ BoxDecoration raisedDecoration(AppPalette pal, Color fill, {BorderRadius? radius
     ],
   );
 }
+
+/// "Độ nổi nút" (0–100 %, default 60) as the lift used by [raisedDecoration].
+double liftOf(num percent) => percent.clamp(0, 100) * 0.0267;
 
 /// Flat look of the navigation buttons (floors, rooms, pages, settings).
 BoxDecoration flatDecoration(AppPalette pal, Color fill, {BorderRadius? radius, bool circle = false, Color? glow}) => BoxDecoration(
