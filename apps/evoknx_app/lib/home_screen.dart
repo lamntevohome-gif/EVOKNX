@@ -446,8 +446,9 @@ class _HomeScreenState extends State<HomeScreen> {
     final arrows = jsonMap(doc['theme'])['pageArrows'] != false;
     final title = (sub?['title'] ?? '').toString();
     void go(int to) {
-      if (!_pages.hasClients) return;
-      _pages.animateToPage(to.clamp(0, subs.length - 1).toInt(), duration: const Duration(milliseconds: 250), curve: Curves.easeOutCubic);
+      final pc = _pages;
+      if (pc == null || !pc.hasClients) return;
+      pc.animateToPage(to.clamp(0, subs.length - 1).toInt(), duration: const Duration(milliseconds: 250), curve: Curves.easeOutCubic);
     }
 
     Widget arrow(IconData icon, bool enabled, VoidCallback onTap, String tip) => Tooltip(
