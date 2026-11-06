@@ -309,8 +309,8 @@ String haAddressFor(int main, int kind, String attrKey, int n, String role) {
 /// Whether function [a] of [e] has a [role] ('cmd' or 'status') address.
 bool haHasRole(HaEntity e, HaAttr a, String role) {
   if (role == 'cmd') return a.cmd;
-  // A scene has no state to follow.
-  return a.status && e.domain != 'scene';
+  // A scene, a script and an automation are triggers: no state to follow.
+  return a.status && e.domain != 'scene' && e.domain != 'script' && e.domain != 'automation';
 }
 
 /// The addresses the rule would give to functions [attrKeys] of [e] in a room,

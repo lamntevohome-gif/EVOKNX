@@ -469,24 +469,39 @@ class StatusDot extends StatelessWidget {
 double sidePanelWidth(double maxWidth) => (maxWidth * 0.30).clamp(340.0, 480.0).toDouble();
 
 class SearchField extends StatelessWidget {
-  const SearchField({super.key, required this.onChanged, this.hint = 'Tìm theo địa chỉ hoặc tên', this.width = 280});
+  const SearchField({super.key, required this.onChanged, this.hint = 'Tìm theo địa chỉ hoặc tên', this.width = 280, this.framed = false});
   final ValueChanged<String> onChanged;
   final String hint;
   final double width;
+
+  /// With a visible frame and the height of a button (34), to sit in a row with buttons.
+  final bool framed;
   @override
   Widget build(BuildContext context) {
+    final c = context.evo;
     return SizedBox(
       width: width,
+      height: framed ? 34 : null,
       child: TextField(
         onChanged: onChanged,
         style: const TextStyle(fontSize: kUiText),
         decoration: InputDecoration(
           hintText: hint,
-          fillColor: context.evo.paper,
-          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide.none),
-          prefixIcon: Icon(Icons.search, size: 15, color: context.evo.muted),
+          isDense: framed ? true : null,
+          fillColor: c.paper,
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(4),
+            borderSide: framed ? BorderSide(color: c.line) : BorderSide.none,
+          ),
+          focusedBorder: framed
+              ? OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(4),
+                  borderSide: BorderSide(color: c.accent),
+                )
+              : null,
+          prefixIcon: Icon(Icons.search, size: 15, color: c.muted),
           prefixIconConstraints: const BoxConstraints(minWidth: 28),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 9),
+          contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: framed ? 8 : 9),
         ),
       ),
     );

@@ -316,8 +316,9 @@ Future<void> main() async {
   final aSr = addHaEntity(doc, sr, ['onoff'], roomId: room1['id'] as String);
   final aAu = addHaEntity(doc, au, ['onoff'], roomId: room1['id'] as String);
   check(aSc.length == 1 && aSc.first['ha']['role'] == 'cmd' && aSc.first['address'] == '40/0/1', 'scene: only a command address (40/0/1)');
-  check(aSr.length == 2 && aSr.first['address'] == '40/0/2' && aSr.last['address'] == '40/0/102', 'script: command and status (40/0/2, 40/0/102)');
-  check(aAu.length == 2 && aAu.first['address'] == '40/0/3', 'automation: command and status, numbered after the script (40/0/3)');
+  check(aSr.length == 1 && aSr.first['ha']['role'] == 'cmd' && aSr.first['address'] == '40/0/2', 'script: only a command address (40/0/2), no status');
+  check(aAu.length == 1 && aAu.first['ha']['role'] == 'cmd' && aAu.first['address'] == '40/0/3',
+      'automation: only a command address, numbered after the script (40/0/3)');
   check(aSc.first['dpt'] == '1.001', 'scene: DPT 1.001');
 
   // ---- manual addresses

@@ -123,34 +123,6 @@ class _HaPageState extends State<HaPage> {
     if (err != null && mounted) toast(context, err!);
   }
 
-  /// Puts every address of the room back on the rule (kind of entity, number,
-  /// function); the cards keep their links.
-  Future<void> _readdressRoom(Json room) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (c) => AlertDialog(
-        title: Text('Đánh lại địa chỉ phòng “${room['name']}”?'),
-        content: const Text(
-          'Các địa chỉ của mọi thực thể trong phòng được đặt lại theo quy tắc: nhóm giữa theo loại thực thể (0 cảnh, 1 công tắc/đèn, 2 đèn dim, 3 rèm, 4 cảm biến, 5 media player, 6 máy lạnh), '
-          'chức năng phụ cộng thêm 10, nhóm phụ là số thứ tự, trạng thái cộng 100. Địa chỉ bạn đã sửa tay sẽ bị đặt lại. Các thẻ giữ nguyên liên kết. Có thể hoàn tác (Ctrl+Z).',
-        ),
-        actions: [
-          EvoButton(label: 'Huỷ', onPressed: () => Navigator.pop(c, false)),
-          EvoButton(label: 'Đánh lại', primary: true, onPressed: () => Navigator.pop(c, true)),
-        ],
-      ),
-    );
-    if (ok != true) return;
-    var n = 0;
-    String? err;
-    try {
-      p.mutate((d) => n = readdressHaRoom(d, room['id'] as String));
-    } on StateError catch (e) {
-      err = e.message;
-    }
-    if (mounted) toast(context, err ?? (n == 0 ? 'Các địa chỉ đã đúng quy tắc.' : 'Đã đổi $n địa chỉ.'));
-  }
-
   Future<void> _deleteRoom(Json room) async {
     final id = room['id'] as String;
     final ents = {
@@ -186,7 +158,6 @@ class _HaPageState extends State<HaPage> {
       items: [
         const PopupMenuItem(value: 0, height: 34, child: Text('Sửa tên')),
         const PopupMenuItem(value: 1, height: 34, child: Text('Sửa nhóm chính (địa chỉ)')),
-        const PopupMenuItem(value: 3, height: 34, child: Text('Đánh lại địa chỉ theo quy tắc')),
         const PopupMenuDivider(height: 9),
         PopupMenuItem(
           value: 2,
@@ -202,8 +173,6 @@ class _HaPageState extends State<HaPage> {
         await _moveRoom(room);
       case 2:
         await _deleteRoom(room);
-      case 3:
-        await _readdressRoom(room);
     }
   }
 
@@ -563,23 +532,29 @@ class _HaPageState extends State<HaPage> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        Padding(
-          padding: const EdgeInsets.only(bottom: 10),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  cur == null
-                      ? 'Địa chỉ chưa thuộc phòng nào'
-                      : 'Phòng ${cur['name']} · nhóm chính ${cur['main']} · ${fq.isEmpty ? '${byEntity.length}' : '${shown.length}/${byEntity.length}'} thực thể',
-                  style: TextStyle(fontWeight: FontWeight.w600, color: c.ink),
+        // The search box and the "Chọn" buttons share one row (up to four buttons while selecting).
+        if (byEntity.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: SearchField(
+                    key: ValueKey('room-search-$roomKey'),
+                    hint: 'Tìm thực thể trong phòng (tên, mã hoặc địa chỉ)',
+                    width: double.infinity,
+                    framed: true,
+                    onChanged: (v) => setState(() {
+                      search = v;
+                      searchFor = roomKey;
+                      picked.clear();
+                    }),
+                  ),
                 ),
-              ),
-              if (byEntity.isNotEmpty) ...[
+                const SizedBox(width: 10),
                 if (selecting) ...[
                   EvoButton(
                     label: 'Chọn hết',
-                    small: true,
                     onPressed: () => setState(
                       () => picked
                         ..clear()
@@ -587,11 +562,10 @@ class _HaPageState extends State<HaPage> {
                     ),
                   ),
                   const SizedBox(width: 6),
-                  EvoButton(label: 'Bỏ chọn', small: true, onPressed: picked.isEmpty ? null : () => setState(picked.clear)),
+                  EvoButton(label: 'Bỏ chọn', onPressed: picked.isEmpty ? null : () => setState(picked.clear)),
                   const SizedBox(width: 6),
                   EvoButton(
                     label: 'Xoá (${picked.length})',
-                    small: true,
                     danger: true,
                     icon: Icons.delete_outline,
                     onPressed: picked.isEmpty ? null : () => _removeMany(picked.toList()),
@@ -600,7 +574,6 @@ class _HaPageState extends State<HaPage> {
                 ],
                 EvoButton(
                   label: selecting ? 'Xong' : 'Chọn',
-                  small: true,
                   icon: selecting ? Icons.check : Icons.checklist,
                   onPressed: () => setState(() {
                     selecting = !selecting;
@@ -608,21 +581,6 @@ class _HaPageState extends State<HaPage> {
                   }),
                 ),
               ],
-            ],
-          ),
-        ),
-        if (byEntity.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: SearchField(
-              key: ValueKey('room-search-$roomKey'),
-              hint: 'Tìm thực thể trong phòng (tên, mã hoặc địa chỉ)',
-              width: double.infinity,
-              onChanged: (v) => setState(() {
-                search = v;
-                searchFor = roomKey;
-                picked.clear();
-              }),
             ),
           ),
         if (domains.length > 1)
