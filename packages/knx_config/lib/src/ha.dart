@@ -7,15 +7,20 @@ import 'project.dart';
 // ======================================================================
 // Home Assistant (HA): virtual group addresses
 //
-// An HA entity is wired to cards through VIRTUAL group addresses in main
-// group 32. KNX main groups only go up to 31, so these can never collide
-// with a real address, and they never go to the bus: the App sends them to
-// HA instead. Per entity number m and attribute number k:
-//   command address  32/m/k          status address  32/m/(100+k)
+// An HA entity is wired to cards through VIRTUAL group addresses that never
+// go to the KNX bus (the App sends them to HA). Each "phòng" (room) of the
+// "Mở rộng" tab has its own main group, which must be above 31 (KNX main
+// groups only go up to 31, so these never collide with a real address).
+// In a room, entity number n (1..155) gets, per function type t:
+//   command  main/(10*t)/n        status  main/(10*t)/(n+100)
+// t = 0 is on/off, 1 brightness, 2 colour temperature, 3 cover position...
 // ======================================================================
 
-/// Main group of the virtual HA addresses (outside the KNX range 0–31).
-const int kHaMainGroup = 32;
+/// KNX main groups only go up to 31: virtual main groups start above it.
+const int kHaMinMain = 32;
+
+/// Most entities of one room (so that n + 100 stays within a byte).
+const int kHaMaxEntities = 155;
 
 /// True when [ga] is a virtual address linked to an HA entity.
 bool isHaAddress(Json ga) => ga['ha'] is Map;
@@ -94,47 +99,204 @@ List<HaAttr> haSuggest(HaEntity e) {
   return const [];
 }
 
-/// Adds the virtual addresses of [e] for the attributes [attrKeys] to the
-/// project (both a command and a status address where the attribute has
-/// them). Returns the new address entries. An entity keeps its number m.
-List<Json> addHaEntity(Json doc, HaEntity e, List<String> attrKeys) {
+/// The rooms of the "Mở rộng" tab: [{id, name, main}].
+List<Json> haRooms(Json doc) => jsonList(jsonMap(doc['ha'])['rooms']);
+
+Json? haRoomById(Json doc, String? id) {
+  for (final r in haRooms(doc)) {
+    if (r['id'] == id) return r;
+  }
+  return null;
+}
+
+Map<String, dynamic> _haMap(Json doc) {
+  final h = doc['ha'];
+  if (h is Map<String, dynamic>) return h;
+  final m = <String, dynamic>{...jsonMap(h)};
+  doc['ha'] = m;
+  return m;
+}
+
+/// Why [main] cannot be the main group of a room (null = it can).
+String? haValidateMain(Json doc, int main, {String? exceptRoom}) {
+  if (main < kHaMinMain) return 'Nhóm chính phải lớn hơn 31 (0–31 là địa chỉ KNX thật).';
+  if (main > 999) return 'Nhóm chính tối đa là 999.';
+  for (final r in haRooms(doc)) {
+    if (r['id'] != exceptRoom && r['main'] == main) return 'Nhóm chính $main đã dùng cho phòng “${r['name']}”.';
+  }
+  return null;
+}
+
+/// A free main group for a new room.
+int haNextMain(Json doc) {
+  var top = kHaMinMain - 1;
+  for (final r in haRooms(doc)) {
+    final m = (r['main'] as num?)?.toInt() ?? 0;
+    if (m > top) top = m;
+  }
+  return top + 1;
+}
+
+/// Creates a room. The caller checks [haValidateMain] first.
+Json addHaRoom(Json doc, String name, int main) {
+  final h = _haMap(doc);
+  final rooms = List<dynamic>.from(h['rooms'] as List? ?? const []);
+  final room = <String, dynamic>{'id': uid('hr_'), 'name': name.trim(), 'main': main};
+  rooms.add(room);
+  h['rooms'] = rooms;
+  return room;
+}
+
+void renameHaRoom(Json doc, String roomId, String name) {
+  final r = haRoomById(doc, roomId);
+  if (r != null) r['name'] = name.trim();
+}
+
+/// Changes the main group of a room and of all its addresses. Returns an error
+/// text (nothing is changed) or null.
+String? moveHaRoom(Json doc, String roomId, int main) {
+  final r = haRoomById(doc, roomId);
+  if (r == null) return 'Không tìm thấy phòng.';
+  final err = haValidateMain(doc, main, exceptRoom: roomId);
+  if (err != null) return err;
+  final old = (r['main'] as num).toInt();
+  final mine = [
+    for (final g in jsonList(doc['groupAddresses']))
+      if (g['ha'] is Map && g['ha']['room'] == roomId && g['address'].toString().startsWith('$old/')) g
+  ];
+  final renamed = {for (final g in mine) g['id']: '$main/${g['address'].toString().split('/').skip(1).join('/')}'};
+  final taken = {
+    for (final g in jsonList(doc['groupAddresses']))
+      if (!renamed.containsKey(g['id'])) g['address'].toString()
+  };
+  if (renamed.values.any(taken.contains)) return 'Có địa chỉ trùng sau khi đổi nhóm chính.';
+  for (final g in mine) {
+    g['address'] = renamed[g['id']];
+  }
+  r['main'] = main;
+  return null;
+}
+
+/// Deletes a room with its entities. Returns how many card slots were unlinked.
+int removeHaRoom(Json doc, String roomId) {
+  var unlinked = 0;
+  final entities = {
+    for (final g in jsonList(doc['groupAddresses']))
+      if (g['ha'] is Map && g['ha']['room'] == roomId) (g['ha']['entity'] ?? '').toString()
+  };
+  for (final e in entities) {
+    unlinked += removeHaEntity(doc, e);
+  }
+  final h = _haMap(doc);
+  h['rooms'] = [
+    for (final r in haRooms(doc))
+      if (r['id'] != roomId) r
+  ];
+  return unlinked;
+}
+
+/// The room an entity is already in, or null.
+String? haEntityRoom(Json doc, String entityId) {
+  for (final g in jsonList(doc['groupAddresses'])) {
+    final h = g['ha'];
+    if (h is Map && h['entity'] == entityId) return h['room']?.toString();
+  }
+  return null;
+}
+
+/// The command address of attribute [attrKey] for entity number [n] of a room
+/// ([role] 'cmd'), or its status address.
+String haAddressFor(int main, String attrKey, int n, String role) {
+  final t = kHaAttrs.indexWhere((a) => a.key == attrKey);
+  return '$main/${10 * (t < 0 ? 0 : t)}/${role == 'cmd' ? n : n + 100}';
+}
+
+/// Adds the virtual addresses of [e] for the attributes [attrKeys] to a room
+/// of the project (both a command and a status address where the attribute has
+/// them). An entity keeps its number in the room. Returns the new entries;
+/// throws a [StateError] (with a message) when the room is unknown or full.
+List<Json> addHaEntity(Json doc, HaEntity e, List<String> attrKeys, {required String roomId, String? title}) {
   final gas = (doc['groupAddresses'] = List<dynamic>.from(doc['groupAddresses'] as List? ?? const []));
-  // The number of this entity, or the next free one.
-  var m = 0;
+  // An entity stays in the room it was first added to.
+  final existing = haEntityRoom(doc, e.id);
+  final room = haRoomById(doc, existing ?? roomId);
+  if (room == null) throw StateError('Hãy tạo phòng trước.');
+  final rid = room['id'] as String, main = (room['main'] as num).toInt();
+  var n = 0;
+  String? shown;
   for (final g in gas) {
     final h = (g as Map)['ha'];
     if (h is Map && h['entity'] == e.id) {
-      m = int.tryParse(g['address'].toString().split('/')[1]) ?? 0;
+      n = (h['n'] as num?)?.toInt() ?? 0;
+      shown = h['title']?.toString();
     }
   }
-  if (m == 0) {
+  if (n == 0) {
     var top = 0;
     for (final g in gas) {
-      if ((g as Map)['ha'] is Map) top = [top, int.tryParse(g['address'].toString().split('/')[1]) ?? 0].reduce((a, b) => a > b ? a : b);
+      final h = (g as Map)['ha'];
+      if (h is Map && h['room'] == rid) top = [top, (h['n'] as num?)?.toInt() ?? 0].reduce((a, b) => a > b ? a : b);
     }
-    m = top + 1;
+    n = top + 1;
+    if (n > kHaMaxEntities) throw StateError('Phòng “${room['name']}” đã đủ $kHaMaxEntities thực thể.');
   }
+  final name = (title ?? shown ?? e.name);
   final out = <Json>[];
   for (final key in attrKeys) {
     final a = haAttr(key);
     if (a == null) continue;
-    final k = kHaAttrs.indexOf(a) + 1;
     for (final role in ['cmd', 'status']) {
       if ((role == 'cmd' && !a.cmd) || (role == 'status' && !a.status)) continue;
-      final addr = '$kHaMainGroup/$m/${role == 'cmd' ? k : 100 + k}';
+      final addr = haAddressFor(main, key, n, role);
       if (gas.any((g) => (g as Map)['address'] == addr)) continue;
       final ga = <String, dynamic>{
         'id': uid('ga_'),
         'address': addr,
-        'name': '${e.name} · ${a.label}${role == 'cmd' ? ' (lệnh)' : ' (trạng thái)'}',
+        'name': '$name · ${a.label}${role == 'cmd' ? ' (lệnh)' : ' (trạng thái)'}',
         'dpt': a.dpt,
-        'ha': {'entity': e.id, 'attr': key, 'role': role},
+        'ha': {'entity': e.id, 'attr': key, 'role': role, 'room': rid, 'n': n, 'title': name},
       };
       gas.add(ga);
       out.add(ga);
     }
   }
   return out;
+}
+
+/// Renames an entity (its display name only: the HA entity id stays).
+void renameHaEntity(Json doc, String entityId, String title) {
+  final t = title.trim();
+  if (t.isEmpty) return;
+  for (final g in jsonList(doc['groupAddresses'])) {
+    final h = g['ha'];
+    if (h is! Map || h['entity'] != entityId) continue;
+    h['title'] = t;
+    final a = haAttr((h['attr'] ?? '').toString());
+    g['name'] = '$t · ${a?.label ?? h['attr']}${h['role'] == 'cmd' ? ' (lệnh)' : ' (trạng thái)'}';
+  }
+}
+
+/// Why [address] cannot be the virtual address of [exceptId] (null = it can).
+String? haValidateAddress(Json doc, String address, {String? exceptId}) {
+  final m = RegExp(r'^(\d{1,3})/(\d{1,3})/(\d{1,3})$').firstMatch(address.trim());
+  if (m == null) return 'Địa chỉ phải có dạng nhóm chính/nhóm giữa/nhóm phụ, ví dụ 40/10/1.';
+  final main = int.parse(m[1]!), mid = int.parse(m[2]!), sub = int.parse(m[3]!);
+  if (main < kHaMinMain) return 'Nhóm chính phải lớn hơn 31 (0–31 là địa chỉ KNX thật).';
+  if (mid > 255 || sub > 255) return 'Nhóm giữa và nhóm phụ tối đa là 255.';
+  for (final g in jsonList(doc['groupAddresses'])) {
+    if (g['id'] != exceptId && g['address'] == '$main/$mid/$sub') return 'Địa chỉ $main/$mid/$sub đã dùng cho “${g['name']}”.';
+  }
+  return null;
+}
+
+/// Gives a virtual address a new value (already checked by [haValidateAddress]).
+void haSetAddress(Json doc, String gaId, String address) {
+  for (final g in jsonList(doc['groupAddresses'])) {
+    if (g['id'] == gaId) {
+      final m = RegExp(r'^(\d{1,3})/(\d{1,3})/(\d{1,3})$').firstMatch(address.trim())!;
+      g['address'] = '${int.parse(m[1]!)}/${int.parse(m[2]!)}/${int.parse(m[3]!)}';
+    }
+  }
 }
 
 /// Removes every virtual address of [entityId] and unlinks them from the

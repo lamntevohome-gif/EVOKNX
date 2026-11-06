@@ -108,6 +108,11 @@ class AppPalette {
 
   /// Margin kept free around the cards of a page so the shadow and the glow of
   /// the outer cards are not cut off (at least 14 px).
+  /// Strength of the bevel of a card (from the "Độ nổi" setting) and of the
+  /// soft shadow under it.
+  double get cardLift => lift * 1.05;
+  double get cardShadowLift => (lift * 1.5).clamp(0.0, 2.8).toDouble();
+
   double get safeMargin => max(14.0, min(shadow * 1.6, 15.0) + min(shadow * 0.45, min(shadow * 1.6, 15.0) * 0.4));
   Color get sInk => onScreenInk ?? ink;
   Color get sMuted => onScreenMuted ?? muted;
@@ -508,7 +513,7 @@ class TileView extends StatelessWidget {
               pal,
               pal.fill(type == 'webview' ? pal.tile : bg),
               radius: BorderRadius.circular(pal.radius),
-              lift: pal.lift * 0.8,
+              lift: pal.cardLift,
               border: cardBorder ?? Border.fromBorderSide(BorderSide.none),
               shadow: false,
             )

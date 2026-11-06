@@ -66,6 +66,9 @@ BoxDecoration raisedDecoration(
   );
 }
 
+/// The "Độ nổi" setting (0–100 %, default 60) as the lift used by [raisedDecoration].
+double liftOf(num percent) => percent.clamp(0, 100) * 0.0267;
+
 /// Flat look of the navigation buttons (floors, rooms, pages, settings).
 BoxDecoration flatDecoration(AppPalette pal, Color fill, {BorderRadius? radius, bool circle = false, Color? glow}) => BoxDecoration(
   color: fill,
@@ -132,14 +135,14 @@ class CardShadow extends StatelessWidget {
   Widget build(BuildContext context) {
     // Every card is lifted: a small soft shadow from the "Độ nổi" setting, plus
     // the optional "Đổ bóng" one.
-    final lift = pal.lift * 0.8;
+    final lift = pal.cardShadowLift;
     final dark = pal.ink.computeLuminance() > 0.5;
     final list = <BoxShadow>[
       if (lift > 0.01)
         BoxShadow(
-          color: Colors.black.withValues(alpha: ((dark ? 0.28 : 0.13) * lift).clamp(0.0, 0.45)),
-          blurRadius: 3 + 1.2 * lift,
-          offset: Offset(0, 0.8 + 0.7 * lift),
+          color: Colors.black.withValues(alpha: ((dark ? 0.24 : 0.12) * lift).clamp(0.0, 0.55)),
+          blurRadius: 4 + 2.0 * lift,
+          offset: Offset(0, 1.5 + 1.2 * lift),
         ),
       ...pal.shadows,
       if (glow != null) BoxShadow(color: glow!.withValues(alpha: 0.12), blurRadius: 8, offset: const Offset(0, 2)),

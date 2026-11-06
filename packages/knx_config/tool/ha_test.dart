@@ -193,27 +193,87 @@ Future<void> main() async {
   check(haCommand(ent('climate.a', 'off'), 'onoff', true)!.service == 'turn_on' && haCommand(ent('switch.a', 'on'), 'onoff', false)!.service == 'turn_off',
       'command: power');
 
-  // ---- virtual addresses
+  // ---- rooms
   final doc = <String, dynamic>{'groupAddresses': <dynamic>[]};
+  check(haValidateMain(doc, 31) != null, 'room: main group 31 is refused (KNX range)');
+  check(haValidateMain(doc, 1000) != null, 'room: main group above 999 is refused');
+  check(haNextMain(doc) == 32, 'room: the first free main group is 32');
+  final room1 = addHaRoom(doc, 'Phòng khách', 40);
+  check(haValidateMain(doc, 40) != null, 'room: the same main group twice is refused');
+  check(haValidateMain(doc, 40, exceptRoom: room1['id'] as String) == null, 'room: its own main group is fine when editing it');
+  final room2 = addHaRoom(doc, 'Phòng ngủ', 41);
+  check(haRooms(doc).length == 2 && haNextMain(doc) == 42, 'room: two rooms, next main group 42');
+  renameHaRoom(doc, room1['id'] as String, '  Khách  ');
+  check(haRoomById(doc, room1['id'] as String)!['name'] == 'Khách', 'room: rename');
+
+  // ---- addresses: main/mid/sub, status main/mid/sub+100, function types at mid + 10 * t
   final light = ent('light.den1', 'on', {
     'friendly_name': 'Đèn 1',
     'brightness': 128,
     'supported_color_modes': ['brightness']
   });
   check(haSuggest(light).map((a) => a.key).join(',') == 'onoff,brightness', 'suggest: dimmable light');
-  final added = addHaEntity(doc, light, ['onoff', 'brightness']);
+  final added = addHaEntity(doc, light, ['onoff', 'brightness'], roomId: room1['id'] as String);
   final addrs = added.map((g) => g['address']).join(' ');
-  check(addrs == '32/1/1 32/1/101 32/1/2 32/1/102', 'addresses: 32/1/1 32/1/101 32/1/2 32/1/102 (got $addrs)');
-  addHaEntity(doc, ent('cover.rem1', 'open', {'friendly_name': 'Rèm 1'}), ['position']);
-  check((doc['groupAddresses'] as List).any((g) => g['address'] == '32/2/4'), 'addresses: second entity gets number 2');
-  addHaEntity(doc, light, ['colortemp']);
-  check((doc['groupAddresses'] as List).any((g) => g['address'] == '32/1/3'), 'addresses: an entity keeps its number');
-  check(added.every((g) => g['dpt'] != null && isHaAddress(g)), 'addresses: have a DPT and the ha link');
+  check(addrs == '40/0/1 40/0/101 40/10/1 40/10/101', 'addresses: 40/0/1 40/0/101 40/10/1 40/10/101 (got $addrs)');
+  addHaEntity(doc, ent('cover.rem1', 'open', {'friendly_name': 'Rèm 1'}), ['position'], roomId: room1['id'] as String);
+  check(
+      (doc['groupAddresses'] as List).any((g) => g['address'] == '40/30/2' || g['address'] == '40/3/2') ||
+          (doc['groupAddresses'] as List).any((g) => g['address'] == '40/30/102'),
+      'addresses: the second entity of the room is number 2');
+  addHaEntity(doc, light, ['colortemp'], roomId: room1['id'] as String);
+  check((doc['groupAddresses'] as List).any((g) => g['address'] == '40/20/1'), 'addresses: an entity keeps its number (colour temperature 40/20/1)');
   final ac = ent('climate.ac', 'cool', {'friendly_name': 'Máy lạnh'});
-  addHaEntity(doc, ac, ['onoff', 'setpoint', 'current', 'mode']);
-  addHaEntity(doc, ent('sensor.t', '23.4', {'friendly_name': 'Nhiệt độ'}), ['sensor']);
+  addHaEntity(doc, ac, ['onoff', 'setpoint', 'current', 'mode'], roomId: room2['id'] as String);
+  addHaEntity(doc, ent('sensor.t', '23.4', {'friendly_name': 'Nhiệt độ'}), ['sensor'], roomId: room2['id'] as String);
+  check(added.every((g) => g['dpt'] != null && isHaAddress(g) && g['ha']['room'] == room1['id']), 'addresses: have a DPT, the ha link and their room');
+  try {
+    addHaEntity(doc, light, ['onoff'], roomId: 'khong-co');
+    check(true, 'entity: stays in its first room');
+  } on StateError {
+    check(false, 'entity: stays in its first room');
+  }
+  try {
+    addHaEntity(doc, ent('light.moi', 'on'), ['onoff'], roomId: 'khong-co');
+    check(false, 'entity: unknown room is refused');
+  } on StateError catch (e) {
+    check(e.message.contains('phòng'), 'entity: unknown room is refused');
+  }
 
-  // ---- removing an entity unlinks its cards
+  String addr(String entity, String attr, String role) {
+    for (final g in doc['groupAddresses'] as List) {
+      final h = g['ha'];
+      if (h is Map && h['entity'] == entity && h['attr'] == attr && h['role'] == role) return g['address'] as String;
+    }
+    return '';
+  }
+
+  Json ga(String address) => (doc['groupAddresses'] as List).firstWhere((g) => g['address'] == address) as Json;
+
+  // ---- rename keeps the entity id
+  renameHaEntity(doc, 'light.den1', 'Đèn bàn');
+  final onoff = ga(addr('light.den1', 'onoff', 'cmd'));
+  check(onoff['name'] == 'Đèn bàn · Bật/tắt (lệnh)' && onoff['ha']['entity'] == 'light.den1' && onoff['ha']['title'] == 'Đèn bàn',
+      'rename: new name, same HA entity id');
+
+  // ---- edit an address
+  check(haValidateAddress(doc, 'abc') != null, 'edit address: bad format is refused');
+  check(haValidateAddress(doc, '31/0/1') != null, 'edit address: main group 31 is refused');
+  check(haValidateAddress(doc, addr('light.den1', 'brightness', 'cmd'), exceptId: 'khac') != null, 'edit address: a used address is refused');
+  check(haValidateAddress(doc, '45/3/7', exceptId: onoff['id'] as String) == null, 'edit address: a free address is accepted');
+  haSetAddress(doc, onoff['id'] as String, '45/3/7');
+  check(onoff['address'] == '45/3/7' && addr('light.den1', 'onoff', 'cmd') == '45/3/7', 'edit address: applied');
+  haSetAddress(doc, onoff['id'] as String, '40/0/1');
+
+  // ---- moving a room changes its main group everywhere
+  check(moveHaRoom(doc, room2['id'] as String, 31) != null, 'move room: 31 is refused');
+  check(moveHaRoom(doc, room2['id'] as String, 40) != null, 'move room: a main group of another room is refused');
+  check(moveHaRoom(doc, room2['id'] as String, 50) == null, 'move room: to 50');
+  check(addr('climate.ac', 'setpoint', 'cmd').startsWith('50/') && addr('sensor.t', 'sensor', 'status').startsWith('50/'), 'move room: addresses follow');
+  check(haRoomById(doc, room2['id'] as String)!['main'] == 50, 'move room: main group stored');
+  moveHaRoom(doc, room2['id'] as String, 41);
+
+  // ---- removing an entity or a room unlinks its cards
   doc['pages'] = [
     {
       'id': 'r1',
@@ -224,7 +284,12 @@ Future<void> main() async {
             {
               'id': 'w1',
               'type': 'switch',
-              'bind': {'write': (doc['groupAddresses'] as List).firstWhere((g) => g['address'] == '32/1/1')['id'], 'status': 'zzz'}
+              'bind': {'write': onoff['id'], 'status': 'zzz'}
+            },
+            {
+              'id': 'w2',
+              'type': 'value',
+              'bind': {'status': ga(addr('sensor.t', 'sensor', 'status'))['id']}
             },
           ],
         },
@@ -233,9 +298,14 @@ Future<void> main() async {
   ];
   check(haEntityUses(doc, 'light.den1') == 1, 'remove: counts the cards that use the entity');
   final copy = jsonDecode(jsonEncode(doc)) as Map<String, dynamic>;
-  check(removeHaEntity(copy, 'light.den1') == 1, 'remove: unlinks the card slot');
-  check(!(copy['groupAddresses'] as List).any((g) => g['ha'] is Map && g['ha']['entity'] == 'light.den1'), 'remove: addresses gone');
-  check((copy['groupAddresses'] as List).any((g) => g['ha'] is Map && g['ha']['entity'] == 'cover.rem1'), 'remove: other entities stay');
+  check(removeHaEntity(copy, 'light.den1') == 1, 'remove entity: unlinks the card slot');
+  check(!(copy['groupAddresses'] as List).any((g) => g['ha'] is Map && g['ha']['entity'] == 'light.den1'), 'remove entity: addresses gone');
+  check((copy['groupAddresses'] as List).any((g) => g['ha'] is Map && g['ha']['entity'] == 'cover.rem1'), 'remove entity: other entities stay');
+  final copy2 = jsonDecode(jsonEncode(doc)) as Map<String, dynamic>;
+  check(removeHaRoom(copy2, room2['id'] as String) == 1, 'remove room: unlinks the card of its sensor');
+  check(haRooms(copy2).length == 1 && !(copy2['groupAddresses'] as List).any((g) => g['ha'] is Map && g['ha']['room'] == room2['id']),
+      'remove room: the room and its entities are gone');
+  check((copy2['groupAddresses'] as List).any((g) => g['ha'] is Map && g['ha']['entity'] == 'light.den1'), 'remove room: other rooms stay');
 
   // ---- an ETS import (even "replace") keeps the virtual addresses
   final etsDoc = jsonDecode(jsonEncode(doc)) as Map<String, dynamic>;
@@ -269,36 +339,36 @@ Future<void> main() async {
   final got = <String, Object?>{};
   final bridge = HaBridge(url: url, token: 'tok', addresses: haAddresses(doc));
   bridge.onValue = (a, v) => got[a] = v;
-  Json ga(String address) => (doc['groupAddresses'] as List).firstWhere((g) => g['address'] == address) as Json;
-  check(await bridge.write(ga('32/1/1'), true) != null, 'bridge: write before connecting reports an error');
+  check(await bridge.write(ga(addr('light.den1', 'onoff', 'cmd')), true) != null, 'bridge: write before connecting reports an error');
   await bridge.start();
   check(await waitFor(() => bridge.connected), 'bridge: connected');
-  check(await waitFor(() => got['32/1/101'] == true && got['32/1/102'] == 50), 'bridge: initial state pushed (on, 50 %)');
-  check(got['32/2/104'] == 0, 'bridge: cover open → 0 %');
-  check(got['32/3/107'] == 25.0, 'bridge: setpoint 25 pushed');
-  check(got['32/3/108'] == 27.5 && got['32/4/110'] == 23.4, 'bridge: room temperature and sensor pushed');
+  check(await waitFor(() => got[addr('light.den1', 'onoff', 'status')] == true && got[addr('light.den1', 'brightness', 'status')] == 50),
+      'bridge: initial state pushed (on, 50 %)');
+  check(got[addr('cover.rem1', 'position', 'status')] == 0, 'bridge: cover open → 0 %');
+  check(got[addr('climate.ac', 'setpoint', 'status')] == 25.0, 'bridge: setpoint 25 pushed');
+  check(
+      got[addr('climate.ac', 'current', 'status')] == 27.5 && got[addr('sensor.t', 'sensor', 'status')] == 23.4, 'bridge: room temperature and sensor pushed');
 
-  check(await bridge.write(ga('32/1/1'), false) == null, 'bridge: write on/off');
-  check(await waitFor(() => got['32/1/101'] == false), 'bridge: status follows (off)');
+  check(await bridge.write(ga(addr('light.den1', 'onoff', 'cmd')), false) == null, 'bridge: write on/off');
+  check(await waitFor(() => got[addr('light.den1', 'onoff', 'status')] == false), 'bridge: status follows (off)');
   check(ha.calls.last['domain'] == 'light' && ha.calls.last['service'] == 'turn_off' && (ha.calls.last['target'] as Map)['entity_id'] == 'light.den1',
       'bridge: sent light.turn_off to light.den1');
-  check(await bridge.write(ga('32/1/2'), 40) == null, 'bridge: write brightness 40');
-  check(await waitFor(() => got['32/1/102'] == 40), 'bridge: brightness status 40 %');
-  check(await bridge.write(ga('32/2/4'), 30) == null, 'bridge: write cover position 30 %');
+  check(await bridge.write(ga(addr('light.den1', 'brightness', 'cmd')), 40) == null, 'bridge: write brightness 40');
+  check(await waitFor(() => got[addr('light.den1', 'brightness', 'status')] == 40), 'bridge: brightness status 40 %');
+  check(await bridge.write(ga(addr('cover.rem1', 'position', 'cmd')), 30) == null, 'bridge: write cover position 30 %');
   check(ha.states['cover.rem1']!['attributes']['current_position'] == 70, 'bridge: HA received position 70');
-  check(await waitFor(() => got['32/2/104'] == 30), 'bridge: cover status back as 30 %');
-  // climate.ac is entity 3: power 1/101, setpoint 7/107, room 108, mode 9/109
-  check(await bridge.write(ga('32/3/7'), 24.5) == null, 'bridge: write setpoint');
-  check(await waitFor(() => got['32/3/107'] == 24.5), 'bridge: setpoint status 24.5');
-  check(await bridge.write(ga('32/3/9'), 1) == null, 'bridge: write mode heat (1)');
-  check(await waitFor(() => got['32/3/109'] == 1), 'bridge: mode status heat');
-  check(await bridge.write(ga('32/3/1'), false) == null, 'bridge: power off');
-  check(await waitFor(() => got['32/3/101'] == false), 'bridge: power status off');
+  check(await waitFor(() => got[addr('cover.rem1', 'position', 'status')] == 30), 'bridge: cover status back as 30 %');
+  check(await bridge.write(ga(addr('climate.ac', 'setpoint', 'cmd')), 24.5) == null, 'bridge: write setpoint');
+  check(await waitFor(() => got[addr('climate.ac', 'setpoint', 'status')] == 24.5), 'bridge: setpoint status 24.5');
+  check(await bridge.write(ga(addr('climate.ac', 'mode', 'cmd')), 1) == null, 'bridge: write mode heat (1)');
+  check(await waitFor(() => got[addr('climate.ac', 'mode', 'status')] == 1), 'bridge: mode status heat');
+  check(await bridge.write(ga(addr('climate.ac', 'onoff', 'cmd')), false) == null, 'bridge: power off');
+  check(await waitFor(() => got[addr('climate.ac', 'onoff', 'status')] == false), 'bridge: power status off');
 
   // ---- an unknown entity gives the HA error text
   final ghost = <String, dynamic>{
     'id': 'x',
-    'address': '32/9/1',
+    'address': '49/9/1',
     'name': 'ghost',
     'dpt': '1.001',
     'ha': {'entity': 'light.khong_co', 'attr': 'onoff', 'role': 'cmd'}

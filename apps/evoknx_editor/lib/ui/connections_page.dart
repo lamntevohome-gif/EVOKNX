@@ -16,14 +16,14 @@ class ConnectionsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.evo;
-    // The connections take 2/5 of the width (at least 380 px), the address
-    // table the rest.
+    // The connections panel has the same width as the one of the "Mở rộng" tab;
+    // the address table takes the rest.
     return LayoutBuilder(
       builder: (context, bc) => Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Container(
-            width: (bc.maxWidth * 0.4).clamp(380.0, 760.0).toDouble(),
+            width: sidePanelWidth(bc.maxWidth),
             decoration: BoxDecoration(
               color: c.panel,
               border: Border(right: BorderSide(color: c.line)),

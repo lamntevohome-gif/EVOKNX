@@ -450,7 +450,7 @@ class _StructurePageState extends State<StructurePage> {
           ],
           if (d.test) ...[
             const SizedBox(width: 8),
-            Seg<bool>(items: const [(false, 'Giả lập'), (true, 'Live (KNX)')], value: d.live, onChanged: d.setLive),
+            Seg<bool>(items: const [(false, 'Giả lập'), (true, 'Test trực tiếp')], value: d.live, onChanged: d.setLive),
             const SizedBox(width: 10),
             Flexible(
               child: Text(

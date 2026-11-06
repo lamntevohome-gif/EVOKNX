@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:ui' show ImageFilter, TileMode;
 
@@ -72,6 +73,9 @@ class _HomeScreenState extends State<HomeScreen> {
     knx.addListener(_onKnx);
     engine.addListener(_rebuild);
     store.addListener(_rebuild);
+    _grace = Timer(const Duration(seconds: 10), () {
+      if (mounted) setState(() => _graceOver = true);
+    });
     _life = AppLifecycleListener(onResume: () => _connect(), onHide: () => knx.disconnect());
     _applyWakelock();
     _connect();
@@ -85,6 +89,7 @@ class _HomeScreenState extends State<HomeScreen> {
     store.removeListener(_rebuild);
     knx.disconnect(notify: false);
     ha?.stop();
+    _grace?.cancel();
     _pages?.dispose();
     _floorScroll.dispose();
     super.dispose();
@@ -101,9 +106,20 @@ class _HomeScreenState extends State<HomeScreen> {
     _rebuild();
   }
 
+  /// The project uses the KNX bus when it has real (non-virtual) group addresses.
+  bool get _usesKnx => jsonList(doc['groupAddresses']).any((g) => g['ha'] is! Map);
+
+  /// Opens the KNX connection (and Home Assistant starts on its own). Nothing is
+  /// announced: the cards simply work once connected.
   Future<void> _connect() async {
+    if (!_usesKnx) return;
     await knx.connect();
   }
+
+  /// The red bar only appears when the bus is still not reachable well after
+  /// the App was opened (never while it is connecting or reconnecting).
+  bool _graceOver = false;
+  Timer? _grace;
 
   void _applyWakelock() {
     try {
@@ -320,7 +336,8 @@ class _HomeScreenState extends State<HomeScreen> {
   // ----------------------------------------------------------------- chrome
 
   Widget _banner(AppPalette pal) {
-    if (knx.connected) return const SizedBox.shrink();
+    // No notice while connecting; only a bus that stays unreachable is shown.
+    if (!_usesKnx || knx.connected || !_graceOver || knx.state != KnxConnectionState.disconnected) return const SizedBox.shrink();
     final bad = knx.state == KnxConnectionState.disconnected;
     return Material(
       color: bad ? pal.danger : pal.panel,
@@ -677,7 +694,7 @@ class _HomeScreenState extends State<HomeScreen> {
               pal,
               pal.fill(pal.tile),
               radius: BorderRadius.circular(pal.radius + 2),
-              lift: pal.lift * 0.8,
+              lift: pal.cardLift,
               border: pal.border <= 0 ? Border.fromBorderSide(BorderSide.none) : Border.all(color: pal.edge, width: pal.border),
               shadow: false,
             )

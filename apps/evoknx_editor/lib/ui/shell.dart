@@ -129,8 +129,8 @@ class _ShellState extends State<Shell> {
                     children: [
                       StructurePage(project: p, bus: widget.bus),
                       ConnectionsPage(project: p),
-                      HaPage(project: p),
                       TestPage(project: p, bus: widget.bus),
+                      HaPage(project: p),
                     ],
                   ),
                 ),
@@ -226,8 +226,8 @@ class _ShellState extends State<Shell> {
             Container(width: 1, height: 20, margin: const EdgeInsets.symmetric(horizontal: 8), color: c.line),
             tab(0, 'Cấu trúc'),
             tab(1, 'Kết nối'),
-            tab(2, 'HA'),
-            tab(3, 'Kiểm tra'),
+            tab(2, 'Kiểm tra'),
+            tab(3, 'Mở rộng'),
           ];
           final right = <Widget>[
             IconButton(tooltip: 'Hoàn tác (Ctrl+Z)', onPressed: p.canUndo ? p.undo : null, icon: const Icon(Icons.undo)),

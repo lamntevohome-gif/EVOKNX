@@ -324,6 +324,10 @@ class StatusDot extends StatelessWidget {
   }
 }
 
+/// Width of the left panel of the "Kết nối" and "Mở rộng" workspaces (the same
+/// in both).
+double sidePanelWidth(double maxWidth) => (maxWidth * 0.30).clamp(340.0, 480.0).toDouble();
+
 class SearchField extends StatelessWidget {
   const SearchField({super.key, required this.onChanged, this.hint = 'Tìm theo địa chỉ hoặc tên', this.width = 280});
   final ValueChanged<String> onChanged;

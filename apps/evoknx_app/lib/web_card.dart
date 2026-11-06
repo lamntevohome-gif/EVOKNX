@@ -95,7 +95,7 @@ class _WebCardState extends State<WebCard> {
         pal,
         pal.fill(pal.tile),
         radius: BorderRadius.circular(pal.radius),
-        lift: pal.lift * 0.8,
+        lift: pal.cardLift,
         border: pal.border <= 0 ? Border.fromBorderSide(BorderSide.none) : Border.all(color: pal.edge, width: pal.border),
         shadow: false,
       ),

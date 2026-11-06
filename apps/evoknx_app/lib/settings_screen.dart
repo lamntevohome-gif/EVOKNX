@@ -108,7 +108,7 @@ class SettingsScreen extends StatelessWidget {
                     Tab(text: 'Tài khoản'),
                     Tab(text: 'Hồ sơ'),
                     Tab(text: 'Giao diện'),
-                    Tab(text: 'Kết nối KNX'),
+                    Tab(text: 'Kết nối'),
                     Tab(text: 'Giới thiệu'),
                   ],
                 ),
@@ -313,7 +313,7 @@ class SettingsScreen extends StatelessWidget {
                     ]),
                   ]),
                   tab([
-                    card('Kết nối KNX', [
+                    card('KNX', [
                       for (final c in conns)
                         row(
                           Icon(Icons.router_outlined, color: pal.muted),
