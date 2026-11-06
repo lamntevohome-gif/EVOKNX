@@ -91,10 +91,13 @@ class _WebCardState extends State<WebCard> {
     );
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-      decoration: BoxDecoration(
-        color: pal.fill(pal.tile),
-        borderRadius: BorderRadius.circular(pal.radius),
-        border: pal.border <= 0 ? null : Border.all(color: pal.edge, width: pal.border),
+      decoration: raisedDecoration(
+        pal,
+        pal.fill(pal.tile),
+        radius: BorderRadius.circular(pal.radius),
+        lift: pal.lift * 0.8,
+        border: pal.border <= 0 ? Border.fromBorderSide(BorderSide.none) : Border.all(color: pal.edge, width: pal.border),
+        shadow: false,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

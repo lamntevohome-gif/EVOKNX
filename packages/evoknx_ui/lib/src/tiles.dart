@@ -490,24 +490,29 @@ class TileView extends StatelessWidget {
     final imageBtn = (type == 'button' || type == 'scene') && w['btnStyle'] == 'image';
     final self = this;
     // A Nút nhấn / Cảnh card is a button as a whole: it stands out like one.
-    final raisedCard = (type == 'button' || type == 'scene') && pal.tile != Colors.transparent && !alarm && pal.lift > 0.01;
+    // Every card with a body is lifted (bevel + the shadow layer of the grid).
+    final raisedCard = pal.tile != Colors.transparent && pal.lift > 0.01;
+    final cardBorder = alarm
+        ? Border.all(color: pal.danger, width: max(1.5, pal.border))
+        : pal.border <= 0 || (noBorder && !lit)
+        ? null
+        : Border.all(
+            color: lit ? colorOn.withValues(alpha: 0.85 * pal.edgeOpacity) : pal.edge,
+            width: lit ? max(1.5, pal.border) : pal.border,
+          );
     return AnimatedContainer(
       duration: const Duration(milliseconds: 220),
       curve: Curves.easeOutCubic,
       decoration: raisedCard
-          ? raisedDecoration(pal, pal.fill(bg), radius: BorderRadius.circular(pal.radius), lift: pal.lift, edge: pal.border <= 0 ? Colors.transparent : null)
-          : BoxDecoration(
-              color: pal.fill(type == 'webview' ? pal.tile : bg),
-              borderRadius: BorderRadius.circular(pal.radius),
-              border: alarm
-                  ? Border.all(color: pal.danger, width: max(1.5, pal.border))
-                  : pal.border <= 0 || (noBorder && !lit)
-                  ? null
-                  : Border.all(
-                      color: lit ? colorOn.withValues(alpha: 0.85 * pal.edgeOpacity) : pal.edge,
-                      width: lit ? max(1.5, pal.border) : pal.border,
-                    ),
-            ),
+          ? raisedDecoration(
+              pal,
+              pal.fill(type == 'webview' ? pal.tile : bg),
+              radius: BorderRadius.circular(pal.radius),
+              lift: pal.lift * 0.8,
+              border: cardBorder ?? Border.fromBorderSide(BorderSide.none),
+              shadow: false,
+            )
+          : BoxDecoration(color: pal.fill(type == 'webview' ? pal.tile : bg), borderRadius: BorderRadius.circular(pal.radius), border: cardBorder),
       foregroundDecoration: selected
           ? BoxDecoration(
               borderRadius: BorderRadius.circular(pal.radius),

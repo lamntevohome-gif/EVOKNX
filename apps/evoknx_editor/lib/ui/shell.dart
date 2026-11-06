@@ -10,6 +10,7 @@ import '../state/project_controller.dart';
 import 'common.dart';
 import 'connections_page.dart';
 import 'editor_settings_dialog.dart';
+import 'ha_page.dart';
 import 'import_dialog.dart';
 import 'new_project_dialog.dart';
 import 'send_to_app_dialog.dart';
@@ -102,11 +103,6 @@ class _ShellState extends State<Shell> {
 
   Future<void> _new() => showNewProjectDialog(context, p);
 
-  Future<void> _export() async {
-    final m = await p.exportConfig();
-    if (m != null && mounted) toast(context, m);
-  }
-
   @override
   Widget build(BuildContext context) {
     return CallbackShortcuts(
@@ -133,6 +129,7 @@ class _ShellState extends State<Shell> {
                     children: [
                       StructurePage(project: p, bus: widget.bus),
                       ConnectionsPage(project: p),
+                      HaPage(project: p),
                       TestPage(project: p, bus: widget.bus),
                     ],
                   ),
@@ -229,7 +226,8 @@ class _ShellState extends State<Shell> {
             Container(width: 1, height: 20, margin: const EdgeInsets.symmetric(horizontal: 8), color: c.line),
             tab(0, 'Cấu trúc'),
             tab(1, 'Kết nối'),
-            tab(2, 'Kiểm tra'),
+            tab(2, 'HA'),
+            tab(3, 'Kiểm tra'),
           ];
           final right = <Widget>[
             IconButton(tooltip: 'Hoàn tác (Ctrl+Z)', onPressed: p.canUndo ? p.undo : null, icon: const Icon(Icons.undo)),
@@ -323,7 +321,6 @@ class _ShellState extends State<Shell> {
           onPressed: () => showSendToAppDialog(context, p),
           child: const Text('Gửi sang App qua Wi-Fi…'),
         ),
-        MenuItemButton(leadingIcon: const Icon(Icons.download_outlined), onPressed: _export, child: const Text('Xuất cấu hình ra file…')),
         const Divider(),
         MenuItemButton(
           leadingIcon: const Icon(Icons.settings_outlined),

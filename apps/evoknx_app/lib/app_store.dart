@@ -194,12 +194,16 @@ class AppStore extends ChangeNotifier {
     try {
       o = jsonDecode(utf8.decode(await f.readAsBytes(), allowMalformed: true));
     } catch (_) {
-      return 'File “${f.name}” không phải cấu hình EVOKNX.';
+      return 'File “${f.name}” không phải dự án EVOKNX (.evoknx).';
     }
-    if (!isProject(o)) return 'File “${f.name}” không phải cấu hình EVOKNX.';
+    if (!isProject(o)) return 'File “${f.name}” không phải dự án EVOKNX (.evoknx).';
     await adopt((o as Map).cast<String, dynamic>());
     return null;
   }
+
+  /// True when a profile with this project name (ignoring case and extra
+  /// spaces) already exists: a file with that name would replace it.
+  bool hasProfileNamed(String name) => profiles.any((x) => _key(x.name) == _key(name));
 
   /// A profile is a house and its name is the project's name: the same name
   /// (ignoring case and extra spaces) is the same house.

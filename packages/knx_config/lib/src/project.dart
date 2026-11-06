@@ -421,7 +421,11 @@ class ImportStats {
 
 ImportStats importStats(Json doc, List<EtsItem> items) {
   final inFile = items.map((i) => i.address).toSet();
-  final gas = jsonList(doc['groupAddresses']);
+  // Virtual Home Assistant addresses are not in ETS and are never removed by an import.
+  final gas = [
+    for (final g in jsonList(doc['groupAddresses']))
+      if (g['ha'] is! Map) g
+  ];
   final cur = gas.map((g) => g['address'] as String).toSet();
   final fresh = items.where((i) => !cur.contains(i.address)).length;
   final gone = gas.where((g) => !inFile.contains(g['address'])).map((g) => g['id']).toSet();
@@ -460,7 +464,8 @@ ImportResult applyEts(Json doc, EtsResult ets, {bool replace = false, bool keepE
   }
   if (replace) {
     final inFile = ets.items.map((i) => i.address).toSet();
-    final gone = gas.where((g) => !inFile.contains(g['address'])).map((g) => g['id']).toSet();
+    // Virtual Home Assistant addresses are kept: they are not in ETS.
+    final gone = gas.where((g) => g['ha'] is! Map && !inFile.contains(g['address'])).map((g) => g['id']).toSet();
     removed = gone.length;
     gas.removeWhere((g) => gone.contains(g['id']));
     for (final w in allWidgets(doc)) {

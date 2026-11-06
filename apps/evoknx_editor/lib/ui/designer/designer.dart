@@ -841,8 +841,26 @@ class Designer extends ChangeNotifier {
     _n();
   }
 
+  /// Link to Home Assistant while testing live (null otherwise).
+  HaBridge? _ha;
+  HaConnection? get haState => _ha?.state;
+  bool get usesHa => haAddresses(doc).isNotEmpty;
+
   void setLive(bool v) {
     live = v;
+    _ha?.stop();
+    _ha = null;
+    if (v) {
+      final cfg = haSettings(doc), gas = haAddresses(doc);
+      final url = (cfg['url'] ?? '').toString().trim(), token = (cfg['token'] ?? '').toString().trim();
+      if (cfg['enabled'] == true && url.isNotEmpty && token.isNotEmpty && gas.isNotEmpty) {
+        final b = HaBridge(url: url, token: token, addresses: gas);
+        b.onValue = _onBusValue;
+        b.onState = _n;
+        _ha = b;
+        b.start();
+      }
+    }
     _n();
   }
 
@@ -880,10 +898,12 @@ class Designer extends ChangeNotifier {
       final sl = slotsFor(w).where((s) => s.key == slot);
       log.insert(0, LogEntry('—', '$label: chưa gán ${sl.isEmpty ? slot : sl.first.label.toLowerCase()}', missing: true));
     } else {
-      final isLive = live && bus?.connected == true;
+      // Virtual addresses (main group 32) go to Home Assistant, the others to the bus.
+      final viaHa = isHaAddress(ga);
+      final isLive = live && (viaHa ? _ha?.connected == true : bus?.connected == true);
       log.insert(0, LogEntry(ga['address'].toString(), text, live: isLive));
       if (isLive) {
-        bus!.write(ga, value).then((err) {
+        (viaHa ? _ha!.write(ga, value) : bus!.write(ga, value)).then((err) {
           if (err != null) onMessage?.call(err);
         });
       }
@@ -1110,6 +1130,7 @@ class Designer extends ChangeNotifier {
       t.cancel();
     }
     _popupTimer?.cancel();
+    _ha?.stop();
     bus?.valueListeners.remove(_onBusValue);
     super.dispose();
   }

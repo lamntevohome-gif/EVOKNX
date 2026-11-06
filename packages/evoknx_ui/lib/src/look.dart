@@ -3,39 +3,59 @@ import 'package:flutter/material.dart';
 
 import 'tiles.dart';
 
-/// A raised ("nổi") look for the control buttons of a card: a soft shadow
-/// underneath, a solid lip below, a light edge and a gentle top-to-bottom
-/// shade, so the button seems to stand above the card. [lift] makes the effect
-/// stronger or weaker; [glow] adds a coloured halo (selected buttons).
-BoxDecoration raisedDecoration(AppPalette pal, Color fill, {BorderRadius? radius, bool circle = false, Color? glow, Color? edge, double lift = 1}) {
-  // Lift 0 (Tổng quan → Độ nổi nút) = a flat button.
+/// A raised ("nổi") look for the buttons and cards: a bevel made of the colour
+/// itself (a soft light rim on top that fades out smoothly, a faint darker rim
+/// below) and, for [shadow], a small soft drop shadow. [lift] sets the strength
+/// (0 = flat); [border] replaces the default light edge; [glow] adds a halo.
+/// Cards pass `shadow: false`: their shadow is drawn in the grid's shadow layer.
+BoxDecoration raisedDecoration(
+  AppPalette pal,
+  Color fill, {
+  BorderRadius? radius,
+  bool circle = false,
+  Color? glow,
+  Color? edge,
+  Border? border,
+  double lift = 1,
+  bool shadow = true,
+}) {
+  final dark = pal.ink.computeLuminance() > 0.5;
   if (lift <= 0.01) {
     return BoxDecoration(
       color: fill,
       shape: circle ? BoxShape.circle : BoxShape.rectangle,
       borderRadius: circle ? null : radius,
-      border: Border.all(color: edge ?? pal.tileEdge),
+      border: border ?? Border.all(color: edge ?? pal.tileEdge),
     );
   }
-  final dark = pal.ink.computeLuminance() > 0.5;
-  final top = Color.lerp(fill, Colors.white, ((dark ? 0.14 : 0.50) * lift).clamp(0.0, 0.9))!;
-  final bottom = Color.lerp(fill, Colors.black, ((dark ? 0.20 : 0.11) * lift).clamp(0.0, 0.55))!;
+  final hi = ((dark ? 0.10 : 0.30) * lift).clamp(0.0, 0.6);
+  final lo = ((dark ? 0.14 : 0.08) * lift).clamp(0.0, 0.45);
+  // Mixing keeps the fill's own opacity (a faded card stays faded).
+  final solid = fill.withValues(alpha: 1);
+  Color up(double t) => Color.lerp(solid, Colors.white, hi * t)!.withValues(alpha: fill.a);
+  Color down(double t) => Color.lerp(solid, Colors.black, lo * t)!.withValues(alpha: fill.a);
+  // Many eased stops: the light fades out gently, with no visible band.
+  final gradient = LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [up(1), up(0.6), up(0.28), up(0.08), fill, fill, down(0.12), down(0.45), down(1)],
+    stops: const [0, 0.06, 0.14, 0.25, 0.38, 0.68, 0.80, 0.91, 1],
+  );
   // The shadow grows slowly with the lift so that it always stays inside the
   // card's padding (about 9 px at most): it is never cut off.
   final blur = 3 + 1.2 * lift, drop = 0.8 + 0.7 * lift;
   return BoxDecoration(
     shape: circle ? BoxShape.circle : BoxShape.rectangle,
     borderRadius: circle ? null : radius,
-    // A bevel made of the colour itself, inside the button: a light rim on top,
-    // the body, a darker rim below. It needs no room outside the button.
-    gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [top, fill, fill, bottom], stops: const [0, 0.14, 0.76, 1]),
-    border: Border.all(color: edge ?? (dark ? Colors.white.withValues(alpha: 0.12) : Colors.white.withValues(alpha: 0.85))),
+    gradient: gradient,
+    border: border ?? Border.all(color: edge ?? (dark ? Colors.white.withValues(alpha: 0.12) : Colors.white.withValues(alpha: 0.85))),
     boxShadow: [
-      BoxShadow(
-        color: Colors.black.withValues(alpha: ((dark ? 0.28 : 0.13) * lift).clamp(0.0, 0.45)),
-        blurRadius: blur,
-        offset: Offset(0, drop),
-      ),
+      if (shadow)
+        BoxShadow(
+          color: Colors.black.withValues(alpha: ((dark ? 0.28 : 0.13) * lift).clamp(0.0, 0.45)),
+          blurRadius: blur,
+          offset: Offset(0, drop),
+        ),
       if (glow != null)
         BoxShadow(
           color: glow.withValues(alpha: dark ? 0.30 : 0.35),
@@ -45,9 +65,6 @@ BoxDecoration raisedDecoration(AppPalette pal, Color fill, {BorderRadius? radius
     ],
   );
 }
-
-/// "Độ nổi nút" (0–100 %, default 60) as the lift used by [raisedDecoration].
-double liftOf(num percent) => percent.clamp(0, 100) * 0.0267;
 
 /// Flat look of the navigation buttons (floors, rooms, pages, settings).
 BoxDecoration flatDecoration(AppPalette pal, Color fill, {BorderRadius? radius, bool circle = false, Color? glow}) => BoxDecoration(
@@ -113,7 +130,20 @@ class CardShadow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final list = <BoxShadow>[...pal.shadows, if (glow != null) BoxShadow(color: glow!.withValues(alpha: 0.12), blurRadius: 8, offset: const Offset(0, 2))];
+    // Every card is lifted: a small soft shadow from the "Độ nổi" setting, plus
+    // the optional "Đổ bóng" one.
+    final lift = pal.lift * 0.8;
+    final dark = pal.ink.computeLuminance() > 0.5;
+    final list = <BoxShadow>[
+      if (lift > 0.01)
+        BoxShadow(
+          color: Colors.black.withValues(alpha: ((dark ? 0.28 : 0.13) * lift).clamp(0.0, 0.45)),
+          blurRadius: 3 + 1.2 * lift,
+          offset: Offset(0, 0.8 + 0.7 * lift),
+        ),
+      ...pal.shadows,
+      if (glow != null) BoxShadow(color: glow!.withValues(alpha: 0.12), blurRadius: 8, offset: const Offset(0, 2)),
+    ];
     if (list.isEmpty) return const SizedBox.shrink();
     return IgnorePointer(
       child: CustomPaint(painter: _ShadowPainter(radius, list), size: Size.infinite),

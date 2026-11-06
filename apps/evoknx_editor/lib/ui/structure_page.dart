@@ -455,10 +455,19 @@ class _StructurePageState extends State<StructurePage> {
             Flexible(
               child: Text(
                 d.live
-                    ? (widget.bus.connected ? 'Đang điều khiển bus KNX thật' : 'Chưa kết nối bus: mở khu Kiểm tra để kết nối')
-                    : 'Lệnh chỉ ghi vào nhật ký, chưa gửi xuống bus',
+                    ? [
+                        if (widget.bus.connected) 'Đang điều khiển bus KNX thật' else 'Chưa kết nối bus (mở khu Kiểm tra để kết nối)',
+                        if (d.usesHa)
+                          switch (d.haState) {
+                            HaConnection.connected => 'Home Assistant: đã kết nối',
+                            HaConnection.connecting => 'Home Assistant: đang kết nối…',
+                            HaConnection.failed => 'Home Assistant: lỗi, đang thử lại',
+                            _ => 'Home Assistant: chưa bật trong tab HA',
+                          },
+                      ].join(' · ')
+                    : 'Lệnh chỉ ghi vào nhật ký, chưa gửi xuống bus hay Home Assistant',
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 13.5, color: d.live && !widget.bus.connected ? c.danger : c.muted),
+                style: TextStyle(fontSize: 13.5, color: d.live && !widget.bus.connected && !d.usesHa ? c.danger : c.muted),
               ),
             ),
           ],

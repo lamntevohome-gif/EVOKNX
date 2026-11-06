@@ -203,9 +203,16 @@ class _GaTableState extends State<GaTable> {
 
   ProjectController get p => widget.project;
 
+  /// The addresses of ETS and the ones typed in: the virtual Home Assistant
+  /// addresses are managed in the "HA" tab.
+  List<Json> get _gas => [
+    for (final g in p.groupAddresses)
+      if (g['ha'] is! Map) g,
+  ];
+
   List<Json> _filtered() {
     final q = fold(query.trim());
-    final list = p.groupAddresses.where((g) {
+    final list = _gas.where((g) {
       if (q.isNotEmpty && !fold('${g['address']} ${g['name']}').contains(q)) return false;
       final dpt = (g['dpt'] as String?) ?? '';
       if (filter == 'none') return dpt.isEmpty;
@@ -270,8 +277,8 @@ class _GaTableState extends State<GaTable> {
     selected.removeWhere((id) => p.gaById(id) == null);
     final list = _filtered();
     final used = gaUsage(p.doc);
-    final mains = p.groupAddresses.map((g) => dptMain(g['dpt'] as String?)).whereType<int>().toSet().toList()..sort();
-    final nNone = p.groupAddresses.where((g) => ((g['dpt'] as String?) ?? '').isEmpty).length;
+    final mains = _gas.map((g) => dptMain(g['dpt'] as String?)).whereType<int>().toSet().toList()..sort();
+    final nNone = _gas.where((g) => ((g['dpt'] as String?) ?? '').isEmpty).length;
     final nSel = list.where((g) => selected.contains(g['id'])).length;
 
     Widget head(String t, {double? w, int flex = 0}) {
@@ -304,7 +311,7 @@ class _GaTableState extends State<GaTable> {
                       style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
                     ),
                     TextSpan(
-                      text: '${p.groupAddresses.length}',
+                      text: '${_gas.length}',
                       style: TextStyle(fontSize: 15, color: c.muted),
                     ),
                   ],
@@ -407,7 +414,7 @@ class _GaTableState extends State<GaTable> {
           child: list.isEmpty
               ? Center(
                   child: Text(
-                    p.groupAddresses.isEmpty ? 'Chưa có địa chỉ nhóm. Bấm “Nhập từ ETS” hoặc “Thêm thủ công”.' : 'Không có địa chỉ nào khớp bộ lọc.',
+                    _gas.isEmpty ? 'Chưa có địa chỉ nhóm. Bấm “Nhập từ ETS” hoặc “Thêm thủ công”.' : 'Không có địa chỉ nào khớp bộ lọc.',
                     style: TextStyle(color: c.muted),
                   ),
                 )

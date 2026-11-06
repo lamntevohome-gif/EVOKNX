@@ -1664,7 +1664,7 @@ class _OverviewProps extends StatelessWidget {
           ),
           Hint('Mặc định: góc 12, viền 1, nền và viền đậm 100%, không đổ bóng. Áp dụng cho mọi thẻ và khung lưới.'),
           StepRow(
-            label: 'Độ nổi nút',
+            label: 'Độ nổi',
             unit: '%',
             step: 10,
             value: ((theme['btnRaise'] as num?) ?? 60).toInt(),
@@ -1672,7 +1672,9 @@ class _OverviewProps extends StatelessWidget {
             max: 100,
             onChanged: (v) => editTheme((x) => x['btnRaise'] = v, coalesce: 'braise'),
           ),
-          Hint('Độ nổi của các nút điều khiển trong thẻ (rèm, máy lạnh, nút chỉnh) và của thẻ Nút nhấn, Cảnh. 0% là phẳng, mặc định 60%.'),
+          Hint(
+            'Độ nổi của tất cả các thẻ, khung lưới và nút điều khiển (kèm bóng đổ nhỏ phía dưới). 0% là phẳng, mặc định 60%. "Đổ bóng" ở trên là lớp bóng lớn thêm.',
+          ),
         ]),
         _Section('Giao diện App', [
           StepRow(

@@ -29,6 +29,9 @@ class _HomeScreenState extends State<HomeScreen> {
   late final KnxLink knx = KnxLink(widget.store);
   late final CardEngine engine = CardEngine(widget.store.config!);
   late final AppLifecycleListener _life;
+
+  /// Link to Home Assistant (null when the project does not use it).
+  HaBridge? ha;
   PageController? _pages;
   String? floorId, roomId;
   int page = 0;
@@ -49,7 +52,19 @@ class _HomeScreenState extends State<HomeScreen> {
       page = i < 0 ? 0 : i;
     }
     _pages = PageController(initialPage: page);
-    engine.writer = knx.write;
+    // Virtual addresses (main group 32) go to Home Assistant, the others to the KNX bus.
+    final cfg = haSettings(doc), haGas = haAddresses(doc);
+    final url = (cfg['url'] ?? '').toString().trim(), token = (cfg['token'] ?? '').toString().trim();
+    if (cfg['enabled'] == true && url.isNotEmpty && token.isNotEmpty && haGas.isNotEmpty) {
+      final b = HaBridge(url: url, token: token, addresses: haGas);
+      b.onValue = engine.onBusValue;
+      b.onState = () {
+        if (mounted) setState(() {});
+      };
+      ha = b;
+      b.start();
+    }
+    engine.writer = (ga, v) => isHaAddress(ga) ? (ha?.write(ga, v) ?? Future<String?>.value('Home Assistant chưa được bật trong dự án.')) : knx.write(ga, v);
     engine.onMessage = _toast;
     engine.onScene = (w) => showScenePopup(context, w, store.palette);
     engine.onOpenUrl = (url) => launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
@@ -69,6 +84,7 @@ class _HomeScreenState extends State<HomeScreen> {
     engine.removeListener(_rebuild);
     store.removeListener(_rebuild);
     knx.disconnect(notify: false);
+    ha?.stop();
     _pages?.dispose();
     _floorScroll.dispose();
     super.dispose();
@@ -197,7 +213,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _openSettings() async {
     await Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => SettingsScreen(store: store, knx: knx),
+        builder: (_) => SettingsScreen(store: store, knx: knx, ha: ha),
       ),
     );
     _applyWakelock();
@@ -485,8 +501,12 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
       ],
     );
+    // Centred (vertically) between the rooms bar and the cards: the space above
+    // is the 6 px left under the rooms bar plus this top padding, the space
+    // below is the page's safe margin around the cards: both are [m].
+    final m = pal.safeMargin;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
+      padding: EdgeInsets.fromLTRB(14, max(0.0, m - 6), 14, 0),
       child: Row(
         children: [
           if (arrows) arrow(Icons.chevron_left, page > 0, () => go(page - 1), 'Trang trước'),
@@ -652,11 +672,20 @@ class _HomeScreenState extends State<HomeScreen> {
     };
     return Container(
       padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: style == 'card' ? pal.fill(pal.tile) : Colors.transparent,
-        borderRadius: BorderRadius.circular(pal.radius + 2),
-        border: style == 'none' || pal.border <= 0 ? null : Border.all(color: pal.edge, width: pal.border),
-      ),
+      decoration: style == 'card'
+          ? raisedDecoration(
+              pal,
+              pal.fill(pal.tile),
+              radius: BorderRadius.circular(pal.radius + 2),
+              lift: pal.lift * 0.8,
+              border: pal.border <= 0 ? Border.fromBorderSide(BorderSide.none) : Border.all(color: pal.edge, width: pal.border),
+              shadow: false,
+            )
+          : BoxDecoration(
+              color: Colors.transparent,
+              borderRadius: BorderRadius.circular(pal.radius + 2),
+              border: style == 'none' || pal.border <= 0 ? null : Border.all(color: pal.edge, width: pal.border),
+            ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

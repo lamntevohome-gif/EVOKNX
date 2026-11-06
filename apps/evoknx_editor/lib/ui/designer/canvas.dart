@@ -611,7 +611,8 @@ class _Screen extends StatelessWidget {
       if (ss.length < 2) return const SizedBox(height: 4);
       final arrows = jsonMap(d.doc['theme'])['pageArrows'] != false;
       return Padding(
-        padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
+        // Centred between the rooms bar (8 px under it) and the cards (the safe margin).
+        padding: EdgeInsets.fromLTRB(14, max(0.0, pal.safeMargin - 8), 14, 0),
         child: Row(
           children: [
             if (arrows) arrow(Icons.chevron_left, i > 0 ? () => d.stepSub(-1) : null, 'Trang trước'),
@@ -622,7 +623,8 @@ class _Screen extends StatelessWidget {
       );
     }
     return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
+      // Centred between the rooms bar (8 px under it) and the cards (the safe margin).
+      padding: EdgeInsets.fromLTRB(14, max(0.0, pal.safeMargin - 8), 14, 0),
       child: Row(
         children: [
           arrow(Icons.chevron_left, i > 0 ? () => d.stepSub(-1) : null, 'Trang trước'),
@@ -1248,16 +1250,27 @@ class _GroupFrame extends StatelessWidget {
     final showTitle = w['showTitle'] != false && (w['label'] ?? '').toString().isNotEmpty;
     return Container(
       padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: style == 'card' ? pal.fill(pal.tile) : Colors.transparent,
-        borderRadius: BorderRadius.circular(pal.radius + 2),
-        border: !selected && style != 'none' && pal.border <= 0
-            ? null
-            : Border.all(
-                color: selected ? kEditorSelection : (style == 'none' ? (d.test ? Colors.transparent : pal.lineStrong.withValues(alpha: 0.5)) : pal.edge),
-                width: selected ? 1.5 : (style == 'none' ? 1 : pal.border),
-              ),
-      ),
+      decoration: style == 'card'
+          ? raisedDecoration(
+              pal,
+              pal.fill(pal.tile),
+              radius: BorderRadius.circular(pal.radius + 2),
+              lift: pal.lift * 0.8,
+              border: !selected && pal.border <= 0
+                  ? Border.fromBorderSide(BorderSide.none)
+                  : Border.all(color: selected ? kEditorSelection : pal.edge, width: selected ? 1.5 : pal.border),
+              shadow: false,
+            )
+          : BoxDecoration(
+              color: Colors.transparent,
+              borderRadius: BorderRadius.circular(pal.radius + 2),
+              border: !selected && style != 'none' && pal.border <= 0
+                  ? null
+                  : Border.all(
+                      color: selected ? kEditorSelection : (style == 'none' ? (d.test ? Colors.transparent : pal.lineStrong.withValues(alpha: 0.5)) : pal.edge),
+                      width: selected ? 1.5 : (style == 'none' ? 1 : pal.border),
+                    ),
+            ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

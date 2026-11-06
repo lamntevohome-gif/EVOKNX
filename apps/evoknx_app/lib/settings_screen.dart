@@ -10,9 +10,12 @@ import 'receive_dialog.dart';
 
 /// Settings: theme, KNX connection, another configuration, about.
 class SettingsScreen extends StatelessWidget {
-  const SettingsScreen({super.key, required this.store, required this.knx});
+  const SettingsScreen({super.key, required this.store, required this.knx, this.ha});
   final AppStore store;
   final KnxLink knx;
+
+  /// Link to Home Assistant (null when the project does not use it).
+  final HaBridge? ha;
 
   @override
   Widget build(BuildContext context) {
@@ -198,7 +201,7 @@ class SettingsScreen extends StatelessWidget {
                       row(
                         Icon(Icons.folder_open_outlined, color: pal.muted),
                         'Thêm hồ sơ từ file cấu hình',
-                        sub: 'File .json xuất từ EVOKNX Editor. Cùng tên dự án thì cập nhật hồ sơ đó.',
+                        sub: 'File .evoknx gửi từ máy tính. Hoặc trong Zalo, Drive: Chia sẻ → EVOKNX. Cùng tên dự án thì thay thế hồ sơ đó.',
                         onTap: () async {
                           final before = store.profiles.length;
                           final r = await store.importConfig();
@@ -330,6 +333,16 @@ class SettingsScreen extends StatelessWidget {
                         trailing: TextButton(onPressed: knx.connect, child: Text(knx.connected ? 'Kết nối lại' : 'Thử lại')),
                       ),
                     ]),
+                    // Home Assistant: set up in the Editor ("HA" tab), only its state is shown here.
+                    if (ha != null)
+                      card('Home Assistant', [
+                        row(Icon(ha!.connected ? Icons.link : Icons.link_off, color: ha!.connected ? pal.accent : pal.muted), switch (ha!.state) {
+                          HaConnection.connected => 'Đã kết nối Home Assistant',
+                          HaConnection.connecting => 'Đang kết nối Home Assistant…',
+                          HaConnection.failed => ha!.error ?? 'Mất kết nối Home Assistant',
+                          HaConnection.disconnected => 'Chưa kết nối Home Assistant',
+                        }, sub: ha!.url),
+                      ]),
                   ]),
                   tab([
                     card('Giới thiệu', [

@@ -7,8 +7,12 @@ import 'package:media_kit/media_kit.dart';
 import 'app_store.dart';
 import 'camera_live.dart';
 import 'home_screen.dart';
+import 'share_intake.dart';
 import 'splash_gate.dart';
 import 'welcome_screen.dart';
+
+/// Lets the share handler show dialogs over whatever screen is open.
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -20,6 +24,7 @@ Future<void> main() async {
   await store.load();
   SystemChrome.setPreferredOrientations(DeviceOrientation.values);
   runApp(EvoknxApp(store: store));
+  ShareIntake(store, navigatorKey).start();
 }
 
 class EvoknxApp extends StatelessWidget {
@@ -36,6 +41,7 @@ class EvoknxApp extends StatelessWidget {
         final dark = pal.sInk.computeLuminance() > 0.5;
         SystemChrome.setSystemUIOverlayStyle(dark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark);
         return MaterialApp(
+          navigatorKey: navigatorKey,
           title: 'EVOKNX',
           debugShowCheckedModeBanner: false,
           theme: ThemeData(
