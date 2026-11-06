@@ -1189,7 +1189,14 @@ class _WidgetPropsState extends State<_WidgetProps> {
                     EvoDropdown<int>(
                       value: ((l['rows'] as num?) ?? 4).toInt(),
                       items: [for (var i = 1; i <= 12; i++) (i, '$i')],
-                      onChanged: (v) => d.editWidget(id, (o) => jsonMap(o['layout'])['rows'] = v),
+                      onChanged: (v) {
+                        final m = d.rowsBlocker(w, v);
+                        if (m != null) {
+                          toast(context, m);
+                          return;
+                        }
+                        d.editWidget(id, (o) => jsonMap(o['layout'])['rows'] = v);
+                      },
                     ),
                   ),
                 ),
@@ -1200,7 +1207,14 @@ class _WidgetPropsState extends State<_WidgetProps> {
                     EvoDropdown<int>(
                       value: ((l['columns'] as num?) ?? 4).toInt(),
                       items: [for (var i = 1; i <= 6; i++) (i, '$i')],
-                      onChanged: (v) => d.editWidget(id, (o) => Designer.repackCols(o, v)),
+                      onChanged: (v) {
+                        final m = d.colsBlocker(w, v);
+                        if (m != null) {
+                          toast(context, m);
+                          return;
+                        }
+                        d.editWidget(id, (o) => Designer.repackCols(o, v));
+                      },
                     ),
                   ),
                 ),
@@ -1414,7 +1428,14 @@ class _RoomProps extends StatelessWidget {
                       EvoDropdown<int>(
                         value: rows(s),
                         items: [for (var i = devRange(d.doc)[0]; i <= devRange(d.doc)[1]; i++) (i, '$i')],
-                        onChanged: (v) => d.editSub((x) => jsonMap(x['layout'])['rows'] = v),
+                        onChanged: (v) {
+                          final m = d.rowsBlocker(s, v);
+                          if (m != null) {
+                            toast(context, m);
+                            return;
+                          }
+                          d.editSub((x) => jsonMap(x['layout'])['rows'] = v);
+                        },
                       ),
                     ),
                   ),
@@ -1425,7 +1446,14 @@ class _RoomProps extends StatelessWidget {
                       EvoDropdown<int>(
                         value: cols(s),
                         items: [for (var i = devRange(d.doc)[2]; i <= devRange(d.doc)[3]; i++) (i, '$i')],
-                        onChanged: (v) => d.editSub((x) => Designer.repackCols(x, v)),
+                        onChanged: (v) {
+                          final m = d.colsBlocker(s, v);
+                          if (m != null) {
+                            toast(context, m);
+                            return;
+                          }
+                          d.editSub((x) => Designer.repackCols(x, v));
+                        },
                       ),
                     ),
                   ),

@@ -8,6 +8,8 @@ import 'package:flutter/foundation.dart';
 import 'package:knx_config/knx_config.dart';
 import 'package:path_provider/path_provider.dart';
 
+import 'account.dart';
+
 /// One house the person controls (profile). Named after its project.
 class Profile {
   Profile(this.id, this.name, {this.projectId});
@@ -21,6 +23,9 @@ class Profile {
 /// Everything the App keeps on the phone: the configuration from the Editor
 /// and the user's own choices (theme, last room, connection, screen on).
 class AppStore extends ChangeNotifier {
+  /// The signed-in account (sign in, sign up, reset password).
+  final AccountStore account = AccountStore();
+
   Json? config;
 
   /// Grows each time a configuration is opened (a new home screen starts).

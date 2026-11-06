@@ -6,6 +6,7 @@ import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart' as crypto;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:knx_config/knx_config.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
@@ -14,9 +15,12 @@ import 'package:media_kit_video/media_kit_video.dart';
 /// an MJPEG stream or a snapshot that is refreshed (Basic and Digest login).
 /// The picture stops while the App is in the background.
 class LiveCamera extends StatefulWidget {
-  const LiveCamera({super.key, required this.cam, this.fit = BoxFit.cover});
+  const LiveCamera({super.key, required this.cam, this.fit = BoxFit.cover, this.allowFullscreen = true});
   final Json cam;
   final BoxFit fit;
+
+  /// Show the button that opens the picture full screen.
+  final bool allowFullscreen;
 
   @override
   State<LiveCamera> createState() => _LiveCameraState();
@@ -43,10 +47,96 @@ class _LiveCameraState extends State<LiveCamera> with WidgetsBindingObserver {
     if (a != _active && mounted) setState(() => _active = a);
   }
 
+  void _openFullscreen() {
+    Navigator.of(context).push(MaterialPageRoute<void>(fullscreenDialog: true, builder: (_) => CameraFullscreen(cam: widget.cam)));
+  }
+
   @override
   Widget build(BuildContext context) {
-    if (!_active) return const ColoredBox(color: Colors.black);
-    return widget.cam['protocol'] == 'http' ? _HttpCamera(cam: widget.cam, fit: widget.fit) : _RtspCamera(cam: widget.cam, fit: widget.fit);
+    // A page opened over this one (settings, full screen...) covers it: its
+    // tickers are switched off. Close the stream then, open it again after.
+    final covered = !TickerMode.of(context);
+    if (!_active || covered) return const ColoredBox(color: Colors.black);
+    final picture = widget.cam['protocol'] == 'http' ? _HttpCamera(cam: widget.cam, fit: widget.fit) : _RtspCamera(cam: widget.cam, fit: widget.fit);
+    if (!widget.allowFullscreen) return picture;
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        picture,
+        Positioned(
+          right: 6,
+          top: 6,
+          child: Material(
+            color: Colors.black45,
+            shape: const CircleBorder(),
+            child: InkWell(
+              customBorder: const CircleBorder(),
+              onTap: _openFullscreen,
+              child: const Padding(
+                padding: EdgeInsets.all(6),
+                child: Icon(Icons.fullscreen, size: 20, color: Colors.white),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// The camera picture over the whole screen (landscape), with a close button.
+class CameraFullscreen extends StatefulWidget {
+  const CameraFullscreen({super.key, required this.cam});
+  final Json cam;
+
+  @override
+  State<CameraFullscreen> createState() => _CameraFullscreenState();
+}
+
+class _CameraFullscreenState extends State<CameraFullscreen> {
+  @override
+  void initState() {
+    super.initState();
+    SystemChrome.setPreferredOrientations(const [DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight]);
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+  }
+
+  @override
+  void dispose() {
+    // Back to what the phone decides (portrait or any).
+    SystemChrome.setPreferredOrientations(const []);
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          LiveCamera(cam: widget.cam, fit: BoxFit.contain, allowFullscreen: false),
+          SafeArea(
+            child: Align(
+              alignment: Alignment.topRight,
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: Material(
+                  color: Colors.black54,
+                  shape: const CircleBorder(),
+                  child: IconButton(
+                    tooltip: 'Đóng',
+                    icon: const Icon(Icons.fullscreen_exit, color: Colors.white),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -139,17 +229,29 @@ class _RtspCameraState extends State<_RtspCamera> {
   }
 
   void _gotPicture() {
-    _ok = true;
     _watchdog?.cancel();
-    if (mounted && _error != null) setState(() => _error = null);
+    if (_ok && _error == null) return;
+    // setState is needed: the spinner is drawn from _ok.
+    if (mounted) {
+      setState(() {
+        _ok = true;
+        _error = null;
+      });
+    } else {
+      _ok = true;
+    }
   }
 
   Future<void> _open() async {
     _retry?.cancel();
     _watchdog?.cancel();
-    _ok = false;
     _lastError = null;
-    if (mounted) setState(() => _error = null);
+    if (mounted) {
+      setState(() {
+        _ok = false;
+        _error = null;
+      });
+    }
     try {
       // TCP is more reliable than UDP on Wi-Fi; no cache; no sound.
       final platform = _player.platform as dynamic;

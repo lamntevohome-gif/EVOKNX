@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:knx_config/knx_config.dart';
 
+import 'account_panel.dart';
 import 'app_store.dart';
 import 'knx_link.dart';
 import 'receive_dialog.dart';
@@ -79,7 +80,7 @@ class SettingsScreen extends StatelessWidget {
             colorSchemeSeed: pal.accent,
           ),
           child: DefaultTabController(
-            length: 4,
+            length: 5,
             child: Scaffold(
               backgroundColor: pal.screen,
               appBar: AppBar(
@@ -101,6 +102,7 @@ class SettingsScreen extends StatelessWidget {
                   labelStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
                   unselectedLabelStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
                   tabs: const [
+                    Tab(text: 'Tài khoản'),
                     Tab(text: 'Hồ sơ'),
                     Tab(text: 'Giao diện'),
                     Tab(text: 'Kết nối KNX'),
@@ -110,6 +112,7 @@ class SettingsScreen extends StatelessWidget {
               ),
               body: TabBarView(
                 children: [
+                  tab([AccountPanel(account: store.account, pal: pal)]),
                   tab([
                     card('Hồ sơ', [
                       for (final pf in store.profiles)

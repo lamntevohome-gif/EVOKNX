@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
@@ -778,6 +779,36 @@ class Designer extends ChangeNotifier {
   }
 
   /// Re-packs widgets after the column count shrinks.
+  /// Grid cells the cards of [box] need: the right-most column and the
+  /// bottom-most row (counted from 1) that any card reaches.
+  static ({int cols, int rows}) cellsNeeded(Json box) {
+    var c = 0, r = 0;
+    for (final w in jsonList(box['widgets'])) {
+      c = max(c, pi(w, 'x') + pi(w, 'w'));
+      r = max(r, pi(w, 'y') + pi(w, 'h'));
+    }
+    return (cols: c, rows: r);
+  }
+
+  /// Why the grid of [box] cannot be given [n] rows (null = it can): a card
+  /// would be left outside the grid and be lost.
+  String? rowsBlocker(Json box, int n) {
+    final need = cellsNeeded(box).rows;
+    if (need <= n) return null;
+    return 'Không thể giảm xuống $n hàng: còn thẻ ở hàng $need. Hãy di chuyển hoặc xoá thẻ trước.';
+  }
+
+  /// Why the grid of [box] cannot be given [n] columns (null = it can). The
+  /// cards are re-packed into the narrower grid; it must still hold them all.
+  String? colsBlocker(Json box, int n) {
+    if (n >= cols(box)) return null;
+    final copy = jsonDecode(jsonEncode(box)) as Map<String, dynamic>;
+    repackCols(copy, n);
+    final need = cellsNeeded(copy);
+    if (need.cols <= n && need.rows <= rows(box)) return null;
+    return 'Không thể giảm xuống $n cột: các thẻ không còn đủ chỗ sau khi sắp xếp lại. Hãy xoá hoặc thu nhỏ bớt thẻ trước.';
+  }
+
   static void repackCols(Json box, int n) {
     final old = cols(box);
     jsonMap(box['layout'])['columns'] = n;
