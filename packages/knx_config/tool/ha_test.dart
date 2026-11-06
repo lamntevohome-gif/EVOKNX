@@ -298,6 +298,44 @@ Future<void> main() async {
 
   Json ga(String address) => (doc['groupAddresses'] as List).firstWhere((g) => g['address'] == address) as Json;
 
+  // ---- scene, script, automation: 1 bit like a light
+  final sc = ent('scene.chieu_phim', 'scening', {'friendly_name': 'Chiếu phim'});
+  final sr = ent('script.tiep_khach', 'off', {'friendly_name': 'Tiếp khách'});
+  final au = ent('automation.movie', 'on', {'friendly_name': 'Movie'});
+  check(
+      haSuggest(sc).map((a) => a.key).join() == 'onoff' &&
+          haSuggest(sr).map((a) => a.key).join() == 'onoff' &&
+          haSuggest(au).map((a) => a.key).join() == 'onoff',
+      'scene/script/automation: one function, on/off (1 bit)');
+  check(haAttr('onoff')!.dpt == '1.001', 'scene/script/automation: DPT 1.001');
+  check(haCommand(sc, 'onoff', true)!.service == 'turn_on' && haCommand(sc, 'onoff', true)!.domain == 'scene' && haCommand(sc, 'onoff', false)!.isNone,
+      'scene: 1 activates, 0 does nothing');
+  check(haCommand(sr, 'onoff', true)!.service == 'turn_on' && haCommand(sr, 'onoff', false)!.service == 'turn_off', 'script: 1 runs, 0 stops');
+  check(haCommand(au, 'onoff', true)!.service == 'trigger' && haCommand(au, 'onoff', false)!.isNone, 'automation: 1 triggers, 0 does nothing');
+  final aSc = addHaEntity(doc, sc, ['onoff'], roomId: room1['id'] as String);
+  final aSr = addHaEntity(doc, sr, ['onoff'], roomId: room1['id'] as String);
+  final aAu = addHaEntity(doc, au, ['onoff'], roomId: room1['id'] as String);
+  check(aSc.length == 1 && aSc.first['ha']['role'] == 'cmd' && aSc.first['address'] == '40/0/1', 'scene: only a command address (40/0/1)');
+  check(aSr.length == 2 && aSr.first['address'] == '40/0/2' && aSr.last['address'] == '40/0/102', 'script: command and status (40/0/2, 40/0/102)');
+  check(aAu.length == 2 && aAu.first['address'] == '40/0/3', 'automation: command and status, numbered after the script (40/0/3)');
+  check(aSc.first['dpt'] == '1.001', 'scene: DPT 1.001');
+
+  // ---- manual addresses
+  final plan = haPlanAddresses(doc, ent('light.moi', 'on', {'brightness': 1}), ['onoff', 'brightness'], room1['id'] as String);
+  check(plan['onoff|cmd'] == '40/2/3' && plan['onoff|status'] == '40/2/103' && plan['brightness|cmd'] == '40/12/3',
+      'plan: the rule gives 40/2/3, 40/2/103, 40/12/3 (nothing is added)');
+  check(!(doc['groupAddresses'] as List).any((g) => g['ha'] is Map && g['ha']['entity'] == 'light.moi'), 'plan: changes nothing');
+  final typed = addHaEntity(doc, ent('light.tay', 'on', {'friendly_name': 'Đèn tay', 'brightness': 1}), ['onoff'],
+      roomId: room1['id'] as String, addresses: {'onoff|cmd': '45/7/9', 'onoff|status': '045/07/109'});
+  check(typed.map((g) => g['address']).join(' ') == '45/7/9 45/7/109', 'manual: typed addresses are used (and tidied)');
+  try {
+    addHaEntity(doc, ent('light.tay2', 'on', {'brightness': 1}), ['onoff'],
+        roomId: room1['id'] as String, addresses: {'onoff|cmd': '45/7/9', 'onoff|status': '45/7/110'});
+    check(false, 'manual: a used address is refused');
+  } on StateError catch (x) {
+    check(x.message.contains('45/7/9'), 'manual: a used address is refused');
+  }
+
   // ---- rename keeps the entity id
   renameHaEntity(doc, 'light.den1', 'Đèn bàn');
   final onoff = ga(addr('light.den1', 'onoff', 'cmd'));

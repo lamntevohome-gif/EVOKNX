@@ -65,7 +65,7 @@ const List<HaAttr> kHaAttrs = [
 /// Functions of each kind of entity, in the order that gives their middle group
 /// (kind + 10 × position). Sensors and binary sensors both use position 0.
 const Map<int, List<String>> kHaFunctions = {
-  0: ['scene'],
+  0: ['onoff'],
   1: ['onoff'],
   2: ['onoff', 'brightness', 'colortemp'],
   3: ['move', 'stop', 'position'],
@@ -157,7 +157,8 @@ List<HaAttr> haSuggest(HaEntity e) {
     case 'scene':
     case 'script':
     case 'automation':
-      return pick(['scene']);
+      // 1 bit, like a light: 1 starts it (a script: 0 stops it).
+      return pick(['onoff']);
     case 'media_player':
       return pick(['onoff', 'playpause', 'mstop', 'prev', 'next', 'volume', 'mute', 'playing']);
   }
@@ -275,22 +276,19 @@ String haAddressFor(int main, int kind, String attrKey, int n, String role) {
   return '$main/${kind + 10 * haFunctionIndex(kind, attrKey)}/${role == 'cmd' ? n : n + 100}';
 }
 
-/// Adds the virtual addresses of [e] for the functions [attrKeys] to a room of
-/// the project (both a command and a status address where the function has
-/// them). An entity keeps its kind and number. Returns the new entries; throws
-/// a [StateError] (with a message) when the room is unknown or full.
-List<Json> addHaEntity(Json doc, HaEntity e, List<String> attrKeys, {required String roomId, String? title}) {
-  final gas = (doc['groupAddresses'] = List<dynamic>.from(doc['groupAddresses'] as List? ?? const []));
+/// Where an entity goes: its room, kind and number (its own when it is
+/// already in the project, the next free one otherwise).
+({Json room, int kind, int n, String? shown}) _haPlan(Json doc, HaEntity e, String roomId) {
+  final gas = jsonList(doc['groupAddresses']);
   // An entity stays in the room it was first added to.
-  final existing = haEntityRoom(doc, e.id);
-  final room = haRoomById(doc, existing ?? roomId);
+  final room = haRoomById(doc, haEntityRoom(doc, e.id) ?? roomId);
   if (room == null) throw StateError('Hãy tạo phòng trước.');
-  final rid = room['id'] as String, main = (room['main'] as num).toInt();
+  final rid = room['id'] as String;
   final kind = haKind(e);
   var n = 0;
   String? shown;
   for (final g in gas) {
-    final h = (g as Map)['ha'];
+    final h = g['ha'];
     if (h is Map && h['entity'] == e.id) {
       n = (h['n'] as num?)?.toInt() ?? 0;
       shown = h['title']?.toString();
@@ -299,33 +297,78 @@ List<Json> addHaEntity(Json doc, HaEntity e, List<String> attrKeys, {required St
   if (n == 0) {
     var top = 0;
     for (final g in gas) {
-      final h = (g as Map)['ha'];
+      final h = g['ha'];
       if (h is Map && h['room'] == rid && h['kind'] == kind) top = [top, (h['n'] as num?)?.toInt() ?? 0].reduce((a, b) => a > b ? a : b);
     }
     n = top + 1;
     if (n > kHaMaxEntities) throw StateError('Phòng “${room['name']}” đã đủ $kHaMaxEntities thực thể loại “${kHaKindNames[kind]}”.');
   }
-  final name = (title ?? shown ?? e.name);
+  return (room: room, kind: kind, n: n, shown: shown);
+}
+
+/// Whether function [a] of [e] has a [role] ('cmd' or 'status') address.
+bool haHasRole(HaEntity e, HaAttr a, String role) {
+  if (role == 'cmd') return a.cmd;
+  // A scene has no state to follow.
+  return a.status && e.domain != 'scene';
+}
+
+/// The addresses the rule would give to functions [attrKeys] of [e] in a room,
+/// keyed "function|cmd" / "function|status" (nothing is changed).
+Map<String, String> haPlanAddresses(Json doc, HaEntity e, List<String> attrKeys, String roomId) {
+  final plan = _haPlan(doc, e, roomId);
+  final main = (plan.room['main'] as num).toInt();
+  final out = <String, String>{};
+  for (final key in attrKeys) {
+    final a = haAttr(key);
+    if (a == null) continue;
+    for (final role in ['cmd', 'status']) {
+      if (haHasRole(e, a, role)) out['$key|$role'] = haAddressFor(main, plan.kind, key, plan.n, role);
+    }
+  }
+  return out;
+}
+
+/// Adds the virtual addresses of [e] for the functions [attrKeys] to a room of
+/// the project (a command and a status address where the function has them).
+/// Addresses come from the rule, or from [addresses] ("function|cmd" →
+/// address) when the user typed them. An entity keeps its kind and number.
+/// Returns the new entries; throws a [StateError] (with a message) when the
+/// room is unknown or full, or a typed address is already used.
+List<Json> addHaEntity(Json doc, HaEntity e, List<String> attrKeys, {required String roomId, String? title, Map<String, String>? addresses}) {
+  final gas = (doc['groupAddresses'] = List<dynamic>.from(doc['groupAddresses'] as List? ?? const []));
+  final plan = _haPlan(doc, e, roomId);
+  final rid = plan.room['id'] as String, main = (plan.room['main'] as num).toInt();
+  final name = (title ?? plan.shown ?? e.name);
   final out = <Json>[];
   for (final key in attrKeys) {
     final a = haAttr(key);
     if (a == null) continue;
     for (final role in ['cmd', 'status']) {
-      if ((role == 'cmd' && !a.cmd) || (role == 'status' && !a.status)) continue;
-      final addr = haAddressFor(main, kind, key, n, role);
-      if (gas.any((g) => (g as Map)['address'] == addr)) continue;
+      if (!haHasRole(e, a, role)) continue;
+      final typed = addresses?['$key|$role']?.trim();
+      final addr = (typed != null && typed.isNotEmpty) ? haCanonicalAddress(typed) : haAddressFor(main, plan.kind, key, plan.n, role);
+      if (gas.any((g) => (g as Map)['address'] == addr)) {
+        if (typed != null && typed.isNotEmpty) throw StateError('Địa chỉ $addr đã dùng cho thực thể khác.');
+        continue;
+      }
       final ga = <String, dynamic>{
         'id': uid('ga_'),
         'address': addr,
         'name': '$name · ${a.label}${role == 'cmd' ? ' (lệnh)' : ' (trạng thái)'}',
         'dpt': a.dpt,
-        'ha': {'entity': e.id, 'attr': key, 'role': role, 'room': rid, 'kind': kind, 'n': n, 'title': name},
+        'ha': {'entity': e.id, 'attr': key, 'role': role, 'room': rid, 'kind': plan.kind, 'n': plan.n, 'title': name},
       };
       gas.add(ga);
       out.add(ga);
     }
   }
   return out;
+}
+
+String haCanonicalAddress(String t) {
+  final m = RegExp(r'^(\d{1,3})/(\d{1,3})/(\d{1,3})$').firstMatch(t.trim());
+  return m == null ? t.trim() : '${int.parse(m[1]!)}/${int.parse(m[2]!)}/${int.parse(m[3]!)}';
 }
 
 /// Gives every entity of a room addresses by the rule (kind, number per kind,
@@ -471,6 +514,10 @@ Json haSettings(Json doc) => jsonMap(doc['ha']);
 /// A service call for HA.
 class HaCall {
   const HaCall(this.domain, this.service, [this.data = const {}]);
+
+  /// Nothing to send (for example "off" of a scene).
+  static const HaCall none = HaCall('', '');
+  bool get isNone => domain.isEmpty;
   final String domain, service;
   final Map<String, dynamic> data;
 }
@@ -484,6 +531,10 @@ HaCall? haCommand(HaEntity e, String attr, Object value) {
   switch (attr) {
     case 'onoff':
       final on = (n ?? 0) != 0;
+      // Scene, script, automation: a 1-bit trigger. 1 starts it, 0 only stops a script.
+      if (d == 'scene') return on ? const HaCall('scene', 'turn_on') : HaCall.none;
+      if (d == 'automation') return on ? const HaCall('automation', 'trigger') : HaCall.none;
+      if (d == 'script') return HaCall('script', on ? 'turn_on' : 'turn_off');
       final dom = const ['light', 'switch', 'fan', 'input_boolean', 'climate', 'automation', 'cover', 'media_player'].contains(d) ? d : 'homeassistant';
       if (dom == 'cover') return HaCall('cover', on ? 'open_cover' : 'close_cover');
       return HaCall(dom, on ? 'turn_on' : 'turn_off');
@@ -839,6 +890,7 @@ class HaBridge {
     final id = (h['entity'] ?? '').toString();
     final e = _entities[id] ?? HaEntity(id, '', const {});
     final call = haCommand(e, (h['attr'] ?? '').toString(), value);
+    if (call != null && call.isNone) return null;
     if (call == null) return 'Không gửi được lệnh “${ga['name'] ?? ga['address']}” tới Home Assistant.';
     try {
       await s.callService(call, id);

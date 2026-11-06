@@ -27,6 +27,12 @@ class _HaPageState extends State<HaPage> {
   bool busy = false;
   String? roomId;
 
+  /// Sub-tab of the room: the type of entity (the part of the entity id before the dot); empty = all.
+  String domainTab = '';
+
+  /// Search text of the room shown (searchFor is the room it was typed in, so another room starts empty).
+  String search = '', searchFor = '';
+
   /// "Chọn" mode of a room: tick entities and delete them together.
   bool selecting = false;
   final Set<String> picked = {};
@@ -485,9 +491,75 @@ class _HaPageState extends State<HaPage> {
     for (final g in gas) {
       (byEntity[(g['ha']['entity'] ?? '').toString()] ??= []).add(g);
     }
+    final roomKey = cur?['id']?.toString() ?? _kNoRoom;
+    final query = searchFor == roomKey ? search : '';
+    final fq = fold(query.trim());
+    // An entity matches by its name, its entity id or any of its addresses.
+    bool matches(String e) {
+      if (fq.isEmpty) return true;
+      final gs = byEntity[e]!;
+      return fold('${gs.first['ha']['title'] ?? ''} $e ${gs.map((g) => '${g['address']} ${g['name']}').join(' ')}').contains(fq);
+    }
+
+    final shown = [
+      for (final e in byEntity.keys)
+        if (matches(e)) e,
+    ];
     int kindOf(String e) => (byEntity[e]!.first['ha']['kind'] as num?)?.toInt() ?? 99;
     int numOf(String e) => (byEntity[e]!.first['ha']['n'] as num?)?.toInt() ?? 0;
-    final order = byEntity.keys.toList()..sort((a, b) => kindOf(a) != kindOf(b) ? kindOf(a).compareTo(kindOf(b)) : numOf(a).compareTo(numOf(b)));
+    String domainOf(String e) => e.split('.').first;
+    // The types in the room with their counts, in a fixed, sensible order.
+    const domainOrder = [
+      'light',
+      'switch',
+      'cover',
+      'climate',
+      'media_player',
+      'sensor',
+      'binary_sensor',
+      'scene',
+      'script',
+      'automation',
+      'fan',
+      'input_boolean',
+    ];
+    final counts = <String, int>{};
+    for (final e in shown) {
+      counts[domainOf(e)] = (counts[domainOf(e)] ?? 0) + 1;
+    }
+    final domains = counts.keys.toList()
+      ..sort((a, b) {
+        final ia = domainOrder.indexOf(a), ib = domainOrder.indexOf(b);
+        return (ia < 0 ? 99 : ia) != (ib < 0 ? 99 : ib) ? (ia < 0 ? 99 : ia).compareTo(ib < 0 ? 99 : ib) : a.compareTo(b);
+      });
+    final tab = counts.containsKey(domainTab) ? domainTab : '';
+    final order = [
+      for (final e in shown)
+        if (tab.isEmpty || domainOf(e) == tab) e,
+    ]..sort((a, b) => kindOf(a) != kindOf(b) ? kindOf(a).compareTo(kindOf(b)) : numOf(a).compareTo(numOf(b)));
+    Widget chip(String key, String label) {
+      final on = tab == key;
+      return InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: () => setState(() {
+          domainTab = key;
+          picked.clear();
+        }),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
+          decoration: BoxDecoration(
+            color: on ? c.accentSoft : null,
+            border: Border.all(color: on ? c.accent : c.line),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(fontSize: kUiText - 1, fontWeight: on ? FontWeight.w600 : FontWeight.w400, color: on ? c.ink : c.muted),
+          ),
+        ),
+      );
+    }
+
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -497,7 +569,9 @@ class _HaPageState extends State<HaPage> {
             children: [
               Expanded(
                 child: Text(
-                  cur == null ? 'Địa chỉ chưa thuộc phòng nào' : 'Phòng ${cur['name']} · nhóm chính ${cur['main']} · ${byEntity.length} thực thể',
+                  cur == null
+                      ? 'Địa chỉ chưa thuộc phòng nào'
+                      : 'Phòng ${cur['name']} · nhóm chính ${cur['main']} · ${fq.isEmpty ? '${byEntity.length}' : '${shown.length}/${byEntity.length}'} thực thể',
                   style: TextStyle(fontWeight: FontWeight.w600, color: c.ink),
                 ),
               ),
@@ -537,10 +611,34 @@ class _HaPageState extends State<HaPage> {
             ],
           ),
         ),
+        if (byEntity.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: SearchField(
+              key: ValueKey('room-search-$roomKey'),
+              hint: 'Tìm thực thể trong phòng (tên, mã hoặc địa chỉ)',
+              width: double.infinity,
+              onChanged: (v) => setState(() {
+                search = v;
+                searchFor = roomKey;
+                picked.clear();
+              }),
+            ),
+          ),
+        if (domains.length > 1)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Wrap(spacing: 6, runSpacing: 6, children: [chip('', 'Tất cả (${shown.length})'), for (final d in domains) chip(d, '$d (${counts[d]})')]),
+          ),
         if (byEntity.isEmpty)
           Padding(
             padding: const EdgeInsets.only(top: 8),
             child: Text('Chưa có thực thể trong phòng này. Bấm “Thêm thực thể…”.', style: TextStyle(color: c.muted)),
+          ),
+        if (byEntity.isNotEmpty && shown.isEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text('Không có thực thể nào khớp “${query.trim()}”.', style: TextStyle(color: c.muted)),
           ),
         for (final e in order) _entityCard(c, e, byEntity[e]!),
       ],
@@ -610,11 +708,6 @@ class _HaPageState extends State<HaPage> {
                       style: TextStyle(fontWeight: FontWeight.w600, color: c.ink),
                     ),
                   ),
-                  IconButton(
-                    tooltip: 'Đổi tên thực thể',
-                    icon: Icon(Icons.edit_outlined, size: 16, color: c.muted),
-                    onPressed: () => _renameEntity(entityId, title),
-                  ),
                   Expanded(
                     child: Text(
                       kind == null ? entityId : '$entityId  ·  ${kHaKindNames[kind]}',
@@ -622,11 +715,6 @@ class _HaPageState extends State<HaPage> {
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(fontSize: kUiText - 1, color: c.muted),
                     ),
-                  ),
-                  IconButton(
-                    tooltip: 'Gỡ thực thể này',
-                    icon: Icon(Icons.delete_outline, color: c.danger),
-                    onPressed: () => _removeEntity(entityId, title),
                   ),
                 ],
               ),
@@ -859,9 +947,10 @@ Future<({String name, int main})?> _roomDialog(
   });
 }
 
-/// Picks entities of Home Assistant: tick several and add them automatically
-/// (their usual functions), add all that are listed, or add one by choosing its
-/// functions by hand. All additions go to the room chosen on the right.
+/// Picks entities of Home Assistant. Tick several and "Thêm tự động" gives them
+/// addresses by the rule; "Thêm thủ công" adds the one entity shown on the
+/// right, with the functions and the addresses typed in by hand. All additions
+/// go to the room chosen on the right.
 class _AddEntityDialog extends StatefulWidget {
   const _AddEntityDialog({required this.project, required this.entities, this.initialRoom});
   final ProjectController project;
@@ -878,8 +967,36 @@ class _AddEntityDialogState extends State<_AddEntityDialog> {
   HaEntity? focus;
   final Set<String> keys = {};
   final Set<String> picked = {};
+
+  /// Typed addresses of the shown entity, keyed "function|cmd" / "function|status".
+  final Map<String, TextEditingController> addr = {};
   int added = 0;
   late String room = widget.initialRoom ?? (haRooms(widget.project.doc).firstOrNull?['id'] as String? ?? '');
+
+  @override
+  void dispose() {
+    for (final c in addr.values) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  TextEditingController _ctl(String k) => addr.putIfAbsent(k, TextEditingController.new);
+
+  void _focus(HaEntity? e) {
+    focus = e;
+    keys
+      ..clear()
+      ..addAll(e == null ? const [] : haSuggest(e).map((a) => a.key));
+    // The old boxes are still on screen for this frame: dispose them afterwards.
+    final old = addr.values.toList();
+    addr.clear();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      for (final c in old) {
+        c.dispose();
+      }
+    });
+  }
 
   List<HaEntity> get usable => [
     for (final e in widget.entities)
@@ -891,16 +1008,48 @@ class _AddEntityDialogState extends State<_AddEntityDialog> {
       if ((domain.isEmpty || e.domain == domain) && (q.isEmpty || fold('${e.name} ${e.id}').contains(fold(q.trim())))) e,
   ]..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
 
+  /// The address boxes the ticked functions of the shown entity need.
+  List<(String, HaAttr, String)> _fields() {
+    final e = focus;
+    if (e == null) return const [];
+    return [
+      for (final a in haSuggest(e))
+        if (keys.contains(a.key))
+          for (final role in ['cmd', 'status'])
+            if (haHasRole(e, a, role)) ('${a.key}|$role', a, role),
+    ];
+  }
+
+  /// A problem of each typed address (a missing one counts), by field.
+  Map<String, String> _errors(Json doc) {
+    final out = <String, String>{};
+    final seen = <String>{};
+    for (final f in _fields()) {
+      final t = _ctl(f.$1).text.trim();
+      if (t.isEmpty) {
+        out[f.$1] = '';
+        continue;
+      }
+      final err = haValidateAddress(doc, t);
+      if (err != null) {
+        out[f.$1] = err;
+      } else if (!seen.add(haCanonicalAddress(t))) {
+        out[f.$1] = 'Trùng với ô khác.';
+      }
+    }
+    return out;
+  }
+
   /// Adds [es] to the room in one undo step; [only] gives the functions of
-  /// each one (otherwise their usual functions).
-  void _addMany(List<HaEntity> es, {Map<String, List<String>>? only}) {
+  /// each one (otherwise their usual functions), [addresses] the typed ones.
+  void _addMany(List<HaEntity> es, {Map<String, List<String>>? only, Map<String, String>? addresses}) {
     if (es.isEmpty) return;
     var ents = 0, addrs = 0;
     final errors = <String>{};
     widget.project.mutate((d) {
       for (final e in es) {
         try {
-          final n = addHaEntity(d, e, only?[e.id] ?? [for (final a in haSuggest(e)) a.key], roomId: room).length;
+          final n = addHaEntity(d, e, only?[e.id] ?? [for (final a in haSuggest(e)) a.key], roomId: room, addresses: addresses).length;
           if (n > 0) {
             ents++;
             addrs += n;
@@ -913,34 +1062,12 @@ class _AddEntityDialogState extends State<_AddEntityDialog> {
     setState(() {
       added += ents;
       picked.clear();
-      focus = null;
+      _focus(null);
     });
     toast(
       context,
       ents == 0 && errors.isEmpty ? 'Các địa chỉ này đã có.' : 'Đã thêm $ents thực thể ($addrs địa chỉ).${errors.isEmpty ? '' : ' ${errors.first}'}',
     );
-  }
-
-  Future<void> _addAll() async {
-    final list = filtered;
-    if (list.isEmpty) return;
-    if (list.length > 25) {
-      final ok = await showDialog<bool>(
-        context: context,
-        builder: (c) => AlertDialog(
-          title: Text('Thêm ${list.length} thực thể?'),
-          content: const Text(
-            'Tất cả thực thể đang hiện trong danh sách (theo ô tìm và loại đang chọn) sẽ được thêm vào phòng đã chọn với các chức năng thường dùng.',
-          ),
-          actions: [
-            EvoButton(label: 'Huỷ', onPressed: () => Navigator.pop(c, false)),
-            EvoButton(label: 'Thêm tất cả', primary: true, onPressed: () => Navigator.pop(c, true)),
-          ],
-        ),
-      );
-      if (ok != true) return;
-    }
-    _addMany(list);
   }
 
   @override
@@ -954,12 +1081,23 @@ class _AddEntityDialogState extends State<_AddEntityDialog> {
     // An entity already in the project stays in its room.
     final fixedRoom = focus == null ? null : haEntityRoom(doc, focus!.id);
     final effectiveRoom = fixedRoom ?? room;
+    final fields = _fields();
+    final errors = focus == null ? const <String, String>{} : _errors(doc);
+    var plan = const <String, String>{};
+    if (focus != null && effectiveRoom.isNotEmpty) {
+      try {
+        plan = haPlanAddresses(doc, focus!, keys.toList(), effectiveRoom);
+      } on StateError {
+        plan = const {};
+      }
+    }
     final canAuto = picked.isNotEmpty && room.isNotEmpty;
+    final canManual = focus != null && fields.isNotEmpty && errors.isEmpty && effectiveRoom.isNotEmpty;
     return AlertDialog(
       title: const Text('Thêm thực thể từ Home Assistant'),
       content: SizedBox(
-        width: 760,
-        height: 480,
+        width: 780,
+        height: 500,
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -1000,12 +1138,7 @@ class _AddEntityDialogState extends State<_AddEntityDialog> {
                         final e = list[i];
                         final on = focus?.id == e.id;
                         return InkWell(
-                          onTap: () => setState(() {
-                            focus = e;
-                            keys
-                              ..clear()
-                              ..addAll(haSuggest(e).map((a) => a.key));
-                          }),
+                          onTap: () => setState(() => _focus(e)),
                           child: Container(
                             color: on ? c.accentSoft : null,
                             padding: const EdgeInsets.fromLTRB(0, 2, 8, 2),
@@ -1044,7 +1177,7 @@ class _AddEntityDialogState extends State<_AddEntityDialog> {
             ),
             const SizedBox(width: 16),
             Expanded(
-              flex: 4,
+              flex: 5,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -1068,8 +1201,9 @@ class _AddEntityDialogState extends State<_AddEntityDialog> {
                   if (focus == null)
                     Expanded(
                       child: Text(
-                        'Tick nhiều thực thể bên trái rồi bấm “Thêm tự động” (chức năng thường dùng), hoặc bấm một thực thể để tự chọn chức năng rồi “Thêm thủ công”.',
-                        style: TextStyle(color: c.muted, height: 1.4),
+                        'Tick nhiều thực thể bên trái rồi bấm “Thêm tự động”: địa chỉ được gán theo quy tắc.\n\n'
+                        'Hoặc bấm vào một thực thể để chọn chức năng và tự nhập địa chỉ, rồi bấm “Thêm thủ công”.',
+                        style: TextStyle(color: c.muted, height: 1.45),
                       ),
                     )
                   else
@@ -1084,15 +1218,60 @@ class _AddEntityDialogState extends State<_AddEntityDialog> {
                             focus!.id,
                             style: TextStyle(fontSize: kUiText - 1, color: c.muted),
                           ),
-                          const SizedBox(height: 10),
-                          Text('Chức năng (cho “Thêm thủ công”):', style: TextStyle(color: c.muted)),
-                          for (final a in haSuggest(focus!))
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text('Chức năng và địa chỉ (thêm thủ công):', style: TextStyle(color: c.muted)),
+                              ),
+                              EvoButton(
+                                label: 'Điền theo quy tắc',
+                                small: true,
+                                onPressed: fields.isEmpty
+                                    ? null
+                                    : () => setState(() {
+                                        for (final f in fields) {
+                                          _ctl(f.$1).text = plan[f.$1] ?? '';
+                                        }
+                                      }),
+                              ),
+                            ],
+                          ),
+                          for (final a in haSuggest(focus!)) ...[
                             Row(
                               children: [
                                 Checkbox(value: keys.contains(a.key), onChanged: (v) => setState(() => v == true ? keys.add(a.key) : keys.remove(a.key))),
                                 Expanded(child: Text('${a.label}  ·  DPT ${a.dpt}')),
                               ],
                             ),
+                            if (keys.contains(a.key))
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(40, 0, 0, 8),
+                                child: Wrap(
+                                  spacing: 10,
+                                  runSpacing: 8,
+                                  children: [
+                                    for (final role in ['cmd', 'status'])
+                                      if (haHasRole(focus!, a, role))
+                                        SizedBox(
+                                          width: 140,
+                                          child: TextField(
+                                            controller: _ctl('${a.key}|$role'),
+                                            onChanged: (_) => setState(() {}),
+                                            style: const TextStyle(fontSize: kUiText),
+                                            decoration: InputDecoration(
+                                              isDense: true,
+                                              labelText: role == 'cmd' ? 'Lệnh' : 'Trạng thái',
+                                              hintText: plan['${a.key}|$role'],
+                                              errorText: (errors['${a.key}|$role'] ?? '').isEmpty ? null : errors['${a.key}|$role'],
+                                              errorMaxLines: 3,
+                                            ),
+                                          ),
+                                        ),
+                                  ],
+                                ),
+                              ),
+                          ],
                         ],
                       ),
                     ),
@@ -1115,9 +1294,8 @@ class _AddEntityDialogState extends State<_AddEntityDialog> {
         ),
         EvoButton(
           label: 'Thêm thủ công',
-          onPressed: focus == null || keys.isEmpty || effectiveRoom.isEmpty ? null : () => _addMany([focus!], only: {focus!.id: keys.toList()}),
+          onPressed: !canManual ? null : () => _addMany([focus!], only: {focus!.id: keys.toList()}, addresses: {for (final f in fields) f.$1: _ctl(f.$1).text}),
         ),
-        EvoButton(label: 'Thêm tất cả (${list.length})', onPressed: list.isEmpty || room.isEmpty ? null : _addAll),
         EvoButton(label: added > 0 ? 'Đóng ($added đã thêm)' : 'Đóng', onPressed: () => Navigator.pop(context)),
       ],
     );
