@@ -821,12 +821,13 @@ class _GridAreaState extends State<_GridArea> {
   @override
   Widget build(BuildContext context) {
     final box = widget.box;
-    final pal = widget.pal;
     final test = d.test;
     // Scrolling page (phone): [vis] rows fit the screen, [r] rows in total.
     final scroll = widget.groupId == null && scrollPage(box, d.doc);
     final c = cols(box), vis = rows(box), r = scroll ? pageRows(box, d.doc) : vis;
     final gap = (c >= 6 || vis >= 15) ? 6.0 : 10.0;
+    // A shadow never grows past about 1.5 gaps, so it does not fall on the next card.
+    final pal = widget.pal.copyWith(shadowCap: gap * 1.5);
     final evo = context.evo;
     final gas = jsonList(d.doc['groupAddresses']);
     return LayoutBuilder(
@@ -861,6 +862,22 @@ class _GridAreaState extends State<_GridArea> {
               );
             }
           }
+        }
+        // One layer with every card's shadow (and glow), under all the cards.
+        for (final w in jsonList(box['widgets'])) {
+          final bg = jsonMap(w['style'])['bg'];
+          final body = w['type'] == 'group' ? (w['gstyle'] ?? 'card') == 'card' : (bg != 'outline' && bg != 'transparent');
+          if (!body) continue;
+          children.add(
+            Positioned.fromRect(
+              rect: rect(pi(w, 'x'), pi(w, 'y'), pi(w, 'w'), pi(w, 'h')),
+              child: CardShadow(
+                radius: w['type'] == 'group' ? pal.radius + 2 : pal.radius,
+                pal: pal,
+                glow: tileGlowColor(w, pal, d.sim[w['id'] as String] ?? const {}),
+              ),
+            ),
+          );
         }
         for (final w in jsonList(box['widgets'])) {
           final id = w['id'] as String;
@@ -1194,7 +1211,7 @@ class _GridAreaState extends State<_GridArea> {
               }
               _drop(det.data, cell.x, cell.y);
             },
-            builder: (context, cand, rej) => Stack(clipBehavior: Clip.hardEdge, children: children),
+            builder: (context, cand, rej) => Stack(clipBehavior: Clip.none, children: children),
           ),
         );
         if (!scroll) return grid;
@@ -1240,7 +1257,6 @@ class _GroupFrame extends StatelessWidget {
                 color: selected ? kEditorSelection : (style == 'none' ? (d.test ? Colors.transparent : pal.lineStrong.withValues(alpha: 0.5)) : pal.edge),
                 width: selected ? 1.5 : (style == 'none' ? 1 : pal.border),
               ),
-        boxShadow: style == 'card' ? pal.shadows : const [],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1433,7 +1449,7 @@ class _PagedGridState extends State<_PagedGrid> {
         if (ss[i]['id'] != widget.d.sub?['id']) widget.d.selectSub(widget.room['id'] as String, ss[i]['id'] as String);
       },
       itemBuilder: (context, i) => Padding(
-        padding: const EdgeInsets.fromLTRB(14, 2, 14, 12),
+        padding: EdgeInsets.all(widget.pal.safeMargin),
         child: _GridArea(key: ValueKey<String>('ga-${ss[i]['id']}'), d: widget.d, box: ss[i], groupId: null, pal: widget.pal, issues: widget.issues),
       ),
     );

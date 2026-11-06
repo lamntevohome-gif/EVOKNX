@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/material.dart';
 
 import 'tiles.dart';
@@ -17,30 +18,29 @@ BoxDecoration raisedDecoration(AppPalette pal, Color fill, {BorderRadius? radius
     );
   }
   final dark = pal.ink.computeLuminance() > 0.5;
-  final top = Color.lerp(fill, Colors.white, ((dark ? 0.10 : 0.45) * lift).clamp(0.0, 0.85))!;
-  final bottom = Color.lerp(fill, Colors.black, ((dark ? 0.16 : 0.07) * lift).clamp(0.0, 0.5))!;
+  final top = Color.lerp(fill, Colors.white, ((dark ? 0.14 : 0.50) * lift).clamp(0.0, 0.9))!;
+  final bottom = Color.lerp(fill, Colors.black, ((dark ? 0.20 : 0.11) * lift).clamp(0.0, 0.55))!;
+  // The shadow grows slowly with the lift so that it always stays inside the
+  // card's padding (about 9 px at most): it is never cut off.
+  final blur = 3 + 1.2 * lift, drop = 0.8 + 0.7 * lift;
   return BoxDecoration(
     shape: circle ? BoxShape.circle : BoxShape.rectangle,
     borderRadius: circle ? null : radius,
-    gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [top, bottom]),
-    border: Border.all(color: edge ?? (dark ? Colors.white.withValues(alpha: 0.14) : Colors.white.withValues(alpha: 0.9))),
+    // A bevel made of the colour itself, inside the button: a light rim on top,
+    // the body, a darker rim below. It needs no room outside the button.
+    gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [top, fill, fill, bottom], stops: const [0, 0.14, 0.76, 1]),
+    border: Border.all(color: edge ?? (dark ? Colors.white.withValues(alpha: 0.12) : Colors.white.withValues(alpha: 0.85))),
     boxShadow: [
       BoxShadow(
-        color: Colors.black.withValues(alpha: ((dark ? 0.40 : 0.16) * lift).clamp(0.0, 0.6)),
-        blurRadius: 6 * lift,
-        offset: Offset(0, 2.5 * lift),
+        color: Colors.black.withValues(alpha: ((dark ? 0.28 : 0.13) * lift).clamp(0.0, 0.45)),
+        blurRadius: blur,
+        offset: Offset(0, drop),
       ),
-      // A solid lip under the button, like its thickness.
-      if (lift > 1)
-        BoxShadow(
-          color: Colors.black.withValues(alpha: dark ? 0.35 : 0.13),
-          offset: const Offset(0, 1.5),
-        ),
       if (glow != null)
         BoxShadow(
-          color: glow.withValues(alpha: dark ? 0.35 : 0.40),
-          blurRadius: 12,
-          offset: const Offset(0, 3),
+          color: glow.withValues(alpha: dark ? 0.30 : 0.35),
+          blurRadius: 8,
+          offset: const Offset(0, 2),
         ),
     ],
   );
@@ -97,4 +97,51 @@ class ThemeSwatch extends StatelessWidget {
       ),
     );
   }
+}
+
+/// The shadow (and the glow of a lit card) of one card, drawn only OUTSIDE the
+/// card's shape. The grid puts all of them in one layer under every card, so a
+/// shadow never falls on another card's body and never shows through a card
+/// whose background is faded.
+class CardShadow extends StatelessWidget {
+  const CardShadow({super.key, required this.radius, required this.pal, this.glow});
+  final double radius;
+  final AppPalette pal;
+
+  /// "On" colour of a lit card: adds a soft glow.
+  final Color? glow;
+
+  @override
+  Widget build(BuildContext context) {
+    final list = <BoxShadow>[...pal.shadows, if (glow != null) BoxShadow(color: glow!.withValues(alpha: 0.12), blurRadius: 8, offset: const Offset(0, 2))];
+    if (list.isEmpty) return const SizedBox.shrink();
+    return IgnorePointer(
+      child: CustomPaint(painter: _ShadowPainter(radius, list), size: Size.infinite),
+    );
+  }
+}
+
+class _ShadowPainter extends CustomPainter {
+  _ShadowPainter(this.radius, this.shadows);
+  final double radius;
+  final List<BoxShadow> shadows;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rrect = RRect.fromRectAndRadius(Offset.zero & size, Radius.circular(radius));
+    final outside = Path.combine(
+      PathOperation.difference,
+      Path()..addRect(Rect.fromLTWH(-120, -120, size.width + 240, size.height + 240)),
+      Path()..addRRect(rrect),
+    );
+    canvas.save();
+    canvas.clipPath(outside);
+    for (final s in shadows) {
+      canvas.drawRRect(rrect.shift(s.offset).inflate(s.spreadRadius), s.toPaint());
+    }
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(_ShadowPainter old) => old.radius != radius || !listEquals(old.shadows, shadows);
 }

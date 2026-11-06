@@ -95,7 +95,6 @@ class _WebCardState extends State<WebCard> {
         color: pal.fill(pal.tile),
         borderRadius: BorderRadius.circular(pal.radius),
         border: pal.border <= 0 ? null : Border.all(color: pal.edge, width: pal.border),
-        boxShadow: pal.shadows,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

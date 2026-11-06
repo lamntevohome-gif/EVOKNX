@@ -253,6 +253,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 _banner(pal),
                 _header(d, pal, floor, r, floors.length > 1),
                 if (rooms.length > 1) _roomsBar(d, pal, rooms),
+                if (r != null && subs.length > 1) _pageNav(subs, pal),
                 Expanded(
                   child: r == null
                       ? Center(
@@ -287,10 +288,9 @@ class _HomeScreenState extends State<HomeScreen> {
                             store.remember(roomId, sub?['id'] as String?);
                             _readPage();
                           },
-                          itemBuilder: (context, i) => Padding(padding: const EdgeInsets.fromLTRB(14, 6, 14, 6), child: _grid(subs[i], null, pal)),
+                          itemBuilder: (context, i) => Padding(padding: EdgeInsets.all(pal.safeMargin), child: _grid(subs[i], null, pal)),
                         ),
                 ),
-                if (subs.length > 1) _pageDots(subs, pal),
                 if (floors.length > 1) _floorBar(d, pal, floors),
                 const SizedBox(height: 6),
               ],
@@ -438,31 +438,73 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _pageDots(List<Json> subs, AppPalette pal) {
+  /// Page navigation under the rooms bar, as in the Editor preview: the page
+  /// name and dots in the middle, and (when "Mũi tên chuyển trang" is on in
+  /// Tổng quan) a button on each side. Swiping the cards also changes the page.
+  Widget _pageNav(List<Json> subs, AppPalette pal) {
+    final f = tfs(doc, 'pageTitle');
+    final arrows = jsonMap(doc['theme'])['pageArrows'] != false;
     final title = (sub?['title'] ?? '').toString();
-    return Padding(
-      padding: const EdgeInsets.only(top: 2, bottom: 4),
-      child: Column(
-        children: [
-          if (title.isNotEmpty)
-            Text(
-              title,
-              style: TextStyle(fontSize: tfs(doc, 'pageTitle'), fontWeight: FontWeight.w600, color: pal.sMuted),
-            ),
-          const SizedBox(height: 4),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              for (var k = 0; k < subs.length; k++)
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  margin: const EdgeInsets.symmetric(horizontal: 3),
-                  width: k == page ? 16 : 6,
-                  height: 6,
-                  decoration: BoxDecoration(color: k == page ? pal.sInk : pal.sMuted.withValues(alpha: 0.45), borderRadius: BorderRadius.circular(3)),
-                ),
-            ],
+    void go(int to) {
+      if (!_pages.hasClients) return;
+      _pages.animateToPage(to.clamp(0, subs.length - 1).toInt(), duration: const Duration(milliseconds: 250), curve: Curves.easeOutCubic);
+    }
+
+    Widget arrow(IconData icon, bool enabled, VoidCallback onTap, String tip) => Tooltip(
+      message: tip,
+      child: InkWell(
+        onTap: enabled ? onTap : null,
+        customBorder: const CircleBorder(),
+        child: Container(
+          width: 34,
+          height: 34,
+          decoration: BoxDecoration(
+            color: enabled ? pal.chipFill : Colors.transparent,
+            shape: BoxShape.circle,
+            border: Border.all(color: pal.tileEdge),
           ),
+          child: Icon(icon, size: 19, color: enabled ? pal.ink : pal.lineStrong),
+        ),
+      ),
+    );
+    final dots = Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        for (var k = 0; k < subs.length; k++)
+          GestureDetector(
+            onTap: () => go(k),
+            behavior: HitTestBehavior.opaque,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              margin: const EdgeInsets.symmetric(horizontal: 3, vertical: 4),
+              width: k == page ? 16 : 6,
+              height: 6,
+              decoration: BoxDecoration(color: k == page ? pal.sInk : pal.sMuted.withValues(alpha: 0.45), borderRadius: BorderRadius.circular(3)),
+            ),
+          ),
+      ],
+    );
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
+      child: Row(
+        children: [
+          if (arrows) arrow(Icons.chevron_left, page > 0, () => go(page - 1), 'Trang trước'),
+          Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (title.isNotEmpty)
+                  Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: f, fontWeight: FontWeight.w600, color: pal.sMuted),
+                  ),
+                dots,
+              ],
+            ),
+          ),
+          if (arrows) arrow(Icons.chevron_right, page < subs.length - 1, () => go(page + 1), 'Trang sau'),
         ],
       ),
     );
@@ -550,25 +592,48 @@ class _HomeScreenState extends State<HomeScreen> {
   // ----------------------------------------------------------------- cards
 
   /// A page (or the inside of a grid frame) laid out on its grid.
-  Widget _grid(Json box, Json? frame, AppPalette pal) {
+  Widget _grid(Json box, Json? frame, AppPalette basePal) {
     final c = cols(box), r = rows(box);
     final gap = (c >= 6 || r >= 15) ? 6.0 : 10.0;
+    // A shadow never grows past about 1.5 gaps, so it does not fall on the next card.
+    final pal = basePal.copyWith(shadowCap: gap * 1.5);
     final gas = jsonList(doc['groupAddresses']);
     return LayoutBuilder(
       builder: (context, bc) {
         final cw = (bc.maxWidth - gap * (c - 1)) / c;
         final ch = (bc.maxHeight - gap * (r - 1)) / r;
+        final shown = [
+          for (final w in jsonList(box['widgets']))
+            if (pi(w, 'x') + pi(w, 'w') <= c && pi(w, 'y') + pi(w, 'h') <= r) w,
+        ];
+        Positioned place(Json w, Widget child) => Positioned(
+          left: pi(w, 'x') * (cw + gap),
+          top: pi(w, 'y') * (ch + gap),
+          width: pi(w, 'w') * cw + (pi(w, 'w') - 1) * gap,
+          height: pi(w, 'h') * ch + (pi(w, 'h') - 1) * gap,
+          child: child,
+        );
+        // Does the card have a body (and so a shadow)? A frame only with the
+        // "card" style; other cards unless their background is off.
+        bool hasBody(Json w) {
+          if (w['type'] == 'group') return (w['gstyle'] ?? 'card') == 'card';
+          final bg = jsonMap(w['style'])['bg'];
+          return bg != 'outline' && bg != 'transparent';
+        }
+
         return Stack(
+          // Not clipped: the page keeps a safe margin around the grid, where the
+          // shadows of the outer cards are drawn.
+          clipBehavior: Clip.none,
           children: [
-            for (final w in jsonList(box['widgets']))
-              if (pi(w, 'x') + pi(w, 'w') <= c && pi(w, 'y') + pi(w, 'h') <= r)
-                Positioned(
-                  left: pi(w, 'x') * (cw + gap),
-                  top: pi(w, 'y') * (ch + gap),
-                  width: pi(w, 'w') * cw + (pi(w, 'w') - 1) * gap,
-                  height: pi(w, 'h') * ch + (pi(w, 'h') - 1) * gap,
-                  child: w['type'] == 'group' ? _frame(w, pal) : _card(w, pal, gas),
+            // One layer with every shadow, under all the cards.
+            for (final w in shown)
+              if (hasBody(w))
+                place(
+                  w,
+                  CardShadow(radius: w['type'] == 'group' ? pal.radius + 2 : pal.radius, pal: pal, glow: tileGlowColor(w, pal, engine.st(w['id'] as String))),
                 ),
+            for (final w in shown) place(w, w['type'] == 'group' ? _frame(w, pal) : _card(w, pal, gas)),
           ],
         );
       },
@@ -590,7 +655,6 @@ class _HomeScreenState extends State<HomeScreen> {
         color: style == 'card' ? pal.fill(pal.tile) : Colors.transparent,
         borderRadius: BorderRadius.circular(pal.radius + 2),
         border: style == 'none' || pal.border <= 0 ? null : Border.all(color: pal.edge, width: pal.border),
-        boxShadow: style == 'card' ? pal.shadows : const [],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

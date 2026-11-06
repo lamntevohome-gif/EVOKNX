@@ -39,6 +39,19 @@ String themeKey(Object? mode) {
   return kAppThemes.any((t) => t.$1 == m) ? m as String : 'l1';
 }
 
+/// The colour a lit card (switch, dimmer, AC that is on) glows in, or null.
+/// The grid draws it in the shadow layer under the cards.
+Color? tileGlowColor(Json w, AppPalette pal, Map<String, dynamic> sim) {
+  final type = w['type'];
+  final on = type == 'switch' || type == 'ac' ? sim['on'] == true : (type == 'dimmer' ? ((sim['val'] as num?) ?? 0) > 0 : false);
+  if (!on) return null;
+  final style = jsonMap(w['style']);
+  final rgb = type == 'dimmer' ? hexColor(sim['rgb']) : null;
+  final styleOn = hexColor(style['colorOn']);
+  final customOn = styleOn != null && styleOn != const Color(0xFFEE9B2A);
+  return rgb ?? (customOn ? styleOn : pal.led);
+}
+
 /// The text style of a card's name. Frame titles use it too, so every name in
 /// the Editor preview and the App looks the same.
 TextStyle evoLabelStyle(Json w, Color color) => TextStyle(fontSize: fs(w, 'labelSize'), fontWeight: FontWeight.w400, color: color, height: 1.2);
@@ -63,6 +76,10 @@ class AppPalette {
   /// Card shape (Tổng quan → Kiểu thẻ): corner radius, border width, shadow.
   final double radius, border, shadow;
 
+  /// Largest blur of a card shadow (set by the grid from the gap between
+  /// cards, so a shadow never falls on the next card).
+  final double shadowCap;
+
   /// How much the control buttons and the Nút nhấn / Cảnh cards stand out
   /// (Tổng quan → Độ nổi nút): 0 = flat, 1.6 = default, up to about 2.7.
   final double lift;
@@ -76,15 +93,22 @@ class AppPalette {
   /// A card background after the background-opacity setting.
   Color fill(Color c) => c.withValues(alpha: c.a * tileOpacity);
 
+  double get _shadowBlur => min(shadow * 1.6, shadowCap);
+  double get _shadowDrop => min(shadow * 0.45, _shadowBlur * 0.4);
+
   List<BoxShadow> get shadows => shadow <= 0
       ? const []
       : [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.10 + shadow * 0.006),
-            blurRadius: shadow * 1.6,
-            offset: Offset(0, shadow * 0.45),
+            blurRadius: _shadowBlur,
+            offset: Offset(0, _shadowDrop),
           ),
         ];
+
+  /// Margin kept free around the cards of a page so the shadow and the glow of
+  /// the outer cards are not cut off (at least 14 px).
+  double get safeMargin => max(14.0, min(shadow * 1.6, 15.0) + min(shadow * 0.45, min(shadow * 1.6, 15.0) * 0.4));
   Color get sInk => onScreenInk ?? ink;
   Color get sMuted => onScreenMuted ?? muted;
 
@@ -96,6 +120,7 @@ class AppPalette {
     this.shadow = 0,
     this.tileOpacity = 1,
     this.edgeOpacity = 1,
+    this.shadowCap = 15,
     this.lift = 1.6,
     this.tileOn,
     this.chip,
@@ -131,6 +156,7 @@ class AppPalette {
     double? shadow,
     double? tileOpacity,
     double? edgeOpacity,
+    double? shadowCap,
     double? lift,
   }) => AppPalette(
     tileOn: tileOn,
@@ -157,6 +183,7 @@ class AppPalette {
     shadow: shadow ?? this.shadow,
     tileOpacity: tileOpacity ?? this.tileOpacity,
     edgeOpacity: edgeOpacity ?? this.edgeOpacity,
+    shadowCap: shadowCap ?? this.shadowCap,
     lift: lift ?? this.lift,
   );
 
@@ -399,7 +426,7 @@ class TileView extends StatelessWidget {
     final inner = Container(
       width: circle ? h : null,
       height: h,
-      margin: expand ? const EdgeInsets.symmetric(horizontal: 1.5) : null,
+      margin: expand ? const EdgeInsets.symmetric(horizontal: 2.5) : null,
       decoration: raisedDecoration(
         pal,
         fill ?? pal.panel,
@@ -480,13 +507,6 @@ class TileView extends StatelessWidget {
                       color: lit ? colorOn.withValues(alpha: 0.85 * pal.edgeOpacity) : pal.edge,
                       width: lit ? max(1.5, pal.border) : pal.border,
                     ),
-              boxShadow: pal.tile == Colors.transparent
-                  ? const []
-                  : [
-                      ...pal.shadows,
-                      // A lit card glows softly in its "on" colour.
-                      if (lit) BoxShadow(color: colorOn.withValues(alpha: 0.12), blurRadius: 8, offset: const Offset(0, 2)),
-                    ],
             ),
       foregroundDecoration: selected
           ? BoxDecoration(
@@ -495,13 +515,14 @@ class TileView extends StatelessWidget {
             )
           : null,
       padding: imageBtn ? const EdgeInsets.all(8) : const EdgeInsets.fromLTRB(12, 10, 12, 10),
-      child: ClipRect(
-        child: Stack(
-          children: [
-            Positioned.fill(child: self._content(type, on, colorOn, colorOff)),
-            if (flagged) Positioned(right: -2, bottom: -2, child: Icon(Icons.warning_amber_rounded, size: 15, color: pal.danger)),
-          ],
-        ),
+      // Clipped to the card's rounded shape (not to the padded content), so a
+      // button's shadow may use the card's padding.
+      clipBehavior: Clip.antiAlias,
+      child: Stack(
+        children: [
+          Positioned.fill(child: self._content(type, on, colorOn, colorOff)),
+          if (flagged) Positioned(right: -2, bottom: -2, child: Icon(Icons.warning_amber_rounded, size: 15, color: pal.danger)),
+        ],
       ),
     );
   }
