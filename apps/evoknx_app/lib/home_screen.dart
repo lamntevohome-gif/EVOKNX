@@ -366,7 +366,7 @@ class _HomeScreenState extends State<HomeScreen> {
             Tooltip(
               message: 'Chuyển nhà (hồ sơ)',
               child: DecoratedBox(
-                decoration: raisedDecoration(pal, pal.chipFill, circle: true),
+                decoration: flatDecoration(pal, pal.chipFill, circle: true),
                 child: Material(
                   type: MaterialType.transparency,
                   child: InkWell(
@@ -380,7 +380,7 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(width: 8),
           ],
           DecoratedBox(
-            decoration: raisedDecoration(pal, pal.chipFill, circle: true),
+            decoration: flatDecoration(pal, pal.chipFill, circle: true),
             child: Material(
               type: MaterialType.transparency,
               child: InkWell(
@@ -408,7 +408,7 @@ class _HomeScreenState extends State<HomeScreen> {
           final r = rooms[i];
           final on = r['id'] == roomId;
           return DecoratedBox(
-            decoration: raisedDecoration(pal, on ? pal.chipSel : pal.chipFill, radius: BorderRadius.circular(40), glow: on ? pal.chipSel : null),
+            decoration: flatDecoration(pal, on ? pal.chipSel : pal.chipFill, radius: BorderRadius.circular(40), glow: on ? pal.chipSel : null),
             child: Material(
               type: MaterialType.transparency,
               child: InkWell(
@@ -514,7 +514,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 200),
                         width: w,
-                        decoration: raisedDecoration(
+                        decoration: flatDecoration(
                           pal,
                           fl['id'] == floorId ? pal.chipSel : pal.chipFill,
                           radius: BorderRadius.circular(26),

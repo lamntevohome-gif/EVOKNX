@@ -331,7 +331,7 @@ class _Screen extends StatelessWidget {
   Widget _gearIcon() => Container(
     width: 32,
     height: 32,
-    decoration: raisedDecoration(pal, pal.chipFill, circle: true),
+    decoration: flatDecoration(pal, pal.chipFill, circle: true),
     child: Icon(Icons.settings_outlined, size: 17, color: pal.ink),
   );
 
@@ -435,7 +435,7 @@ class _Screen extends StatelessWidget {
                       child: Container(
                         height: 42,
                         padding: const EdgeInsets.symmetric(horizontal: 10),
-                        decoration: raisedDecoration(
+                        decoration: flatDecoration(
                           pal,
                           r['id'] == room?['id'] ? pal.chipSel : pal.chipFill,
                           radius: BorderRadius.circular(12),
@@ -489,7 +489,7 @@ class _Screen extends StatelessWidget {
                 onTap: () => d.selectRoom(r['id'] as String),
                 child: Container(
                   padding: EdgeInsets.symmetric(horizontal: f * 1.05),
-                  decoration: raisedDecoration(
+                  decoration: flatDecoration(
                     pal,
                     r['id'] == room['id'] ? pal.chipSel : pal.chipFill,
                     radius: BorderRadius.circular(20),
@@ -534,7 +534,7 @@ class _Screen extends StatelessWidget {
                 child: Container(
                   padding: EdgeInsets.symmetric(horizontal: f * 1.2),
                   alignment: Alignment.center,
-                  decoration: raisedDecoration(
+                  decoration: flatDecoration(
                     pal,
                     s['id'] == sub['id'] ? pal.chipSel : pal.chipFill,
                     radius: BorderRadius.circular(18),
@@ -661,7 +661,7 @@ class _Screen extends StatelessWidget {
                       onTap: () => d.selectFloor(fl['id'] as String),
                       child: Container(
                         width: w,
-                        decoration: raisedDecoration(
+                        decoration: flatDecoration(
                           pal,
                           fl['id'] == floor?['id'] ? pal.chipSel : pal.chipFill,
                           radius: BorderRadius.circular(26),

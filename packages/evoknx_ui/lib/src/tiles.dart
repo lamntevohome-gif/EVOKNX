@@ -390,6 +390,7 @@ class TileView extends StatelessWidget {
         circle: circle,
         edge: edge,
         glow: selected ? fill : null,
+        lift: 1.6,
       ),
       child: Center(
         child: icon is IconData ? Icon(icon, size: s, color: color) : iconWidget(icon as String, s, color),
@@ -706,13 +707,7 @@ class TileView extends StatelessWidget {
             on ? colorOn : pal.muted,
             trailing: act == null && w['showTune'] == false
                 ? null
-                : _tap(
-                    'tune',
-                    Padding(
-                      padding: const EdgeInsets.all(2),
-                      child: iconWidget((w['tuneIcon'] ?? 'mdi:tune-vertical').toString(), fs(w, 'iconSize') * 0.85, pal.muted),
-                    ),
-                  ),
+                : _ibtn('tune', (w['tuneIcon'] ?? 'mdi:tune-vertical').toString(), fs(w, 'iconSize') * 0.7, expand: false, circle: true),
           );
         }
         final v = ((sim['val'] as num?) ?? 0).toInt();
@@ -722,14 +717,7 @@ class TileView extends StatelessWidget {
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (act != null)
-                  _tap(
-                    'tune',
-                    Padding(
-                      padding: const EdgeInsets.all(2),
-                      child: Icon(Icons.tune, size: 18, color: pal.muted),
-                    ),
-                  ),
+                if (act != null) _ibtn('tune', (w['tuneIcon'] ?? 'mdi:tune-vertical').toString(), fs(w, 'iconSize') * 0.7, expand: false, circle: true),
                 const SizedBox(width: 4),
                 _led(on, colorOn),
               ],
@@ -930,7 +918,7 @@ class TileView extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 if (showPct) _state(curtain ? 'Mở ${100 - p}%' : 'Đóng $p%'),
-                if (ctrl != 'buttons') ...[const SizedBox(width: 6), _tap('tune', Icon(Icons.tune, size: 18, color: pal.muted))],
+                if (ctrl != 'buttons') ...[const SizedBox(width: 6), _ibtn('tune', 'mdi:tune-vertical', fs(w, 'iconSize') * 0.7, expand: false, circle: true)],
               ],
             ),
           ),
@@ -964,10 +952,12 @@ class TileView extends StatelessWidget {
                   Container(
                     margin: const EdgeInsets.symmetric(horizontal: 2),
                     padding: EdgeInsets.symmetric(vertical: modeLabel == 'icon' ? am * 0.55 : am * 0.35),
-                    decoration: BoxDecoration(
-                      color: active ? pal.chipSel : pal.panel,
-                      border: Border.all(color: active ? pal.chipSel : pal.tileEdge),
-                      borderRadius: BorderRadius.circular(am * 0.62),
+                    decoration: raisedDecoration(
+                      pal,
+                      active ? pal.chipSel : pal.panel,
+                      radius: BorderRadius.circular(am * 0.62),
+                      glow: active ? pal.chipSel : null,
+                      lift: 1.6,
                     ),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
@@ -1033,10 +1023,7 @@ class TileView extends StatelessWidget {
           ],
         );
         // Button of the card that opens the modes / fan popup.
-        Widget tuneBtn() => _tap(
-          'popup',
-          Padding(padding: const EdgeInsets.all(2), child: iconWidget((ac['moreIcon'] ?? 'mdi:tune-variant').toString(), fs(w, 'iconSize') * 0.85, pal.muted)),
-        );
+        Widget tuneBtn() => _ibtn('popup', (ac['moreIcon'] ?? 'mdi:tune-variant').toString(), fs(w, 'iconSize') * 0.7, expand: false, circle: true);
         // Popup of a full card: modes and fan speed (the slider is on the card).
         if (w['look'] == 'controls') {
           return Column(
