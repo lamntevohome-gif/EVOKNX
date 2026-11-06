@@ -96,61 +96,87 @@ class _RtspCamera extends StatefulWidget {
 
 class _RtspCameraState extends State<_RtspCamera> {
   late final Player _player = Player();
-  late final VideoController _video = VideoController(_player);
+  // Software decoding: the hardware decoder of many phones cannot open the
+  // codec of IP cameras ("Could not open codec").
+  late final VideoController _video = VideoController(_player, configuration: const VideoControllerConfiguration(enableHardwareAcceleration: false));
   final List<StreamSubscription<Object?>> _subs = [];
-  Timer? _retry;
+  Timer? _watchdog, _retry;
+  String? _lastError;
   String? _error;
-  bool _playing = false;
+  bool _ok = false; // a picture is on screen
 
   @override
   void initState() {
     super.initState();
-    _subs.add(_player.stream.error.listen(_fail));
+    // The player reports many harmless warnings: they are only remembered and
+    // judged by the watchdog, they do not restart the stream.
+    _subs.add(_player.stream.error.listen((e) => _lastError = e));
+    _subs.add(
+      _player.stream.width.listen((w) {
+        if ((w ?? 0) > 0) _gotPicture();
+      }),
+    );
     _subs.add(
       _player.stream.completed.listen((c) {
         if (c) _fail('Mất luồng video.');
       }),
     );
-    _subs.add(
-      _player.stream.playing.listen((p) {
-        if (mounted && p != _playing) setState(() => _playing = p);
-      }),
-    );
     _open();
+  }
+
+  void _gotPicture() {
+    _ok = true;
+    _watchdog?.cancel();
+    if (mounted && _error != null) setState(() => _error = null);
   }
 
   Future<void> _open() async {
     _retry?.cancel();
+    _watchdog?.cancel();
+    _ok = false;
+    _lastError = null;
     if (mounted) setState(() => _error = null);
     try {
-      // Low delay over TCP (more reliable than UDP on Wi-Fi); no sound.
+      // TCP is more reliable than UDP on Wi-Fi; no cache; no sound.
       final platform = _player.platform as dynamic;
-      for (final kv in const [('rtsp-transport', 'tcp'), ('cache', 'no'), ('profile', 'low-latency')]) {
+      for (final kv in const [('rtsp-transport', 'tcp'), ('cache', 'no'), ('hwdec', 'no')]) {
         try {
           await platform.setProperty(kv.$1, kv.$2);
         } catch (_) {}
       }
       await _player.setVolume(0);
       await _player.open(Media(cameraUrl(widget.cam)), play: true);
+      // No picture after 15 s: say why and try again.
+      _watchdog = Timer(const Duration(seconds: 15), () {
+        if (!_ok) _fail(_describe(_lastError));
+      });
     } catch (e) {
-      _fail('$e');
+      _fail(_describe('$e'));
     }
+  }
+
+  static String _describe(String? e) {
+    final t = (e ?? '').toLowerCase();
+    if (t.contains('codec')) return 'Không mở được bộ giải mã video. Hãy chọn luồng phụ H.264 trong cài đặt camera.';
+    if (t.contains('401') || t.contains('unauthorized') || t.contains('failed to open') || t.contains('connection')) {
+      return 'Không mở được luồng. Kiểm tra IP, cổng, đường dẫn và tài khoản camera.';
+    }
+    return (e == null || e.isEmpty) ? 'Không nhận được hình từ camera.' : e;
   }
 
   void _fail(String msg) {
     if (!mounted) return;
-    setState(() {
-      _error = msg.isEmpty ? 'Không phát được video.' : msg;
-      _playing = false;
-    });
+    _watchdog?.cancel();
+    setState(() => _error = msg);
     _retry?.cancel();
-    _retry = Timer(const Duration(seconds: 5), () {
+    _retry = Timer(const Duration(seconds: 6), () {
       if (mounted) _open();
     });
   }
 
   @override
   void dispose() {
+    _watchdog?.cancel();
     _retry?.cancel();
     for (final s in _subs) {
       s.cancel();
@@ -170,7 +196,7 @@ class _RtspCameraState extends State<_RtspCamera> {
             color: Colors.black54,
             child: _CamMessage(text: '$_error\nĐang thử lại…'),
           )
-        else if (!_playing)
+        else if (!_ok)
           const _CamMessage(loading: true),
       ],
     );

@@ -46,6 +46,7 @@ class SettingsScreen extends StatelessWidget {
             ],
           ),
         );
+        Widget tab(List<Widget> cards) => ListView(padding: const EdgeInsets.fromLTRB(16, 16, 16, 28), children: cards);
         Widget row(Widget leading, String text, {String? sub, Widget? trailing, VoidCallback? onTap}) => InkWell(
           onTap: onTap,
           child: Padding(
@@ -77,217 +78,246 @@ class SettingsScreen extends StatelessWidget {
             useMaterial3: true,
             colorSchemeSeed: pal.accent,
           ),
-          child: Scaffold(
-            backgroundColor: pal.screen,
-            appBar: AppBar(
+          child: DefaultTabController(
+            length: 4,
+            child: Scaffold(
               backgroundColor: pal.screen,
-              foregroundColor: pal.sInk,
-              elevation: 0,
-              scrolledUnderElevation: 0,
-              title: Text(
-                'Cài đặt',
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: pal.sInk),
+              appBar: AppBar(
+                backgroundColor: pal.screen,
+                foregroundColor: pal.sInk,
+                elevation: 0,
+                scrolledUnderElevation: 0,
+                title: Text(
+                  'Cài đặt',
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: pal.sInk),
+                ),
+                bottom: TabBar(
+                  isScrollable: true,
+                  tabAlignment: TabAlignment.start,
+                  indicatorColor: pal.accent,
+                  labelColor: pal.sInk,
+                  unselectedLabelColor: pal.sMuted,
+                  dividerColor: pal.line,
+                  labelStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                  unselectedLabelStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+                  tabs: const [
+                    Tab(text: 'Hồ sơ (nhà)'),
+                    Tab(text: 'Giao diện'),
+                    Tab(text: 'Kết nối KNX'),
+                    Tab(text: 'Giới thiệu'),
+                  ],
+                ),
               ),
-            ),
-            body: ListView(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 28),
-              children: [
-                card('Hồ sơ (nhà)', [
-                  for (final pf in store.profiles)
-                    row(
-                      Icon(pf.id == store.activeId ? Icons.home : Icons.home_outlined, color: pf.id == store.activeId ? pal.accent : pal.muted),
-                      pf.name,
-                      sub: pf.id == store.activeId
-                          ? 'Đang dùng · phiên bản cấu hình ${jsonMap(store.config?['project'])['revision'] ?? 0}'
-                          : 'Bấm để chuyển sang nhà này',
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (pf.id != store.activeId)
-                            TextButton(
-                              onPressed: () async {
-                                await store.switchProfile(pf.id);
-                                if (context.mounted) Navigator.of(context).popUntil((x) => x.isFirst);
-                              },
-                              child: Text(
-                                'Chuyển',
-                                style: TextStyle(color: pal.accent, fontWeight: FontWeight.w600),
-                              ),
-                            ),
-                          PopupMenuButton<String>(
-                            tooltip: 'Tuỳ chọn',
-                            icon: Icon(Icons.more_vert, color: pal.muted),
-                            color: pal.panel,
-                            onSelected: (v) async {
-                              if (v != 'del') return;
-                              final ok = await showDialog<bool>(
-                                context: context,
-                                builder: (c) => AlertDialog(
-                                  title: Text('Xoá hồ sơ “${pf.name}”?'),
-                                  content: const Text('Cấu hình của nhà này sẽ bị xoá khỏi điện thoại. Bạn vẫn có thể thêm lại từ EVOKNX Editor.'),
-                                  actions: [
-                                    TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Huỷ')),
-                                    TextButton(
-                                      onPressed: () => Navigator.pop(c, true),
-                                      child: Text('Xoá', style: TextStyle(color: pal.danger)),
-                                    ),
-                                  ],
+              body: TabBarView(
+                children: [
+                  tab([
+                    card('Hồ sơ (nhà)', [
+                      for (final pf in store.profiles)
+                        row(
+                          Icon(pf.id == store.activeId ? Icons.home : Icons.home_outlined, color: pf.id == store.activeId ? pal.accent : pal.muted),
+                          pf.name,
+                          sub: pf.id == store.activeId
+                              ? 'Đang dùng · phiên bản cấu hình ${jsonMap(store.config?['project'])['revision'] ?? 0}'
+                              : 'Bấm để chuyển sang nhà này',
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (pf.id != store.activeId)
+                                TextButton(
+                                  onPressed: () async {
+                                    await store.switchProfile(pf.id);
+                                    if (context.mounted) Navigator.of(context).popUntil((x) => x.isFirst);
+                                  },
+                                  child: Text(
+                                    'Chuyển',
+                                    style: TextStyle(color: pal.accent, fontWeight: FontWeight.w600),
+                                  ),
                                 ),
-                              );
-                              if (ok != true) return;
-                              final wasActive = pf.id == store.activeId;
-                              await store.deleteProfile(pf.id);
-                              if (wasActive && context.mounted) Navigator.of(context).popUntil((x) => x.isFirst);
-                            },
-                            itemBuilder: (_) => [
-                              PopupMenuItem(
-                                value: 'del',
-                                child: Text('Xoá hồ sơ', style: TextStyle(color: pal.danger)),
+                              PopupMenuButton<String>(
+                                tooltip: 'Tuỳ chọn',
+                                icon: Icon(Icons.more_vert, color: pal.muted),
+                                color: pal.panel,
+                                onSelected: (v) async {
+                                  if (v != 'del') return;
+                                  final ok = await showDialog<bool>(
+                                    context: context,
+                                    builder: (c) => AlertDialog(
+                                      title: Text('Xoá hồ sơ “${pf.name}”?'),
+                                      content: const Text('Cấu hình của nhà này sẽ bị xoá khỏi điện thoại. Bạn vẫn có thể thêm lại từ EVOKNX Editor.'),
+                                      actions: [
+                                        TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Huỷ')),
+                                        TextButton(
+                                          onPressed: () => Navigator.pop(c, true),
+                                          child: Text('Xoá', style: TextStyle(color: pal.danger)),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                  if (ok != true) return;
+                                  final wasActive = pf.id == store.activeId;
+                                  await store.deleteProfile(pf.id);
+                                  if (wasActive && context.mounted) Navigator.of(context).popUntil((x) => x.isFirst);
+                                },
+                                itemBuilder: (_) => [
+                                  PopupMenuItem(
+                                    value: 'del',
+                                    child: Text('Xoá hồ sơ', style: TextStyle(color: pal.danger)),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
-                        ],
-                      ),
-                      onTap: pf.id == store.activeId
-                          ? null
-                          : () async {
-                              await store.switchProfile(pf.id);
-                              if (context.mounted) Navigator.of(context).popUntil((x) => x.isFirst);
-                            },
-                    ),
-                  row(
-                    Icon(Icons.wifi_tethering, color: pal.muted),
-                    'Thêm hồ sơ từ máy tính (Wi-Fi)',
-                    sub: 'Editor → menu EVOKNX → Gửi sang App qua Wi-Fi',
-                    onTap: () async {
-                      final before = store.profiles.length;
-                      final ok = await showReceiveDialog(context, store, pal);
-                      if (!ok || !context.mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(store.profiles.length > before ? 'Đã thêm hồ sơ “${store.projectName}”.' : 'Đã cập nhật hồ sơ “${store.projectName}”.'),
+                          onTap: pf.id == store.activeId
+                              ? null
+                              : () async {
+                                  await store.switchProfile(pf.id);
+                                  if (context.mounted) Navigator.of(context).popUntil((x) => x.isFirst);
+                                },
                         ),
-                      );
-                      Navigator.of(context).popUntil((x) => x.isFirst);
-                    },
-                  ),
-                  row(
-                    Icon(Icons.folder_open_outlined, color: pal.muted),
-                    'Thêm hồ sơ từ file cấu hình',
-                    sub: 'File .json xuất từ EVOKNX Editor. Cùng tên dự án thì cập nhật hồ sơ đó.',
-                    onTap: () async {
-                      final before = store.profiles.length;
-                      final r = await store.importConfig();
-                      if (!context.mounted) return;
-                      if (r != null && r.isNotEmpty) {
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(r)));
-                      } else if (r == null) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              store.profiles.length > before ? 'Đã thêm hồ sơ “${store.projectName}”.' : 'Đã cập nhật hồ sơ “${store.projectName}”.',
-                            ),
-                          ),
-                        );
-                        Navigator.of(context).popUntil((x) => x.isFirst);
-                      }
-                    },
-                  ),
-                ]),
-                card('Giao diện', [
-                  for (final (group, items) in kAppThemeGroups) ...[
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
-                      child: Text(
-                        group.toUpperCase(),
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 0.5, color: pal.muted),
-                      ),
-                    ),
-                    for (final (k, n) in items)
                       row(
-                        ThemeSwatch(AppPalette.of(k)),
-                        n,
-                        sub: k == themeKey(jsonMap(store.config?['theme'])['mode']) ? 'Mặc định của dự án' : null,
-                        trailing: k == store.mode ? Icon(Icons.check, color: pal.accent) : null,
-                        onTap: () => store.setTheme(k),
+                        Icon(Icons.wifi_tethering, color: pal.muted),
+                        'Thêm hồ sơ từ máy tính (Wi-Fi)',
+                        sub: 'Editor → menu EVOKNX → Gửi sang App qua Wi-Fi',
+                        onTap: () async {
+                          final before = store.profiles.length;
+                          final ok = await showReceiveDialog(context, store, pal);
+                          if (!ok || !context.mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                store.profiles.length > before ? 'Đã thêm hồ sơ “${store.projectName}”.' : 'Đã cập nhật hồ sơ “${store.projectName}”.',
+                              ),
+                            ),
+                          );
+                          Navigator.of(context).popUntil((x) => x.isFirst);
+                        },
                       ),
-                  ],
+                      row(
+                        Icon(Icons.folder_open_outlined, color: pal.muted),
+                        'Thêm hồ sơ từ file cấu hình',
+                        sub: 'File .json xuất từ EVOKNX Editor. Cùng tên dự án thì cập nhật hồ sơ đó.',
+                        onTap: () async {
+                          final before = store.profiles.length;
+                          final r = await store.importConfig();
+                          if (!context.mounted) return;
+                          if (r != null && r.isNotEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(r)));
+                          } else if (r == null) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  store.profiles.length > before ? 'Đã thêm hồ sơ “${store.projectName}”.' : 'Đã cập nhật hồ sơ “${store.projectName}”.',
+                                ),
+                              ),
+                            );
+                            Navigator.of(context).popUntil((x) => x.isFirst);
+                          }
+                        },
+                      ),
+                    ]),
+                  ]),
+                  tab([
+                    card('Giao diện', [
+                      for (final (group, items) in kAppThemeGroups) ...[
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
+                          child: Text(
+                            group.toUpperCase(),
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 0.5, color: pal.muted),
+                          ),
+                        ),
+                        for (final (k, n) in items)
+                          row(
+                            ThemeSwatch(AppPalette.of(k)),
+                            n,
+                            sub: k == themeKey(jsonMap(store.config?['theme'])['mode']) ? 'Mặc định của dự án' : null,
+                            trailing: k == store.mode ? Icon(Icons.check, color: pal.accent) : null,
+                            onTap: () => store.setTheme(k),
+                          ),
+                      ],
 
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Row(
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            Icon(Icons.format_size, color: pal.muted),
-                            const SizedBox(width: 14),
-                            Expanded(
-                              child: Text('Cỡ chữ', style: TextStyle(fontSize: 16, color: pal.ink)),
+                            Row(
+                              children: [
+                                Icon(Icons.format_size, color: pal.muted),
+                                const SizedBox(width: 14),
+                                Expanded(
+                                  child: Text('Cỡ chữ', style: TextStyle(fontSize: 16, color: pal.ink)),
+                                ),
+                                Text(
+                                  '${(store.textScale * 100).round()}%',
+                                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: pal.accent),
+                                ),
+                              ],
+                            ),
+                            Slider(
+                              value: store.textScale,
+                              min: 0.8,
+                              max: 1.5,
+                              divisions: 14,
+                              activeColor: pal.accent,
+                              onChanged: (v) => store.setTextScale(v, save: false),
+                              onChangeEnd: (v) => store.setTextScale(v),
                             ),
                             Text(
-                              '${(store.textScale * 100).round()}%',
-                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: pal.accent),
+                              '100% là đúng cỡ chữ đã thiết kế trong Editor. Không phụ thuộc cỡ chữ của điện thoại.',
+                              style: TextStyle(fontSize: 13, color: pal.muted),
                             ),
                           ],
                         ),
-                        Slider(
-                          value: store.textScale,
-                          min: 0.8,
-                          max: 1.5,
-                          divisions: 14,
-                          activeColor: pal.accent,
-                          onChanged: (v) => store.setTextScale(v, save: false),
-                          onChangeEnd: (v) => store.setTextScale(v),
+                      ),
+                      if (defaultTargetPlatform == TargetPlatform.android)
+                        row(
+                          Icon(Icons.aspect_ratio, color: pal.muted),
+                          'Tự cân cỡ chữ theo màn hình',
+                          sub:
+                              'Màn hình ${MediaQuery.sizeOf(context).width.round()} × ${MediaQuery.sizeOf(context).height.round()} dp · '
+                              'hệ số ${store.uiScaleFor(MediaQuery.sizeOf(context)).toStringAsFixed(2)}',
+                          trailing: Switch(value: store.autoScale, onChanged: store.setAutoScale, activeColor: pal.accent),
                         ),
-                        Text(
-                          '100% là đúng cỡ chữ đã thiết kế trong Editor. Không phụ thuộc cỡ chữ của điện thoại.',
-                          style: TextStyle(fontSize: 13, color: pal.muted),
+                      row(
+                        Icon(Icons.screen_lock_portrait_outlined, color: pal.muted),
+                        'Giữ màn hình luôn sáng',
+                        sub: 'Dành cho tablet gắn tường',
+                        trailing: Switch(value: store.keepScreenOn, onChanged: store.setKeepScreenOn, activeColor: pal.accent),
+                      ),
+                    ]),
+                  ]),
+                  tab([
+                    card('Kết nối KNX', [
+                      for (final c in conns)
+                        row(
+                          Icon(Icons.router_outlined, color: pal.muted),
+                          (c['name'] ?? 'Kết nối').toString(),
+                          sub: '${c['host'] ?? ''}:${c['port'] ?? 3671}${c['natMode'] == true ? ' · NAT' : ''}',
+                          trailing: c == cur ? Icon(Icons.check, color: pal.accent) : null,
+                          onTap: conns.length > 1
+                              ? () async {
+                                  await store.setConnection(c['id'] as String);
+                                  await knx.connect();
+                                }
+                              : null,
                         ),
-                      ],
-                    ),
-                  ),
-                  if (defaultTargetPlatform == TargetPlatform.android)
-                    row(
-                      Icon(Icons.aspect_ratio, color: pal.muted),
-                      'Tự cân cỡ chữ theo màn hình',
-                      sub:
-                          'Màn hình ${MediaQuery.sizeOf(context).width.round()} × ${MediaQuery.sizeOf(context).height.round()} dp · '
-                          'hệ số ${store.uiScaleFor(MediaQuery.sizeOf(context)).toStringAsFixed(2)}',
-                      trailing: Switch(value: store.autoScale, onChanged: store.setAutoScale, activeColor: pal.accent),
-                    ),
-                  row(
-                    Icon(Icons.screen_lock_portrait_outlined, color: pal.muted),
-                    'Giữ màn hình luôn sáng',
-                    sub: 'Dành cho tablet gắn tường',
-                    trailing: Switch(value: store.keepScreenOn, onChanged: store.setKeepScreenOn, activeColor: pal.accent),
-                  ),
-                ]),
-                card('Kết nối KNX', [
-                  for (final c in conns)
-                    row(
-                      Icon(Icons.router_outlined, color: pal.muted),
-                      (c['name'] ?? 'Kết nối').toString(),
-                      sub: '${c['host'] ?? ''}:${c['port'] ?? 3671}${c['natMode'] == true ? ' · NAT' : ''}',
-                      trailing: c == cur ? Icon(Icons.check, color: pal.accent) : null,
-                      onTap: conns.length > 1
-                          ? () async {
-                              await store.setConnection(c['id'] as String);
-                              await knx.connect();
-                            }
-                          : null,
-                    ),
-                  row(
-                    Icon(knx.connected ? Icons.link : Icons.link_off, color: knx.connected ? pal.accent : pal.muted),
-                    knx.statusText,
-                    trailing: TextButton(onPressed: knx.connect, child: Text(knx.connected ? 'Kết nối lại' : 'Thử lại')),
-                  ),
-                ]),
-                card('Giới thiệu', [
-                  row(Icon(Icons.info_outline, color: pal.muted), 'EVOKNX', sub: 'Phiên bản 0.1.0 · © ${DateTime.now().year} Evohome'),
-                  row(Icon(Icons.palette_outlined, color: pal.muted), 'Biểu tượng', sub: 'Material Design Icons · Pictogrammers (Apache 2.0)'),
-                ]),
-              ],
+                      row(
+                        Icon(knx.connected ? Icons.link : Icons.link_off, color: knx.connected ? pal.accent : pal.muted),
+                        knx.statusText,
+                        trailing: TextButton(onPressed: knx.connect, child: Text(knx.connected ? 'Kết nối lại' : 'Thử lại')),
+                      ),
+                    ]),
+                  ]),
+                  tab([
+                    card('Giới thiệu', [
+                      row(Icon(Icons.info_outline, color: pal.muted), 'EVOKNX', sub: 'Phiên bản 0.1.0 · © ${DateTime.now().year} Evohome'),
+                      row(Icon(Icons.palette_outlined, color: pal.muted), 'Biểu tượng', sub: 'Material Design Icons · Pictogrammers (Apache 2.0)'),
+                      row(Icon(Icons.text_fields, color: pal.muted), 'Phông chữ', sub: 'Inter · Rasmus Andersson (SIL Open Font License)'),
+                    ]),
+                  ]),
+                ],
+              ),
             ),
           ),
         );

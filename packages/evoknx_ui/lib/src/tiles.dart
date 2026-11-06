@@ -207,6 +207,7 @@ class AppPalette {
   /// Chữ phụ. [on] is the colour of an "on" light, icon and slider.
   static AppPalette _theme({
     required bool dark,
+    bool gray = false,
     required int screen,
     required int tile,
     required int tileOn,
@@ -219,7 +220,13 @@ class AppPalette {
   }) {
     Color c(int v) => Color(0xFF000000 | v);
     Color mix(Color a, Color b, double t) => Color.lerp(a, b, t)!;
-    final s = c(screen), t = c(tile), o = c(tileOn), ch = c(chip), sel = c(chipOn), i = c(ink), m = c(muted);
+    final s = c(screen), ch = c(chip), sel = c(chipOn), i = c(ink), m = c(muted);
+    // Cards stand out from the screen: darker than a light screen, a little
+    // lighter than a dark one.
+    final t = dark ? mix(c(tile), Colors.white, 0.07) : mix(s, i, 0.12);
+    // The card while on is clearly different from the idle one: a strong tint
+    // of the theme colour (grey themes: a lighter grey).
+    final o = gray ? mix(c(tileOn), i, 0.25) : (dark ? mix(c(tileOn), sel, 0.35) : mix(s, sel, 0.50));
     // The accent stays readable on the screen colour.
     final accent = _contrast(sel, s) >= 3 ? sel : mix(sel, i, 0.55);
     final lit = on != null ? c(on) : sel;
@@ -279,6 +286,7 @@ class AppPalette {
   // ---- Trung tính (grey)
   static final AppPalette g1 = _theme(
     dark: true,
+    gray: true,
     screen: 0x2C3139,
     tile: 0x3A4048,
     tileOn: 0x4C5560,
@@ -290,6 +298,7 @@ class AppPalette {
   );
   static final AppPalette g2 = _theme(
     dark: true,
+    gray: true,
     screen: 0x1F242B,
     tile: 0x2B3138,
     tileOn: 0x3A4149,
@@ -301,6 +310,7 @@ class AppPalette {
   );
   static final AppPalette g3 = _theme(
     dark: true,
+    gray: true,
     screen: 0x2E343C,
     tile: 0x39424A,
     tileOn: 0x4A535C,
@@ -467,10 +477,16 @@ class TileView extends StatelessWidget {
                   : pal.border <= 0 || (noBorder && !lit)
                   ? null
                   : Border.all(
-                      color: lit ? colorOn.withValues(alpha: 0.6 * pal.edgeOpacity) : pal.edge,
-                      width: pal.border,
+                      color: lit ? colorOn.withValues(alpha: 0.85 * pal.edgeOpacity) : pal.edge,
+                      width: lit ? max(1.5, pal.border) : pal.border,
                     ),
-              boxShadow: pal.tile == Colors.transparent ? const [] : pal.shadows,
+              boxShadow: pal.tile == Colors.transparent
+                  ? const []
+                  : [
+                      ...pal.shadows,
+                      // A lit card glows softly in its "on" colour.
+                      if (lit) BoxShadow(color: colorOn.withValues(alpha: 0.28), blurRadius: 14, offset: const Offset(0, 3)),
+                    ],
             ),
       foregroundDecoration: selected
           ? BoxDecoration(
