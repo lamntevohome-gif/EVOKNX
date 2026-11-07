@@ -1,6 +1,6 @@
 import 'package:evoknx_ui/evoknx_ui.dart';
 import 'package:flutter/foundation.dart' show defaultTargetPlatform;
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 import 'package:knx_config/knx_config.dart';
 
 import 'account_panel.dart';
@@ -104,12 +104,12 @@ class SettingsScreen extends StatelessWidget {
                   dividerColor: pal.line,
                   labelStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
                   unselectedLabelStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
-                  tabs: const [
-                    Tab(text: 'Tài khoản'),
-                    Tab(text: 'Hồ sơ'),
-                    Tab(text: 'Giao diện'),
-                    Tab(text: 'Kết nối'),
-                    Tab(text: 'Giới thiệu'),
+                  tabs: [
+                    Tab(text: tr('Tài khoản')),
+                    Tab(text: tr('Hồ sơ')),
+                    Tab(text: tr('Giao diện')),
+                    Tab(text: tr('Kết nối')),
+                    Tab(text: tr('Giới thiệu')),
                   ],
                 ),
               ),
@@ -140,7 +140,7 @@ class SettingsScreen extends StatelessWidget {
                                   ),
                                 ),
                               PopupMenuButton<String>(
-                                tooltip: 'Tuỳ chọn',
+                                tooltip: tr('Tuỳ chọn'),
                                 icon: Icon(Icons.more_vert, color: pal.muted),
                                 color: pal.panel,
                                 onSelected: (v) async {
@@ -223,6 +223,15 @@ class SettingsScreen extends StatelessWidget {
                     ]),
                   ]),
                   tab([
+                    card('Ngôn ngữ / Language', [
+                      for (final (code, name) in const [('vi', 'Tiếng Việt'), ('en', 'English')])
+                        row(
+                          Icon(Icons.language, color: pal.muted),
+                          name,
+                          trailing: store.lang == code ? Icon(Icons.check, color: pal.accent) : null,
+                          onTap: () => store.setLang(code),
+                        ),
+                    ]),
                     card('Giao diện', [
                       // Three groups (Sáng, Trung tính, Tối): tap one to show its three themes.
                       for (final (group, items) in kAppThemeGroups)

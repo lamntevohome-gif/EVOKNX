@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:evoknx_ui/evoknx_ui.dart' show Text, tr;
 
 import '../app/theme.dart';
 import 'common.dart';
@@ -54,7 +55,7 @@ class _EtsPasswordDialogState extends State<_EtsPasswordDialog> {
               obscureText: !_show,
               onSubmitted: (v) => Navigator.pop(context, v),
               decoration: InputDecoration(
-                hintText: 'Mật khẩu',
+                hintText: tr('Mật khẩu'),
                 errorText: widget.wrong ? 'Mật khẩu không đúng, nhập lại.' : null,
                 suffixIcon: IconButton(
                   tooltip: _show ? 'Ẩn mật khẩu' : 'Hiện mật khẩu',

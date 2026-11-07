@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 import 'package:knx_config/knx_config.dart';
 
 import '../app/theme.dart';
@@ -175,7 +175,7 @@ class _NewProjectDialogState extends State<_NewProjectDialog> {
   );
 
   Widget _iconBtn(String icon, List<(String, String)> items, ValueChanged<String> onPick) => Tooltip(
-    message: 'Đổi biểu tượng',
+    message: tr('Đổi biểu tượng'),
     child: InkWell(
       borderRadius: BorderRadius.circular(8),
       onTap: () async {
@@ -267,7 +267,7 @@ class _NewProjectDialogState extends State<_NewProjectDialog> {
         initialValue: name,
         autofocus: true,
         onChanged: (v) => name = v,
-        decoration: const InputDecoration(hintText: 'Ví dụ: Biệt thự anh Nam'),
+        decoration: InputDecoration(hintText: tr('Ví dụ: Biệt thự anh Nam')),
       ),
     );
     final Widget content;
@@ -334,7 +334,7 @@ class _NewProjectDialogState extends State<_NewProjectDialog> {
                             initialValue: floors[i].title,
                             onChanged: (v) => floors[i].title = v,
                             style: const TextStyle(fontWeight: FontWeight.w600),
-                            decoration: const InputDecoration(hintText: 'Tên tầng'),
+                            decoration: InputDecoration(hintText: tr('Tên tầng')),
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -352,7 +352,7 @@ class _NewProjectDialogState extends State<_NewProjectDialog> {
                               child: TextFormField(
                                 initialValue: floors[i].rooms[k].name,
                                 onChanged: (v) => floors[i].rooms[k].name = v,
-                                decoration: const InputDecoration(hintText: 'Tên phòng'),
+                                decoration: InputDecoration(hintText: tr('Tên phòng')),
                               ),
                             ),
                           ],
@@ -382,7 +382,7 @@ class _NewProjectDialogState extends State<_NewProjectDialog> {
                 ),
                 if (ets != null || etsError != null)
                   IconButton(
-                    tooltip: 'Bỏ file',
+                    tooltip: tr('Bỏ file'),
                     onPressed: () => setState(() {
                       ets = null;
                       etsError = null;

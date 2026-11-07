@@ -1,3 +1,5 @@
+import 'package:evoknx_ui/evoknx_ui.dart' show tr;
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -201,7 +203,7 @@ class ProjectController extends ChangeNotifier {
       acceptedTypeGroups: const [_typeGroup],
       suggestedName: '${safeName(projectName)}.evoknx',
       initialDirectory: pd != null ? dirName(pd) : (path != null ? File(path!).parent.path : appSettings.defaultFolder),
-      confirmButtonText: 'Lưu',
+      confirmButtonText: tr('Lưu'),
     );
     if (loc == null) return null;
     final chosen = loc.path.toLowerCase().endsWith('.evoknx') ? loc.path : '${loc.path}.evoknx';
@@ -259,7 +261,7 @@ class ProjectController extends ChangeNotifier {
   Future<String?> open([String? filePath]) async {
     String? p = filePath;
     if (p == null) {
-      final f = await openFile(acceptedTypeGroups: const [_typeGroup], confirmButtonText: 'Mở');
+      final f = await openFile(acceptedTypeGroups: const [_typeGroup], confirmButtonText: tr('Mở'));
       if (f == null) return null;
       p = f.path;
     }
@@ -346,7 +348,7 @@ class ProjectController extends ChangeNotifier {
       ],
       suggestedName: '${safeName(projectName)} - cau hinh App.json',
       initialDirectory: projectDir,
-      confirmButtonText: 'Xuất',
+      confirmButtonText: tr('Xuất'),
     );
     if (loc == null) return null;
     mutate((d) {
@@ -381,7 +383,7 @@ class ProjectController extends ChangeNotifier {
       acceptedTypeGroups: const [
         XTypeGroup(label: 'ETS', extensions: ['knxproj', 'csv', 'xml', 'txt']),
       ],
-      confirmButtonText: 'Nhập',
+      confirmButtonText: tr('Nhập'),
     );
     if (f == null) return (result: null, error: null, fileName: null);
     try {

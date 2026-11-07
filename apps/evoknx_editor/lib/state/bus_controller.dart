@@ -1,3 +1,5 @@
+import 'package:evoknx_ui/evoknx_ui.dart' show tr;
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -175,7 +177,7 @@ class BusController extends ChangeNotifier {
         XTypeGroup(label: 'CSV', extensions: ['csv']),
       ],
       suggestedName: 'evoknx-bus-${DateTime.now().millisecondsSinceEpoch}.csv',
-      confirmButtonText: 'Xuất',
+      confirmButtonText: tr('Xuất'),
     );
     if (loc == null) return null;
     String q(String s) => '"${s.replaceAll('"', '""')}"';

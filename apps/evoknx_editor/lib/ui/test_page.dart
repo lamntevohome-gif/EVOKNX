@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:evoknx_ui/evoknx_ui.dart' show Text, tr;
 import 'package:knx_config/knx_config.dart';
 import 'package:knx_core/knx_core.dart';
 

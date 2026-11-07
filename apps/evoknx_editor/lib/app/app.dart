@@ -1,3 +1,4 @@
+import 'package:evoknx_ui/evoknx_ui.dart' show LangScope, appLang;
 import 'package:flutter/material.dart';
 
 import '../state/app_settings.dart';
@@ -17,13 +18,17 @@ class EvoknxApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListenableBuilder(
       listenable: appSettings,
-      builder: (context, _) => MaterialApp(
-        title: 'EVOKNX Editor',
-        debugShowCheckedModeBanner: false,
-        theme: buildTheme(Brightness.light),
-        darkTheme: buildTheme(Brightness.dark),
-        themeMode: appSettings.themeMode,
-        home: Shell(project: project, bus: bus, ha: ha),
+      builder: (context, _) => LangScope(
+        lang: appLang,
+        child: MaterialApp(
+          key: ValueKey(appLang.code),
+          title: 'EVOKNX Editor',
+          debugShowCheckedModeBanner: false,
+          theme: buildTheme(Brightness.light),
+          darkTheme: buildTheme(Brightness.dark),
+          themeMode: appSettings.themeMode,
+          home: Shell(project: project, bus: bus, ha: ha),
+        ),
       ),
     );
   }

@@ -4,6 +4,7 @@ library evoknx_ui;
 
 export 'src/engine.dart';
 export 'src/icons.dart';
+export 'src/i18n.dart';
 export 'src/look.dart';
 export 'src/model.dart';
 export 'src/splash.dart';

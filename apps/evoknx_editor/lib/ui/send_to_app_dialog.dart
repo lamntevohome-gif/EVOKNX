@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:evoknx_ui/evoknx_ui.dart' show Text, tr;
 import 'package:flutter/services.dart';
 import 'package:knx_config/knx_config.dart';
 
@@ -132,7 +133,7 @@ class _SendDialogState extends State<_SendDialog> {
                                       ),
                                     ),
                                     IconButton(
-                                      tooltip: 'Chép địa chỉ',
+                                      tooltip: tr('Chép địa chỉ'),
                                       icon: const Icon(Icons.copy_outlined),
                                       onPressed: () => Clipboard.setData(ClipboardData(text: '${a.ip}:${share.port}')),
                                     ),

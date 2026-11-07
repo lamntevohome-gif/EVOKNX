@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 import 'package:flutter/services.dart' show HardwareKeyboard;
 import 'package:knx_config/knx_config.dart';
 

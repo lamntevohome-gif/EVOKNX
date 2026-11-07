@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:file_selector/file_selector.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 import 'package:knx_config/knx_config.dart';
 
 import '../../app/theme.dart';
@@ -146,7 +146,7 @@ class _IconPickerDialogState extends State<_IconPickerDialog> {
       acceptedTypeGroups: const [
         XTypeGroup(label: 'Biểu tượng (SVG, PNG)', extensions: ['svg', 'png']),
       ],
-      confirmButtonText: 'Tải lên',
+      confirmButtonText: tr('Tải lên'),
     );
     if (f == null) return;
     final bytes = await f.readAsBytes();
@@ -417,7 +417,7 @@ class _IconPickerDialogState extends State<_IconPickerDialog> {
                                       right: 0,
                                       top: 0,
                                       child: PopupMenuButton<String>(
-                                        tooltip: 'Tuỳ chọn',
+                                        tooltip: tr('Tuỳ chọn'),
                                         padding: EdgeInsets.zero,
                                         iconSize: 16,
                                         icon: Icon(Icons.more_vert, size: 16, color: c.muted),

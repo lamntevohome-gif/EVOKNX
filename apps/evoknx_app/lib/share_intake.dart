@@ -2,7 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:evoknx_ui/evoknx_ui.dart' show Text, tr;
 import 'package:flutter/services.dart';
 import 'package:knx_config/knx_config.dart';
 

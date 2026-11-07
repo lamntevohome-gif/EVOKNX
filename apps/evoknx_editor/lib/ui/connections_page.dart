@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:evoknx_ui/evoknx_ui.dart' show Text, tr;
 import 'package:flutter/services.dart';
 import 'package:knx_config/knx_config.dart';
 import 'package:knx_core/knx_core.dart';
@@ -161,9 +162,9 @@ class _ConnectionList extends StatelessWidget {
                   runSpacing: 6,
                   children: [
                     if (i > 0) EvoButton(label: 'Đặt làm mặc định', small: true, onPressed: () => _move(i, 0)),
-                    if (i > 1) EvoButton(label: '', icon: Icons.arrow_upward, small: true, tooltip: 'Đưa lên', onPressed: () => _move(i, i - 1)),
+                    if (i > 1) EvoButton(label: '', icon: Icons.arrow_upward, small: true, tooltip: tr('Đưa lên'), onPressed: () => _move(i, i - 1)),
                     if (i > 0 && i < list.length - 1)
-                      EvoButton(label: '', icon: Icons.arrow_downward, small: true, tooltip: 'Đưa xuống', onPressed: () => _move(i, i + 1)),
+                      EvoButton(label: '', icon: Icons.arrow_downward, small: true, tooltip: tr('Đưa xuống'), onPressed: () => _move(i, i + 1)),
                     if (list.length > 1)
                       EvoButton(
                         label: 'Xoá',
@@ -480,7 +481,7 @@ class _GaTableState extends State<GaTable> {
                           SizedBox(
                             width: 40,
                             child: IconButton(
-                              tooltip: 'Xoá ${g['address']}',
+                              tooltip: tr('Xoá ${g['address']}'),
                               icon: Icon(Icons.close, size: 17, color: c.muted),
                               onPressed: () => _delete({id}),
                             ),
@@ -567,7 +568,7 @@ class _AddGaDialogState extends State<_AddGaDialog> {
               'Tên',
               TextField(
                 controller: _name,
-                decoration: const InputDecoration(hintText: 'Đèn trần phòng khách'),
+                decoration: InputDecoration(hintText: tr('Đèn trần phòng khách')),
                 onSubmitted: (_) => _submit(),
               ),
             ),

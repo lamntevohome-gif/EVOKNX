@@ -3,7 +3,7 @@ import 'dart:math';
 
 import 'package:file_selector/file_selector.dart';
 
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 import 'package:knx_config/knx_config.dart';
 
 import '../../app/theme.dart';
@@ -284,16 +284,16 @@ class _WidgetPropsState extends State<_WidgetProps> {
                 ),
               ),
               IconButton(
-                tooltip: 'Sao chép (Ctrl+C)',
+                tooltip: tr('Sao chép (Ctrl+C)'),
                 icon: const Icon(Icons.copy_outlined),
                 onPressed: () {
                   final m = d.copy();
                   if (m != null) toast(context, m);
                 },
               ),
-              IconButton(tooltip: 'Xuất thẻ ra file để dùng lại', icon: const Icon(Icons.file_upload_outlined), onPressed: () => exportCard(context, d, w)),
+              IconButton(tooltip: tr('Xuất thẻ ra file để dùng lại'), icon: const Icon(Icons.file_upload_outlined), onPressed: () => exportCard(context, d, w)),
               IconButton(
-                tooltip: 'Xoá (Delete)',
+                tooltip: tr('Xoá (Delete)'),
                 icon: Icon(Icons.delete_outline, color: c.danger),
                 onPressed: d.deleteWidget,
               ),
@@ -1817,7 +1817,7 @@ class _SplashSettings extends StatelessWidget {
       acceptedTypeGroups: const [
         XTypeGroup(label: 'Logo PNG', extensions: ['png']),
       ],
-      confirmButtonText: 'Chọn logo',
+      confirmButtonText: tr('Chọn logo'),
     );
     if (f == null) return;
     final bytes = await f.readAsBytes();
@@ -2017,7 +2017,7 @@ class _ButtonImageSettings extends StatelessWidget {
       acceptedTypeGroups: const [
         XTypeGroup(label: 'Hình ảnh (PNG, JPG, SVG)', extensions: ['png', 'jpg', 'jpeg', 'svg']),
       ],
-      confirmButtonText: 'Chọn ảnh',
+      confirmButtonText: tr('Chọn ảnh'),
     );
     if (f == null) return;
     final bytes = await f.readAsBytes();
@@ -2219,7 +2219,7 @@ class _PageBgSettings extends StatelessWidget {
       acceptedTypeGroups: const [
         XTypeGroup(label: 'Ảnh nền (JPG, PNG)', extensions: ['jpg', 'jpeg', 'png']),
       ],
-      confirmButtonText: 'Chọn ảnh',
+      confirmButtonText: tr('Chọn ảnh'),
     );
     if (f == null) return;
     final bytes = await f.readAsBytes();
@@ -2450,7 +2450,7 @@ class _StatesEditor extends StatelessWidget {
             ),
             const SizedBox(width: 4),
             Tooltip(
-              message: 'Biểu tượng',
+              message: tr('Biểu tượng'),
               child: InkWell(
                 borderRadius: BorderRadius.circular(8),
                 onTap: () async {
@@ -2471,7 +2471,7 @@ class _StatesEditor extends StatelessWidget {
             ),
             const SizedBox(width: 4),
             Tooltip(
-              message: 'Màu',
+              message: tr('Màu'),
               child: InkWell(
                 borderRadius: BorderRadius.circular(8),
                 onTap: () => _pickColor(context, i, rows[i]['color'] as String?),
@@ -2487,11 +2487,11 @@ class _StatesEditor extends StatelessWidget {
               ),
             ),
             Tooltip(
-              message: 'Báo động: thẻ chuyển đỏ khi ở trạng thái này',
+              message: tr('Báo động: thẻ chuyển đỏ khi ở trạng thái này'),
               child: Checkbox(value: rows[i]['alarm'] == true, onChanged: (v) => _setRow(i, 'alarm', v == true)),
             ),
             IconButton(
-              tooltip: 'Xoá trạng thái',
+              tooltip: tr('Xoá trạng thái'),
               visualDensity: VisualDensity.compact,
               icon: Icon(Icons.close, size: 16, color: c.muted),
               onPressed: () => _edit((r) => r.removeAt(i)),

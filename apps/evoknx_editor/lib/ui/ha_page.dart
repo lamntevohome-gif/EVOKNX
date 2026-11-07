@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:evoknx_ui/evoknx_ui.dart' show Text, tr;
 import 'package:knx_config/knx_config.dart';
 
 import '../app/theme.dart';
@@ -477,7 +478,7 @@ class _HaPageState extends State<HaPage> {
             ),
           ),
           Tooltip(
-            message: 'Thêm phòng',
+            message: tr('Thêm phòng'),
             child: IconButton(icon: const Icon(Icons.add), onPressed: _newRoom),
           ),
           const SizedBox(width: 6),

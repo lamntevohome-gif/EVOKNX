@@ -5,7 +5,8 @@ import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart' as crypto;
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:evoknx_ui/evoknx_ui.dart' show Text, tr;
 import 'package:flutter/services.dart';
 import 'package:knx_config/knx_config.dart';
 import 'package:media_kit/media_kit.dart';
@@ -126,7 +127,7 @@ class _CameraFullscreenState extends State<CameraFullscreen> {
                   color: Colors.black54,
                   shape: const CircleBorder(),
                   child: IconButton(
-                    tooltip: 'Đóng',
+                    tooltip: tr('Đóng'),
                     icon: const Icon(Icons.fullscreen_exit, color: Colors.white),
                     onPressed: () => Navigator.of(context).pop(),
                   ),

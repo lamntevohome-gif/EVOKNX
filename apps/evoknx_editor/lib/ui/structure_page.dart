@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 import 'package:flutter/services.dart';
 import 'package:knx_config/knx_config.dart';
 
@@ -189,7 +189,7 @@ class _StructurePageState extends State<StructurePage> {
           tab(0, 'Cấu trúc'),
           tab(1, 'Thành phần'),
           const Spacer(),
-          if (leftTab == 0) IconButton(tooltip: 'Thêm tầng', icon: const Icon(Icons.add), onPressed: d.addFloor),
+          if (leftTab == 0) IconButton(tooltip: tr('Thêm tầng'), icon: const Icon(Icons.add), onPressed: d.addFloor),
         ],
       ),
     );
@@ -291,7 +291,7 @@ class _StructurePageState extends State<StructurePage> {
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    IconButton(tooltip: 'Thêm vào ô đang chọn (hoặc chỗ trống đầu tiên)', icon: const Icon(Icons.add), onPressed: () => _add(t.type)),
+                    IconButton(tooltip: tr('Thêm vào ô đang chọn (hoặc chỗ trống đầu tiên)'), icon: const Icon(Icons.add), onPressed: () => _add(t.type)),
                     grip,
                   ],
                 ),
@@ -310,7 +310,7 @@ class _StructurePageState extends State<StructurePage> {
           children: [
             header(
               'THƯ VIỆN THẺ',
-              trailing: IconButton(tooltip: 'Thêm thẻ vào thư viện từ file', icon: const Icon(Icons.add), onPressed: () => importCardsToLibrary(context)),
+              trailing: IconButton(tooltip: tr('Thêm thẻ vào thư viện từ file'), icon: const Icon(Icons.add), onPressed: () => importCardsToLibrary(context)),
             ),
             Expanded(
               child: list.isEmpty
@@ -371,7 +371,7 @@ class _StructurePageState extends State<StructurePage> {
                               ),
                             ),
                             IconButton(
-                              tooltip: 'Thêm vào ô đang chọn (hoặc chỗ trống đầu tiên)',
+                              tooltip: tr('Thêm vào ô đang chọn (hoặc chỗ trống đầu tiên)'),
                               icon: const Icon(Icons.add),
                               onPressed: () {
                                 final m = d.addLibCard(id);
@@ -379,7 +379,7 @@ class _StructurePageState extends State<StructurePage> {
                               },
                             ),
                             Tooltip(
-                              message: 'Kéo để sắp xếp',
+                              message: tr('Kéo để sắp xếp'),
                               child: ReorderableDragStartListener(
                                 index: i,
                                 child: MouseRegion(
@@ -477,7 +477,7 @@ class _StructurePageState extends State<StructurePage> {
               label: 'Dán',
               icon: Icons.content_paste,
               small: true,
-              tooltip: 'Dán “${d.clip!['label'] ?? ''}” (Ctrl+V)',
+              tooltip: tr('Dán “${d.clip!['label'] ?? ''}” (Ctrl+V)'),
               onPressed: () {
                 final m = d.paste();
                 if (m != null) toast(context, m);

@@ -1,5 +1,6 @@
 import 'package:file_selector/file_selector.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:evoknx_ui/evoknx_ui.dart' show Text, tr;
 
 import '../app/theme.dart';
 import '../state/app_settings.dart';
@@ -54,6 +55,9 @@ class EditorSettingsDialog extends StatelessWidget {
                       onChanged: appSettings.setThemeMode,
                     ),
                   ]),
+                  section('Ngôn ngữ / Language', [
+                    Seg<String>(items: const [('vi', 'Tiếng Việt'), ('en', 'English')], value: appSettings.lang, onChanged: appSettings.setLang),
+                  ]),
                   section('Tự lưu vào file dự án', [
                     EvoDropdown<int>(
                       value: appSettings.autosaveMinutes,
@@ -97,7 +101,7 @@ class EditorSettingsDialog extends StatelessWidget {
                           icon: Icons.folder_open_outlined,
                           small: true,
                           onPressed: () async {
-                            final d = await getDirectoryPath(initialDirectory: folder, confirmButtonText: 'Chọn');
+                            final d = await getDirectoryPath(initialDirectory: folder, confirmButtonText: tr('Chọn'));
                             if (d != null) await appSettings.setDefaultFolder(d);
                           },
                         ),

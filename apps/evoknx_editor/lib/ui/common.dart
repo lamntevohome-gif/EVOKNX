@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:evoknx_ui/evoknx_ui.dart' show Text, tr;
 import 'package:knx_core/knx_core.dart';
 
 import '../app/theme.dart';
@@ -330,7 +331,7 @@ class _GaPickerPanelState extends State<_GaPickerPanel> {
                 autofocus: true,
                 style: TextStyle(fontSize: kUiText, color: c.ink),
                 decoration: InputDecoration(
-                  hintText: 'Tìm theo địa chỉ hoặc tên',
+                  hintText: tr('Tìm theo địa chỉ hoặc tên'),
                   prefixIcon: Icon(Icons.search, size: 16, color: c.muted),
                   contentPadding: const EdgeInsets.symmetric(vertical: 0),
                 ),

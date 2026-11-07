@@ -5,7 +5,7 @@ import 'dart:ui' show ImageFilter, TileMode;
 import 'dart:math' show max;
 
 import 'package:evoknx_ui/evoknx_ui.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 import 'package:knx_config/knx_config.dart';
 import 'package:knx_core/knx_core.dart' show KnxConnectionState;
 import 'package:url_launcher/url_launcher.dart';
@@ -397,7 +397,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           if (store.profiles.length > 1) ...[
             Tooltip(
-              message: 'Chuyển hồ sơ',
+              message: tr('Chuyển hồ sơ'),
               child: DecoratedBox(
                 decoration: flatDecoration(pal, pal.chipFill, circle: true),
                 child: Material(

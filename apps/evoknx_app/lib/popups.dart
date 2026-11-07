@@ -1,7 +1,7 @@
 import 'dart:ui' show ImageFilter;
 
 import 'package:evoknx_ui/evoknx_ui.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 import 'package:knx_config/knx_config.dart';
 
 /// Scene confirmation: blurs the screen behind, shows the picture or icon and

@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:evoknx_ui/evoknx_ui.dart';
 import 'package:flutter/foundation.dart' show Factory;
 import 'package:flutter/gestures.dart' show OneSequenceGestureRecognizer, VerticalDragGestureRecognizer;
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 import 'package:knx_config/knx_config.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
@@ -84,7 +84,7 @@ class _WebCardState extends State<WebCard> {
     final label = (w['label'] ?? '').toString();
     final c = _c;
     Widget fullButton() => IconButton(
-      tooltip: 'Mở toàn màn hình',
+      tooltip: tr('Mở toàn màn hình'),
       visualDensity: VisualDensity.compact,
       icon: Icon(Icons.open_in_full, size: 20, color: pal.muted),
       onPressed: () => openWebPage(context, label, _uri!, pal),
@@ -234,7 +234,7 @@ class _WebPageState extends State<WebPage> {
           widget.title.isEmpty ? widget.uri.host : widget.title,
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: pal.ink),
         ),
-        actions: [IconButton(tooltip: 'Tải lại', icon: const Icon(Icons.refresh), onPressed: () => _c.reload())],
+        actions: [IconButton(tooltip: tr('Tải lại'), icon: const Icon(Icons.refresh), onPressed: () => _c.reload())],
       ),
       body: Stack(
         children: [

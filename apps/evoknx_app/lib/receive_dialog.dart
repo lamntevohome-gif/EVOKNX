@@ -1,5 +1,5 @@
 import 'package:evoknx_ui/evoknx_ui.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 import 'package:knx_config/knx_config.dart';
 
 import 'app_store.dart';
@@ -79,7 +79,7 @@ class _ReceiveDialogState extends State<_ReceiveDialog> {
               keyboardType: TextInputType.url,
               autocorrect: false,
               enabled: !busy,
-              decoration: const InputDecoration(labelText: 'Địa chỉ máy tính', hintText: '192.168.1.20:47800', border: OutlineInputBorder()),
+              decoration: InputDecoration(labelText: tr('Địa chỉ máy tính'), hintText: '192.168.1.20:47800', border: OutlineInputBorder()),
             ),
             const SizedBox(height: 12),
             TextField(
@@ -89,7 +89,7 @@ class _ReceiveDialogState extends State<_ReceiveDialog> {
               enabled: !busy,
               onSubmitted: (_) => busy ? null : _receive(),
               style: const TextStyle(fontSize: 22, letterSpacing: 3, fontWeight: FontWeight.w600),
-              decoration: const InputDecoration(labelText: 'Mã 6 số', counterText: '', border: OutlineInputBorder()),
+              decoration: InputDecoration(labelText: tr('Mã 6 số'), counterText: '', border: OutlineInputBorder()),
             ),
             if (error != null) ...[const SizedBox(height: 10), Text(error!, style: TextStyle(fontSize: 14, color: pal.danger, height: 1.4))],
           ],

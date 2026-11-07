@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:evoknx_ui/evoknx_ui.dart' show appLang;
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -10,6 +11,9 @@ const String kEditorVersion = '0.4.0';
 /// Editor preferences (stored in the app data folder, not in projects).
 class AppSettings extends ChangeNotifier {
   ThemeMode themeMode = ThemeMode.light;
+
+  /// Language of the labels: 'vi' or 'en'.
+  String lang = 'vi';
 
   /// Automatic save into the project file, in minutes (0 = off).
   int autosaveMinutes = 5;
@@ -44,6 +48,8 @@ class AppSettings extends ChangeNotifier {
         'dark' => ThemeMode.dark,
         _ => ThemeMode.light,
       };
+      if (j['lang'] == 'en' || j['lang'] == 'vi') lang = j['lang'] as String;
+      appLang.set(lang);
       final a = (j['autosaveMinutes'] as num?)?.toInt();
       if (a != null && autosaveChoices.contains(a)) autosaveMinutes = a;
       final hk = (j['historyKeepDays'] as num?)?.toInt();
@@ -62,6 +68,7 @@ class AppSettings extends ChangeNotifier {
       await f.writeAsString(
         jsonEncode({
           'theme': themeMode.name,
+          'lang': lang,
           'autosaveMinutes': autosaveMinutes,
           'defaultFolder': defaultFolder,
           'historyKeepDays': historyKeepDays,
@@ -70,6 +77,13 @@ class AppSettings extends ChangeNotifier {
         }),
       );
     } catch (_) {}
+  }
+
+  Future<void> setLang(String code) async {
+    lang = code == 'en' ? 'en' : 'vi';
+    appLang.set(lang);
+    notifyListeners();
+    await _persist();
   }
 
   Future<void> setThemeMode(ThemeMode m) async {

@@ -1,5 +1,5 @@
 import 'package:evoknx_ui/evoknx_ui.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 
 import 'account.dart';
 

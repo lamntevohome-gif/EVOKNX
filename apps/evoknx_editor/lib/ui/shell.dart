@@ -1,7 +1,8 @@
 import 'dart:io';
 import 'dart:ui' show AppExitResponse;
 
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:evoknx_ui/evoknx_ui.dart' show Text, tr;
 import 'package:flutter/services.dart';
 
 import '../app/theme.dart';
@@ -209,7 +210,7 @@ class _ShellState extends State<Shell> {
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 260, minWidth: 120),
                   child: Tooltip(
-                    message: 'Bấm để đổi tên dự án',
+                    message: tr('Bấm để đổi tên dự án'),
                     child: SyncedField(
                       value: p.projectName,
                       bold: true,
@@ -239,8 +240,8 @@ class _ShellState extends State<Shell> {
             tab(3, 'Mở rộng'),
           ];
           final right = <Widget>[
-            IconButton(tooltip: 'Hoàn tác (Ctrl+Z)', onPressed: p.canUndo ? p.undo : null, icon: const Icon(Icons.undo)),
-            IconButton(tooltip: 'Làm lại (Ctrl+Y)', onPressed: p.canRedo ? p.redo : null, icon: const Icon(Icons.redo)),
+            IconButton(tooltip: tr('Hoàn tác (Ctrl+Z)'), onPressed: p.canUndo ? p.undo : null, icon: const Icon(Icons.undo)),
+            IconButton(tooltip: tr('Làm lại (Ctrl+Y)'), onPressed: p.canRedo ? p.redo : null, icon: const Icon(Icons.redo)),
           ];
           if (!wide) {
             return Row(

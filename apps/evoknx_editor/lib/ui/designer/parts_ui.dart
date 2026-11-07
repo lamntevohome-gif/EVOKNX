@@ -2,7 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:file_selector/file_selector.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:evoknx_ui/evoknx_ui.dart' show Text, tr;
 import 'package:knx_config/knx_config.dart';
 
 import '../../state/card_library.dart';
@@ -45,7 +46,7 @@ Future<void> exportPart(BuildContext context, Designer d, String kind, String id
     acceptedTypeGroups: const [_partType],
     suggestedName: '${safeName((part['name'] ?? kind).toString())} (${_kindName[kind]}).evoknxpart',
     initialDirectory: dir,
-    confirmButtonText: 'Xuất',
+    confirmButtonText: tr('Xuất'),
   );
   if (loc == null) return;
   final file = loc.path.toLowerCase().endsWith('.evoknxpart') ? loc.path : '${loc.path}.evoknxpart';
@@ -64,7 +65,7 @@ Future<void> exportPart(BuildContext context, Designer d, String kind, String id
 /// [only] limits what the place accepts: the "Nhập trang" button of a room
 /// takes page files only, the one of a page takes cards only, and so on.
 Future<void> importPart(BuildContext context, Designer d, {String? only}) async {
-  final f = await openFile(acceptedTypeGroups: const [_partType], confirmButtonText: 'Nhập');
+  final f = await openFile(acceptedTypeGroups: const [_partType], confirmButtonText: tr('Nhập'));
   if (f == null) return;
   Object? o;
   try {
@@ -185,7 +186,7 @@ Future<void> exportCard(BuildContext context, Designer d, Json w) async {
     acceptedTypeGroups: const [_partType],
     suggestedName: '${safeName((part['name'] ?? 'The').toString())} (thẻ).evoknxpart',
     initialDirectory: d.p.projectDir,
-    confirmButtonText: 'Xuất',
+    confirmButtonText: tr('Xuất'),
   );
   if (loc == null) return;
   final file = loc.path.toLowerCase().endsWith('.evoknxpart') ? loc.path : '${loc.path}.evoknxpart';
@@ -266,7 +267,7 @@ Future<void> _importCard(BuildContext context, Designer d, Json part) async {
 
 /// "+" of the card library: adds card files (.evoknxpart) to the library.
 Future<void> importCardsToLibrary(BuildContext context) async {
-  final files = await openFiles(acceptedTypeGroups: const [_partType], confirmButtonText: 'Thêm vào thư viện');
+  final files = await openFiles(acceptedTypeGroups: const [_partType], confirmButtonText: tr('Thêm vào thư viện'));
   if (files.isEmpty) return;
   var n = 0, skipped = 0;
   for (final f in files) {
