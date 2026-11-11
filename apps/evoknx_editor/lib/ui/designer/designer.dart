@@ -178,12 +178,12 @@ class Designer extends ChangeNotifier {
     };
     if (fl.any(locked.contains)) {
       fl = fl.where((x) => !locked.contains(x)).toSet();
-      notes.add('Home và Security là hai mục cố định của bố cục Modern nên không xoá được (đổi Bố cục về Basic để ẩn chúng).');
+      notes.add('Home and Security are fixed parts of the Modern layout, so they cannot be deleted (set the Layout back to Basic to hide them).');
     }
     if (fl.isNotEmpty && fl.length >= allFloors.length) {
       final keep = allFloors.first['id'] as String;
       fl = fl.where((x) => x != keep).toSet();
-      notes.add('Dự án cần ít nhất một tầng nên tầng “${allFloors.first['title']}” được giữ lại.');
+      notes.add('A project needs at least one floor, so floor “${allFloors.first['title']}” was kept.');
     }
     final rooms = <String>{
       for (final k in keys)
@@ -208,7 +208,7 @@ class Designer extends ChangeNotifier {
       final all = subsOf(r);
       if (e.value.length >= all.length) {
         e.value.remove(all.first['id']);
-        notes.add('Phòng “${r['title']}” cần ít nhất một trang nên “${all.first['title']}” được giữ lại.');
+        notes.add('The room “${r['title']}” needs at least one page, so “${all.first['title']}” was kept.');
       }
     }
     var cards = 0;
@@ -244,8 +244,8 @@ class Designer extends ChangeNotifier {
       _n();
     }
     final n = plan.subs.values.fold<int>(0, (a, b) => a + b.length);
-    final parts = [if (plan.floors.isNotEmpty) '${plan.floors.length} tầng', if (plan.rooms.isNotEmpty) '${plan.rooms.length} phòng', if (n > 0) '$n trang'];
-    return 'Đã xoá ${parts.isEmpty ? 'không mục nào' : parts.join(', ')}.${plan.notes.isEmpty ? '' : ' ${plan.notes.join(' ')}'}';
+    final parts = [if (plan.floors.isNotEmpty) '${plan.floors.length} floors', if (plan.rooms.isNotEmpty) '${plan.rooms.length} rooms', if (n > 0) '$n trang'];
+    return 'Deleted ${parts.isEmpty ? 'nothing' : parts.join(', ')}.${plan.notes.isEmpty ? '' : ' ${plan.notes.join(' ')}'}';
   }
 
   /// "Thư viện phòng" is the room picker of the project (theme.roomPicker).
@@ -416,9 +416,9 @@ class Designer extends ChangeNotifier {
   void addFloor() {
     late Json r;
     p.mutate((d) {
-      final f = makeFloor('Tầng ${floorsOf(d).length + 1}');
+      final f = makeFloor('Floor ${floorsOf(d).length + 1}');
       rawList(d, 'floors').add(f);
-      r = makeRoom('Phòng 1', floorId: f['id'] as String);
+      r = makeRoom('Room 1', floorId: f['id'] as String);
       rawList(d, 'pages').add(r);
     });
     selectRoom(r['id'] as String);
@@ -427,7 +427,7 @@ class Designer extends ChangeNotifier {
   void addRoom(String floorId_) {
     late Json r;
     p.mutate((d) {
-      r = makeRoom('Phòng ${roomsOf(d, floorId_).length + 1}', floorId: floorId_);
+      r = makeRoom('Room ${roomsOf(d, floorId_).length + 1}', floorId: floorId_);
       rawList(d, 'pages').add(r);
     });
     selectRoom(r['id'] as String);
@@ -440,7 +440,7 @@ class Designer extends ChangeNotifier {
     late Json n;
     p.mutate((d) {
       final rr = byId(jsonList(d['pages']), rid as String)!;
-      n = makeSub('Trang ${subsOf(rr).length + 1}', cols: s == null ? 4 : cols(s), rows: s == null ? 12 : rows(s));
+      n = makeSub('Page ${subsOf(rr).length + 1}', cols: s == null ? 4 : cols(s), rows: s == null ? 12 : rows(s));
       rawList(rr, 'subpages').add(n);
     });
     selectSub(rid as String, n['id'] as String);
@@ -449,7 +449,7 @@ class Designer extends ChangeNotifier {
   String? deleteSub() {
     final r = room, s = sub;
     if (r == null || s == null) return null;
-    if (subsOf(r).length < 2) return 'Phòng cần ít nhất một trang.';
+    if (subsOf(r).length < 2) return 'A room needs at least one page.';
     final rid = r['id'] as String, sid = s['id'];
     p.mutate((d) => rawList(byId(jsonList(d['pages']), rid)!, 'subpages').removeWhere((x) => x is Map && x['id'] == sid));
     subId = null;
@@ -470,8 +470,8 @@ class Designer extends ChangeNotifier {
   }
 
   String? deleteFloor(String id) {
-    if (floorsOf(doc).length < 2) return 'Dự án cần ít nhất một tầng.';
-    if (roomsOf(doc, id).isNotEmpty) return 'Tầng còn phòng. Hãy chuyển hoặc xoá các phòng trước.';
+    if (floorsOf(doc).length < 2) return 'A project needs at least one floor.';
+    if (roomsOf(doc, id).isNotEmpty) return 'The floor still has rooms. Move or delete the rooms first.';
     p.mutate((d) => rawList(d, 'floors').removeWhere((x) => x is Map && x['id'] == id));
     overview();
     return null;
@@ -630,16 +630,16 @@ class Designer extends ChangeNotifier {
 
   /// Drops [it] on cell (x, y) of box [g] (null = page). Returns an error.
   String? drop(DragItem it, String? g, int x, int y) {
-    if (test) return 'Đang ở chế độ Chạy thử: chuyển sang Thiết kế để thêm hoặc sửa thẻ.';
+    if (test) return 'Run test is on: switch to Design to add or edit cards.';
     final s = sub;
-    if (s == null) return 'Hãy chọn một phòng trước.';
+    if (s == null) return 'Select a room first.';
     final box = _box(s, g);
     if (box == null) return null;
     if (it.kind == 'lib') {
       final e = cardLibrary.byId(it.id ?? '');
       if (e == null) return null;
       final card = CardLibrary.cardOf(e);
-      if (g != null && card?['type'] == 'group') return 'Không thể đặt khung lưới bên trong khung lưới khác.';
+      if (g != null && card?['type'] == 'group') return 'A grid frame cannot be placed inside another grid frame.';
       final fp = footprint(it, g, x, y);
       late PartResult res;
       editSub((ss) {
@@ -651,9 +651,9 @@ class Designer extends ChangeNotifier {
       return null;
     }
     if (it.kind == 'palette') {
-      if (g != null && it.type == 'group') return 'Không thể đặt khung lưới bên trong khung lưới khác.';
+      if (g != null && it.type == 'group') return 'A grid frame cannot be placed inside another grid frame.';
       final sp = placeAt(box, it.type!, x, y);
-      if (sp == null || (g == null && sp.y + sp.h > _maxRows(box))) return 'Không đủ chỗ ở vị trí này.';
+      if (sp == null || (g == null && sp.y + sp.h > _maxRows(box))) return 'Not enough room at this position.';
       late Json nw;
       editSub((ss) {
         final b = _box(ss, g)!;
@@ -669,7 +669,7 @@ class Designer extends ChangeNotifier {
     if (group.length > 1) {
       final mf = footprint(it, g, x, y);
       if (mf == null) return null;
-      if (!mf.ok) return 'Không đủ chỗ: các thẻ đã chọn sẽ trùng thẻ khác hoặc ra ngoài trang.';
+      if (!mf.ok) return 'Not enough room: the selected cards would overlap other cards or go outside the page.';
       final dx = x - pi(dragged!, 'x'), dy = y - pi(dragged, 'y');
       editSub((ss) {
         for (final id in group) {
@@ -683,8 +683,8 @@ class Designer extends ChangeNotifier {
     if (fp == null) return null;
     if (!fp.ok) {
       final w = findWidget(s, it.id);
-      if (g != null && w?['type'] == 'group') return 'Không thể đặt khung lưới bên trong khung lưới khác.';
-      return 'Vị trí này đã có thành phần khác.';
+      if (g != null && w?['type'] == 'group') return 'A grid frame cannot be placed inside another grid frame.';
+      return 'This position already has another component.';
     }
     final id = it.id!;
     editSub((ss) {
@@ -714,7 +714,7 @@ class Designer extends ChangeNotifier {
       final first = findWidget(s, id);
       if (first == null) return null;
       final fp = _moveFootprint(s, containerOf(s, id)!, ids, first, pi(first, 'x') + dx, pi(first, 'y') + dy);
-      if (!fp.ok) return fp.x < 0 || fp.y < 0 ? null : 'Không đủ chỗ: trùng thẻ khác hoặc ra ngoài trang.';
+      if (!fp.ok) return fp.x < 0 || fp.y < 0 ? null : 'Not enough room: overlaps another card or goes outside the page.';
       editSub((ss) {
         for (final i in ids) {
           final w = findWidget(ss, i);
@@ -728,7 +728,7 @@ class Designer extends ChangeNotifier {
     final nx = pi(w, 'x') + dx, ny = pi(w, 'y') + dy, nw = pi(w, 'w') + dw, nh = pi(w, 'h') + dh;
     final maxRows = box['type'] == 'group' ? rows(box) : pageRows(box, doc);
     if (nx < 0 || ny < 0 || nw < 1 || nh < 1 || nx + nw > cols(box) || ny + nh > maxRows) return null;
-    if (!isFree(box, nx, ny, nw, nh, id)) return 'Không đủ chỗ: trùng với thẻ khác.';
+    if (!isFree(box, nx, ny, nw, nh, id)) return 'Not enough room: overlaps another card.';
     editWidget(id, (o) => o['pos'] = {'x': nx, 'y': ny, 'w': nw, 'h': nh}, coalesce: 'nudge-$id');
     return null;
   }
@@ -736,8 +736,8 @@ class Designer extends ChangeNotifier {
   /// Adds a card from the card library to the selected cell, or to the first
   /// free spot of the page.
   String? addLibCard(String entryId) {
-    if (test) return 'Đang ở chế độ Chạy thử: chuyển sang Thiết kế để thêm hoặc sửa thẻ.';
-    if (room == null) return 'Hãy chọn một phòng trước.';
+    if (test) return 'Run test is on: switch to Design to add or edit cards.';
+    if (room == null) return 'Select a room first.';
     final c = cell;
     if (c != null) return drop(DragItem.lib(entryId), c.g, c.x, c.y);
     final s = sub;
@@ -746,10 +746,10 @@ class Designer extends ChangeNotifier {
   }
 
   String? addWidget(String type) {
-    if (test) return 'Đang ở chế độ Chạy thử: chuyển sang Thiết kế để thêm hoặc sửa thẻ.';
+    if (test) return 'Run test is on: switch to Design to add or edit cards.';
     if (room == null) {
       final f = floor;
-      if (f == null) return 'Hãy thêm tầng trước.';
+      if (f == null) return 'Add a floor first.';
       addRoom(f['id'] as String);
     }
     final s = sub!;
@@ -757,15 +757,15 @@ class Designer extends ChangeNotifier {
     if (c != null) {
       final box = _box(s, c.g);
       if (box == null) return null;
-      if (c.g != null && type == 'group') return 'Không thể đặt khung lưới bên trong khung lưới khác.';
+      if (c.g != null && type == 'group') return 'A grid frame cannot be placed inside another grid frame.';
       final sp = placeAt(box, type, c.x, c.y);
-      if (sp == null || (c.g == null && sp.y + sp.h > pageRows(box, doc))) return 'Ô đã chọn không đủ chỗ cho thành phần này. Hãy chọn ô khác.';
+      if (sp == null || (c.g == null && sp.y + sp.h > pageRows(box, doc))) return 'The selected cell has no room for this component. Select another cell.';
       return drop(DragItem.palette(type), c.g, c.x, c.y);
     }
     final t = kWidgetTypes[type]!;
     // No selected cell: first free spot that is inside the page, never below it.
     final f = findFreeWithin(s, t.w, t.h, pageRows(s, doc));
-    if (f == null) return 'Trang đã hết chỗ cho thẻ ${t.w} × ${t.h}. Hãy thu nhỏ hoặc xoá bớt thẻ, hoặc thêm trang mới.';
+    if (f == null) return 'The page has no room for a ${t.w} × ${t.h} card. Shrink or delete some cards, or add a new page.';
     late Json nw;
     editSub((ss) {
       nw = makeWidget(type, f.x, f.y, min(t.w, cols(ss)), t.h);
@@ -794,19 +794,19 @@ class Designer extends ChangeNotifier {
     if (w == null) return null;
     clip = deepCopy(w);
     _n();
-    return 'Đã sao chép “${w['label'] ?? ''}”. Chọn một ô trống rồi bấm Dán (Ctrl+V).';
+    return 'Copied “${w['label'] ?? ''}”. Select an empty cell and click Paste (Ctrl+V).';
   }
 
   String? paste() {
-    if (test) return 'Đang ở chế độ Chạy thử: chuyển sang Thiết kế để thêm hoặc sửa thẻ.';
+    if (test) return 'Run test is on: switch to Design to add or edit cards.';
     final cp = clip;
     final s = sub;
     if (cp == null) return null;
-    if (s == null) return 'Hãy mở một phòng trước khi dán.';
+    if (s == null) return 'Open a room before pasting.';
     final c = cell;
     final box = c == null ? s : _box(s, c.g);
     if (box == null) return null;
-    if (c?.g != null && cp['type'] == 'group') return 'Không thể dán khung lưới vào bên trong khung lưới khác.';
+    if (c?.g != null && cp['type'] == 'group') return 'A grid frame cannot be pasted inside another grid frame.';
     final nw = cloneWidget(cp);
     final ww = min(pi(nw, 'w'), cols(box));
     final hh = c?.g != null ? min(pi(nw, 'h'), rows(box)) : pi(nw, 'h');
@@ -814,10 +814,10 @@ class Designer extends ChangeNotifier {
     if (c != null) {
       x = max(0, min(c.x, cols(box) - ww));
       y = c.y;
-      if (!isFree(box, x, y, ww, hh)) return 'Ô đã chọn không đủ chỗ cho thành phần này.';
+      if (!isFree(box, x, y, ww, hh)) return 'The selected cell has no room for this component.';
     } else {
       final f = findFreeWithin(box, ww, hh, c?.g != null || !identical(box, s) ? rows(box) : pageRows(box, doc));
-      if (f == null) return 'Trang đã hết chỗ để dán thẻ này.';
+      if (f == null) return 'The page has no room left to paste this card.';
       x = f.x;
       y = f.y;
     }
@@ -825,7 +825,7 @@ class Designer extends ChangeNotifier {
     final g = c?.g;
     editSub((ss) => rawList(_box(ss, g)!, 'widgets').add(nw));
     selectWidget(nw['id'] as String);
-    return 'Đã dán “${nw['label'] ?? ''}”.';
+    return 'Pasted “${nw['label'] ?? ''}”.';
   }
 
   /// Re-packs widgets after the column count shrinks.
@@ -845,7 +845,7 @@ class Designer extends ChangeNotifier {
   String? rowsBlocker(Json box, int n) {
     final need = cellsNeeded(box).rows;
     if (need <= n) return null;
-    return 'Không thể giảm xuống $n hàng: còn thẻ ở hàng $need. Hãy di chuyển hoặc xoá thẻ trước.';
+    return 'Cannot reduce to $n rows: there is still a card in row $need. Move or delete the card first.';
   }
 
   /// Why the grid of [box] cannot be given [n] columns (null = it can). The
@@ -856,7 +856,7 @@ class Designer extends ChangeNotifier {
     repackCols(copy, n);
     final need = cellsNeeded(copy);
     if (need.cols <= n && need.rows <= rows(box)) return null;
-    return 'Không thể giảm xuống $n cột: các thẻ không còn đủ chỗ sau khi sắp xếp lại. Hãy xoá hoặc thu nhỏ bớt thẻ trước.';
+    return 'Cannot reduce to $n columns: the cards would not fit after rearranging. Delete or shrink some cards first.';
   }
 
   static void repackCols(Json box, int n) {
@@ -946,7 +946,7 @@ class Designer extends ChangeNotifier {
     final label = (w['label'] ?? '').toString();
     if (ga == null) {
       final sl = slotsFor(w).where((s) => s.key == slot);
-      log.insert(0, LogEntry('—', '$label: chưa gán ${sl.isEmpty ? slot : sl.first.label.toLowerCase()}', missing: true));
+      log.insert(0, LogEntry('—', '$label: ${sl.isEmpty ? slot : sl.first.label.toLowerCase()} not assigned', missing: true));
     } else {
       // Virtual addresses (main group 32) go to Home Assistant, the others to the bus.
       final viaHa = isHaAddress(ga);
@@ -979,7 +979,7 @@ class Designer extends ChangeNotifier {
       case 'switch':
         final on = !(s['on'] == true);
         s['on'] = on;
-        send(w, 'write', on, on ? '1 (Bật)' : '0 (Tắt)');
+        send(w, 'write', on, on ? '1 (On)' : '0 (Off)');
         break;
       case 'dimmer':
         if (action == 'preview') {
@@ -1001,7 +1001,7 @@ class Designer extends ChangeNotifier {
           final cur = ((s['val'] as num?) ?? 0) > 0;
           s['val'] = cur ? 0 : 100;
           if (jsonMap(w['bind'])['write'] != null) {
-            send(w, 'write', !cur, cur ? '0 (Tắt)' : '1 (Bật)');
+            send(w, 'write', !cur, cur ? '0 (Off)' : '1 (On)');
           } else {
             send(w, 'value', cur ? 0 : 100, cur ? '0 %' : '100 %');
           }
@@ -1023,9 +1023,9 @@ class Designer extends ChangeNotifier {
           final v = inv ? !down : down;
           s['pos'] = down ? 100 : 0;
           final curtain = w['shStyle'] == 'curtain';
-          send(w, 'upDown', v, '${v ? 1 : 0} (${curtain ? (down ? 'Đóng' : 'Mở') : (down ? 'Xuống' : 'Lên')})');
+          send(w, 'upDown', v, '${v ? 1 : 0} (${curtain ? (down ? 'Close' : 'Open') : (down ? 'Down' : 'Up')})');
         } else if (action == 'stop') {
-          send(w, 'stop', true, '1 (Dừng)');
+          send(w, 'stop', true, '1 (Stop)');
         } else if (action == 'preview') {
           s['pos'] = (arg as num).round();
         } else if (action == 'commit') {
@@ -1062,22 +1062,22 @@ class Designer extends ChangeNotifier {
         } else if (action == 'off') {
           if (s['on'] == true) {
             s['on'] = false;
-            send(w, 'power', false, '0 (Tắt)');
+            send(w, 'power', false, '0 (Off)');
           }
         } else if (action == 'power') {
           final on = s['on'] != true;
           s['on'] = on;
-          send(w, 'power', on, on ? '1 (Bật)' : '0 (Tắt)');
+          send(w, 'power', on, on ? '1 (On)' : '0 (Off)');
         } else if (action == 'fan') {
           final k = (arg ?? 'auto').toString();
           s['fan'] = k;
           final v = acFanValue(ac, k);
-          send(w, 'fan', v, '$v (${k == 'auto' ? 'Quạt tự động' : 'Quạt mức $k'})');
+          send(w, 'fan', v, '$v (${k == 'auto' ? 'Fan auto' : 'Fan level $k'})');
         } else if (action == 'mode') {
           final k = arg as String;
           if (s['on'] != true) {
             s['on'] = true;
-            send(w, 'power', true, '1 (Bật)');
+            send(w, 'power', true, '1 (On)');
           }
           s['mode'] = k;
           final names = jsonMap(ac['names']);
@@ -1093,7 +1093,7 @@ class Designer extends ChangeNotifier {
         break;
       case 'link':
       case 'webview':
-        onMessage?.call('Trên App sẽ mở ${w['url'] ?? ''}');
+        onMessage?.call('The App will open ${w['url'] ?? ''}');
         break;
       default:
         onMessage?.call(label);

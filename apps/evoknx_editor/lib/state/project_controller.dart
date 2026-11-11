@@ -14,7 +14,7 @@ import 'project_files.dart';
 
 /// Holds the open project, file path, undo/redo history and autosave.
 class ProjectController extends ChangeNotifier {
-  Json doc = newProject('Dự án mới');
+  Json doc = newProject('New project');
   String? path;
   bool dirty = false;
   List<String> recent = [];
@@ -46,12 +46,12 @@ class ProjectController extends ChangeNotifier {
   /// project get their own session file so several windows never collide.
   String _sessionName = 'autosave.evoknx';
 
-  static const _typeGroup = XTypeGroup(label: 'Dự án EvoKNX', extensions: ['evoknx', 'json']);
+  static const _typeGroup = XTypeGroup(label: 'EvoKNX project', extensions: ['evoknx', 'json']);
 
   bool get canUndo => _undo.isNotEmpty;
   bool get canRedo => _redo.isNotEmpty;
   String? get fileName => path?.split(Platform.pathSeparator).last;
-  String get projectName => (jsonMap(doc['project'])['name'] as String?) ?? 'Dự án mới';
+  String get projectName => (jsonMap(doc['project'])['name'] as String?) ?? 'New project';
   List<Json> get connections => jsonList(doc['connections']);
   List<Json> get groupAddresses => jsonList(doc['groupAddresses']);
   Json? gaById(String? id) {
@@ -102,13 +102,13 @@ class ProjectController extends ChangeNotifier {
         }
       }
     } catch (_) {}
-    doc = _starter('Dự án mới');
+    doc = _starter('New project');
   }
 
   Json _starter(String name) {
     final d = newProject(name);
     final f = jsonList(d['floors']).first;
-    (d['pages'] as List).add(makeRoom('Phòng khách', floorId: f['id'] as String));
+    (d['pages'] as List).add(makeRoom('Living room', floorId: f['id'] as String));
     return d;
   }
 
@@ -203,7 +203,7 @@ class ProjectController extends ChangeNotifier {
       acceptedTypeGroups: const [_typeGroup],
       suggestedName: '${safeName(projectName)}.evoknx',
       initialDirectory: pd != null ? dirName(pd) : (path != null ? File(path!).parent.path : appSettings.defaultFolder),
-      confirmButtonText: tr('Lưu'),
+      confirmButtonText: tr('Save'),
     );
     if (loc == null) return null;
     final chosen = loc.path.toLowerCase().endsWith('.evoknx') ? loc.path : '${loc.path}.evoknx';
@@ -215,9 +215,9 @@ class ProjectController extends ChangeNotifier {
     if (l.main != path && await File(l.main).exists()) {
       final ok =
           await confirm?.call(
-            'Ghi đè dự án?',
-            'Folder “${baseName(l.dir)}” đã có file dự án ${baseName(l.main)}. Ghi đè bằng dự án đang mở? Các bản lịch sử cũ trong folder vẫn được giữ.',
-            'Ghi đè',
+            'Overwrite the project?',
+            'The folder “${baseName(l.dir)}” already has the project file ${baseName(l.main)}. Overwrite it with the open project? Older history copies in the folder are kept.',
+            'Overwrite',
           ) ??
           false;
       if (!ok) return null;
@@ -261,13 +261,13 @@ class ProjectController extends ChangeNotifier {
   Future<String?> open([String? filePath]) async {
     String? p = filePath;
     if (p == null) {
-      final f = await openFile(acceptedTypeGroups: const [_typeGroup], confirmButtonText: tr('Mở'));
+      final f = await openFile(acceptedTypeGroups: const [_typeGroup], confirmButtonText: tr('Open'));
       if (f == null) return null;
       p = f.path;
     }
     try {
       final o = jsonDecode(await File(p).readAsString());
-      if (!isProject(o)) return 'File không đúng định dạng dự án EvoKNX.';
+      if (!isProject(o)) return 'The file is not in the EvoKNX project format.';
       mutate((_) {});
       doc = migrate((o as Map).cast<String, dynamic>());
       final snap = snapshotInfo(p);
@@ -278,7 +278,7 @@ class ProjectController extends ChangeNotifier {
       _changed();
       return null;
     } catch (e) {
-      return 'Không mở được file: $e';
+      return 'Could not open the file: $e';
     }
   }
 
@@ -291,10 +291,9 @@ class ProjectController extends ChangeNotifier {
     if (p != null && !saveAs && !isProjectLayout(p) && !_legacyDeclined) {
       final yes =
           await confirm?.call(
-            'Chuyển sang folder dự án?',
-            'Từ phiên bản này, mỗi dự án có folder riêng mang tên dự án, kèm lịch sử các lần lưu theo ngày. '
-                'Tạo folder “${safeName(projectName)}” cạnh file hiện tại và lưu vào đó? File cũ vẫn được giữ nguyên.',
-            'Chuyển',
+            'Switch to the project folder?',
+            'From this version each project has its own folder named after the project, with the history of saves by day. Create the folder “${safeName(projectName)}” next to the current file and save into it? The old file is kept as it is.',
+            'Switch',
           ) ??
           false;
       if (yes) {
@@ -311,7 +310,7 @@ class ProjectController extends ChangeNotifier {
     final restored = viewingSnapshot;
     final ok = await _writeTo(p);
     lastSaveWasAuto = false;
-    if (!ok) return 'Không lưu được file. Kiểm tra quyền ghi của thư mục.';
+    if (!ok) return 'Could not save the file. Check the folder\'s write permission.';
     viewingSnapshot = null;
     var note = '';
     if (isProjectLayout(p)) {
@@ -320,13 +319,13 @@ class ProjectController extends ChangeNotifier {
         final sp = snapshotPath(p, projectName, now);
         await File(sp).create(recursive: true);
         await File(sp).writeAsString(const JsonEncoder.withIndent('  ').convert(doc));
-        note = ' · lịch sử ${two(now.hour)}:${two(now.minute)}:${two(now.second)}';
+        note = ' · history ${two(now.hour)}:${two(now.minute)}:${two(now.second)}';
       } catch (_) {
-        note = ' · không ghi được bản lịch sử';
+        note = ' · history copy could not be written';
       }
     }
     _changed();
-    return restored != null ? 'Đã khôi phục bản lưu $restored thành bản chính$note' : 'Đã lưu ${baseName(p)}$note';
+    return restored != null ? 'Restored save $restored as the main version$note' : 'Saved ${baseName(p)}$note';
   }
 
   /// Exports the configuration file for the mobile/tablet app.
@@ -344,11 +343,11 @@ class ProjectController extends ChangeNotifier {
   Future<String?> exportConfig() async {
     final loc = await getSaveLocation(
       acceptedTypeGroups: const [
-        XTypeGroup(label: 'Cấu hình App', extensions: ['json']),
+        XTypeGroup(label: 'App configuration', extensions: ['json']),
       ],
       suggestedName: '${safeName(projectName)} - cau hinh App.json',
       initialDirectory: projectDir,
-      confirmButtonText: tr('Xuất'),
+      confirmButtonText: tr('Export'),
     );
     if (loc == null) return null;
     mutate((d) {
@@ -360,7 +359,7 @@ class ProjectController extends ChangeNotifier {
     final out = exportProject(doc);
     final file = loc.path.toLowerCase().endsWith('.json') ? loc.path : '${loc.path}.json';
     await File(file).writeAsString(const JsonEncoder.withIndent('  ').convert(out));
-    return 'Đã xuất cấu hình ${file.split(Platform.pathSeparator).last}';
+    return 'Exported the configuration ${file.split(Platform.pathSeparator).last}';
   }
 
   void _remember(String p) {
@@ -383,7 +382,7 @@ class ProjectController extends ChangeNotifier {
       acceptedTypeGroups: const [
         XTypeGroup(label: 'ETS', extensions: ['knxproj', 'csv', 'xml', 'txt']),
       ],
-      confirmButtonText: tr('Nhập'),
+      confirmButtonText: tr('Import'),
     );
     if (f == null) return (result: null, error: null, fileName: null);
     try {
@@ -405,7 +404,7 @@ class ProjectController extends ChangeNotifier {
     } on EtsException catch (e) {
       return (result: null, error: e.message, fileName: f.name);
     } catch (e) {
-      return (result: null, error: 'Không đọc được file: $e', fileName: f.name);
+      return (result: null, error: 'Could not read the file: $e', fileName: f.name);
     }
   }
 }

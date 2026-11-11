@@ -37,7 +37,7 @@ class _EtsPasswordDialogState extends State<_EtsPasswordDialog> {
   Widget build(BuildContext context) {
     final c = context.evo;
     return AlertDialog(
-      title: const Text('Project ETS có mật khẩu'),
+      title: const Text('Password-protected ETS project'),
       content: SizedBox(
         width: 420,
         child: Column(
@@ -45,7 +45,7 @@ class _EtsPasswordDialogState extends State<_EtsPasswordDialog> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              'Nhập mật khẩu của project trong file “${widget.fileName}” (mật khẩu đặt trong ETS khi bảo vệ project).',
+              'Enter the project password for the file “${widget.fileName}” (the password set in ETS when protecting the project).',
               style: TextStyle(height: 1.45, color: c.muted),
             ),
             const SizedBox(height: 14),
@@ -55,10 +55,10 @@ class _EtsPasswordDialogState extends State<_EtsPasswordDialog> {
               obscureText: !_show,
               onSubmitted: (v) => Navigator.pop(context, v),
               decoration: InputDecoration(
-                hintText: tr('Mật khẩu'),
-                errorText: widget.wrong ? tr('Mật khẩu không đúng, nhập lại.') : null,
+                hintText: tr('Password'),
+                errorText: widget.wrong ? tr('Wrong password, enter it again.') : null,
                 suffixIcon: IconButton(
-                  tooltip: _show ? tr('Ẩn mật khẩu') : tr('Hiện mật khẩu'),
+                  tooltip: _show ? tr('Hide password') : tr('Show password'),
                   icon: Icon(_show ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: 18),
                   onPressed: () => setState(() => _show = !_show),
                 ),
@@ -68,8 +68,8 @@ class _EtsPasswordDialogState extends State<_EtsPasswordDialog> {
         ),
       ),
       actions: [
-        EvoButton(label: 'Huỷ', onPressed: () => Navigator.pop(context)),
-        EvoButton(label: 'Mở project', primary: true, onPressed: () => Navigator.pop(context, _c.text)),
+        EvoButton(label: 'Cancel', onPressed: () => Navigator.pop(context)),
+        EvoButton(label: 'Open project', primary: true, onPressed: () => Navigator.pop(context, _c.text)),
       ],
     );
   }

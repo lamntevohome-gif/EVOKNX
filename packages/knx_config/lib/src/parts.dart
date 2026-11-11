@@ -110,15 +110,15 @@ class PartResult {
 /// Inserts [part] into [doc]: a floor at the end, a room into [floorId],
 /// a page into [roomId].
 PartResult applyPart(Json doc, Json part, {String? floorId, String? roomId}) {
-  if (!isPart(part)) return PartResult(error: 'File không phải tầng/phòng/trang EvoKNX.');
+  if (!isPart(part)) return PartResult(error: 'The file is not an EvoKNX floor/room/page.');
   final p = Json.from(_copy(part) as Map);
   final kind = p['kind'] as String;
   final rooms0 = jsonList(doc['pages']);
   if (kind == 'room' && (floorId == null || !jsonList(doc['floors']).any((f) => f['id'] == floorId))) {
-    return PartResult(error: 'Hãy chọn một tầng để nhập phòng vào.');
+    return PartResult(error: 'Select a floor to import the room into.');
   }
   if (kind == 'page' && (roomId == null || !rooms0.any((r) => r['id'] == roomId))) {
-    return PartResult(error: 'Hãy chọn một phòng để nhập trang vào.');
+    return PartResult(error: 'Select a room to import the page into.');
   }
 
   // Group addresses: reuse by address, otherwise add.
@@ -288,7 +288,7 @@ Json makeCardPart(Json doc, Json widget) {
 /// has the same KNX address (used for the card library). [atX]/[atY] place
 /// the card there when that spot is free.
 PartResult applyCardPart(Json doc, Json part, Json sub, {bool keepAddresses = true, bool matchExisting = false, int? atX, int? atY}) {
-  if (!isPart(part) || part['kind'] != 'card') return PartResult(error: 'File không phải thẻ EvoKNX.');
+  if (!isPart(part) || part['kind'] != 'card') return PartResult(error: 'The file is not an EvoKNX card.');
   final p = Json.from(_copy(part) as Map);
   // Check there is room before changing anything (addresses, icons).
   {
@@ -298,7 +298,7 @@ PartResult applyCardPart(Json doc, Json part, Json sub, {bool keepAddresses = tr
       final pos0 = jsonMap(w0['pos']);
       final w1 = min(((pos0['w'] as num?) ?? 2).toInt(), cols0), h1 = ((pos0['h'] as num?) ?? 2).toInt();
       if (findFreeWithin(sub, w1, h1, rows0) == null) {
-        return PartResult(error: 'Trang không đủ chỗ cho thẻ này. Hãy xoá bớt thẻ, thu nhỏ thẻ, hoặc chọn trang khác.');
+        return PartResult(error: 'The page has no room for this card. Delete some cards, make cards smaller, or choose another page.');
       }
     }
   }
@@ -396,7 +396,7 @@ PartResult applyCardPart(Json doc, Json part, Json sub, {bool keepAddresses = tr
     if (f == null) {
       // No room: undo what was placed so far and say why.
       list.removeWhere((x) => addedHere.contains(x));
-      return PartResult(error: 'Trang không đủ chỗ cho thẻ này. Hãy xoá bớt thẻ, thu nhỏ thẻ, hoặc chọn trang khác.');
+      return PartResult(error: 'The page has no room for this card. Delete some cards, make cards smaller, or choose another page.');
     }
     w['pos'] = {'x': f.x, 'y': f.y, 'w': ww, 'h': hh};
     list.add(w);

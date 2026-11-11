@@ -331,7 +331,7 @@ class _GaPickerPanelState extends State<_GaPickerPanel> {
                 autofocus: true,
                 style: TextStyle(fontSize: kUiText, color: c.ink),
                 decoration: InputDecoration(
-                  hintText: tr('Tìm theo địa chỉ hoặc tên'),
+                  hintText: tr('Search by address or name'),
                   prefixIcon: Icon(Icons.search, size: 16, color: c.muted),
                   contentPadding: const EdgeInsets.symmetric(vertical: 0),
                 ),
@@ -372,7 +372,7 @@ class _GaPickerPanelState extends State<_GaPickerPanel> {
 
 /// DPT choices grouped by size, like the ETS type list. A more specific
 /// type already assigned (e.g. 9.004 from ETS) stays listed with its name.
-List<(String, String)> dptItems(String current, {String none = 'Chưa có DPT'}) => [
+List<(String, String)> dptItems(String current, {String none = 'No DPT'}) => [
   ('', none),
   for (final g in kDptGroups) (g.id, g.label),
   if (current.isNotEmpty && !kDptGroups.any((g) => g.id == current)) (current, dptLabel(current)),
@@ -470,7 +470,7 @@ class StatusDot extends StatelessWidget {
 double sidePanelWidth(double maxWidth) => (maxWidth * 0.30).clamp(340.0, 480.0).toDouble();
 
 class SearchField extends StatelessWidget {
-  const SearchField({super.key, required this.onChanged, this.hint = 'Tìm theo địa chỉ hoặc tên', this.width = 280, this.framed = false});
+  const SearchField({super.key, required this.onChanged, this.hint = 'Search by address or name', this.width = 280, this.framed = false});
   final ValueChanged<String> onChanged;
   final String hint;
   final double width;

@@ -66,15 +66,15 @@ class _ConnectionList extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       children: [
         SectionTitle(
-          'Kết nối KNX',
+          'KNX connection',
           trailing: EvoButton(
-            label: 'Thêm kết nối',
+            label: 'Add connection',
             icon: Icons.add,
             small: true,
             onPressed: () => project.mutate(
               (d) => (d['connections'] as List).add({
                 'id': uid('conn_'),
-                'name': 'Kết nối ${list.length + 1}',
+                'name': 'Connection ${list.length + 1}',
                 'type': 'tunneling',
                 'host': '',
                 'port': 3671,
@@ -101,7 +101,7 @@ class _ConnectionList extends StatelessWidget {
                     Expanded(
                       child: SyncedField(
                         value: (list[i]['name'] as String?) ?? '',
-                        hint: 'Tên kết nối',
+                        hint: 'Connection name',
                         bold: true,
                         onChanged: (v) => _edit(list[i]['id'] as String, (x) => x['name'] = v, field: 'name'),
                       ),
@@ -112,7 +112,7 @@ class _ConnectionList extends StatelessWidget {
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(color: c.accentSoft, borderRadius: BorderRadius.circular(5)),
                         child: Text(
-                          'Mặc định',
+                          'Default',
                           style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: c.accentInk),
                         ),
                       ),
@@ -121,11 +121,11 @@ class _ConnectionList extends StatelessWidget {
                 ),
                 const SizedBox(height: 10),
                 FieldLabel(
-                  'Kiểu kết nối',
+                  'Connection type',
                   EvoDropdown<bool>(
                     width: double.infinity,
                     value: list[i]['natMode'] == true,
-                    items: const [(false, 'Local (mạng nội bộ)'), (true, 'NAT mode')],
+                    items: const [(false, 'Local (LAN)'), (true, 'NAT mode')],
                     onChanged: (v) => _edit(list[i]['id'] as String, (x) => x['natMode'] = v),
                   ),
                 ),
@@ -134,7 +134,7 @@ class _ConnectionList extends StatelessWidget {
                   children: [
                     Expanded(
                       child: FieldLabel(
-                        'IP / tên miền',
+                        'IP / domain name',
                         SyncedField(
                           value: (list[i]['host'] as String?) ?? '',
                           hint: '192.168.1.50',
@@ -146,7 +146,7 @@ class _ConnectionList extends StatelessWidget {
                     SizedBox(
                       width: 84,
                       child: FieldLabel(
-                        'Cổng',
+                        'Port',
                         SyncedField(
                           value: '${list[i]['port'] ?? 3671}',
                           number: true,
@@ -161,13 +161,13 @@ class _ConnectionList extends StatelessWidget {
                   spacing: 6,
                   runSpacing: 6,
                   children: [
-                    if (i > 0) EvoButton(label: 'Đặt làm mặc định', small: true, onPressed: () => _move(i, 0)),
-                    if (i > 1) EvoButton(label: '', icon: Icons.arrow_upward, small: true, tooltip: tr('Đưa lên'), onPressed: () => _move(i, i - 1)),
+                    if (i > 0) EvoButton(label: 'Set as default', small: true, onPressed: () => _move(i, 0)),
+                    if (i > 1) EvoButton(label: '', icon: Icons.arrow_upward, small: true, tooltip: tr('Move up'), onPressed: () => _move(i, i - 1)),
                     if (i > 0 && i < list.length - 1)
-                      EvoButton(label: '', icon: Icons.arrow_downward, small: true, tooltip: tr('Đưa xuống'), onPressed: () => _move(i, i + 1)),
+                      EvoButton(label: '', icon: Icons.arrow_downward, small: true, tooltip: tr('Move down'), onPressed: () => _move(i, i + 1)),
                     if (list.length > 1)
                       EvoButton(
-                        label: 'Xoá',
+                        label: 'Delete',
                         icon: Icons.delete_outline,
                         small: true,
                         danger: true,
@@ -260,7 +260,7 @@ class _GaTableState extends State<GaTable> {
       }
     });
     setState(() => selected.removeAll(ids));
-    toast(context, 'Đã xoá ${ids.length} địa chỉ${unlinked > 0 ? ', gỡ $unlinked liên kết' : ''}. Có thể hoàn tác (Ctrl+Z).');
+    toast(context, 'Deleted ${ids.length} addresses${unlinked > 0 ? ', unlinked $unlinked links' : ''}. Can be undone (Ctrl+Z).');
   }
 
   Future<void> _addManual() async {
@@ -308,7 +308,7 @@ class _GaTableState extends State<GaTable> {
                 TextSpan(
                   children: [
                     const TextSpan(
-                      text: 'Địa chỉ nhóm ',
+                      text: 'Group address ',
                       style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
                     ),
                     TextSpan(
@@ -323,15 +323,15 @@ class _GaTableState extends State<GaTable> {
               EvoDropdown<String>(
                 value: filter,
                 items: [
-                  ('all', 'Tất cả DPT'),
-                  ('none', 'Chưa có DPT ($nNone)'),
+                  ('all', 'All DPT'),
+                  ('none', 'No DPT ($nNone)'),
                   for (final m in mains) ('$m', kDptGroups.where((g) => g.main == m).map((g) => g.label).firstOrNull ?? 'DPT $m.*'),
                 ],
                 onChanged: (v) => setState(() => filter = v),
               ),
               const SizedBox(width: 24),
-              EvoButton(label: 'Thêm thủ công', icon: Icons.add, small: true, onPressed: _addManual),
-              EvoButton(label: 'Nhập từ ETS', icon: Icons.upload_outlined, small: true, primary: true, onPressed: () => runEtsImport(context, p)),
+              EvoButton(label: 'Add manually', icon: Icons.add, small: true, onPressed: _addManual),
+              EvoButton(label: 'Import from ETS', icon: Icons.upload_outlined, small: true, primary: true, onPressed: () => runEtsImport(context, p)),
             ],
           ),
         ),
@@ -342,19 +342,19 @@ class _GaTableState extends State<GaTable> {
             child: Row(
               children: [
                 Text(
-                  'Đã chọn ${selected.length} địa chỉ',
+                  '${selected.length} addresses selected',
                   style: TextStyle(fontWeight: FontWeight.w600, color: c.accentInk),
                 ),
                 const SizedBox(width: 12),
                 EvoDropdown<String>(
                   width: 240,
                   value: bulkDpt,
-                  items: dptItems(bulkDpt, none: 'Chọn DPT để gán…'),
+                  items: dptItems(bulkDpt, none: 'Select a DPT to assign…'),
                   onChanged: (v) => setState(() => bulkDpt = v),
                 ),
                 const SizedBox(width: 8),
                 EvoButton(
-                  label: 'Gán DPT',
+                  label: 'Assign DPT',
                   small: true,
                   primary: true,
                   onPressed: bulkDpt.isEmpty
@@ -366,13 +366,13 @@ class _GaTableState extends State<GaTable> {
                               if (ids.contains(g['id'])) g['dpt'] = bulkDpt;
                             }
                           });
-                          toast(context, 'Đã gán DPT $bulkDpt cho ${ids.length} địa chỉ.');
+                          toast(context, 'Assigned DPT $bulkDpt to ${ids.length} addresses.');
                         },
                 ),
                 const SizedBox(width: 8),
-                EvoButton(label: 'Xoá', icon: Icons.delete_outline, small: true, danger: true, onPressed: () => _delete(Set<String>.from(selected))),
+                EvoButton(label: 'Delete', icon: Icons.delete_outline, small: true, danger: true, onPressed: () => _delete(Set<String>.from(selected))),
                 const Spacer(),
-                EvoButton(label: 'Bỏ chọn', small: true, onPressed: () => setState(selected.clear)),
+                EvoButton(label: 'Deselect', small: true, onPressed: () => setState(selected.clear)),
               ],
             ),
           ),
@@ -403,10 +403,10 @@ class _GaTableState extends State<GaTable> {
                   }),
                 ),
               ),
-              head('Địa chỉ', w: 100),
-              head('Tên', flex: 1),
+              head('Address', w: 100),
+              head('Name', flex: 1),
               head('DPT', w: 232),
-              head('Đang dùng', w: 100),
+              head('In use', w: 100),
               const SizedBox(width: 40),
             ],
           ),
@@ -415,7 +415,7 @@ class _GaTableState extends State<GaTable> {
           child: list.isEmpty
               ? Center(
                   child: Text(
-                    _gas.isEmpty ? 'Chưa có địa chỉ nhóm. Bấm “Nhập từ ETS” hoặc “Thêm thủ công”.' : 'Không có địa chỉ nào khớp bộ lọc.',
+                    _gas.isEmpty ? 'No group addresses yet. Click "Import from ETS" or "Add manually".' : 'No addresses match the filter.',
                     style: TextStyle(color: c.muted),
                   ),
                 )
@@ -452,7 +452,7 @@ class _GaTableState extends State<GaTable> {
                               padding: const EdgeInsets.only(right: 12),
                               child: SyncedField(
                                 value: (g['name'] as String?) ?? '',
-                                hint: 'Chưa đặt tên',
+                                hint: 'Untitled',
                                 borderless: true,
                                 onChanged: (v) => _edit(id, (x) {
                                   x['name'] = v;
@@ -476,12 +476,12 @@ class _GaTableState extends State<GaTable> {
                           ),
                           SizedBox(
                             width: 100,
-                            child: Text(used[id] != null ? '${used[id]} thành phần' : '', style: TextStyle(fontSize: 13.5, color: c.muted)),
+                            child: Text(used[id] != null ? '${used[id]} components' : '', style: TextStyle(fontSize: 13.5, color: c.muted)),
                           ),
                           SizedBox(
                             width: 40,
                             child: IconButton(
-                              tooltip: tr('Xoá ${g['address']}'),
+                              tooltip: tr('Delete ${g['address']}'),
                               icon: Icon(Icons.close, size: 17, color: c.muted),
                               onPressed: () => _delete({id}),
                             ),
@@ -521,11 +521,11 @@ class _AddGaDialogState extends State<_AddGaDialog> {
     final a = _addr.text.trim();
     final ga = GroupAddress.tryParse(a);
     if (ga == null || !a.contains('/')) {
-      setState(() => error = 'Địa chỉ không hợp lệ. Dùng dạng 1/1/1 (3 cấp) hoặc 1/25 (2 cấp).');
+      setState(() => error = 'Invalid address. Use the form 1/1/1 (3 levels) or 1/25 (2 levels).');
       return;
     }
     if (widget.existing.contains(a)) {
-      setState(() => error = 'Địa chỉ $a đã có trong danh sách.');
+      setState(() => error = 'The address $a is already in the list.');
       return;
     }
     Navigator.pop(context, <String, dynamic>{'id': gaId(a), 'address': a, 'name': _name.text.trim(), 'dpt': dpt, 'nameEdited': true});
@@ -534,7 +534,7 @@ class _AddGaDialogState extends State<_AddGaDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Thêm địa chỉ nhóm', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+      title: const Text('Add group address', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
       content: SizedBox(
         width: 440,
         child: Column(
@@ -546,7 +546,7 @@ class _AddGaDialogState extends State<_AddGaDialog> {
                 SizedBox(
                   width: 140,
                   child: FieldLabel(
-                    'Địa chỉ',
+                    'Address',
                     TextField(
                       controller: _addr,
                       autofocus: true,
@@ -565,10 +565,10 @@ class _AddGaDialogState extends State<_AddGaDialog> {
             ),
             const SizedBox(height: 12),
             FieldLabel(
-              'Tên',
+              'Name',
               TextField(
                 controller: _name,
-                decoration: InputDecoration(hintText: tr('Đèn trần phòng khách')),
+                decoration: InputDecoration(hintText: tr('Ceiling light in the living room')),
                 onSubmitted: (_) => _submit(),
               ),
             ),
@@ -584,8 +584,8 @@ class _AddGaDialogState extends State<_AddGaDialog> {
         ),
       ),
       actions: [
-        EvoButton(label: 'Huỷ', onPressed: () => Navigator.pop(context)),
-        EvoButton(label: 'Thêm địa chỉ', primary: true, onPressed: _submit),
+        EvoButton(label: 'Cancel', onPressed: () => Navigator.pop(context)),
+        EvoButton(label: 'Add address', primary: true, onPressed: _submit),
       ],
     );
   }

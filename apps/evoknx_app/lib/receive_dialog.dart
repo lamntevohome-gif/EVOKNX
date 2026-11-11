@@ -61,7 +61,7 @@ class _ReceiveDialogState extends State<_ReceiveDialog> {
     return AlertDialog(
       backgroundColor: pal.panel,
       title: Text(
-        'Nhận từ máy tính',
+        'Receive from computer',
         style: TextStyle(color: pal.ink, fontWeight: FontWeight.w600),
       ),
       content: SingleChildScrollView(
@@ -70,7 +70,7 @@ class _ReceiveDialogState extends State<_ReceiveDialog> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              'Trên máy tính, mở EvoKNX Editor → menu EvoKNX → Gửi sang App qua Wi-Fi. Nhập địa chỉ và mã hiện ở đó. Điện thoại phải cùng Wi-Fi với máy tính.',
+              'On the computer, open EvoKNX Editor → EvoKNX menu → Send to App over Wi-Fi. Enter the address and the code shown there. The phone must be on the same Wi-Fi as the computer.',
               style: TextStyle(fontSize: 14, height: 1.45, color: pal.muted),
             ),
             const SizedBox(height: 16),
@@ -79,7 +79,7 @@ class _ReceiveDialogState extends State<_ReceiveDialog> {
               keyboardType: TextInputType.url,
               autocorrect: false,
               enabled: !busy,
-              decoration: InputDecoration(labelText: tr('Địa chỉ máy tính'), hintText: '192.168.1.20:47800', border: OutlineInputBorder()),
+              decoration: InputDecoration(labelText: tr('Computer address'), hintText: '192.168.1.20:47800', border: OutlineInputBorder()),
             ),
             const SizedBox(height: 12),
             TextField(
@@ -89,20 +89,20 @@ class _ReceiveDialogState extends State<_ReceiveDialog> {
               enabled: !busy,
               onSubmitted: (_) => busy ? null : _receive(),
               style: const TextStyle(fontSize: 22, letterSpacing: 3, fontWeight: FontWeight.w600),
-              decoration: InputDecoration(labelText: tr('Mã 6 số'), counterText: '', border: OutlineInputBorder()),
+              decoration: InputDecoration(labelText: tr('6-digit code'), counterText: '', border: OutlineInputBorder()),
             ),
             if (error != null) ...[const SizedBox(height: 10), Text(error!, style: TextStyle(fontSize: 14, color: pal.danger, height: 1.4))],
           ],
         ),
       ),
       actions: [
-        TextButton(onPressed: busy ? null : () => Navigator.pop(context, false), child: const Text('Huỷ')),
+        TextButton(onPressed: busy ? null : () => Navigator.pop(context, false), child: const Text('Cancel')),
         FilledButton(
           onPressed: busy ? null : _receive,
           style: FilledButton.styleFrom(backgroundColor: pal.accent),
           child: busy
               ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-              : const Text('Nhận cấu hình'),
+              : const Text('Receive configuration'),
         ),
       ],
     );

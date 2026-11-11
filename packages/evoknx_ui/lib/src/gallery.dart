@@ -32,7 +32,7 @@ class RoomGallery extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(30),
           child: Text(
-            tr('Tầng này chưa có phòng nào.'),
+            tr('This floor has no rooms yet.'),
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 14, color: pal.sMuted),
           ),
@@ -42,10 +42,11 @@ class RoomGallery extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, bc) {
         final w = bc.maxWidth;
-        final cols = w >= 1000 ? 4 : (w >= 640 ? 3 : 2);
+        // One column of 16:9 cards (two columns on a wide tablet).
+        final cols = w >= 760 ? 2 : 1;
         return GridView.builder(
           padding: EdgeInsets.all(pal.safeMargin),
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: cols, mainAxisSpacing: 12, crossAxisSpacing: 12, childAspectRatio: 1.3),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: cols, mainAxisSpacing: 12, crossAxisSpacing: 12, childAspectRatio: 16 / 9),
           itemCount: rooms.length,
           itemBuilder: (context, i) => _RoomCard(doc: doc, room: rooms[i], pal: pal, onTap: () => onOpen(rooms[i]['id'] as String)),
         );

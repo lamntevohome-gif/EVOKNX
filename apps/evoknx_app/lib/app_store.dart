@@ -76,8 +76,6 @@ class AppStore extends ChangeNotifier {
       themeMode = p['theme'] as String?;
       keepScreenOn = p['keepOn'] == true;
       textScale = ((p['textScale'] as num?) ?? 1).toDouble().clamp(0.8, 1.5).toDouble();
-      if (p['lang'] == 'en' || p['lang'] == 'vi') lang = p['lang'] as String;
-      appLang.set(lang);
       autoScale = p['autoScale'] != false;
       editorAddress = p['editor'] as String?;
       for (final e in (p['profiles'] as List? ?? const [])) {
@@ -169,7 +167,6 @@ class AppStore extends ChangeNotifier {
           'theme': themeMode,
           'keepOn': keepScreenOn,
           'textScale': textScale,
-          'lang': lang,
           'autoScale': autoScale,
           'editor': editorAddress,
           'profiles': [
@@ -188,18 +185,18 @@ class AppStore extends ChangeNotifier {
   Future<String?> importConfig() async {
     final XFile? f;
     try {
-      f = await openFile(confirmButtonText: tr('Mở'));
+      f = await openFile(confirmButtonText: tr('Open'));
     } catch (e) {
-      return 'Không mở được hộp chọn file: $e';
+      return 'Could not open the file picker: $e';
     }
     if (f == null) return '';
     Object? o;
     try {
       o = jsonDecode(utf8.decode(await f.readAsBytes(), allowMalformed: true));
     } catch (_) {
-      return 'File “${f.name}” không phải dự án EvoKNX (.evoknx).';
+      return 'The file “${f.name}” is not an EvoKNX project (.evoknx).';
     }
-    if (!isProject(o)) return 'File “${f.name}” không phải dự án EvoKNX (.evoknx).';
+    if (!isProject(o)) return 'The file “${f.name}” is not an EvoKNX project (.evoknx).';
     await adopt((o as Map).cast<String, dynamic>());
     return null;
   }
@@ -311,16 +308,6 @@ class AppStore extends ChangeNotifier {
   String get mode {
     final m = themeMode ?? (jsonMap(config?['theme'])['mode'] ?? 'light').toString();
     return themeKey(m);
-  }
-
-  /// Language of the labels: 'vi' or 'en'.
-  String lang = 'vi';
-
-  Future<void> setLang(String code) async {
-    lang = code == 'en' ? 'en' : 'vi';
-    appLang.set(lang);
-    notifyListeners();
-    await savePrefs();
   }
 
   Future<void> setTheme(String? m) async {

@@ -186,10 +186,10 @@ class _StructurePageState extends State<StructurePage> {
       ),
       child: Row(
         children: [
-          tab(0, 'Cấu trúc'),
-          tab(1, 'Thành phần'),
+          tab(0, 'Structure'),
+          tab(1, 'Components'),
           const Spacer(),
-          if (leftTab == 0) IconButton(tooltip: tr('Thêm tầng'), icon: const Icon(Icons.add), onPressed: d.addFloor),
+          if (leftTab == 0) IconButton(tooltip: tr('Add floor'), icon: const Icon(Icons.add), onPressed: d.addFloor),
         ],
       ),
     );
@@ -267,11 +267,11 @@ class _StructurePageState extends State<StructurePage> {
     final types = ListView(
       padding: const EdgeInsets.only(bottom: 6),
       children: [
-        header('LOẠI THẺ'),
+        header('CARD TYPES'),
         if (d.clip != null)
           item(
             Icon(Icons.content_paste, size: 15, color: c.accent),
-            'Dán “${d.clip!['label'] ?? ''}”',
+            'Paste “${d.clip!['label'] ?? ''}”',
             accent: true,
             onTap: () {
               final m = d.paste();
@@ -291,7 +291,7 @@ class _StructurePageState extends State<StructurePage> {
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    IconButton(tooltip: tr('Thêm vào ô đang chọn (hoặc chỗ trống đầu tiên)'), icon: const Icon(Icons.add), onPressed: () => _add(t.type)),
+                    IconButton(tooltip: tr('Add to the selected cell (or the first empty spot)'), icon: const Icon(Icons.add), onPressed: () => _add(t.type)),
                     grip,
                   ],
                 ),
@@ -309,14 +309,18 @@ class _StructurePageState extends State<StructurePage> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             header(
-              'THƯ VIỆN THẺ',
-              trailing: IconButton(tooltip: tr('Thêm thẻ vào thư viện từ file'), icon: const Icon(Icons.add), onPressed: () => importCardsToLibrary(context)),
+              'CARD LIBRARY',
+              trailing: IconButton(
+                tooltip: tr('Add a card to the library from a file'),
+                icon: const Icon(Icons.add),
+                onPressed: () => importCardsToLibrary(context),
+              ),
             ),
             Expanded(
               child: list.isEmpty
                   ? Padding(
                       padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-                      child: Text('Chưa có thẻ. Xuất một thẻ đã cấu hình, hoặc bấm + để thêm từ file.', style: TextStyle(fontSize: 13, color: c.muted)),
+                      child: Text('No cards yet. Export a configured card, or click + to add one from a file.', style: TextStyle(fontSize: 13, color: c.muted)),
                     )
                   : ReorderableListView.builder(
                       buildDefaultDragHandles: false,
@@ -357,7 +361,7 @@ class _StructurePageState extends State<StructurePage> {
                                               Icon(Icons.delete_outline, size: 15, color: c.danger),
                                               const SizedBox(width: 10),
                                               Text(
-                                                'Xoá khỏi thư viện',
+                                                'Remove from library',
                                                 style: TextStyle(fontSize: kUiText, color: c.danger),
                                               ),
                                             ],
@@ -371,7 +375,7 @@ class _StructurePageState extends State<StructurePage> {
                               ),
                             ),
                             IconButton(
-                              tooltip: tr('Thêm vào ô đang chọn (hoặc chỗ trống đầu tiên)'),
+                              tooltip: tr('Add to the selected cell (or the first empty spot)'),
                               icon: const Icon(Icons.add),
                               onPressed: () {
                                 final m = d.addLibCard(id);
@@ -379,7 +383,7 @@ class _StructurePageState extends State<StructurePage> {
                               },
                             ),
                             Tooltip(
-                              message: tr('Kéo để sắp xếp'),
+                              message: tr('Drag to reorder'),
                               child: ReorderableDragStartListener(
                                 index: i,
                                 child: MouseRegion(
@@ -421,7 +425,7 @@ class _StructurePageState extends State<StructurePage> {
             child: Padding(
               padding: const EdgeInsets.all(10),
               child: Text(
-                'Đang Chạy thử. Chuyển sang Thiết kế để thêm thẻ.',
+                'Run test is on. Switch to Design to add cards.',
                 style: TextStyle(fontSize: kUiText - 1, color: c.muted),
               ),
             ),
@@ -443,29 +447,29 @@ class _StructurePageState extends State<StructurePage> {
       ),
       child: Row(
         children: [
-          Seg<bool>(items: const [(false, 'Thiết kế'), (true, 'Chạy thử')], value: d.test, onChanged: d.setTest),
+          Seg<bool>(items: const [(false, 'Design'), (true, 'Run test')], value: d.test, onChanged: d.setTest),
           if (_devices().length > 1) ...[
             const SizedBox(width: 8),
             Seg<String>(items: [for (final dv in _devices()) (dv, _devName(dv))], value: (d.doc['activeDev'] ?? 'mobile').toString(), onChanged: d.setDevice),
           ],
           if (d.test) ...[
             const SizedBox(width: 8),
-            Seg<bool>(items: const [(false, 'Giả lập'), (true, 'Test trực tiếp')], value: d.live, onChanged: d.setLive),
+            Seg<bool>(items: const [(false, 'Simulation'), (true, 'Live test')], value: d.live, onChanged: d.setLive),
             const SizedBox(width: 10),
             Flexible(
               child: Text(
                 d.live
                     ? [
-                        if (widget.bus.connected) 'Đang điều khiển bus KNX thật' else 'Chưa kết nối bus (mở khu Kiểm tra để kết nối)',
+                        if (widget.bus.connected) 'Controlling the real KNX bus' else 'Bus not connected (open the Monitor area to connect)',
                         if (d.usesHa)
                           switch (d.haState) {
-                            HaConnection.connected => 'Home Assistant: đã kết nối',
-                            HaConnection.connecting => 'Home Assistant: đang kết nối…',
-                            HaConnection.failed => 'Home Assistant: lỗi, đang thử lại',
-                            _ => 'Home Assistant: chưa bật trong tab HA',
+                            HaConnection.connected => 'Home Assistant: connected',
+                            HaConnection.connecting => 'Home Assistant: connecting…',
+                            HaConnection.failed => 'Home Assistant: error, retrying',
+                            _ => 'Home Assistant: not enabled in the HA tab',
                           },
                       ].join(' · ')
-                    : 'Lệnh chỉ ghi vào nhật ký, chưa gửi xuống bus hay Home Assistant',
+                    : 'Commands are only written to the log; nothing is sent to the bus or Home Assistant',
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(fontSize: 13.5, color: d.live && !widget.bus.connected && !d.usesHa ? c.danger : c.muted),
               ),
@@ -474,10 +478,10 @@ class _StructurePageState extends State<StructurePage> {
           const Spacer(),
           if (!d.test && d.clip != null)
             EvoButton(
-              label: 'Dán',
+              label: 'Paste',
               icon: Icons.content_paste,
               small: true,
-              tooltip: tr('Dán “${d.clip!['label'] ?? ''}” (Ctrl+V)'),
+              tooltip: tr('Paste “${d.clip!['label'] ?? ''}” (Ctrl+V)'),
               onPressed: () {
                 final m = d.paste();
                 if (m != null) toast(context, m);
@@ -494,7 +498,7 @@ class _StructurePageState extends State<StructurePage> {
   }
 
   String _devName(String k) => switch (k) {
-    'tabletP' => 'Tablet dọc',
+    'tabletP' => 'Tablet (portrait)',
     'tabletL' => 'Tablet ngang',
     _ => 'Mobile',
   };
@@ -509,23 +513,23 @@ class _StructurePageState extends State<StructurePage> {
             Icon(Icons.play_circle_outline, size: 16, color: c.muted),
             const SizedBox(width: 8),
             const Expanded(
-              child: Text('Nhật ký lệnh', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+              child: Text('Command log', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
             ),
-            if (d.log.isNotEmpty) TextButton(onPressed: () => setState(d.log.clear), child: const Text('Xoá')),
+            if (d.log.isNotEmpty) TextButton(onPressed: () => setState(d.log.clear), child: const Text('Delete')),
           ],
         ),
         const SizedBox(height: 8),
         Text(
           d.live && widget.bus.connected
-              ? 'Đang điều khiển bus KNX thật. Mọi thay đổi trên bus cũng hiện ngay trên màn hình mô phỏng.'
-              : 'Lệnh được ghi lại dưới đây, chưa gửi xuống bus.',
+              ? 'Controlling the real KNX bus. Every change on the bus also shows on the simulated screen right away.'
+              : 'Commands are logged below; nothing is sent to the bus.',
           style: TextStyle(fontSize: 13, color: c.muted),
         ),
         const SizedBox(height: 12),
-        const SectionTitle('Lệnh gửi'),
+        const SectionTitle('Sent command'),
         if (d.log.isEmpty)
           Text(
-            'Chưa có lệnh nào. Bấm vào các thành phần trên màn hình.',
+            'No commands yet. Click the components on the screen.',
             style: TextStyle(color: c.muted, fontSize: kUiText),
           ),
         for (final e in d.log)
@@ -581,7 +585,9 @@ class _StructurePageState extends State<StructurePage> {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    issues.isEmpty ? 'Không có vấn đề, sẵn sàng xuất cấu hình' : [if (errs > 0) '$errs lỗi', if (warns > 0) '$warns lưu ý'].join(', '),
+                    issues.isEmpty
+                        ? 'No problems, ready to export the configuration'
+                        : [if (errs > 0) '$errs errors', if (warns > 0) '$warns warnings'].join(', '),
                     style: TextStyle(fontSize: kUiText, fontWeight: FontWeight.w500, color: errs > 0 ? c.danger : (warns > 0 ? c.warn : c.muted)),
                   ),
                   const Spacer(),

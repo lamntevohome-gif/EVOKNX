@@ -5,7 +5,7 @@ void check(bool c, String m) => print('${c ? "OK  " : "FAIL"} $m');
 void main() {
   // Source project: floor with one room, a widget bound to 1/1/1, custom icon.
   final a = newProject('A');
-  final f = makeFloor('Tầng 1');
+  final f = makeFloor('Floor 1');
   a['floors'] = [f];
   final r = makeRoom('Khách', floorId: f['id'] as String, icon: 'ci_x');
   final w = makeWidget('switch', 0, 0);

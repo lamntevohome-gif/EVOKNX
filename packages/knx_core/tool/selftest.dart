@@ -37,7 +37,7 @@ Future<void> main() async {
   check(Dpt.decode('14.056', Dpt.encode('14.056', 1234.5).bytes) == 1234.5, 'dpt14');
   check(Dpt.decode('232.600', Dpt.encode('232.600', '#FF8000').bytes) == '#FF8000', 'dpt232');
   check(Dpt.decode('7.600', Dpt.encode('7.600', 2700).bytes) == 2700, 'dpt7');
-  check(Dpt.format('1.001', true) == '1 (Bật)' && Dpt.format('9.001', 24.5) == '24,5 °C', 'format');
+  check(Dpt.format('1.001', true) == '1 (On)' && Dpt.format('9.001', 24.5) == '24,5 °C', 'format');
 
   // cEMI round trip
   final req = CemiFrame.groupRequest(ga, TelegramType.write, Dpt.encode('9.001', 22.0)).toBytes();
@@ -81,7 +81,7 @@ Future<void> main() async {
     await dead.connect();
     check(false, 'timeout expected');
   } on KnxException catch (e) {
-    check(e.message.contains('Không có phản hồi'), 'timeout message');
+    check(e.message.contains('No response'), 'timeout message');
   }
 
   stdout.writeln('knx_core selftest: $_pass passed, $_fail failed');

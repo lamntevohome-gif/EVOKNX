@@ -11,7 +11,7 @@ import 'i18n_en.dart';
 /// cards are drawn with the plain Flutter Text, and the dictionary has no
 /// default content.
 class AppLang extends ChangeNotifier {
-  String _code = 'vi';
+  String _code = 'en';
   String get code => _code;
   bool get isEn => _code == 'en';
 

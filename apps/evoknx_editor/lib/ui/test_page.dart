@@ -71,7 +71,7 @@ class _TestPageState extends State<TestPage> {
       } else {
         final n = num.tryParse(_value.text.trim().replaceAll(',', '.'));
         if (n == null) {
-          toast(context, 'Giá trị không hợp lệ.');
+          toast(context, 'Invalid value.');
           return;
         }
         v = n;
@@ -90,10 +90,10 @@ class _TestPageState extends State<TestPage> {
     final conns = widget.project.connections;
     final connId = bus.connection?['id'] as String?;
     final stText = switch (st) {
-      KnxConnectionState.connected => 'Đã kết nối ${bus.connection?['host'] ?? ''}',
-      KnxConnectionState.connecting => 'Đang kết nối…',
-      KnxConnectionState.reconnecting => 'Mất kết nối, đang thử lại…',
-      KnxConnectionState.disconnected => 'Chưa kết nối',
+      KnxConnectionState.connected => 'Connected ${bus.connection?['host'] ?? ''}',
+      KnxConnectionState.connecting => 'Connecting…',
+      KnxConnectionState.reconnecting => 'Connection lost, retrying…',
+      KnxConnectionState.disconnected => 'Not connected',
     };
     final rows = _rows();
 
@@ -113,13 +113,13 @@ class _TestPageState extends State<TestPage> {
                 value: connId ?? '',
                 items: [
                   for (final x in conns)
-                    (x['id'] as String, '${x['name'] ?? 'Kết nối'}: ${x['host'] ?? '?'}:${x['port'] ?? 3671}${x['natMode'] == true ? ' (NAT)' : ''}'),
+                    (x['id'] as String, '${x['name'] ?? 'Connection'}: ${x['host'] ?? '?'}:${x['port'] ?? 3671}${x['natMode'] == true ? ' (NAT)' : ''}'),
                 ],
                 onChanged: st == KnxConnectionState.disconnected ? (v) => setState(() => bus.connectionId = v) : null,
               ),
               const SizedBox(width: 10),
               EvoButton(
-                label: st == KnxConnectionState.disconnected ? 'Kết nối' : 'Ngắt kết nối',
+                label: st == KnxConnectionState.disconnected ? 'Connections' : 'Disconnect',
                 primary: st == KnxConnectionState.disconnected,
                 onPressed: busy ? null : _connectToggle,
               ),
@@ -206,11 +206,11 @@ class _TestPageState extends State<TestPage> {
           ),
           child: Row(
             children: [
-              SearchField(hint: 'Lọc theo địa chỉ, tên hoặc giá trị', onChanged: (v) => setState(() => query = v)),
+              SearchField(hint: 'Filter by address, name or value', onChanged: (v) => setState(() => query = v)),
               const SizedBox(width: 8),
               EvoDropdown<String>(
                 value: type,
-                items: const [('all', 'Tất cả loại'), ('write', 'Ghi'), ('read', 'Đọc'), ('response', 'Phản hồi')],
+                items: const [('all', 'All types'), ('write', 'Ghi'), ('read', 'Read'), ('response', 'Feedback')],
                 onChanged: (v) => setState(() => type = v),
               ),
               const Spacer(),
@@ -219,17 +219,12 @@ class _TestPageState extends State<TestPage> {
                 style: TextStyle(color: c.muted, fontSize: kUiText),
               ),
               const SizedBox(width: 10),
-              EvoButton(
-                label: bus.paused ? 'Tiếp tục' : 'Tạm dừng',
-                small: true,
-                icon: bus.paused ? Icons.play_arrow : Icons.pause,
-                onPressed: bus.togglePause,
-              ),
+              EvoButton(label: bus.paused ? 'Continue' : 'Pause', small: true, icon: bus.paused ? Icons.play_arrow : Icons.pause, onPressed: bus.togglePause),
               const SizedBox(width: 6),
-              EvoButton(label: 'Xoá', small: true, onPressed: bus.clear),
+              EvoButton(label: 'Delete', small: true, onPressed: bus.clear),
               const SizedBox(width: 6),
               EvoButton(
-                label: 'Xuất CSV',
+                label: 'Export CSV',
                 small: true,
                 icon: Icons.download_outlined,
                 onPressed: rows.isEmpty
@@ -251,17 +246,17 @@ class _TestPageState extends State<TestPage> {
           ),
           child: Row(
             children: [
-              cell('Thời gian', 110, color: c.muted),
-              cell('Nguồn', 90, color: c.muted),
-              cell('Đích', 90, color: c.muted),
+              cell('Time', 110, color: c.muted),
+              cell('Power', 90, color: c.muted),
+              cell('Destination', 90, color: c.muted),
               Expanded(
                 child: Text(
-                  'Tên',
+                  'Name',
                   style: TextStyle(fontSize: kUiText, color: c.muted),
                 ),
               ),
-              cell('Loại', 96, color: c.muted),
-              cell('Giá trị', 170, color: c.muted),
+              cell('Type', 96, color: c.muted),
+              cell('Value', 170, color: c.muted),
               cell('DPT', 70, color: c.muted),
             ],
           ),
@@ -270,7 +265,7 @@ class _TestPageState extends State<TestPage> {
           child: rows.isEmpty
               ? Center(
                   child: Text(
-                    bus.connected ? 'Đang chờ tín hiệu trên bus…' : 'Chưa kết nối. Chọn kết nối và bấm “Kết nối” để bắt đầu theo dõi.',
+                    bus.connected ? 'Waiting for a signal on the bus…' : 'Not connected. Select a connection and click "Connect" to start monitoring.',
                     style: TextStyle(color: c.muted),
                   ),
                 )
@@ -325,12 +320,12 @@ class _TestPageState extends State<TestPage> {
     final curText = cur == null ? '—' : (dpt.isEmpty ? '$cur' : Dpt.format(dpt, cur));
 
     Widget input() {
-      if (ga == null) return Text('Chọn một địa chỉ nhóm ở danh sách trên.', style: TextStyle(color: c.muted));
+      if (ga == null) return Text('Select a group address in the list above.', style: TextStyle(color: c.muted));
       if (m == 1) {
         return EvoDropdown<String>(
           width: double.infinity,
           value: boolValue,
-          items: dpt == '1.008' ? const [('0', '0 (Lên)'), ('1', '1 (Xuống)')] : const [('1', '1 (Bật)'), ('0', '0 (Tắt)')],
+          items: dpt == '1.008' ? const [('0', '0 (Up)'), ('1', '1 (Down)')] : const [('1', '1 (On)'), ('0', '0 (Off)')],
           onChanged: (v) => setState(() => boolValue = v),
         );
       }
@@ -340,7 +335,7 @@ class _TestPageState extends State<TestPage> {
           Expanded(
             child: TextField(
               controller: _value,
-              decoration: InputDecoration(hintText: (m == 232 || m == 251) ? '#FFFFFF' : tr('Giá trị')),
+              decoration: InputDecoration(hintText: (m == 232 || m == 251) ? '#FFFFFF' : tr('Value')),
             ),
           ),
           if (unit.isNotEmpty)
@@ -355,8 +350,8 @@ class _TestPageState extends State<TestPage> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        const SectionTitle('Đọc / Ghi địa chỉ nhóm'),
-        SearchField(width: double.infinity, hint: 'Tìm địa chỉ hoặc tên', onChanged: (v) => setState(() => rwQuery = v)),
+        const SectionTitle('Read / Write group address'),
+        SearchField(width: double.infinity, hint: 'Search address or name', onChanged: (v) => setState(() => rwQuery = v)),
         const SizedBox(height: 8),
         Container(
           height: 240,
@@ -394,7 +389,7 @@ class _TestPageState extends State<TestPage> {
             child: Row(
               children: [
                 Text(
-                  'Giá trị hiện tại',
+                  'Current value',
                   style: TextStyle(color: c.muted, fontSize: kUiText),
                 ),
                 const Spacer(),
@@ -403,12 +398,12 @@ class _TestPageState extends State<TestPage> {
             ),
           ),
         const SizedBox(height: 12),
-        FieldLabel(ga == null ? 'Giá trị ghi' : 'Giá trị ghi${dpt.isEmpty ? ' (chưa có DPT)' : ' (DPT $dpt)'}', input()),
+        FieldLabel(ga == null ? 'Write value' : 'Write value${dpt.isEmpty ? ' (no DPT)' : ' (DPT $dpt)'}', input()),
         const SizedBox(height: 14),
         Row(
           children: [
             Expanded(
-              child: EvoButton(label: 'Đọc', onPressed: ga == null ? null : () => _rw(false)),
+              child: EvoButton(label: 'Read', onPressed: ga == null ? null : () => _rw(false)),
             ),
             const SizedBox(width: 8),
             Expanded(

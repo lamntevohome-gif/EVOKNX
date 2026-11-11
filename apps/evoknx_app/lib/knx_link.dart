@@ -29,13 +29,13 @@ class KnxLink extends ChangeNotifier {
   Future<void> connect() async {
     final c = store.connection;
     if (c == null) {
-      error = 'Cấu hình chưa có kết nối KNX.';
+      error = 'The configuration has no KNX connection.';
       notifyListeners();
       return;
     }
     final host = (c['host'] as String? ?? '').trim();
     if (host.isEmpty) {
-      error = 'Kết nối “${c['name']}” chưa có địa chỉ IP.';
+      error = 'The connection “${c['name']}” has no IP address yet.';
       notifyListeners();
       return;
     }
@@ -98,9 +98,9 @@ class KnxLink extends ChangeNotifier {
 
   Future<String?> write(Json ga, Object value) async {
     final c = _client;
-    if (c == null || !connected) return 'Chưa kết nối được bộ giao tiếp KNX.';
+    if (c == null || !connected) return 'Could not connect to the KNX interface.';
     final dpt = (ga['dpt'] as String?) ?? '';
-    if (dpt.isEmpty) return 'Địa chỉ ${ga['address']} chưa có kiểu dữ liệu (DPT).';
+    if (dpt.isEmpty) return 'The address ${ga['address']} has no data type (DPT).';
     try {
       await c.writeValue(GroupAddress.parse(ga['address'] as String), dpt, value);
       return null;
@@ -124,9 +124,9 @@ class KnxLink extends ChangeNotifier {
   }
 
   String get statusText => switch (state) {
-    KnxConnectionState.connected => 'Đã kết nối',
-    KnxConnectionState.connecting => 'Đang kết nối…',
-    KnxConnectionState.reconnecting => 'Mất kết nối, đang thử lại…',
-    _ => error ?? 'Chưa kết nối',
+    KnxConnectionState.connected => 'Connected',
+    KnxConnectionState.connecting => 'Connecting…',
+    KnxConnectionState.reconnecting => 'Connection lost, retrying…',
+    _ => error ?? 'Not connected',
   };
 }

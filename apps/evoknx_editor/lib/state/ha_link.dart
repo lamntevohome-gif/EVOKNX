@@ -30,7 +30,7 @@ class HaLinkController extends ChangeNotifier {
   Future<void> connect(String url, String token) async {
     if (connected || connecting) return;
     if (url.trim().isEmpty || token.trim().isEmpty) {
-      _set(HaConnection.failed, 'Nhập địa chỉ và token trước.');
+      _set(HaConnection.failed, 'Enter the address and token first.');
       return;
     }
     _set(HaConnection.connecting);
@@ -43,7 +43,7 @@ class HaLinkController extends ChangeNotifier {
         s.closed.then((_) {
           if (identical(_s, s)) {
             _s = null;
-            _set(HaConnection.failed, 'Mất kết nối Home Assistant. Bấm Kết nối để nối lại.');
+            _set(HaConnection.failed, 'Home Assistant connection lost. Click Connect to reconnect.');
           }
         }),
       );

@@ -41,7 +41,7 @@ class CardEngine extends ChangeNotifier {
     final ga = gaOf(w, slot);
     if (ga == null) {
       final sl = slotsFor(w).where((s) => s.key == slot);
-      onMessage?.call('${w['label'] ?? ''}: chưa gán ${sl.isEmpty ? slot : sl.first.label.toLowerCase()}');
+      onMessage?.call('${w['label'] ?? ''}: ${sl.isEmpty ? slot : sl.first.label.toLowerCase()} not assigned');
       return;
     }
     writer?.call(ga, value).then((err) {

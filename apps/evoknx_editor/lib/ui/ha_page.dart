@@ -62,7 +62,7 @@ class _HaPageState extends State<HaPage> {
   // ------------------------------------------------------------ rooms
 
   Future<void> _newRoom() async {
-    final r = await _roomDialog(context, doc: p.doc, title: 'Phòng mới');
+    final r = await _roomDialog(context, doc: p.doc, title: 'New room');
     if (r == null) return;
     late Json room;
     p.mutate((d) => room = addHaRoom(d, r.name, r.main));
@@ -73,7 +73,7 @@ class _HaPageState extends State<HaPage> {
     final r = await _roomDialog(
       context,
       doc: p.doc,
-      title: 'Sửa tên phòng',
+      title: 'Rename room',
       name: room['name'].toString(),
       main: (room['main'] as num).toInt(),
       editMain: false,
@@ -86,7 +86,7 @@ class _HaPageState extends State<HaPage> {
     final r = await _roomDialog(
       context,
       doc: p.doc,
-      title: 'Sửa nhóm chính của phòng',
+      title: 'Edit the room\'s main group',
       name: room['name'].toString(),
       main: (room['main'] as num).toInt(),
       editName: false,
@@ -108,14 +108,13 @@ class _HaPageState extends State<HaPage> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
-        title: Text('Xoá phòng “${room['name']}”?'),
+        title: Text('Delete the room “${room['name']}”?'),
         content: Text(
-          '${ents.isEmpty ? 'Phòng chưa có entity nào.' : 'Xoá luôn ${ents.length} entity và các địa chỉ ảo của chúng.'}'
-          '${uses > 0 ? ' Có $uses ô địa chỉ của thẻ đang dùng, chúng sẽ bị gỡ liên kết.' : ''} Có thể hoàn tác (Ctrl+Z).',
+          '${ents.isEmpty ? 'The room has no entities yet.' : 'Also deletes ${ents.length} entities and their virtual addresses.'}${uses > 0 ? ' $uses address fields of cards use them; they will be unlinked.' : ''} Can be undone (Ctrl+Z).',
         ),
         actions: [
-          EvoButton(label: 'Huỷ', onPressed: () => Navigator.pop(c, false)),
-          EvoButton(label: 'Xoá phòng', danger: true, onPressed: () => Navigator.pop(c, true)),
+          EvoButton(label: 'Cancel', onPressed: () => Navigator.pop(c, false)),
+          EvoButton(label: 'Delete room', danger: true, onPressed: () => Navigator.pop(c, true)),
         ],
       ),
     );
@@ -131,13 +130,13 @@ class _HaPageState extends State<HaPage> {
       context: context,
       position: RelativeRect.fromRect(at & const Size(1, 1), Offset.zero & overlay.size),
       items: [
-        const PopupMenuItem(value: 0, height: 34, child: Text('Sửa tên')),
-        const PopupMenuItem(value: 1, height: 34, child: Text('Sửa nhóm chính (địa chỉ)')),
+        const PopupMenuItem(value: 0, height: 34, child: Text('Rename')),
+        const PopupMenuItem(value: 1, height: 34, child: Text('Edit main group (address)')),
         const PopupMenuDivider(height: 9),
         PopupMenuItem(
           value: 2,
           height: 34,
-          child: Text('Xoá phòng', style: TextStyle(color: c.danger)),
+          child: Text('Delete room', style: TextStyle(color: c.danger)),
         ),
       ],
     );
@@ -173,7 +172,7 @@ class _HaPageState extends State<HaPage> {
   }
 
   Future<void> _renameEntity(String entityId, String title) async {
-    final t = await _prompt(context, 'Đổi tên entity', 'Tên hiển thị (mã entity Home Assistant giữ nguyên: $entityId)', title);
+    final t = await _prompt(context, 'Rename entity', 'Display name (the Home Assistant entity ID stays: $entityId)', title);
     if (t != null && t.trim().isNotEmpty) p.mutate((d) => renameHaEntity(d, entityId, t));
   }
 
@@ -182,15 +181,15 @@ class _HaPageState extends State<HaPage> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
-        title: Text('Gỡ “$title”?'),
+        title: Text('Remove “$title”?'),
         content: Text(
           uses > 0
-              ? 'Có $uses ô địa chỉ của thẻ đang dùng entity này; chúng sẽ bị gỡ liên kết. Có thể hoàn tác (Ctrl+Z).'
-              : 'Các địa chỉ ảo của entity này sẽ bị xoá. Có thể hoàn tác (Ctrl+Z).',
+              ? '$uses address fields of cards use this entity; they will be unlinked. Can be undone (Ctrl+Z).'
+              : 'The virtual addresses of this entity will be deleted. Can be undone (Ctrl+Z).',
         ),
         actions: [
-          EvoButton(label: 'Huỷ', onPressed: () => Navigator.pop(c, false)),
-          EvoButton(label: 'Gỡ', danger: true, onPressed: () => Navigator.pop(c, true)),
+          EvoButton(label: 'Cancel', onPressed: () => Navigator.pop(c, false)),
+          EvoButton(label: 'Remove', danger: true, onPressed: () => Navigator.pop(c, true)),
         ],
       ),
     );
@@ -205,12 +204,12 @@ class _HaPageState extends State<HaPage> {
       context: context,
       position: RelativeRect.fromRect(at & const Size(1, 1), Offset.zero & overlay.size),
       items: [
-        const PopupMenuItem(value: 0, height: 34, child: Text('Sửa tên')),
-        const PopupMenuItem(value: 2, height: 34, child: Text('Sửa entity')),
+        const PopupMenuItem(value: 0, height: 34, child: Text('Rename')),
+        const PopupMenuItem(value: 2, height: 34, child: Text('Edit entity')),
         PopupMenuItem(
           value: 1,
           height: 34,
-          child: Text('Xoá', style: TextStyle(color: c.danger)),
+          child: Text('Delete', style: TextStyle(color: c.danger)),
         ),
       ],
     );
@@ -231,9 +230,9 @@ class _HaPageState extends State<HaPage> {
           final t = ctl.text.trim().toLowerCase();
           final note = known.isEmpty || known.contains(t)
               ? null
-              : 'Không thấy mã này trong danh sách Home Assistant đã tải (bấm “Lấy entity” để tải lại). Vẫn có thể lưu.';
+              : 'This ID was not found in the list of Home Assistant entities that was loaded (click "Get entities" to reload). You can still save.';
           return AlertDialog(
-            title: const Text('Sửa entity'),
+            title: const Text('Edit entity'),
             content: SizedBox(
               width: 420,
               child: Column(
@@ -241,11 +240,11 @@ class _HaPageState extends State<HaPage> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Text(
-                    'Đổi sang một entity khác của Home Assistant (ví dụ khi bạn đã đổi tên trong HA). Phải cùng loại (${entityId.split('.').first}). Địa chỉ và liên kết của thẻ giữ nguyên.',
+                    'Change to another Home Assistant entity (for example after you renamed it in HA). It must be the same type (${entityId.split('.').first}). The addresses and the cards\' links stay.',
                     style: TextStyle(fontSize: kUiText - 1, color: c.evo.muted, height: 1.4),
                   ),
                   const SizedBox(height: 12),
-                  FieldLabel('Mã entity', TextField(controller: ctl, autofocus: true, onChanged: (_) => setS(() {}), onSubmitted: (v) => Navigator.pop(c, v))),
+                  FieldLabel('Entity ID', TextField(controller: ctl, autofocus: true, onChanged: (_) => setS(() {}), onSubmitted: (v) => Navigator.pop(c, v))),
                   if (note != null)
                     Padding(
                       padding: const EdgeInsets.only(top: 8),
@@ -258,8 +257,8 @@ class _HaPageState extends State<HaPage> {
               ),
             ),
             actions: [
-              EvoButton(label: 'Huỷ', onPressed: () => Navigator.pop(c)),
-              EvoButton(label: 'Lưu', primary: true, onPressed: () => Navigator.pop(c, ctl.text)),
+              EvoButton(label: 'Cancel', onPressed: () => Navigator.pop(c)),
+              EvoButton(label: 'Save', primary: true, onPressed: () => Navigator.pop(c, ctl.text)),
             ],
           );
         },
@@ -278,13 +277,13 @@ class _HaPageState extends State<HaPage> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
-        title: Text('Xoá ${ids.length} entity?'),
+        title: Text('Delete ${ids.length} entities?'),
         content: Text(
-          'Các địa chỉ ảo của chúng sẽ bị xoá.${uses > 0 ? ' Có $uses ô địa chỉ của thẻ đang dùng, chúng sẽ bị gỡ liên kết.' : ''} Có thể hoàn tác (Ctrl+Z).',
+          'Their virtual addresses will be deleted.${uses > 0 ? ' $uses address fields of cards use them; they will be unlinked.' : ''} Can be undone (Ctrl+Z).',
         ),
         actions: [
-          EvoButton(label: 'Huỷ', onPressed: () => Navigator.pop(c, false)),
-          EvoButton(label: 'Xoá', danger: true, onPressed: () => Navigator.pop(c, true)),
+          EvoButton(label: 'Cancel', onPressed: () => Navigator.pop(c, false)),
+          EvoButton(label: 'Delete', danger: true, onPressed: () => Navigator.pop(c, true)),
         ],
       ),
     );
@@ -342,15 +341,15 @@ class _HaPageState extends State<HaPage> {
                       children: [
                         Checkbox(value: h['enabled'] == true, onChanged: (v) => _setHa('enabled', v == true)),
                         const SizedBox(width: 6),
-                        const Expanded(child: Text('Dùng Home Assistant trong dự án này')),
+                        const Expanded(child: Text('Use Home Assistant in this project')),
                       ],
                     ),
                     const SizedBox(height: 10),
                     FieldLabel(
-                      'Địa chỉ',
+                      'Address',
                       SyncedField(
                         value: (h['url'] ?? '').toString(),
-                        hint: 'vd 192.168.1.5:8123 hoặc https://xxx.ui.nabu.casa',
+                        hint: 'e.g. 192.168.1.5:8123 or https://xxx.ui.nabu.casa',
                         onChanged: (v) => _setHa('url', v.trim()),
                       ),
                     ),
@@ -363,12 +362,12 @@ class _HaPageState extends State<HaPage> {
                     Row(
                       children: [
                         EvoButton(
-                          label: link.connected ? 'Ngắt kết nối' : 'Kết nối',
+                          label: link.connected ? 'Disconnect' : 'Connections',
                           primary: !link.connected,
                           onPressed: link.connecting ? null : _toggleConnection,
                         ),
                         const SizedBox(width: 8),
-                        EvoButton(label: 'Lấy entity', icon: Icons.download_outlined, onPressed: link.connected ? _pick : null),
+                        EvoButton(label: 'Get entities', icon: Icons.download_outlined, onPressed: link.connected ? _pick : null),
                       ],
                     ),
                     Padding(padding: const EdgeInsets.only(top: 12), child: _status(c)),
@@ -399,11 +398,11 @@ class _HaPageState extends State<HaPage> {
       HaConnection.connected => (
         link.message == null ? Icons.check_circle_outline : Icons.error_outline,
         link.message == null ? const Color(0xFF14AE5C) : c.warn,
-        link.message ?? 'Đã kết nối · Home Assistant ${link.version ?? ''}${link.entities == null ? '' : ' · ${link.entities!.length} entity'}',
+        link.message ?? 'Connected · Home Assistant ${link.version ?? ''}${link.entities == null ? '' : ' · ${link.entities!.length} entity'}',
       ),
-      HaConnection.connecting => (Icons.sync, c.muted, 'Đang kết nối…'),
-      HaConnection.failed => (Icons.error_outline, c.warn, link.message ?? 'Không kết nối được.'),
-      HaConnection.disconnected => (Icons.link_off, c.muted, 'Chưa kết nối.'),
+      HaConnection.connecting => (Icons.sync, c.muted, 'Connecting…'),
+      HaConnection.failed => (Icons.error_outline, c.warn, link.message ?? 'Could not connect.'),
+      HaConnection.disconnected => (Icons.link_off, c.muted, 'Not connected.'),
     };
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -466,7 +465,7 @@ class _HaPageState extends State<HaPage> {
                   ),
                 if (hasOrphans)
                   tab(
-                    'Chưa phân phòng',
+                    'Unassigned rooms',
                     null,
                     orphansOn,
                     () => setState(() {
@@ -478,7 +477,7 @@ class _HaPageState extends State<HaPage> {
             ),
           ),
           Tooltip(
-            message: tr('Thêm phòng'),
+            message: tr('Add room'),
             child: IconButton(icon: const Icon(Icons.add), onPressed: _newRoom),
           ),
           const SizedBox(width: 6),
@@ -496,7 +495,7 @@ class _HaPageState extends State<HaPage> {
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Text(
-            'Chưa có phòng nào. Bấm + để tạo phòng, rồi “Thêm entity…” để chọn đèn, công tắc, rèm, máy lạnh… từ Home Assistant.',
+            'No rooms yet. Click + to create a room, then "Add entity…" to pick lights, switches, blinds, AC… from Home Assistant.',
             textAlign: TextAlign.center,
             style: TextStyle(color: c.muted),
           ),
@@ -593,7 +592,7 @@ class _HaPageState extends State<HaPage> {
                 Expanded(
                   child: SearchField(
                     key: ValueKey('room-search-$roomKey'),
-                    hint: 'Tìm entity trong phòng (tên, mã hoặc địa chỉ)',
+                    hint: 'Search entities in the room (name, ID or address)',
                     width: double.infinity,
                     framed: true,
                     onChanged: (v) => setState(() {
@@ -606,7 +605,7 @@ class _HaPageState extends State<HaPage> {
                 const SizedBox(width: 10),
                 if (selecting) ...[
                   EvoButton(
-                    label: 'Chọn hết',
+                    label: 'Select all',
                     onPressed: () => setState(
                       () => picked
                         ..clear()
@@ -614,10 +613,10 @@ class _HaPageState extends State<HaPage> {
                     ),
                   ),
                   const SizedBox(width: 6),
-                  EvoButton(label: 'Bỏ chọn', onPressed: picked.isEmpty ? null : () => setState(picked.clear)),
+                  EvoButton(label: 'Deselect', onPressed: picked.isEmpty ? null : () => setState(picked.clear)),
                   const SizedBox(width: 6),
                   EvoButton(
-                    label: 'Xoá (${picked.length})',
+                    label: 'Delete (${picked.length})',
                     danger: true,
                     icon: Icons.delete_outline,
                     onPressed: picked.isEmpty ? null : () => _removeMany(picked.toList()),
@@ -625,7 +624,7 @@ class _HaPageState extends State<HaPage> {
                   const SizedBox(width: 6),
                 ],
                 EvoButton(
-                  label: selecting ? 'Xong' : 'Chọn',
+                  label: selecting ? 'Xong' : 'Select',
                   icon: selecting ? Icons.check : Icons.checklist,
                   onPressed: () => setState(() {
                     selecting = !selecting;
@@ -638,17 +637,17 @@ class _HaPageState extends State<HaPage> {
         if (domains.length > 1)
           Padding(
             padding: const EdgeInsets.only(bottom: 12),
-            child: Wrap(spacing: 6, runSpacing: 6, children: [chip('', 'Tất cả (${shown.length})'), for (final d in domains) chip(d, '$d (${counts[d]})')]),
+            child: Wrap(spacing: 6, runSpacing: 6, children: [chip('', 'All (${shown.length})'), for (final d in domains) chip(d, '$d (${counts[d]})')]),
           ),
         if (byEntity.isEmpty)
           Padding(
             padding: const EdgeInsets.only(top: 8),
-            child: Text('Chưa có entity trong phòng này. Bấm “Thêm entity…”.', style: TextStyle(color: c.muted)),
+            child: Text('No entities in this room yet. Click "Add entity…".', style: TextStyle(color: c.muted)),
           ),
         if (byEntity.isNotEmpty && shown.isEmpty)
           Padding(
             padding: const EdgeInsets.only(top: 8),
-            child: Text('Không có entity nào khớp “${query.trim()}”.', style: TextStyle(color: c.muted)),
+            child: Text('No entities match “${query.trim()}”.', style: TextStyle(color: c.muted)),
           ),
         for (final e in order) _entityCard(c, e, byEntity[e]!),
       ],
@@ -744,8 +743,8 @@ class _HaPageState extends State<HaPage> {
                     width: 130,
                     child: Text(haAttr(k)?.label ?? k, style: TextStyle(color: c.ink)),
                   ),
-                  addr(byAttr[k]!['cmd'], 'Lệnh'),
-                  addr(byAttr[k]!['status'], 'Trạng thái'),
+                  addr(byAttr[k]!['cmd'], 'Command'),
+                  addr(byAttr[k]!['status'], 'Status'),
                   Text('DPT ${(byAttr[k]!.values.first['dpt'] ?? '').toString()}', style: TextStyle(color: c.muted)),
                 ],
               ),
@@ -846,7 +845,7 @@ class _TokenFieldState extends State<_TokenField> {
       onChanged: widget.onChanged,
       decoration: InputDecoration(
         suffixIcon: IconButton(
-          tooltip: hide ? tr('Hiện token') : tr('Ẩn token'),
+          tooltip: hide ? tr('Show token') : tr('Hide token'),
           icon: Icon(hide ? Icons.visibility_outlined : Icons.visibility_off_outlined, size: 18),
           onPressed: () => setState(() => hide = !hide),
         ),
@@ -878,8 +877,8 @@ Future<String?> _prompt(BuildContext context, String title, String hint, String 
         ),
       ),
       actions: [
-        EvoButton(label: 'Huỷ', onPressed: () => Navigator.pop(c)),
-        EvoButton(label: 'Lưu', primary: true, onPressed: () => Navigator.pop(c, ctl.text)),
+        EvoButton(label: 'Cancel', onPressed: () => Navigator.pop(c)),
+        EvoButton(label: 'Save', primary: true, onPressed: () => Navigator.pop(c, ctl.text)),
       ],
     ),
   );
@@ -905,7 +904,7 @@ Future<({String name, int main})?> _roomDialog(
     builder: (c) => StatefulBuilder(
       builder: (c, setS) {
         final m = int.tryParse(mainCtl.text.trim());
-        final err = !editMain ? null : (m == null ? 'Nhập số, ví dụ ${haNextMain(doc)}.' : haValidateMain(doc, m, exceptRoom: exceptRoom));
+        final err = !editMain ? null : (m == null ? 'Enter a number, for example ${haNextMain(doc)}.' : haValidateMain(doc, m, exceptRoom: exceptRoom));
         final nameOk = !editName || nameCtl.text.trim().isNotEmpty;
         return AlertDialog(
           title: Text(title),
@@ -915,17 +914,17 @@ Future<({String name, int main})?> _roomDialog(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                if (editName) FieldLabel('Tên phòng', TextField(controller: nameCtl, autofocus: true, onChanged: (_) => setS(() {}))),
+                if (editName) FieldLabel('Room name', TextField(controller: nameCtl, autofocus: true, onChanged: (_) => setS(() {}))),
                 if (editName && editMain) const SizedBox(height: 12),
                 if (editMain) ...[
                   FieldLabel(
-                    'Nhóm chính (lớn hơn 31)',
+                    'Main group (greater than 31)',
                     TextField(controller: mainCtl, autofocus: !editName, keyboardType: TextInputType.number, onChanged: (_) => setS(() {})),
                   ),
                   Padding(
                     padding: const EdgeInsets.only(top: 6),
                     child: Text(
-                      err ?? 'Địa chỉ trong phòng có dạng ${m ?? '…'}/nhóm giữa/nhóm phụ.',
+                      err ?? 'Addresses in the room have the form ${m ?? '…'}/middle group/sub group.',
                       style: TextStyle(fontSize: kUiText - 1, color: err != null ? c.evo.warn : c.evo.muted),
                     ),
                   ),
@@ -933,7 +932,7 @@ Future<({String name, int main})?> _roomDialog(
                     Padding(
                       padding: const EdgeInsets.only(top: 6),
                       child: Text(
-                        'Mọi địa chỉ của phòng sẽ đổi theo nhóm chính mới.',
+                        'All addresses of the room change to the new main group.',
                         style: TextStyle(fontSize: kUiText - 1, color: c.evo.muted),
                       ),
                     ),
@@ -942,9 +941,9 @@ Future<({String name, int main})?> _roomDialog(
             ),
           ),
           actions: [
-            EvoButton(label: 'Huỷ', onPressed: () => Navigator.pop(c)),
+            EvoButton(label: 'Cancel', onPressed: () => Navigator.pop(c)),
             EvoButton(
-              label: 'Lưu',
+              label: 'Save',
               primary: true,
               onPressed: err != null || !nameOk ? null : () => Navigator.pop(c, (name: nameCtl.text.trim(), main: editMain ? m! : (main ?? 0))),
             ),
@@ -1045,7 +1044,7 @@ class _AddEntityDialogState extends State<_AddEntityDialog> {
       if (err != null) {
         out[f.$1] = err;
       } else if (!seen.add(haCanonicalAddress(t))) {
-        out[f.$1] = 'Trùng với ô khác.';
+        out[f.$1] = 'Same as another field.';
       }
     }
     return out;
@@ -1077,7 +1076,7 @@ class _AddEntityDialogState extends State<_AddEntityDialog> {
     });
     toast(
       context,
-      ents == 0 && errors.isEmpty ? 'Các địa chỉ này đã có.' : 'Đã thêm $ents entity ($addrs địa chỉ).${errors.isEmpty ? '' : ' ${errors.first}'}',
+      ents == 0 && errors.isEmpty ? 'These addresses already exist.' : 'Added $ents entities ($addrs addresses).${errors.isEmpty ? '' : ' ${errors.first}'}',
     );
   }
 
@@ -1105,7 +1104,7 @@ class _AddEntityDialogState extends State<_AddEntityDialog> {
     final canAuto = picked.isNotEmpty && room.isNotEmpty;
     final canManual = focus != null && fields.isNotEmpty && errors.isEmpty && effectiveRoom.isNotEmpty;
     return AlertDialog(
-      title: const Text('Thêm entity từ Home Assistant'),
+      title: const Text('Add entities from Home Assistant'),
       content: SizedBox(
         width: 780,
         height: 500,
@@ -1117,23 +1116,23 @@ class _AddEntityDialogState extends State<_AddEntityDialog> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  SearchField(hint: 'Tìm theo tên hoặc mã entity', width: double.infinity, onChanged: (v) => setState(() => q = v)),
+                  SearchField(hint: 'Search by name or entity ID', width: double.infinity, onChanged: (v) => setState(() => q = v)),
                   const SizedBox(height: 8),
                   EvoDropdown<String>(
                     value: domain,
-                    items: [('', 'Tất cả loại (${usable.length})'), for (final d in domains) (d, d)],
+                    items: [('', 'All types (${usable.length})'), for (final d in domains) (d, d)],
                     onChanged: (v) => setState(() => domain = v),
                   ),
                   const SizedBox(height: 8),
                   Row(
                     children: [
-                      EvoButton(label: 'Chọn hết', small: true, onPressed: list.isEmpty ? null : () => setState(() => picked.addAll(list.map((e) => e.id)))),
+                      EvoButton(label: 'Select all', small: true, onPressed: list.isEmpty ? null : () => setState(() => picked.addAll(list.map((e) => e.id)))),
                       const SizedBox(width: 6),
-                      EvoButton(label: 'Bỏ chọn', small: true, onPressed: picked.isEmpty ? null : () => setState(picked.clear)),
+                      EvoButton(label: 'Deselect', small: true, onPressed: picked.isEmpty ? null : () => setState(picked.clear)),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
-                          '${list.length} entity · đã chọn ${picked.length}',
+                          '${list.length} entities · ${picked.length} selected',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(fontSize: kUiText - 1, color: c.muted),
@@ -1193,7 +1192,7 @@ class _AddEntityDialogState extends State<_AddEntityDialog> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   FieldLabel(
-                    'Thêm vào phòng',
+                    'Add to room',
                     EvoDropdown<String>(
                       value: effectiveRoom,
                       items: [for (final r in rooms) (r['id'] as String, '${r['name']} (${r['main']})')],
@@ -1204,7 +1203,7 @@ class _AddEntityDialogState extends State<_AddEntityDialog> {
                     Padding(
                       padding: const EdgeInsets.only(top: 4),
                       child: Text(
-                        'Entity này đã có trong phòng đó.',
+                        'This entity is already in that room.',
                         style: TextStyle(fontSize: kUiText - 2, color: c.muted),
                       ),
                     ),
@@ -1212,8 +1211,7 @@ class _AddEntityDialogState extends State<_AddEntityDialog> {
                   if (focus == null)
                     Expanded(
                       child: Text(
-                        'Tick nhiều entity bên trái rồi bấm “Thêm tự động”: địa chỉ được gán theo quy tắc.\n\n'
-                        'Hoặc bấm vào một entity để chọn chức năng và tự nhập địa chỉ, rồi bấm “Thêm thủ công”.',
+                        'Tick several entities on the left, then click "Add automatically": addresses are assigned by the rule.\n\nOr click an entity to choose its functions and enter the addresses yourself, then click "Add manually".',
                         style: TextStyle(color: c.muted, height: 1.45),
                       ),
                     )
@@ -1233,10 +1231,10 @@ class _AddEntityDialogState extends State<_AddEntityDialog> {
                           Row(
                             children: [
                               Expanded(
-                                child: Text('Chức năng và địa chỉ (thêm thủ công):', style: TextStyle(color: c.muted)),
+                                child: Text('Functions and addresses (manual add):', style: TextStyle(color: c.muted)),
                               ),
                               EvoButton(
-                                label: 'Điền theo quy tắc',
+                                label: 'Fill by the rule',
                                 small: true,
                                 onPressed: fields.isEmpty
                                     ? null
@@ -1272,7 +1270,7 @@ class _AddEntityDialogState extends State<_AddEntityDialog> {
                                             style: const TextStyle(fontSize: kUiText),
                                             decoration: InputDecoration(
                                               isDense: true,
-                                              labelText: role == 'cmd' ? tr('Lệnh') : tr('Trạng thái'),
+                                              labelText: role == 'cmd' ? tr('Command') : tr('Status'),
                                               hintText: plan['${a.key}|$role'],
                                               errorText: (errors['${a.key}|$role'] ?? '').isEmpty ? null : errors['${a.key}|$role'],
                                               errorMaxLines: 3,
@@ -1294,7 +1292,7 @@ class _AddEntityDialogState extends State<_AddEntityDialog> {
       ),
       actions: [
         EvoButton(
-          label: 'Thêm tự động${picked.isEmpty ? '' : ' (${picked.length})'}',
+          label: 'Add automatically${picked.isEmpty ? '' : ' (${picked.length})'}',
           primary: true,
           onPressed: canAuto
               ? () => _addMany([
@@ -1304,10 +1302,10 @@ class _AddEntityDialogState extends State<_AddEntityDialog> {
               : null,
         ),
         EvoButton(
-          label: 'Thêm thủ công',
+          label: 'Add manually',
           onPressed: !canManual ? null : () => _addMany([focus!], only: {focus!.id: keys.toList()}, addresses: {for (final f in fields) f.$1: _ctl(f.$1).text}),
         ),
-        EvoButton(label: added > 0 ? 'Đóng ($added đã thêm)' : 'Đóng', onPressed: () => Navigator.pop(context)),
+        EvoButton(label: added > 0 ? 'Close ($added added)' : 'Close', onPressed: () => Navigator.pop(context)),
       ],
     );
   }

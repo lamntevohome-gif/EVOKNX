@@ -136,7 +136,8 @@ class _HomeScreenState extends State<HomeScreen> {
       ha = b;
       b.start();
     }
-    engine.writer = (ga, v) => isHaAddress(ga) ? (ha?.write(ga, v) ?? Future<String?>.value('Home Assistant chưa được bật trong dự án.')) : knx.write(ga, v);
+    engine.writer = (ga, v) =>
+        isHaAddress(ga) ? (ha?.write(ga, v) ?? Future<String?>.value('Home Assistant is not enabled in the project.')) : knx.write(ga, v);
     engine.onMessage = _toast;
     engine.onScene = (w) => showScenePopup(context, w, store.palette);
     engine.onOpenUrl = (url) => launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
@@ -280,7 +281,7 @@ class _HomeScreenState extends State<HomeScreen> {
             Padding(
               padding: const EdgeInsets.fromLTRB(22, 18, 22, 8),
               child: Text(
-                'Chuyển hồ sơ',
+                'Switch profile',
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: pal.sInk),
               ),
             ),
@@ -299,7 +300,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ListTile(
               leading: Icon(Icons.settings_outlined, color: pal.sMuted),
-              title: Text('Quản lý hồ sơ', style: TextStyle(color: pal.sMuted)),
+              title: Text('Manage profiles', style: TextStyle(color: pal.sMuted)),
               onTap: () {
                 Navigator.pop(c);
                 _openSettings();
@@ -393,13 +394,13 @@ class _HomeScreenState extends State<HomeScreen> {
                                   Icon(Icons.meeting_room_outlined, size: 48, color: pal.sMuted),
                                   const SizedBox(height: 12),
                                   Text(
-                                    'Phòng chưa được tạo',
+                                    'The room has not been created',
                                     textAlign: TextAlign.center,
                                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: pal.sInk),
                                   ),
                                   const SizedBox(height: 6),
                                   Text(
-                                    'Tầng này chưa có phòng nào.',
+                                    'This floor has no rooms yet.',
                                     textAlign: TextAlign.center,
                                     style: TextStyle(fontSize: 14, color: pal.sMuted),
                                   ),
@@ -467,7 +468,7 @@ class _HomeScreenState extends State<HomeScreen> {
     } else if (r == null) {
       content = Center(
         child: Text(
-          tr('Phòng chưa được tạo'),
+          tr('The room has not been created'),
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: pal.sInk),
         ),
       );
@@ -530,28 +531,32 @@ class _HomeScreenState extends State<HomeScreen> {
 
   /// The three buttons at the bottom.
   Widget _modernBar(AppPalette pal) {
+    final f = tfs(doc, 'navBar');
     Widget item(int t, IconData icon, String label) {
       final on = _tab == t;
+      final fg = on ? pal.onChipSel : pal.muted;
       return Expanded(
         child: InkWell(
           onTap: () => _modernTab(t),
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 6),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 56,
-                  height: 30,
-                  decoration: on ? flatDecoration(pal, pal.chipSel, radius: BorderRadius.circular(16)) : null,
-                  child: Icon(icon, size: 22, color: on ? pal.onChipSel : pal.muted),
+            child: Center(
+              // The highlighted pill wraps the icon and the text.
+              child: Container(
+                padding: EdgeInsets.symmetric(horizontal: f * 1.5, vertical: f * 0.55),
+                decoration: on ? flatDecoration(pal, pal.chipSel, radius: BorderRadius.circular(f * 1.6)) : null,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(icon, size: f * 1.9, color: fg),
+                    SizedBox(height: f * 0.2),
+                    Text(
+                      label,
+                      style: TextStyle(fontSize: f, fontWeight: on ? FontWeight.w700 : FontWeight.w500, color: fg),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  label,
-                  style: TextStyle(fontSize: 12, fontWeight: on ? FontWeight.w700 : FontWeight.w500, color: on ? pal.ink : pal.muted),
-                ),
-              ],
+              ),
             ),
           ),
         ),
@@ -588,7 +593,7 @@ class _HomeScreenState extends State<HomeScreen> {
               if (bad) const Icon(Icons.wifi_off, size: 16, color: Colors.white),
               const SizedBox(width: 10),
               Expanded(
-                child: Text(bad ? '${knx.statusText} · Chạm để thử lại' : knx.statusText, style: TextStyle(fontSize: 13, color: bad ? Colors.white : pal.ink)),
+                child: Text(bad ? '${knx.statusText} · Tap to retry' : knx.statusText, style: TextStyle(fontSize: 13, color: bad ? Colors.white : pal.ink)),
               ),
             ],
           ),
@@ -607,7 +612,7 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           if (onBack != null || (_galleryMode && !_gallery)) ...[
             Tooltip(
-              message: tr('Thư viện phòng'),
+              message: tr('Room gallery'),
               child: DecoratedBox(
                 decoration: flatDecoration(pal, pal.chipFill, circle: true),
                 child: Material(
@@ -655,7 +660,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           if (store.profiles.length > 1) ...[
             Tooltip(
-              message: tr('Chuyển hồ sơ'),
+              message: tr('Switch profile'),
               child: DecoratedBox(
                 decoration: flatDecoration(pal, pal.chipFill, circle: true),
                 child: Material(
@@ -784,7 +789,7 @@ class _HomeScreenState extends State<HomeScreen> {
       padding: EdgeInsets.fromLTRB(14, max(0.0, m - 6), 14, 0),
       child: Row(
         children: [
-          if (arrows) arrow(Icons.chevron_left, page > 0, () => go(page - 1), 'Trang trước'),
+          if (arrows) arrow(Icons.chevron_left, page > 0, () => go(page - 1), 'Previous page'),
           Expanded(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -800,7 +805,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
           ),
-          if (arrows) arrow(Icons.chevron_right, page < subs.length - 1, () => go(page + 1), 'Trang sau'),
+          if (arrows) arrow(Icons.chevron_right, page < subs.length - 1, () => go(page + 1), 'Next page'),
         ],
       ),
     );
@@ -1008,7 +1013,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (type == 'link') {
       final u = webUri(w['url']);
       if (u == null) {
-        _toast('Thẻ này chưa có địa chỉ web.');
+        _toast('This card has no web address yet.');
       } else if (w['openIn'] == 'external') {
         launchUrl(u, mode: LaunchMode.externalApplication);
       } else {

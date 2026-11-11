@@ -83,7 +83,7 @@ class _IconPickerDialogState extends State<_IconPickerDialog> {
 
   Designer get d => widget.d;
 
-  List<(String, String)> get _tabs => const [('suggest', 'Gợi ý'), ('mdi', 'Thư viện MDI'), ('custom', 'Biểu tượng riêng')];
+  List<(String, String)> get _tabs => const [('suggest', 'Suggestions'), ('mdi', 'MDI library'), ('custom', 'Custom icon')];
 
   /// Common MDI icons for this place (cards, rooms or floors).
   List<(String, String)> get _suggest {
@@ -122,7 +122,7 @@ class _IconPickerDialogState extends State<_IconPickerDialog> {
       // the MDI library (English names, Vietnamese keywords).
       final seen = <String>{};
       base = [
-        for (final i in [(kNoIcon, 'Không có'), ..._suggest, ..._group('custom')])
+        for (final i in [(kNoIcon, 'None'), ..._suggest, ..._group('custom')])
           if ((fold(i.$2).contains(fq) || (i.$1 == kNoIcon && 'none'.contains(fq))) && seen.add(i.$1)) i,
         for (final m in Mdi.search(fq))
           if (seen.add(m.key)) (m.key, m.name),
@@ -134,7 +134,7 @@ class _IconPickerDialogState extends State<_IconPickerDialog> {
   }
 
   List<(String, String)> _group(String g) => switch (g) {
-    'suggest' => [(kNoIcon, 'Không có'), ..._suggest],
+    'suggest' => [(kNoIcon, 'None'), ..._suggest],
     'mdi' => [for (final m in Mdi.search('', tag: mdiTag < 0 ? null : mdiTag)) (m.key, m.name)],
     _ => [for (final c in customIcons) (c.id, c.name)],
   };
@@ -144,9 +144,9 @@ class _IconPickerDialogState extends State<_IconPickerDialog> {
   Future<void> _upload() async {
     final f = await openFile(
       acceptedTypeGroups: const [
-        XTypeGroup(label: 'Biểu tượng (SVG, PNG)', extensions: ['svg', 'png']),
+        XTypeGroup(label: 'Icon (SVG, PNG)', extensions: ['svg', 'png']),
       ],
-      confirmButtonText: tr('Tải lên'),
+      confirmButtonText: tr('Upload'),
     );
     if (f == null) return;
     final bytes = await f.readAsBytes();
@@ -154,14 +154,14 @@ class _IconPickerDialogState extends State<_IconPickerDialog> {
     final name = f.name.replaceAll(RegExp(r'\.(svg|png)$', caseSensitive: false), '');
     final isSvg = f.name.toLowerCase().endsWith('.svg');
     if (bytes.length > 100 * 1024) {
-      toast(context, 'File nặng ${bytes.length ~/ 1024} KB, vượt quá 100 KB. Hãy tối ưu lại file.');
+      toast(context, 'The file is ${bytes.length ~/ 1024} KB, over the 100 KB limit. Please optimise the file.');
       return;
     }
     String data;
     if (isSvg) {
       final text = utf8.decode(bytes, allowMalformed: true);
       if (!text.contains('<svg')) {
-        toast(context, 'File SVG không hợp lệ.');
+        toast(context, 'Invalid SVG file.');
         return;
       }
       data = 'data:image/svg+xml;base64,${base64Encode(bytes)}';
@@ -170,25 +170,25 @@ class _IconPickerDialogState extends State<_IconPickerDialog> {
         final img = await decodeImageFromList(bytes);
         if (!mounted) return;
         if (img.width != img.height) {
-          toast(context, 'Ảnh ${img.width} × ${img.height} px chưa vuông. Biểu tượng cần ảnh vuông, nên dùng 96 × 96 px.');
+          toast(context, 'The image ${img.width} × ${img.height} px is not square. An icon needs a square image; use 96 × 96 px.');
           return;
         }
         if (img.width < 48) {
-          toast(context, 'Ảnh ${img.width} × ${img.height} px quá nhỏ, sẽ bị mờ. Nên dùng 96 × 96 px.');
+          toast(context, 'The image ${img.width} × ${img.height} px is too small and will look blurry. Use 96 × 96 px.');
           return;
         }
         if (img.width > 512) {
-          toast(context, 'Ảnh ${img.width} × ${img.height} px quá lớn. Nên dùng 96 × 96 px (tối đa 512 px).');
+          toast(context, 'The image ${img.width} × ${img.height} px is too large. Use 96 × 96 px (max 512 px).');
           return;
         }
       } catch (_) {
-        if (mounted) toast(context, 'Không đọc được ảnh PNG.');
+        if (mounted) toast(context, 'Could not read the PNG image.');
         return;
       }
       data = 'data:image/png;base64,${base64Encode(bytes)}';
     }
     if (decodeIconData(data) == null) {
-      toast(context, 'Không đọc được biểu tượng.');
+      toast(context, 'Could not read the icon.');
       return;
     }
     final id = uid('ci_');
@@ -198,7 +198,7 @@ class _IconPickerDialogState extends State<_IconPickerDialog> {
       tab = 'custom';
       q = '';
     });
-    toast(context, 'Đã thêm biểu tượng “$name”. Bấm vào để chọn.');
+    toast(context, 'Added the icon “$name”. Click it to select.');
   }
 
   int _usage(String id) {
@@ -226,14 +226,14 @@ class _IconPickerDialogState extends State<_IconPickerDialog> {
     final v = await showDialog<String>(
       context: context,
       builder: (c) => AlertDialog(
-        title: const Text('Đổi tên biểu tượng', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+        title: const Text('Rename icon', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
         content: SizedBox(
           width: 360,
           child: TextField(controller: ctl, autofocus: true, onSubmitted: (s) => Navigator.pop(c, s)),
         ),
         actions: [
-          EvoButton(label: 'Huỷ', onPressed: () => Navigator.pop(c)),
-          EvoButton(label: 'Lưu', primary: true, onPressed: () => Navigator.pop(c, ctl.text)),
+          EvoButton(label: 'Cancel', onPressed: () => Navigator.pop(c)),
+          EvoButton(label: 'Save', primary: true, onPressed: () => Navigator.pop(c, ctl.text)),
         ],
       ),
     );
@@ -253,18 +253,16 @@ class _IconPickerDialogState extends State<_IconPickerDialog> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
-        title: Text('Xoá biểu tượng “${ci.name}”?', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+        title: Text('Delete the icon “${ci.name}”?', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
         content: SizedBox(
           width: 400,
           child: Text(
-            n > 0
-                ? 'Biểu tượng đang được dùng ở $n chỗ. Những chỗ đó sẽ chuyển về biểu tượng mặc định. Bạn có thể hoàn tác (Ctrl+Z).'
-                : 'Biểu tượng chưa được dùng ở đâu.',
+            n > 0 ? 'The icon is used in $n places. Those places will revert to the default icon. You can undo (Ctrl+Z).' : 'This icon is not used anywhere.',
           ),
         ),
         actions: [
-          EvoButton(label: 'Huỷ', onPressed: () => Navigator.pop(c, false)),
-          EvoButton(label: 'Xoá', danger: true, onPressed: () => Navigator.pop(c, true)),
+          EvoButton(label: 'Cancel', onPressed: () => Navigator.pop(c, false)),
+          EvoButton(label: 'Delete', danger: true, onPressed: () => Navigator.pop(c, true)),
         ],
       ),
     );
@@ -296,7 +294,7 @@ class _IconPickerDialogState extends State<_IconPickerDialog> {
     final items = _items();
     final searching = q.trim().isNotEmpty;
     return AlertDialog(
-      title: const Text('Chọn biểu tượng', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+      title: const Text('Select icon', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
       content: SizedBox(
         width: 760,
         height: 480,
@@ -307,7 +305,7 @@ class _IconPickerDialogState extends State<_IconPickerDialog> {
               children: [
                 Seg<String>(items: _tabs, value: tab, onChanged: (v) => setState(() => tab = v)),
                 const Spacer(),
-                SearchField(hint: 'Tìm: đèn, quạt, light…', width: 220, onChanged: (v) => setState(() => q = v)),
+                SearchField(hint: 'Search: den, quat, light…', width: 220, onChanged: (v) => setState(() => q = v)),
               ],
             ),
             const SizedBox(height: 12),
@@ -321,7 +319,7 @@ class _IconPickerDialogState extends State<_IconPickerDialog> {
                       child: EvoDropdown<int>(
                         value: mdiTag,
                         items: [
-                          (-1, 'Tất cả (${Mdi.all.length})'),
+                          (-1, 'All (${Mdi.all.length})'),
                           for (final e in kMdiTagNames.entries)
                             if (Mdi.tagIndex(e.key) >= 0) (Mdi.tagIndex(e.key), trIcon(e.value)),
                           for (var i = 0; i < Mdi.tags.length; i++)
@@ -333,7 +331,7 @@ class _IconPickerDialogState extends State<_IconPickerDialog> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        'Material Design Icons · Pictogrammers. Gõ tìm bằng tiếng Việt (đèn, rèm, quạt…) hoặc tiếng Anh.',
+                        'Material Design Icons · Pictogrammers. Search by name in English (light, curtain, fan…).',
                         style: TextStyle(fontSize: 14, color: c.muted),
                       ),
                     ),
@@ -349,22 +347,19 @@ class _IconPickerDialogState extends State<_IconPickerDialog> {
                   children: [
                     Expanded(
                       child: Text(
-                        'SVG hoặc PNG, ảnh vuông 96 × 96 px, dưới 100 KB. Nên dùng biểu tượng một màu trên nền trong suốt: App sẽ tự tô màu theo trạng thái bật/tắt.',
+                        'SVG or PNG, square image 96 × 96 px, under 100 KB. Use a single-colour icon on a transparent background: the App tints it by the on/off state.',
                         style: TextStyle(fontSize: 13.5, color: c.muted),
                       ),
                     ),
                     const SizedBox(width: 10),
-                    EvoButton(label: 'Tải lên', icon: Icons.upload_outlined, primary: true, small: true, onPressed: _upload),
+                    EvoButton(label: 'Upload', icon: Icons.upload_outlined, primary: true, small: true, onPressed: _upload),
                   ],
                 ),
               ),
             Expanded(
               child: items.isEmpty
                   ? Center(
-                      child: Text(
-                        searching ? 'Không có biểu tượng nào khớp.' : 'Chưa có biểu tượng riêng. Bấm “Tải lên” để thêm.',
-                        style: TextStyle(color: c.muted),
-                      ),
+                      child: Text(searching ? 'No matching icons.' : 'No custom icons yet. Click "Upload" to add one.', style: TextStyle(color: c.muted)),
                     )
                   : GridView.builder(
                       gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
@@ -417,14 +412,14 @@ class _IconPickerDialogState extends State<_IconPickerDialog> {
                                       right: 0,
                                       top: 0,
                                       child: PopupMenuButton<String>(
-                                        tooltip: tr('Tuỳ chọn'),
+                                        tooltip: tr('Options'),
                                         padding: EdgeInsets.zero,
                                         iconSize: 16,
                                         icon: Icon(Icons.more_vert, size: 16, color: c.muted),
                                         onSelected: (v) => v == 'rename' ? _rename(ci) : _delete(ci),
                                         itemBuilder: (_) => const [
-                                          PopupMenuItem(value: 'rename', child: Text('Đổi tên')),
-                                          PopupMenuItem(value: 'delete', child: Text('Xoá')),
+                                          PopupMenuItem(value: 'rename', child: Text('Rename')),
+                                          PopupMenuItem(value: 'delete', child: Text('Delete')),
                                         ],
                                       ),
                                     ),
@@ -442,14 +437,14 @@ class _IconPickerDialogState extends State<_IconPickerDialog> {
       actions: [
         if (tab != 'custom' || searching)
           EvoButton(
-            label: 'Biểu tượng riêng…',
+            label: 'Custom icon…',
             icon: Icons.upload_outlined,
             onPressed: () => setState(() {
               tab = 'custom';
               q = '';
             }),
           ),
-        EvoButton(label: 'Đóng', onPressed: () => Navigator.pop(context)),
+        EvoButton(label: 'Close', onPressed: () => Navigator.pop(context)),
       ],
     );
   }

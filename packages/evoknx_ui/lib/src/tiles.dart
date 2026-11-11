@@ -14,22 +14,22 @@ import 'model.dart';
 /// The App themes, in three sets of three (colours from the design table):
 /// Sáng (L1–L3), Trung tính (G1–G3) and Tối (D1–D3).
 const List<(String, List<(String, String)>)> kAppThemeGroups = [
-  ('Sáng', [('l1', 'Glacier Blue'), ('l2', 'Fresh Green'), ('l3', 'Sand Beige')]),
-  ('Trung tính', [('g1', 'Slate Gray'), ('g2', 'Graphite Gray'), ('g3', 'Neutral Gray')]),
-  ('Tối', [('d1', 'Deep Blue'), ('d2', 'Forest Green'), ('d3', 'Warm Amber')]),
+  ('Light', [('l1', 'Glacier Blue'), ('l2', 'Fresh Green'), ('l3', 'Sand Beige')]),
+  ('Neutral', [('g1', 'Slate Gray'), ('g2', 'Graphite Gray'), ('g3', 'Neutral Gray')]),
+  ('Dark', [('d1', 'Deep Blue'), ('d2', 'Forest Green'), ('d3', 'Warm Amber')]),
 ];
 
 /// Flat list for drop-downs: (key, "Sáng · Glacier Blue").
 const List<(String, String)> kAppThemes = [
-  ('l1', 'Sáng · Glacier Blue'),
-  ('l2', 'Sáng · Fresh Green'),
-  ('l3', 'Sáng · Sand Beige'),
-  ('g1', 'Trung tính · Slate Gray'),
-  ('g2', 'Trung tính · Graphite Gray'),
-  ('g3', 'Trung tính · Neutral Gray'),
-  ('d1', 'Tối · Deep Blue'),
-  ('d2', 'Tối · Forest Green'),
-  ('d3', 'Tối · Warm Amber'),
+  ('l1', 'Light · Glacier Blue'),
+  ('l2', 'Light · Fresh Green'),
+  ('l3', 'Light · Sand Beige'),
+  ('g1', 'Neutral · Slate Gray'),
+  ('g2', 'Neutral · Graphite Gray'),
+  ('g3', 'Neutral · Neutral Gray'),
+  ('d1', 'Dark · Deep Blue'),
+  ('d2', 'Dark · Forest Green'),
+  ('d3', 'Dark · Warm Amber'),
 ];
 
 /// A valid theme key. The five older themes become the nearest new one.
@@ -734,7 +734,7 @@ class TileView extends StatelessWidget {
                         const SizedBox(height: 4),
                         Flexible(
                           child: Text(
-                            'Chưa có ảnh',
+                            'No image',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(fontSize: 11 * EvoScale.k, color: pal.muted),
@@ -758,7 +758,7 @@ class TileView extends StatelessWidget {
 
   Widget _content(String type, bool on, Color colorOn, Color colorOff) {
     final style = jsonMap(w['style']);
-    final textOn = (style['textOn'] ?? 'Đang bật').toString(), textOff = (style['textOff'] ?? 'Đang tắt').toString();
+    final textOn = (style['textOn'] ?? 'On').toString(), textOff = (style['textOff'] ?? 'Off').toString();
     switch (type) {
       case 'switch':
         if (w['look'] == 'simple') return _simple(on ? colorOn : pal.muted);
@@ -800,9 +800,7 @@ class TileView extends StatelessWidget {
         if (isStateValue(w)) {
           final row = _stateRow();
           final raw = sim['val'];
-          final text = row != null
-              ? (row['text'] ?? '').toString()
-              : (raw is num ? fmtNum(raw, 0) : (jsonList(w['states']).isEmpty ? 'Chưa đặt trạng thái' : '–'));
+          final text = row != null ? (row['text'] ?? '').toString() : (raw is num ? fmtNum(raw, 0) : (jsonList(w['states']).isEmpty ? 'No state set' : '–'));
           return _col([
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -882,10 +880,10 @@ class TileView extends StatelessWidget {
         ]);
       case 'button':
         if (w['btnStyle'] == 'image') return _imageButton();
-        return _col([_head(pal.muted), _state('Nhấn để gửi')]);
+        return _col([_head(pal.muted), _state('Tap to send')]);
       case 'scene':
         if (w['btnStyle'] == 'image') return _imageButton();
-        return _col([_head(pal.muted), _state('Nhấn để bật cảnh')]);
+        return _col([_head(pal.muted), _state('Tap to activate scene')]);
       case 'camera':
         final cam = jsonMap(w['cam']);
         if (cam['view'] == 'button') return _simple(pal.muted, trailing: _liveDot());
@@ -900,7 +898,7 @@ class TileView extends StatelessWidget {
         );
       case 'link':
         final host = Uri.tryParse((w['url'] ?? '').toString())?.host ?? '';
-        return _col([_head(pal.muted), _state(host.isEmpty ? 'Chưa có địa chỉ web' : host)]);
+        return _col([_head(pal.muted), _state(host.isEmpty ? 'No web address' : host)]);
       case 'webview':
         final host = Uri.tryParse((w['url'] ?? '').toString())?.host ?? '';
         final showHead = jsonMap(w['web'])['showHeader'] != false;
@@ -935,7 +933,7 @@ class TileView extends StatelessWidget {
                           const SizedBox(width: 4),
                           Expanded(
                             child: Text(
-                              host.isEmpty ? 'Chưa có địa chỉ web' : host,
+                              host.isEmpty ? 'No web address' : host,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(fontSize: 11 * EvoScale.k, color: pal.muted),
                             ),
@@ -951,7 +949,7 @@ class TileView extends StatelessWidget {
                             Icon(Icons.language, size: 26, color: pal.muted),
                             const SizedBox(height: 6),
                             Text(
-                              host.isEmpty ? 'Nhập địa chỉ web trong thuộc tính' : 'Trang web hiển thị tại đây trong App',
+                              host.isEmpty ? 'Enter the web address in the properties' : 'The web page is shown here in the App',
                               textAlign: TextAlign.center,
                               style: TextStyle(fontSize: 12 * EvoScale.k, color: pal.muted),
                             ),
@@ -979,7 +977,7 @@ class TileView extends StatelessWidget {
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (showPct) _state(curtain ? 'Mở ${100 - p}%' : 'Đóng $p%'),
+                if (showPct) _state(curtain ? 'Open ${100 - p}%' : 'Close $p%'),
                 if (ctrl != 'buttons') ...[const SizedBox(width: 6), _ibtn('tune', 'mdi:tune-vertical', fs(w, 'iconSize') * 0.7, expand: false, circle: true)],
               ],
             ),
@@ -1057,7 +1055,7 @@ class TileView extends StatelessWidget {
         String tempText(num v) => v % 1 == 0 ? fmtNum(v, 0) : fmtNum(v, dec);
         final curMode = kAcModes.where((m) => m.key == mode).firstOrNull;
         // "Đang tắt", or the mode and the setpoint ("Cool - 25°C"); the fan-only mode has no setpoint.
-        final status = !acOn ? 'Đang tắt' : [if (curMode != null) nm(curMode.key, curMode.name), if (curMode?.key != 'fan') '${tempText(sp)}°C'].join(' - ');
+        final status = !acOn ? 'Off' : [if (curMode != null) nm(curMode.key, curMode.name), if (curMode?.key != 'fan') '${tempText(sp)}°C'].join(' - ');
         final stepButtons = ac['stepButtons'] != false;
         Widget spSlider({bool always = false}) => Row(
           children: [
@@ -1078,7 +1076,7 @@ class TileView extends StatelessWidget {
         );
         Widget modeRow() => Row(
           children: [
-            modeBtn('off', nm('off', 'Tắt'), 'power', !acOn),
+            modeBtn('off', nm('off', 'Off'), 'power', !acOn),
             for (final m in kAcModes)
               if (modes.containsKey(m.key) ? modes[m.key] == true : m.key != 'heat') modeBtn(m.key, nm(m.key, m.name), m.icon, acOn && mode == m.key),
           ],
@@ -1296,7 +1294,7 @@ class CameraView extends StatelessWidget {
     Widget body;
     final hook = EvoHooks.camera;
     if (url.isEmpty) {
-      body = placeholder('Nhập địa chỉ IP camera trong thuộc tính');
+      body = placeholder('Enter the camera IP address in the properties');
     } else if (hook != null && live) {
       body = hook(context, cam);
     } else if (http && live) {
@@ -1306,10 +1304,10 @@ class CameraView extends StatelessWidget {
         headers: user.isEmpty ? null : {'Authorization': 'Basic ${base64Encode(utf8.encode('$user:$pass'))}'},
         fit: BoxFit.cover,
         gaplessPlayback: true,
-        errorBuilder: (_, __, ___) => placeholder('Không lấy được ảnh từ camera.\n$url\nVideo trực tiếp sẽ phát trong App.'),
+        errorBuilder: (_, __, ___) => placeholder('Could not get a picture from the camera.\n$url\nLive video plays in the App.'),
       );
     } else {
-      body = placeholder('$url\nVideo trực tiếp phát trong App');
+      body = placeholder('$url\nLive video plays in the App');
     }
     return ClipRRect(
       borderRadius: BorderRadius.circular(10),

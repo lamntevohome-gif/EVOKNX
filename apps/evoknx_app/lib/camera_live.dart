@@ -127,7 +127,7 @@ class _CameraFullscreenState extends State<CameraFullscreen> {
                   color: Colors.black54,
                   shape: const CircleBorder(),
                   child: IconButton(
-                    tooltip: tr('Đóng'),
+                    tooltip: tr('Close'),
                     icon: const Icon(Icons.fullscreen_exit, color: Colors.white),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
@@ -223,7 +223,7 @@ class _RtspCameraState extends State<_RtspCamera> {
     _video.waitUntilFirstFrameRendered.then((_) => _gotPicture());
     _subs.add(
       _player.stream.completed.listen((c) {
-        if (c) _fail('Mất luồng video.');
+        if (c) _fail('Video stream lost.');
       }),
     );
     _open();
@@ -274,11 +274,11 @@ class _RtspCameraState extends State<_RtspCamera> {
 
   static String _describe(String? e) {
     final t = (e ?? '').toLowerCase();
-    if (t.contains('codec')) return 'Không mở được bộ giải mã video. Hãy chọn luồng phụ H.264 trong cài đặt camera.';
+    if (t.contains('codec')) return 'Could not open the video decoder. Choose the H.264 substream in the camera settings.';
     if (t.contains('401') || t.contains('unauthorized') || t.contains('failed to open') || t.contains('connection')) {
-      return 'Không mở được luồng. Kiểm tra IP, cổng, đường dẫn và tài khoản camera.';
+      return 'Could not open the stream. Check the IP, port, path and camera account.';
     }
-    return (e == null || e.isEmpty) ? 'Không nhận được hình từ camera.' : e;
+    return (e == null || e.isEmpty) ? 'No picture received from the camera.' : e;
   }
 
   void _fail(String msg) {
@@ -311,7 +311,7 @@ class _RtspCameraState extends State<_RtspCamera> {
         if (_error != null)
           ColoredBox(
             color: Colors.black54,
-            child: _CamMessage(text: '$_error\nĐang thử lại…'),
+            child: _CamMessage(text: '$_error\nRetrying…'),
           )
         else if (!_ok)
           const _CamMessage(loading: true),
@@ -361,14 +361,14 @@ class _HttpCameraState extends State<_HttpCamera> {
         }
       },
       onError: (Object e) => _fail(_friendly(e)),
-      onDone: () => _fail('Camera ngắt kết nối.'),
+      onDone: () => _fail('Camera disconnected.'),
       cancelOnError: true,
     );
   }
 
   static String _friendly(Object e) {
-    if (e is SocketException || e is TimeoutException) return 'Không kết nối được camera. Kiểm tra IP, cổng và mạng Wi-Fi.';
-    if (e is HttpException) return 'Camera trả lời lỗi: ${e.message}';
+    if (e is SocketException || e is TimeoutException) return 'Could not connect to the camera. Check the IP, port and Wi-Fi.';
+    if (e is HttpException) return 'The camera replied with an error: ${e.message}';
     return '$e';
   }
 
@@ -399,7 +399,7 @@ class _HttpCameraState extends State<_HttpCamera> {
         if (_error != null)
           ColoredBox(
             color: Colors.black54,
-            child: _CamMessage(text: '$_error\nĐang thử lại…'),
+            child: _CamMessage(text: '$_error\nRetrying…'),
           )
         else if (f == null)
           const _CamMessage(loading: true),
@@ -451,7 +451,7 @@ class _MjpegSource {
           await Future<void>.delayed(const Duration(milliseconds: 700));
         } else {
           await res.drain<void>();
-          throw 'Camera trả về dữ liệu không phải ảnh ($type). Kiểm tra đường dẫn.';
+          throw 'The camera returned data that is not an image ($type). Check the path.';
         }
       }
     } finally {
@@ -469,20 +469,20 @@ class _MjpegSource {
       if (res.statusCode == 401 && user.isNotEmpty && attempt == 0) {
         _learn(res.headers[HttpHeaders.wwwAuthenticateHeader]);
         await res.drain<void>();
-        if (_digest == null && !_basic) throw 'Camera yêu cầu đăng nhập kiểu không hỗ trợ.';
+        if (_digest == null && !_basic) throw 'The camera requires an unsupported authentication method.';
         continue;
       }
       if (res.statusCode == 401) {
         await res.drain<void>();
-        throw 'Sai tài khoản hoặc mật khẩu camera.';
+        throw 'Wrong camera account or password.';
       }
       if (res.statusCode >= 400) {
         await res.drain<void>();
-        throw 'Camera báo lỗi ${res.statusCode}. Kiểm tra đường dẫn.';
+        throw 'The camera reported error ${res.statusCode}. Check the path.';
       }
       return res;
     }
-    throw 'Không đăng nhập được camera.';
+    throw 'Could not sign in to the camera.';
   }
 
   void _learn(List<String>? headers) {

@@ -22,7 +22,7 @@ String safeName(String s) {
   r = r.replaceAll(RegExp(r'[. ]+$'), '');
   if (r.length > 80) r = r.substring(0, 80).trim();
   const reserved = {'CON', 'PRN', 'AUX', 'NUL', 'COM1', 'COM2', 'COM3', 'COM4', 'LPT1', 'LPT2', 'LPT3'};
-  if (r.isEmpty || reserved.contains(r.toUpperCase())) r = 'Du an EvoKNX';
+  if (r.isEmpty || reserved.contains(r.toUpperCase())) r = 'EvoKNX project';
   return r;
 }
 

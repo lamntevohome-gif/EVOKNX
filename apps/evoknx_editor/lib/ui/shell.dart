@@ -46,7 +46,7 @@ class _ShellState extends State<Shell> {
             title: Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
             content: SizedBox(width: 460, child: Text(message)),
             actions: [
-              EvoButton(label: 'Huỷ', onPressed: () => Navigator.pop(c, false)),
+              EvoButton(label: 'Cancel', onPressed: () => Navigator.pop(c, false)),
               EvoButton(label: yes, primary: true, onPressed: () => Navigator.pop(c, true)),
             ],
           ),
@@ -76,19 +76,19 @@ class _ShellState extends State<Shell> {
       context: context,
       barrierDismissible: false,
       builder: (c) => AlertDialog(
-        title: const Text('Lưu thay đổi trước khi đóng?', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+        title: const Text('Save changes before closing?', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
         content: SizedBox(
           width: 440,
           child: Text(
             name != null
-                ? 'Dự án “${p.projectName}” có thay đổi chưa lưu vào file $name.'
-                : 'Dự án “${p.projectName}” chưa được lưu thành file. Bấm Lưu để chọn tên và thư mục.',
+                ? 'The project “${p.projectName}” has changes that are not saved to the file $name.'
+                : 'The project “${p.projectName}” has not been saved as a file. Click Save to choose a name and folder.',
           ),
         ),
         actions: [
-          EvoButton(label: 'Huỷ', onPressed: () => Navigator.pop(c)),
-          EvoButton(label: 'Không lưu', danger: true, onPressed: () => Navigator.pop(c, 'discard')),
-          EvoButton(label: name != null ? 'Lưu' : 'Lưu thành…', primary: true, onPressed: () => Navigator.pop(c, 'save')),
+          EvoButton(label: 'Cancel', onPressed: () => Navigator.pop(c)),
+          EvoButton(label: 'Don\'t save', danger: true, onPressed: () => Navigator.pop(c, 'discard')),
+          EvoButton(label: name != null ? 'Save' : 'Save as…', primary: true, onPressed: () => Navigator.pop(c, 'save')),
         ],
       ),
     );
@@ -153,13 +153,13 @@ class _ShellState extends State<Shell> {
   }
 
   String _status() {
-    if (p.viewingSnapshot != null) return 'Đang xem bản ${p.viewingSnapshot} · Lưu để khôi phục';
-    if (p.path == null) return p.dirty ? 'Chưa lưu thành file' : 'Chưa lưu thành file';
-    if (p.dirty) return 'Chưa lưu';
+    if (p.viewingSnapshot != null) return 'Viewing version ${p.viewingSnapshot} · Save to restore';
+    if (p.path == null) return p.dirty ? 'Not saved as a file' : 'Not saved as a file';
+    if (p.dirty) return 'Unsaved';
     final t = p.savedAt;
-    if (t == null) return 'Đã lưu';
+    if (t == null) return 'Saved';
     final hm = '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
-    return p.lastSaveWasAuto ? 'Tự lưu lúc $hm' : 'Đã lưu lúc $hm';
+    return p.lastSaveWasAuto ? 'Auto-saved at $hm' : 'Saved at $hm';
   }
 
   /// Top bar: app menu and workspaces on the left, project name and save
@@ -210,7 +210,7 @@ class _ShellState extends State<Shell> {
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 260, minWidth: 120),
                   child: Tooltip(
-                    message: tr('Bấm để đổi tên dự án'),
+                    message: tr('Click to rename the project'),
                     child: SyncedField(
                       value: p.projectName,
                       bold: true,
@@ -223,7 +223,7 @@ class _ShellState extends State<Shell> {
               ),
               const SizedBox(width: 6),
               Tooltip(
-                message: p.path ?? tr('Dự án chưa được lưu thành file'),
+                message: p.path ?? tr('The project has not been saved as a file'),
                 child: Text(
                   _status(),
                   style: TextStyle(fontSize: kUiText, color: p.dirty ? c.warn : c.muted),
@@ -234,14 +234,14 @@ class _ShellState extends State<Shell> {
           final left = <Widget>[
             _appMenu(context),
             Container(width: 1, height: 20, margin: const EdgeInsets.symmetric(horizontal: 8), color: c.line),
-            tab(0, 'Cấu trúc'),
-            tab(1, 'Kết nối'),
-            tab(2, 'Kiểm tra'),
-            tab(3, 'Mở rộng'),
+            tab(0, 'Structure'),
+            tab(1, 'Connections'),
+            tab(2, 'Monitor'),
+            tab(3, 'Extensions'),
           ];
           final right = <Widget>[
-            IconButton(tooltip: tr('Hoàn tác (Ctrl+Z)'), onPressed: p.canUndo ? p.undo : null, icon: const Icon(Icons.undo)),
-            IconButton(tooltip: tr('Làm lại (Ctrl+Y)'), onPressed: p.canRedo ? p.redo : null, icon: const Icon(Icons.redo)),
+            IconButton(tooltip: tr('Undo (Ctrl+Z)'), onPressed: p.canUndo ? p.undo : null, icon: const Icon(Icons.undo)),
+            IconButton(tooltip: tr('Redo (Ctrl+Y)'), onPressed: p.canRedo ? p.redo : null, icon: const Icon(Icons.redo)),
           ];
           if (!wide) {
             return Row(
@@ -279,18 +279,18 @@ class _ShellState extends State<Shell> {
           leadingIcon: const Icon(Icons.note_add_outlined),
           shortcut: const SingleActivator(LogicalKeyboardKey.keyN, control: ctrl),
           onPressed: _new,
-          child: const Text('Dự án mới…'),
+          child: const Text('New project…'),
         ),
         MenuItemButton(
           leadingIcon: const Icon(Icons.folder_open_outlined),
           shortcut: const SingleActivator(LogicalKeyboardKey.keyO, control: ctrl),
           onPressed: () => _open(),
-          child: const Text('Mở…'),
+          child: const Text('Open…'),
         ),
         SubmenuButton(
           leadingIcon: const Icon(Icons.history),
           menuChildren: [
-            if (p.recent.isEmpty) const MenuItemButton(child: Text('Chưa có dự án gần đây')),
+            if (p.recent.isEmpty) const MenuItemButton(child: Text('No recent projects')),
             for (final r in p.recent)
               MenuItemButton(
                 onPressed: () => _open(r),
@@ -300,42 +300,42 @@ class _ShellState extends State<Shell> {
                 ),
               ),
           ],
-          child: const Text('Mở gần đây'),
+          child: const Text('Open recent'),
         ),
         MenuItemButton(
           leadingIcon: const Icon(Icons.drive_folder_upload_outlined),
           onPressed: p.projectDir == null ? null : () => Process.run('explorer', [p.projectDir!]),
-          child: const Text('Mở folder dự án (lịch sử lưu)'),
+          child: const Text('Open the project folder (saved history)'),
         ),
         const Divider(),
         MenuItemButton(
           leadingIcon: const Icon(Icons.save_outlined),
           shortcut: const SingleActivator(LogicalKeyboardKey.keyS, control: ctrl),
           onPressed: () => _save(),
-          child: const Text('Lưu'),
+          child: const Text('Save'),
         ),
         MenuItemButton(
           leadingIcon: const Icon(Icons.save_as_outlined),
           shortcut: const SingleActivator(LogicalKeyboardKey.keyS, control: ctrl, shift: true),
           onPressed: () => _save(saveAs: true),
-          child: const Text('Lưu thành…'),
+          child: const Text('Save as…'),
         ),
         const Divider(),
         MenuItemButton(
           leadingIcon: const Icon(Icons.upload_outlined),
           onPressed: () => runEtsImport(context, p),
-          child: const Text('Nhập địa chỉ nhóm từ ETS…'),
+          child: const Text('Import group addresses from ETS…'),
         ),
         MenuItemButton(
           leadingIcon: const Icon(Icons.wifi_tethering),
           onPressed: () => showSendToAppDialog(context, p),
-          child: const Text('Gửi sang App qua Wi-Fi…'),
+          child: const Text('Send to App over Wi-Fi…'),
         ),
         const Divider(),
         MenuItemButton(
           leadingIcon: const Icon(Icons.settings_outlined),
           onPressed: () => EditorSettingsDialog.show(context),
-          child: const Text('Cài đặt Editor…'),
+          child: const Text('Editor settings…'),
         ),
       ],
       builder: (context, ctl, _) => InkWell(

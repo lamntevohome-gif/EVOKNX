@@ -32,26 +32,26 @@ class DptInfo {
 
 /// Common datapoint types used by EvoKNX.
 const List<DptInfo> kCommonDpts = [
-  DptInfo('1.001', 'Bật/tắt'),
-  DptInfo('1.008', 'Lên/xuống'),
-  DptInfo('1.017', 'Kích hoạt'),
-  DptInfo('3.007', 'Dim tương đối'),
-  DptInfo('5.001', 'Phần trăm 0–100%', '%'),
-  DptInfo('5.010', 'Số nguyên 0–255'),
-  DptInfo('7.001', 'Xung đếm'),
-  DptInfo('7.600', 'Nhiệt độ màu', 'K'),
-  DptInfo('9.001', 'Nhiệt độ', '°C'),
-  DptInfo('9.004', 'Độ rọi', 'lx'),
-  DptInfo('9.007', 'Độ ẩm', '%'),
-  DptInfo('12.001', 'Bộ đếm'),
-  DptInfo('13.010', 'Điện năng', 'Wh'),
-  DptInfo('14.056', 'Công suất', 'W'),
-  DptInfo('17.001', 'Số cảnh'),
-  DptInfo('18.001', 'Điều khiển cảnh'),
-  DptInfo('20.102', 'Chế độ HVAC'),
-  DptInfo('20.105', 'Chế độ điều hoà'),
-  DptInfo('232.600', 'Màu RGB'),
-  DptInfo('251.600', 'Màu RGBW'),
+  DptInfo('1.001', 'On/Off'),
+  DptInfo('1.008', 'Up/down'),
+  DptInfo('1.017', 'Activate'),
+  DptInfo('3.007', 'Relative dimming'),
+  DptInfo('5.001', 'Percentage 0–100%', '%'),
+  DptInfo('5.010', 'Integer 0–255'),
+  DptInfo('7.001', 'Pulse counter'),
+  DptInfo('7.600', 'Colour temperature', 'K'),
+  DptInfo('9.001', 'Temperature', '°C'),
+  DptInfo('9.004', 'Illuminance', 'lx'),
+  DptInfo('9.007', 'Humidity', '%'),
+  DptInfo('12.001', 'Counter'),
+  DptInfo('13.010', 'Energy', 'Wh'),
+  DptInfo('14.056', 'Power', 'W'),
+  DptInfo('17.001', 'Scene number'),
+  DptInfo('18.001', 'Scene control'),
+  DptInfo('20.102', 'HVAC mode'),
+  DptInfo('20.105', 'AC mode'),
+  DptInfo('232.600', 'RGB colour'),
+  DptInfo('251.600', 'RGBW colour'),
 ];
 
 /// Datapoint types grouped by size, as in the ETS type list
@@ -242,9 +242,9 @@ class Dpt {
     if (v == null) return '';
     final main = dptMain(dpt);
     String num1(num x, int d) => x.toStringAsFixed(d).replaceAll('.', ',');
-    if (dpt == '1.008') return v == true ? '1 (Xuống)' : '0 (Lên)';
-    if (dpt == '1.017') return '1 (Kích hoạt)';
-    if (main == 1) return v == true ? '1 (Bật)' : '0 (Tắt)';
+    if (dpt == '1.008') return v == true ? '1 (Down)' : '0 (Up)';
+    if (dpt == '1.017') return '1 (Activate)';
+    if (main == 1) return v == true ? '1 (On)' : '0 (Off)';
     if (dpt == '5.001') return '$v %';
     if (dpt == '9.001') return '${num1(v as num, 1)} °C';
     if (dpt == '9.007') return '${num1(v as num, 0)} %';
@@ -252,11 +252,11 @@ class Dpt {
     if (dpt == '14.056') return '${num1(v as num, 0)} W';
     if (dpt == '13.010') return '$v Wh';
     if (dpt == '7.600') return '$v K';
-    if (main == 17) return '$v (Cảnh ${(v as int) + 1})';
-    if (main == 18) return '${(v as int) & 0x3F} (Cảnh ${((v) & 0x3F) + 1}${(v & 0x80) != 0 ? ', học' : ''})';
+    if (main == 17) return '$v (Scene ${(v as int) + 1})';
+    if (main == 18) return '${(v as int) & 0x3F} (Scene ${((v) & 0x3F) + 1}${(v & 0x80) != 0 ? ', learn' : ''})';
     if (main == 20) {
-      const modes = {0: 'Tự động', 1: 'Sưởi', 3: 'Làm lạnh', 6: 'Tắt', 9: 'Quạt', 14: 'Hút ẩm'};
-      return '$v (${modes[v] ?? 'Chế độ'})';
+      const modes = {0: 'Auto', 1: 'Heating', 3: 'Cooling', 6: 'Off', 9: 'Fan', 14: 'Dry'};
+      return '$v (${modes[v] ?? 'Mode'})';
     }
     if (main == 9 || main == 14) return num1(v as num, 2).replaceAll(RegExp(r',?0+$'), '');
     return v.toString();

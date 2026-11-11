@@ -63,7 +63,7 @@ class LanShareServer {
         _server = await HttpServer.bind(InternetAddress.anyIPv4, 0);
       }
     } catch (e) {
-      return 'Không mở được cổng nhận trên máy tính: $e';
+      return 'Could not open the receiving port on the computer: $e';
     }
     port = _server!.port;
     code = (Random.secure().nextInt(900000) + 100000).toString();
@@ -107,18 +107,18 @@ class LanShareServer {
     try {
       final from = r.connectionInfo?.remoteAddress;
       if (from == null || !isLocalAddress(from)) {
-        json(403, {'error': 'Chỉ nhận trong mạng nội bộ.'});
+        json(403, {'error': 'Only accepted on the local network.'});
       } else if (r.uri.path == '/evoknx/ping') {
         json(200, {'app': 'evoknx'});
       } else if (r.uri.path != '/evoknx/config') {
-        json(404, {'error': 'Không tìm thấy.'});
+        json(404, {'error': 'Not found.'});
       } else if (locked) {
-        json(403, {'error': 'Đã khoá vì nhập sai nhiều lần. Đóng cửa sổ gửi trên Editor và mở lại để lấy mã mới.'});
+        json(403, {'error': 'Locked after too many wrong attempts. Close the send window in the Editor and reopen it to get a new code.'});
       } else if (expired) {
-        json(410, {'error': 'Mã đã hết hạn. Mở lại cửa sổ gửi trên Editor để lấy mã mới.'});
+        json(410, {'error': 'The code has expired. Reopen the send window in the Editor to get a new code.'});
       } else if (r.uri.queryParameters['code'] != code) {
         wrong++;
-        json(403, {'error': 'Mã không đúng.'});
+        json(403, {'error': 'The code is incorrect.'});
         onChanged?.call();
       } else {
         json(200, build());
@@ -148,9 +148,9 @@ Future<({Json? config, String? error})> fetchConfigFromEditor(String address, St
     port = int.tryParse(host.substring(i + 1)) ?? kLanSharePort;
     host = host.substring(0, i);
   }
-  if (host.isEmpty) return (config: null, error: 'Hãy nhập địa chỉ máy tính (hiện trên Editor).');
+  if (host.isEmpty) return (config: null, error: 'Enter the computer\'s address (shown in the Editor).');
   final c = code.replaceAll(RegExp(r'\D'), '');
-  if (c.length != 6) return (config: null, error: 'Mã gồm 6 chữ số.');
+  if (c.length != 6) return (config: null, error: 'The code has 6 digits.');
   final client = HttpClient()..connectionTimeout = const Duration(seconds: 6);
   try {
     final req = await client.getUrl(Uri(scheme: 'http', host: host, port: port, path: '/evoknx/config', queryParameters: {'code': c}));
@@ -164,14 +164,18 @@ Future<({Json? config, String? error})> fetchConfigFromEditor(String address, St
     }
     if (res.statusCode != 200) {
       final msg = o is Map ? o['error'] : null;
-      return (config: null, error: msg is String ? msg : 'Máy tính trả lời lỗi ${res.statusCode}.');
+      return (config: null, error: msg is String ? msg : 'The computer replied with error ${res.statusCode}.');
     }
-    if (!isProject(o)) return (config: null, error: 'Dữ liệu nhận được không phải cấu hình EvoKNX.');
+    if (!isProject(o)) return (config: null, error: 'The received data is not an EvoKNX configuration.');
     return (config: (o as Map).cast<String, dynamic>(), error: null);
   } on SocketException {
-    return (config: null, error: 'Không kết nối được tới máy tính. Kiểm tra điện thoại và máy tính cùng Wi-Fi, địa chỉ đúng, và cho phép EvoKNX qua tường lửa Windows.');
+    return (
+      config: null,
+      error:
+          'Could not connect to the computer. Check that the phone and the computer are on the same Wi-Fi, the address is correct, and EvoKNX is allowed through the Windows firewall.'
+    );
   } on TimeoutException {
-    return (config: null, error: 'Hết thời gian chờ. Kiểm tra cùng Wi-Fi và tường lửa Windows.');
+    return (config: null, error: 'Timed out. Check that both are on the same Wi-Fi and the Windows firewall.');
   } on HttpException catch (e) {
     return (config: null, error: e.message);
   } finally {

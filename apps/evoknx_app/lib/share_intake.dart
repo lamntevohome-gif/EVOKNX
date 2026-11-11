@@ -51,11 +51,11 @@ class ShareIntake {
       try {
         o = jsonDecode(utf8.decode(await File(path).readAsBytes(), allowMalformed: true));
       } catch (_) {
-        _say('File chia sẻ không phải dự án EvoKNX (.evoknx).');
+        _say('The shared file is not an EvoKNX project (.evoknx).');
         return;
       }
       if (!isProject(o)) {
-        _say('File chia sẻ không phải dự án EvoKNX (.evoknx).');
+        _say('The shared file is not an EvoKNX project (.evoknx).');
         return;
       }
       final doc = (o as Map).cast<String, dynamic>();
@@ -66,17 +66,21 @@ class ShareIntake {
       final ok = await showDialog<bool>(
         context: ctx,
         builder: (c) => AlertDialog(
-          title: Text(exists ? 'Thay thế hồ sơ “$name”?' : 'Thêm hồ sơ “$name”?'),
-          content: Text(exists ? 'Đã có hồ sơ cùng tên. Cấu hình mới sẽ thay thế cấu hình cũ của hồ sơ đó.' : 'Hồ sơ mới sẽ được thêm và mở ngay.'),
+          title: Text(exists ? 'Replace the profile “$name”?' : 'Add the profile “$name”?'),
+          content: Text(
+            exists
+                ? 'A profile with the same name already exists. The new configuration will replace the old one of that profile.'
+                : 'The new profile will be added and opened right away.',
+          ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Huỷ')),
-            TextButton(onPressed: () => Navigator.pop(c, true), child: Text(exists ? 'Thay thế' : 'Thêm')),
+            TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancel')),
+            TextButton(onPressed: () => Navigator.pop(c, true), child: Text(exists ? 'Replace' : 'Add')),
           ],
         ),
       );
       if (ok != true) return;
       final replaced = await store.adopt(doc);
-      _say(replaced ? 'Đã cập nhật hồ sơ “$name”.' : 'Đã thêm hồ sơ “$name”.');
+      _say(replaced ? 'The profile “$name” was updated.' : 'Added the profile “$name”.');
     } finally {
       _busy = false;
       try {

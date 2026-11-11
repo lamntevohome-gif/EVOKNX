@@ -23,7 +23,7 @@ abstract class AuthBackend {
 /// Used until a server is connected.
 class NoAuthBackend implements AuthBackend {
   const NoAuthBackend();
-  static const _msg = 'Máy chủ tài khoản chưa được kết nối nên chưa thực hiện được. Tính năng này sẽ có trong bản sau.';
+  static const _msg = 'The account server is not connected yet, so this cannot be done. This feature will come in a later version.';
 
   @override
   bool get available => false;
@@ -59,7 +59,7 @@ class AccountStore extends ChangeNotifier {
       if (r.ok && signedInAs != null) email = signedInAs;
       return r;
     } catch (e) {
-      return AuthResult.fail('Không thực hiện được: $e');
+      return AuthResult.fail('Could not complete: $e');
     } finally {
       busy = false;
       notifyListeners();

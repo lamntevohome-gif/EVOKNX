@@ -21,12 +21,12 @@ class EtsResult {
 
 /// The project is protected: ask the user for its password and retry.
 class EtsPasswordRequired extends EtsException {
-  EtsPasswordRequired() : super('Project ETS này có mật khẩu. Hãy nhập mật khẩu để nhập.');
+  EtsPasswordRequired() : super('This ETS project is password-protected. Enter the password to import it.');
 }
 
 /// A password was given but it does not open the project.
 class EtsWrongPassword extends EtsException {
-  EtsWrongPassword() : super('Mật khẩu không đúng.');
+  EtsWrongPassword() : super('Wrong password.');
 }
 
 class EtsException implements Exception {
@@ -129,9 +129,9 @@ List<EtsItem> _parseCsvItems(String text) {
   final rows = parseCsv(text);
   if (rows.isEmpty) return const [];
   final head = rows.first.map((c) => c.trim().toLowerCase()).toList();
-  final hasHead = head.any((h) => h == 'address' || h == 'địa chỉ');
-  final iAddr = hasHead ? head.indexWhere((h) => h == 'address' || h == 'địa chỉ') : -1;
-  final iName = hasHead ? head.indexWhere((h) => h == 'group name' || h == 'name' || h == 'tên') : -1;
+  final hasHead = head.any((h) => h == 'address' || h == 'addresses');
+  final iAddr = hasHead ? head.indexWhere((h) => h == 'address' || h == 'addresses') : -1;
+  final iName = hasHead ? head.indexWhere((h) => h == 'group name' || h == 'name' || h == 'name') : -1;
   final iDpt = hasHead ? head.indexWhere((h) => h.startsWith('datapoint') || h.startsWith('dpt')) : -1;
   final out = <EtsItem>[];
   for (final r in hasHead ? rows.skip(1) : rows) {
@@ -169,7 +169,7 @@ EtsResult parseEts(Uint8List bytes, {String fileName = '', String? password}) {
   }
   final seen = <String>{};
   final items = res.items.where((i) => seen.add(i.address)).toList();
-  if (items.isEmpty) throw EtsException('Không tìm thấy địa chỉ nhóm trong file. Hãy dùng file .knxproj, hoặc xuất địa chỉ nhóm từ ETS dạng CSV/XML.');
+  if (items.isEmpty) throw EtsException('No group addresses found in the file. Use a .knxproj file, or export the group addresses from ETS as CSV/XML.');
   return EtsResult(items, res.projectName);
 }
 
@@ -208,7 +208,7 @@ EtsResult _parseKnxproj(Uint8List bytes, String? password) {
   try {
     zip = ZipReader(bytes);
   } on FormatException {
-    throw EtsException('File .knxproj bị hỏng hoặc không đúng định dạng.');
+    throw EtsException('The .knxproj file is corrupted or has the wrong format.');
   }
   final names = zip.names.toList();
   final xmlName = names.firstWhere((n) => RegExp(r'^P-[0-9A-F]+/0\.xml$', caseSensitive: false).hasMatch(n), orElse: () => '');
@@ -216,14 +216,14 @@ EtsResult _parseKnxproj(Uint8List bytes, String? password) {
   ZipReader? prot;
   if (xmlName.isEmpty) {
     final innerName = names.firstWhere((n) => RegExp(r'^P-[0-9A-F]+\.zip$', caseSensitive: false).hasMatch(n), orElse: () => '');
-    if (innerName.isEmpty) throw EtsException('Không tìm thấy dữ liệu project trong file .knxproj.');
+    if (innerName.isEmpty) throw EtsException('No project data was found in the .knxproj file.');
     if (password == null || password.isEmpty) throw EtsPasswordRequired();
     final innerBytes = zip.read(innerName);
-    if (innerBytes == null) throw EtsException('Không đọc được dữ liệu project (file bị hỏng).');
+    if (innerBytes == null) throw EtsException('Could not read the project data (the file is corrupted).');
     try {
       prot = _openProtected(innerBytes, password);
     } on FormatException {
-      throw EtsException('File .knxproj bị hỏng hoặc không đúng định dạng.');
+      throw EtsException('The .knxproj file is corrupted or has the wrong format.');
     }
   }
   final dir = xmlName.isEmpty ? '' : xmlName.split('/').first;
@@ -241,7 +241,7 @@ EtsResult _parseKnxproj(Uint8List bytes, String? password) {
     }
   }
   final data = readP('0.xml');
-  if (data == null) throw EtsException('Không đọc được dữ liệu project (file có thể bị mã hoá).');
+  if (data == null) throw EtsException('Could not read the project data (the file may be encrypted).');
   final xml = decodeText(data);
   final items = _parseXml(xml, twoLevel: twoLevel);
   if (items.any((i) => i.dpt.isEmpty)) {

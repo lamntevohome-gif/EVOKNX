@@ -168,13 +168,13 @@ class FsDef {
 }
 
 const kFs = {
-  'labelSize': FsDef('labelSize', 'Tên hiển thị', 15, 11, 26),
-  'iconSize': FsDef('iconSize', 'Biểu tượng', 24, 16, 48),
-  'stateSize': FsDef('stateSize', 'Trạng thái', 12, 9, 20),
-  'valueSize': FsDef('valueSize', 'Giá trị', 28, 16, 44),
-  'btnIcon': FsDef('btnIcon', 'Biểu tượng nút', 16, 12, 30),
-  'acBtn': FsDef('acBtn', 'Nút + / −', 20, 14, 36),
-  'acMode': FsDef('acMode', 'Nút chế độ', 16, 12, 28),
+  'labelSize': FsDef('labelSize', 'Display name', 15, 11, 26),
+  'iconSize': FsDef('iconSize', 'Icon', 24, 16, 48),
+  'stateSize': FsDef('stateSize', 'Status', 12, 9, 20),
+  'valueSize': FsDef('valueSize', 'Value', 28, 16, 44),
+  'btnIcon': FsDef('btnIcon', 'Button icon', 16, 12, 30),
+  'acBtn': FsDef('acBtn', '+ / − buttons', 20, 14, 36),
+  'acMode': FsDef('acMode', 'Mode buttons', 16, 12, 28),
 };
 
 /// Scale applied to every card/bar text and icon size. The Editor keeps 1.
@@ -213,11 +213,12 @@ class TfsDef {
 }
 
 const kTfs = [
-  TfsDef('titleSize', 'Tiêu đề phòng', 23, 16, 36),
-  TfsDef('roomBar', 'Thanh chọn phòng', 13, 11, 20),
-  TfsDef('pageTitle', 'Tên trang', 13, 10, 24),
-  TfsDef('floorBar', 'Thanh chọn tầng', 15, 10, 24),
-  TfsDef('crumb', 'Dòng tầng (Tầng 1 ›)', 13, 10, 20),
+  TfsDef('titleSize', 'Room title', 23, 16, 36),
+  TfsDef('roomBar', 'Room bar', 13, 11, 20),
+  TfsDef('pageTitle', 'Page name', 13, 10, 24),
+  TfsDef('floorBar', 'Floor bar', 15, 10, 24),
+  TfsDef('crumb', 'Floor line (Floor 1 ›)', 13, 10, 20),
+  TfsDef('navBar', 'Navigation bar (Home, Floor, Security)', 12, 10, 20),
 ];
 
 double tfs(Json doc, String key) {
@@ -239,7 +240,7 @@ List<Issue> computeIssues(Json d) {
   final out = <Issue>[];
   final gas = jsonList(d['groupAddresses']);
   Json? ga(String? id) => byId(gas, id);
-  if (jsonList(d['pages']).isEmpty) out.add(const Issue(false, 'Dự án chưa có phòng nào.'));
+  if (jsonList(d['pages']).isEmpty) out.add(const Issue(false, 'The project has no rooms yet.'));
   for (final r in jsonList(d['pages'])) {
     for (final s in subsOf(r)) {
       final all = <(Json, Json)>[];
@@ -251,7 +252,7 @@ List<Issue> computeIssues(Json d) {
           }
         }
       }
-      if (all.isEmpty) out.add(Issue(false, '${r['title']} / ${s['title']}: trang chưa có thành phần.', roomId: r['id'], subId: s['id']));
+      if (all.isEmpty) out.add(Issue(false, '${r['title']} / ${s['title']}: the page has no components.', roomId: r['id'], subId: s['id']));
       for (final (w, box) in all) {
         final t = kWidgetTypes[w['type']];
         if (t == null) continue;
@@ -259,33 +260,37 @@ List<Issue> computeIssues(Json d) {
         final where = '${r['title']}: ';
         final rws = identical(box, s) ? pageRows(box, d) : rows(box);
         if (pi(w, 'y') + pi(w, 'h') > rws) {
-          out.add(Issue(false, '$where$name nằm ngoài màn hình.', roomId: r['id'], subId: s['id'], widgetId: w['id']));
+          out.add(Issue(false, '$where$name is outside the screen.', roomId: r['id'], subId: s['id'], widgetId: w['id']));
         }
         final b = jsonMap(w['bind']);
         for (final sl in slotsFor(w)) {
           final id = b[sl.key] as String?;
           if (id == null) {
-            if (sl.required) out.add(Issue(true, '$where$name thiếu ${sl.label.toLowerCase()}.', roomId: r['id'], subId: s['id'], widgetId: w['id']));
+            if (sl.required) out.add(Issue(true, '$where$name is missing ${sl.label.toLowerCase()}.', roomId: r['id'], subId: s['id'], widgetId: w['id']));
             continue;
           }
           final g = ga(id);
           if (g == null) {
-            out.add(Issue(true, '$where$name: địa chỉ của ô ${sl.label.toLowerCase()} đã bị xoá.', roomId: r['id'], subId: s['id'], widgetId: w['id']));
+            out.add(
+              Issue(true, '$where$name: the address of the field ${sl.label.toLowerCase()} was deleted.', roomId: r['id'], subId: s['id'], widgetId: w['id']),
+            );
           } else if (!slotAccepts(sl, g)) {
-            out.add(Issue(true, '$where$name: DPT ${g['dpt']} không hợp với ô ${sl.label.toLowerCase()}.', roomId: r['id'], subId: s['id'], widgetId: w['id']));
+            out.add(
+              Issue(true, '$where$name: DPT ${g['dpt']} does not fit the field ${sl.label.toLowerCase()}.', roomId: r['id'], subId: s['id'], widgetId: w['id']),
+            );
           }
         }
         if (w['type'] == 'camera' && (jsonMap(w['cam'])['host'] ?? '').toString().trim().isEmpty) {
-          out.add(Issue(true, '$where$name chưa có địa chỉ IP camera.', roomId: r['id'], subId: s['id'], widgetId: w['id']));
+          out.add(Issue(true, '$where$name has no camera IP address yet.', roomId: r['id'], subId: s['id'], widgetId: w['id']));
         }
         if ((w['type'] == 'link' || w['type'] == 'webview') && !RegExp(r'^https?://\S+').hasMatch((w['url'] ?? '').toString())) {
-          out.add(Issue(true, '$where$name chưa có địa chỉ web hợp lệ.', roomId: r['id'], subId: s['id'], widgetId: w['id']));
+          out.add(Issue(true, '$where$name has no valid web address yet.', roomId: r['id'], subId: s['id'], widgetId: w['id']));
         }
       }
     }
   }
   for (final c in jsonList(d['connections'])) {
-    if ((c['host'] ?? '').toString().trim().isEmpty) out.add(Issue(true, 'Kết nối “${c['name']}” chưa có địa chỉ IP.'));
+    if ((c['host'] ?? '').toString().trim().isEmpty) out.add(Issue(true, 'The connection “${c['name']}” has no IP address yet.'));
   }
   return out;
 }

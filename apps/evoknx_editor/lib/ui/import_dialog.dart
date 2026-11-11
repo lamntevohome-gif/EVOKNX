@@ -20,7 +20,7 @@ Future<void> runEtsImport(BuildContext context, ProjectController project) async
   if (project.groupAddresses.isEmpty) {
     late ImportResult res;
     project.mutate((d) => res = applyEts(d, ets));
-    toast(context, 'Đã nhập ${res.added} địa chỉ nhóm.');
+    toast(context, 'Imported ${res.added} group addresses.');
     return;
   }
   final stats = importStats(project.doc, ets.items);
@@ -33,7 +33,7 @@ Future<void> runEtsImport(BuildContext context, ProjectController project) async
   project.mutate((d) => res = applyEts(d, ets, replace: choice.$1, keepEditedNames: choice.$2));
   toast(
     context,
-    'Đã nhập: ${res.added} mới, cập nhật ${res.updated}${res.removed > 0 ? ', xoá ${res.removed}' : ''}${res.unlinked > 0 ? ', gỡ ${res.unlinked} liên kết' : ''}. Có thể hoàn tác (Ctrl+Z).',
+    'Imported: ${res.added} new, ${res.updated} updated${res.removed > 0 ? ', removed ${res.removed}' : ''}${res.unlinked > 0 ? ', unlinked ${res.unlinked} links' : ''}. Can be undone (Ctrl+Z).',
   );
 }
 
@@ -107,30 +107,34 @@ class _ImportDialogState extends State<_ImportDialog> {
       ),
     );
     return AlertDialog(
-      title: const Text('Nhập địa chỉ nhóm từ ETS', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+      title: const Text('Import group addresses from ETS', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
       content: SizedBox(
         width: 520,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('File “${widget.fileName}” có ${widget.count} địa chỉ nhóm.', style: TextStyle(color: c.muted)),
+            Text('The file “${widget.fileName}” has ${widget.count} group addresses.', style: TextStyle(color: c.muted)),
             const SizedBox(height: 12),
             Row(
               children: [
-                stat(s.fresh, 'địa chỉ mới'),
+                stat(s.fresh, 'new addresses'),
                 const SizedBox(width: 8),
-                stat(s.both, 'đã có trong dự án'),
+                stat(s.both, 'already in the project'),
                 const SizedBox(width: 8),
-                stat(s.gone, 'không còn trong file', warn: true),
+                stat(s.gone, 'no longer in the file', warn: true),
               ],
             ),
             const SizedBox(height: 6),
-            option(false, 'Cập nhật và thêm mới', 'Giữ toàn bộ địa chỉ hiện có, thêm ${s.fresh} địa chỉ mới, cập nhật tên và DPT cho ${s.both} địa chỉ đã có.'),
+            option(
+              false,
+              'Update and add new',
+              'Keep all existing addresses, add ${s.fresh} new addresses, and update the name and DPT of ${s.both} existing addresses.',
+            ),
             option(
               true,
-              'Thay thế toàn bộ',
-              'Danh sách địa chỉ sẽ giống hệt file ETS. ${s.gone > 0 ? 'Xoá ${s.gone} địa chỉ không còn trong file${s.links > 0 ? ', gỡ ${s.links} liên kết trên các thành phần' : ''}.' : 'Không có địa chỉ nào bị xoá.'}',
+              'Replace all',
+              'The address list will be identical to the ETS file. ${s.gone > 0 ? 'Deletes ${s.gone} addresses that are no longer in the file${s.links > 0 ? ', unlinks ${s.links} links on components' : ''}.' : 'No address is deleted.'}',
             ),
             const SizedBox(height: 10),
             CheckboxListTile(
@@ -140,7 +144,7 @@ class _ImportDialogState extends State<_ImportDialog> {
               dense: true,
               controlAffinity: ListTileControlAffinity.leading,
               title: Text(
-                'Giữ tên tôi đã sửa${s.edited > 0 ? ' (${s.edited} địa chỉ)' : ''}, không ghi đè bằng tên trong file',
+                'Keep the names I edited${s.edited > 0 ? ' (${s.edited} addresses)' : ''}, do not overwrite them with the names in the file',
                 style: const TextStyle(fontSize: kUiText),
               ),
             ),
@@ -148,8 +152,8 @@ class _ImportDialogState extends State<_ImportDialog> {
         ),
       ),
       actions: [
-        EvoButton(label: 'Huỷ', onPressed: () => Navigator.pop(context)),
-        EvoButton(label: 'Nhập', primary: true, onPressed: () => Navigator.pop(context, (replace, keep))),
+        EvoButton(label: 'Cancel', onPressed: () => Navigator.pop(context)),
+        EvoButton(label: 'Import', primary: true, onPressed: () => Navigator.pop(context, (replace, keep))),
       ],
     );
   }

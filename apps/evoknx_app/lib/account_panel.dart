@@ -47,13 +47,13 @@ class _AccountPanelState extends State<AccountPanel> {
 
   Future<void> _submit() async {
     final e = email.text.trim();
-    if (!AccountStore.validEmail(e)) return _say('Email chưa đúng dạng (ví dụ ten@congty.com).', error: true);
+    if (!AccountStore.validEmail(e)) return _say('The email format is invalid (e.g. name@company.com).', error: true);
     if (mode == _Mode.reset) {
       final r = await acc.sendPasswordReset(e);
-      return _say(r.ok ? (r.message ?? 'Đã gửi email đặt lại mật khẩu tới $e.') : r.message, error: !r.ok);
+      return _say(r.ok ? (r.message ?? 'A password reset email was sent to $e.') : r.message, error: !r.ok);
     }
-    if (pass.text.length < AccountStore.minPassword) return _say('Mật khẩu cần ít nhất ${AccountStore.minPassword} ký tự.', error: true);
-    if (mode == _Mode.signUp && pass.text != pass2.text) return _say('Hai mật khẩu chưa giống nhau.', error: true);
+    if (pass.text.length < AccountStore.minPassword) return _say('The password needs at least ${AccountStore.minPassword} characters.', error: true);
+    if (mode == _Mode.signUp && pass.text != pass2.text) return _say('The two passwords do not match.', error: true);
     final r = mode == _Mode.signIn ? await acc.signIn(e, pass.text) : await acc.signUp(e, pass.text);
     if (r.ok) {
       pass.clear();
@@ -103,7 +103,7 @@ class _AccountPanelState extends State<AccountPanel> {
         const SizedBox(width: 10),
         Expanded(
           child: Text(
-            'Tài khoản đang được chuẩn bị. Máy chủ chưa kết nối nên chưa đăng nhập hay đăng ký được.',
+            'Accounts are being prepared. The server is not connected yet, so signing in or registering is not possible.',
             style: TextStyle(fontSize: 13.5, height: 1.35, color: pal.ink),
           ),
         ),
@@ -125,7 +125,7 @@ class _AccountPanelState extends State<AccountPanel> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Đã đăng nhập', style: TextStyle(fontSize: 13, color: pal.muted)),
+              Text('Signed in', style: TextStyle(fontSize: 13, color: pal.muted)),
               Text(
                 acc.email ?? '',
                 style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: pal.ink),
@@ -139,7 +139,7 @@ class _AccountPanelState extends State<AccountPanel> {
     OutlinedButton.icon(
       onPressed: acc.signOut,
       icon: const Icon(Icons.logout),
-      label: const Text('Đăng xuất'),
+      label: const Text('Sign out'),
       style: OutlinedButton.styleFrom(
         foregroundColor: pal.danger,
         side: BorderSide(color: pal.tileEdge),
@@ -150,7 +150,7 @@ class _AccountPanelState extends State<AccountPanel> {
 
   Widget _form() {
     final reset = mode == _Mode.reset, up = mode == _Mode.signUp;
-    final title = reset ? 'Đặt lại mật khẩu' : (up ? 'Tạo tài khoản' : 'Đăng nhập');
+    final title = reset ? 'Reset password' : (up ? 'Create account' : 'Sign in');
     return _card([
       if (!acc.backend.available) _banner(),
       if (!reset)
@@ -159,8 +159,8 @@ class _AccountPanelState extends State<AccountPanel> {
           child: SegmentedButton<_Mode>(
             showSelectedIcon: false,
             segments: const [
-              ButtonSegment(value: _Mode.signIn, label: Text('Đăng nhập')),
-              ButtonSegment(value: _Mode.signUp, label: Text('Đăng ký')),
+              ButtonSegment(value: _Mode.signIn, label: Text('Sign in')),
+              ButtonSegment(value: _Mode.signUp, label: Text('Sign up')),
             ],
             selected: {mode},
             onSelectionChanged: (s) => _setMode(s.first),
@@ -185,7 +185,7 @@ class _AccountPanelState extends State<AccountPanel> {
         Padding(
           padding: const EdgeInsets.only(bottom: 14),
           child: Text(
-            'Nhập email của tài khoản, chúng tôi sẽ gửi liên kết để đặt mật khẩu mới.',
+            'Enter the account\'s email and we will send a link to set a new password.',
             style: TextStyle(fontSize: 14, height: 1.35, color: pal.muted),
           ),
         ),
@@ -205,7 +205,7 @@ class _AccountPanelState extends State<AccountPanel> {
           autofillHints: [up ? AutofillHints.newPassword : AutofillHints.password],
           style: TextStyle(color: pal.ink),
           decoration: _dec(
-            'Mật khẩu',
+            'Password',
             suffix: IconButton(
               icon: Icon(hide ? Icons.visibility_outlined : Icons.visibility_off_outlined, color: pal.muted),
               onPressed: () => setState(() => hide = !hide),
@@ -219,11 +219,11 @@ class _AccountPanelState extends State<AccountPanel> {
           controller: pass2,
           obscureText: hide,
           style: TextStyle(color: pal.ink),
-          decoration: _dec('Nhập lại mật khẩu'),
+          decoration: _dec('Repeat password'),
         ),
         Padding(
           padding: const EdgeInsets.only(top: 6, left: 4),
-          child: Text('Ít nhất ${AccountStore.minPassword} ký tự.', style: TextStyle(fontSize: 12.5, color: pal.muted)),
+          child: Text('At least ${AccountStore.minPassword} characters.', style: TextStyle(fontSize: 12.5, color: pal.muted)),
         ),
       ],
       if (message != null)
@@ -238,7 +238,7 @@ class _AccountPanelState extends State<AccountPanel> {
         child: acc.busy
             ? SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: pal.onChipSel))
             : Text(
-                reset ? 'Gửi email đặt lại mật khẩu' : (up ? 'Tạo tài khoản' : 'Đăng nhập'),
+                reset ? 'Send password reset email' : (up ? 'Create account' : 'Sign in'),
                 style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
               ),
       ),
@@ -246,12 +246,12 @@ class _AccountPanelState extends State<AccountPanel> {
       if (reset)
         TextButton(
           onPressed: () => _setMode(_Mode.signIn),
-          child: Text('Quay lại đăng nhập', style: TextStyle(color: pal.accent)),
+          child: Text('Back to sign in', style: TextStyle(color: pal.accent)),
         )
       else if (mode == _Mode.signIn)
         TextButton(
           onPressed: () => _setMode(_Mode.reset),
-          child: Text('Quên mật khẩu?', style: TextStyle(color: pal.accent)),
+          child: Text('Forgot password?', style: TextStyle(color: pal.accent)),
         ),
     ]);
   }

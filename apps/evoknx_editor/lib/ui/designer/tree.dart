@@ -40,11 +40,11 @@ class StructureTree extends StatelessWidget {
               enabled: items[i].$3 != null,
               child: Row(
                 children: [
-                  Icon(items[i].$1, size: 15, color: items[i].$2.startsWith('Xoá') ? context.evo.danger : context.evo.muted),
+                  Icon(items[i].$1, size: 15, color: items[i].$2.startsWith('Delete') ? context.evo.danger : context.evo.muted),
                   const SizedBox(width: 10),
                   Text(
                     items[i].$2,
-                    style: TextStyle(fontSize: kUiText, color: items[i].$2.startsWith('Xoá') ? context.evo.danger : context.evo.ink),
+                    style: TextStyle(fontSize: kUiText, color: items[i].$2.startsWith('Delete') ? context.evo.danger : context.evo.ink),
                   ),
                 ],
               ),
@@ -61,7 +61,7 @@ class StructureTree extends StatelessWidget {
           title: Text(title),
           content: SizedBox(width: 380, child: Text(text)),
           actions: [
-            EvoButton(label: 'Huỷ', onPressed: () => Navigator.pop(c, false)),
+            EvoButton(label: 'Cancel', onPressed: () => Navigator.pop(c, false)),
             EvoButton(label: yes, danger: true, onPressed: () => Navigator.pop(c, true)),
           ],
         ),
@@ -118,7 +118,7 @@ class StructureTree extends StatelessWidget {
       final isOn = selKey != null && d.treeSel.isNotEmpty ? d.treeSel.contains(selKey) : on;
       void menu(Offset at) {
         if (selKey != null && d.treeSel.length > 1 && d.treeSel.contains(selKey)) {
-          _menu(context, at, [(Icons.delete_outline, 'Xoá ${d.treeSel.length} mục đã chọn…', () => deleteTreeSelection(context, d))]);
+          _menu(context, at, [(Icons.delete_outline, 'Delete ${d.treeSel.length} selected items…', () => deleteTreeSelection(context, d))]);
         } else {
           onMenu(at);
         }
@@ -186,30 +186,14 @@ class StructureTree extends StatelessWidget {
       children: [
         row(
           leading: Icon(Icons.tune, size: 14, color: c.muted),
-          text: 'Tổng quan',
+          text: 'Overview',
           on: d.view == 'overview',
           onTap: d.overview,
           onMenu: (at) => _menu(context, at, [
-            (Icons.add, 'Thêm tầng', () async => d.addFloor()),
-            (Icons.file_download_outlined, 'Nhập tầng', () => importPart(context, d, only: 'floor')),
+            (Icons.add, 'Add floor', () async => d.addFloor()),
+            (Icons.file_download_outlined, 'Import floor', () => importPart(context, d, only: 'floor')),
           ]),
         ),
-        if (d.galleryOn)
-          row(
-            leading: Icon(Icons.grid_view_rounded, size: 14, color: c.muted),
-            text: 'Thư viện phòng',
-            on: d.view == 'gallery',
-            onTap: d.gallery,
-            onMenu: (at) {},
-          ),
-        if (d.modernOn)
-          row(
-            leading: Icon(Icons.layers_rounded, size: 14, color: c.muted),
-            text: 'Thư viện tầng',
-            on: d.view == 'floors',
-            onTap: d.floorsGallery,
-            onMenu: (at) {},
-          ),
         const SizedBox(height: 6),
         for (final f in floorsOf(doc)) ...[
           row(
@@ -224,20 +208,20 @@ class StructureTree extends StatelessWidget {
             accepts: (t) => t.kind == 'floor' || t.kind == 'room',
             onDrop: (t) => t.kind == 'floor' ? d.dropFloor(t.id, f['id'] as String) : d.dropRoom(t.id, floorId: f['id'] as String),
             onMenu: (at) => _menu(context, at, [
-              (Icons.add, 'Thêm phòng', () async => d.addRoom(f['id'] as String)),
+              (Icons.add, 'Add room', () async => d.addRoom(f['id'] as String)),
               (
                 Icons.file_download_outlined,
-                'Nhập phòng',
+                'Import room',
                 () async {
                   d.selectFloor(f['id'] as String);
                   await importPart(context, d, only: 'room');
                 },
               ),
-              (Icons.file_upload_outlined, 'Xuất tầng', () => exportPart(context, d, 'floor', f['id'] as String)),
+              (Icons.file_upload_outlined, 'Export floor', () => exportPart(context, d, 'floor', f['id'] as String)),
               sep,
               (
                 Icons.delete_outline,
-                'Xoá tầng',
+                'Delete floor',
                 () async {
                   final m = d.deleteFloor(f['id'] as String);
                   if (m != null && context.mounted) toast(context, m);
@@ -260,7 +244,7 @@ class StructureTree extends StatelessWidget {
               onMenu: (at) => _menu(context, at, [
                 (
                   Icons.add,
-                  'Thêm trang',
+                  'Add page',
                   () async {
                     d.selectRoom(r['id'] as String);
                     d.addSub();
@@ -268,23 +252,23 @@ class StructureTree extends StatelessWidget {
                 ),
                 (
                   Icons.file_download_outlined,
-                  'Nhập trang',
+                  'Import page',
                   () async {
                     d.selectRoom(r['id'] as String);
                     await importPart(context, d, only: 'page');
                   },
                 ),
-                (Icons.file_upload_outlined, 'Xuất phòng', () => exportPart(context, d, 'room', r['id'] as String)),
+                (Icons.file_upload_outlined, 'Export room', () => exportPart(context, d, 'room', r['id'] as String)),
                 sep,
                 (
                   Icons.delete_outline,
-                  'Xoá phòng',
+                  'Delete room',
                   () async {
                     final ok = await _confirm(
                       context,
-                      'Xoá phòng “${r['title']}”?',
-                      'Toàn bộ trang và thẻ trong phòng sẽ bị xoá. Có thể hoàn tác (Ctrl+Z).',
-                      'Xoá phòng',
+                      'Delete the room “${r['title']}”?',
+                      'All pages and cards in the room will be deleted. Can be undone (Ctrl+Z).',
+                      'Delete room',
                     );
                     if (!ok) return;
                     d.selectRoom(r['id'] as String);
@@ -309,7 +293,7 @@ class StructureTree extends StatelessWidget {
                   onMenu: (at) => _menu(context, at, [
                     (
                       Icons.add,
-                      'Thêm trang',
+                      'Add page',
                       () async {
                         d.selectSub(r['id'] as String, s['id'] as String);
                         d.addSub();
@@ -317,17 +301,17 @@ class StructureTree extends StatelessWidget {
                     ),
                     (
                       Icons.file_download_outlined,
-                      'Nhập thẻ',
+                      'Import card',
                       () async {
                         d.selectSub(r['id'] as String, s['id'] as String);
                         await importPart(context, d, only: 'card');
                       },
                     ),
-                    (Icons.file_upload_outlined, 'Xuất trang', () => exportPart(context, d, 'page', s['id'] as String)),
+                    (Icons.file_upload_outlined, 'Export page', () => exportPart(context, d, 'page', s['id'] as String)),
                     sep,
                     (
                       Icons.delete_outline,
-                      'Xoá trang',
+                      'Delete page',
                       () async {
                         d.selectSub(r['id'] as String, s['id'] as String);
                         final m = d.deleteSub();
@@ -352,28 +336,27 @@ Future<void> deleteTreeSelection(BuildContext context, Designer d) async {
   final plan = d.planTreeDelete(keys);
   final nSubs = plan.subs.values.fold<int>(0, (a, b) => a + b.length);
   if (plan.floors.isEmpty && plan.rooms.isEmpty && nSubs == 0) {
-    toast(context, plan.notes.isEmpty ? 'Không có gì để xoá.' : plan.notes.join(' '));
+    toast(context, plan.notes.isEmpty ? 'Nothing to delete.' : plan.notes.join(' '));
     return;
   }
   final parts = [
-    if (plan.floors.isNotEmpty) '${plan.floors.length} tầng',
-    if (plan.rooms.isNotEmpty) '${plan.rooms.length} phòng',
+    if (plan.floors.isNotEmpty) '${plan.floors.length} floors',
+    if (plan.rooms.isNotEmpty) '${plan.rooms.length} rooms',
     if (nSubs > 0) '$nSubs trang',
   ];
   final ok = await showDialog<bool>(
     context: context,
     builder: (c) => AlertDialog(
-      title: Text('Xoá ${parts.join(', ')}?'),
+      title: Text('Delete ${parts.join(', ')}?'),
       content: SizedBox(
         width: 400,
         child: Text(
-          '${plan.cards > 0 ? 'Gồm ${plan.cards} thẻ bên trong sẽ bị xoá theo. ' : ''}'
-          'Có thể hoàn tác bằng Ctrl+Z.${plan.notes.isEmpty ? '' : '\n\n${plan.notes.join('\n')}'}',
+          '${plan.cards > 0 ? 'Includes ${plan.cards} cards inside, which are deleted too. ' : ''}Can be undone with Ctrl+Z.${plan.notes.isEmpty ? '' : '\n\n${plan.notes.join('\n')}'}',
         ),
       ),
       actions: [
-        EvoButton(label: 'Huỷ', onPressed: () => Navigator.pop(c, false)),
-        EvoButton(label: 'Xoá', danger: true, onPressed: () => Navigator.pop(c, true)),
+        EvoButton(label: 'Cancel', onPressed: () => Navigator.pop(c, false)),
+        EvoButton(label: 'Delete', danger: true, onPressed: () => Navigator.pop(c, true)),
       ],
     ),
   );

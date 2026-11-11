@@ -40,43 +40,43 @@ class WidgetTypeDef {
 }
 
 const Map<String, WidgetTypeDef> kWidgetTypes = {
-  'switch': WidgetTypeDef('switch', 'Công tắc', 'bulb', 2, 2, [
-    SlotDef('write', 'Địa chỉ ghi', [1], required: true),
-    SlotDef('status', 'Địa chỉ trạng thái', [1], recommended: true),
+  'switch': WidgetTypeDef('switch', 'Switch', 'bulb', 2, 2, [
+    SlotDef('write', 'Write address', [1], required: true),
+    SlotDef('status', 'Status address', [1], recommended: true),
   ]),
-  'dimmer': WidgetTypeDef('dimmer', 'Đèn dim', 'sun', 2, 2, [
-    SlotDef('write', 'Bật/tắt', [1]),
-    SlotDef('value', 'Giá trị độ sáng', [5], required: true),
-    SlotDef('status', 'Trạng thái độ sáng', [5], recommended: true),
+  'dimmer': WidgetTypeDef('dimmer', 'Dimmer', 'sun', 2, 2, [
+    SlotDef('write', 'On/Off', [1]),
+    SlotDef('value', 'Brightness value', [5], required: true),
+    SlotDef('status', 'Brightness status', [5], recommended: true),
   ]),
-  'value': WidgetTypeDef('value', 'Giá trị', 'thermo', 2, 2, [
-    SlotDef('status', 'Địa chỉ trạng thái', [5, 6, 7, 8, 9, 12, 13, 14], required: true),
+  'value': WidgetTypeDef('value', 'Value', 'thermo', 2, 2, [
+    SlotDef('status', 'Status address', [5, 6, 7, 8, 9, 12, 13, 14], required: true),
   ]),
-  'button': WidgetTypeDef('button', 'Nút nhấn', 'button', 2, 2, [
-    SlotDef('write', 'Địa chỉ ghi', [1, 5, 17], required: true),
+  'button': WidgetTypeDef('button', 'Push button', 'button', 2, 2, [
+    SlotDef('write', 'Write address', [1, 5, 17], required: true),
   ]),
-  'shutter': WidgetTypeDef('shutter', 'Rèm', 'blind', 2, 2, [
-    SlotDef('upDown', 'Lên/xuống', [1], required: true),
-    SlotDef('stop', 'Dừng', [1]),
-    SlotDef('position', 'Vị trí', [5]),
-    SlotDef('status', 'Trạng thái vị trí', [5], recommended: true),
+  'shutter': WidgetTypeDef('shutter', 'Blind', 'blind', 2, 2, [
+    SlotDef('upDown', 'Up/down', [1], required: true),
+    SlotDef('stop', 'Stop', [1]),
+    SlotDef('position', 'Position', [5]),
+    SlotDef('status', 'Position status', [5], recommended: true),
   ]),
-  'scene': WidgetTypeDef('scene', 'Cảnh', 'star', 2, 2, [
-    SlotDef('write', 'Địa chỉ ghi', [1, 5, 17, 18], required: true),
+  'scene': WidgetTypeDef('scene', 'Scene', 'star', 2, 2, [
+    SlotDef('write', 'Write address', [1, 5, 17, 18], required: true),
   ]),
-  'link': WidgetTypeDef('link', 'Mở trang web', 'link', 2, 2, []),
-  'webview': WidgetTypeDef('webview', 'Trang web nhúng', 'globe', 2, 2, []),
-  'ac': WidgetTypeDef('ac', 'Máy lạnh', 'snow', 2, 2, [
-    SlotDef('power', 'Bật/tắt', [1], required: true),
-    SlotDef('powerSt', 'Trạng thái bật/tắt', [1], recommended: true),
-    SlotDef('setpoint', 'Nhiệt độ cài đặt', [9], required: true),
-    SlotDef('setpointSt', 'Trạng thái nhiệt độ cài đặt', [9], recommended: true),
-    SlotDef('current', 'Nhiệt độ phòng', [9]),
-    SlotDef('mode', 'Chế độ', [20, 5]),
-    SlotDef('modeSt', 'Trạng thái chế độ', [20, 5]),
+  'link': WidgetTypeDef('link', 'Open web page', 'link', 2, 2, []),
+  'webview': WidgetTypeDef('webview', 'Embedded web page', 'globe', 2, 2, []),
+  'ac': WidgetTypeDef('ac', 'Air conditioner', 'snow', 2, 2, [
+    SlotDef('power', 'On/Off', [1], required: true),
+    SlotDef('powerSt', 'On/off status', [1], recommended: true),
+    SlotDef('setpoint', 'Setpoint', [9], required: true),
+    SlotDef('setpointSt', 'Setpoint status', [9], recommended: true),
+    SlotDef('current', 'Room temperature', [9]),
+    SlotDef('mode', 'Mode', [20, 5]),
+    SlotDef('modeSt', 'Mode status', [20, 5]),
   ]),
   'camera': WidgetTypeDef('camera', 'Camera', 'camera', 2, 2, []),
-  'group': WidgetTypeDef('group', 'Khung lưới', 'layout', 2, 2, []),
+  'group': WidgetTypeDef('group', 'Grid frame', 'layout', 2, 2, []),
 };
 
 class AcMode {
@@ -167,11 +167,11 @@ num acFanValue(Json ac, String level) {
 }
 
 const List<AcMode> kAcModes = [
-  AcMode('auto', 'Tự động', 'acauto', 0),
-  AcMode('cool', 'Làm lạnh', 'snow', 3),
-  AcMode('heat', 'Sưởi', 'flame', 1),
-  AcMode('fan', 'Quạt', 'fan', 9),
-  AcMode('dry', 'Hút ẩm', 'drop', 14),
+  AcMode('auto', 'Auto', 'acauto', 0),
+  AcMode('cool', 'Cooling', 'snow', 3),
+  AcMode('heat', 'Heating', 'flame', 1),
+  AcMode('fan', 'Fan', 'fan', 9),
+  AcMode('dry', 'Dry', 'drop', 14),
 ];
 
 /// Slots of a widget, including dynamic ones (dimmer features, shutter
@@ -185,27 +185,27 @@ List<SlotDef> slotsFor(Json w) {
       final ctrl = (w['shCtrl'] ?? 'buttons') as String;
       if (ctrl == 'slider') out = out.where((s) => s.key != 'upDown' && s.key != 'stop').toList();
       if (ctrl != 'buttons') out = out.map((s) => s.key == 'position' ? SlotDef(s.key, s.label, s.dpts, required: true) : s).toList();
-      if (w['shStyle'] == 'curtain') out = out.map((s) => s.key == 'upDown' ? SlotDef('upDown', 'Mở/đóng', s.dpts, required: s.required) : s).toList();
+      if (w['shStyle'] == 'curtain') out = out.map((s) => s.key == 'upDown' ? SlotDef('upDown', 'Open/close', s.dpts, required: s.required) : s).toList();
       return out;
     case 'dimmer':
       final f = jsonMap(w['features']);
       return [
         ...base,
         if (f['tw'] == true) ...const [
-          SlotDef('ctWrite', 'Nhiệt độ màu', [7], required: true),
-          SlotDef('ctStatus', 'Trạng thái nhiệt độ màu', [7], recommended: true)
+          SlotDef('ctWrite', 'Colour temperature', [7], required: true),
+          SlotDef('ctStatus', 'Colour temperature status', [7], recommended: true)
         ],
         if (f['rgb'] == true) ...const [
-          SlotDef('rgbWrite', 'Màu RGB', [232, 251], required: true),
-          SlotDef('rgbStatus', 'Trạng thái màu RGB', [232, 251], recommended: true)
+          SlotDef('rgbWrite', 'RGB colour', [232, 251], required: true),
+          SlotDef('rgbStatus', 'RGB colour status', [232, 251], recommended: true)
         ],
       ];
     case 'ac':
       final ac = jsonMap(w['ac']);
       final fanSlots = jsonMap(ac['fan'])['enabled'] == true
           ? const [
-              SlotDef('fan', 'Tốc độ quạt', [5, 20], required: true),
-              SlotDef('fanSt', 'Trạng thái tốc độ quạt', [5, 20], recommended: true)
+              SlotDef('fan', 'Fan speed', [5, 20], required: true),
+              SlotDef('fanSt', 'Fan speed status', [5, 20], recommended: true)
             ]
           : const <SlotDef>[];
       if (ac['modeAddr'] != 'separate') return [...base, ...fanSlots];
@@ -216,8 +216,8 @@ List<SlotDef> slotsFor(Json w) {
         final on = modes.containsKey(m.key) ? modes[m.key] == true : m.key != 'heat';
         if (!on) continue;
         final n = (names[m.key] as String?)?.trim().isNotEmpty == true ? names[m.key] as String : m.name;
-        extra.add(SlotDef('mode_${m.key}', 'Chế độ $n', const [1], required: true));
-        extra.add(SlotDef('modeSt_${m.key}', 'Trạng thái $n', const [1]));
+        extra.add(SlotDef('mode_${m.key}', 'Mode $n', const [1], required: true));
+        extra.add(SlotDef('modeSt_${m.key}', 'Status $n', const [1]));
       }
       return [...base.where((s) => s.key != 'mode' && s.key != 'modeSt'), ...extra, ...fanSlots];
   }
@@ -243,7 +243,7 @@ Json makeRoom(String title, {String icon = 'sofa', String? floorId}) => {
       'title': title,
       'icon': icon,
       'floorId': floorId,
-      'subpages': [makeSub('Trang 1')],
+      'subpages': [makeSub('Page 1')],
     };
 
 Json makeFloor(String title, {String icon = 'none'}) => {'id': uid('fl_'), 'title': title, 'icon': icon, 'rows': 12, 'cols': 4};
@@ -263,7 +263,7 @@ Json makeWidget(String type, int x, int y, [int? w, int? h]) {
     wd['tw'] = {'min': 2700, 'max': 6500};
   }
   if (type == 'switch' || type == 'dimmer') {
-    wd['style'] = {'colorOn': '#EE9B2A', 'colorOff': '#8A938F', 'textOn': 'Đang bật', 'textOff': 'Đang tắt'};
+    wd['style'] = {'colorOn': '#EE9B2A', 'colorOff': '#8A938F', 'textOn': 'On', 'textOff': 'Off'};
   }
   if (type == 'value') wd['format'] = {'unit': '', 'decimals': 1};
   if (type == 'button') wd['sendValue'] = '1';
@@ -287,7 +287,7 @@ Json makeWidget(String type, int x, int y, [int? w, int? h]) {
     };
   }
   if (type == 'scene') {
-    wd['popup'] = {'enabled': true, 'text': 'Đã bật cảnh {tên}', 'blur': 8, 'size': 20, 'seconds': 2};
+    wd['popup'] = {'enabled': true, 'text': 'Scene {name} activated', 'blur': 8, 'size': 20, 'seconds': 2};
   }
   if (type == 'camera') {
     wd['cam'] = {'protocol': 'rtsp', 'host': '', 'port': 554, 'path': '/Streaming/Channels/101', 'user': 'admin', 'pass': '', 'view': 'live'};
@@ -302,15 +302,15 @@ Json makeWidget(String type, int x, int y, [int? w, int? h]) {
 }
 
 Json newProject(String name) {
-  final f = makeFloor('Tầng 1');
+  final f = makeFloor('Floor 1');
   return {
     'schemaVersion': kSchemaVersion,
     'gridRows': 12,
     'devices': {'mobile': true, 'tabletP': false, 'tabletL': false},
     'activeDev': 'mobile',
-    'project': {'id': uid('p_'), 'name': name.trim().isEmpty ? 'Dự án mới' : name.trim(), 'revision': 0, 'updatedAt': null},
+    'project': {'id': uid('p_'), 'name': name.trim().isEmpty ? 'New project' : name.trim(), 'revision': 0, 'updatedAt': null},
     'connections': [
-      {'id': 'main', 'name': 'Trong nhà', 'type': 'tunneling', 'host': '192.168.1.50', 'port': 3671, 'natMode': false}
+      {'id': 'main', 'name': 'Local', 'type': 'tunneling', 'host': '192.168.1.50', 'port': 3671, 'natMode': false}
     ],
     'groupAddresses': <Json>[],
     'theme': {'mode': 'light', 'accent': '#1E7F57', 'colorOn': '#EE9B2A', 'colorOff': '#8A938F'},
@@ -337,7 +337,7 @@ Json migrate(Json o) {
       r['subpages'] = [
         {
           'id': uid('sub_'),
-          'title': 'Trang 1',
+          'title': 'Page 1',
           'layout': r['layout'] ?? {'type': 'grid', 'columns': 4},
           'widgets': r['widgets'] ?? <Json>[]
         }
@@ -345,18 +345,18 @@ Json migrate(Json o) {
       r.remove('layout');
       r.remove('widgets');
     }
-    if ((r['subpages'] as List).isEmpty) (r['subpages'] as List).add(makeSub('Trang 1'));
+    if ((r['subpages'] as List).isEmpty) (r['subpages'] as List).add(makeSub('Page 1'));
   }
   o['pages'] = pages;
   o['icons'] ??= <Json>[];
   final conns = jsonList(o['connections']);
   for (var i = 0; i < conns.length; i++) {
-    conns[i]['name'] ??= i == 0 ? 'Trong nhà' : 'Kết nối ${i + 1}';
+    conns[i]['name'] ??= i == 0 ? 'Local' : 'Connection ${i + 1}';
     conns[i]['id'] ??= uid('conn_');
   }
   o['connections'] = conns;
   var floors = jsonList(o['floors']);
-  if (floors.isEmpty) floors = [makeFloor('Tầng 1')];
+  if (floors.isEmpty) floors = [makeFloor('Floor 1')];
   o['floors'] = floors;
   for (final r in pages) {
     if (!floors.any((f) => f['id'] == r['floorId'])) r['floorId'] = floors.first['id'];
@@ -480,7 +480,7 @@ ImportResult applyEts(Json doc, EtsResult ets, {bool replace = false, bool keepE
   }
   doc['groupAddresses'] = gas;
   final p = jsonMap(doc['project']);
-  if (ets.projectName.isNotEmpty && (p['name'] == null || p['name'] == 'Dự án mới')) p['name'] = ets.projectName;
+  if (ets.projectName.isNotEmpty && (p['name'] == null || p['name'] == 'New project' || p['name'] == 'Dự án mới')) p['name'] = ets.projectName;
   return ImportResult(added, updated, removed, unlinked);
 }
 

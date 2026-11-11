@@ -6,15 +6,15 @@ import 'tiles.dart';
 /// Greeting line of the splash screen: "Chào buổi sáng, <owner>" by the hour
 /// of the day, or the custom text set in the Editor.
 String greeting(Json sp) {
-  if (sp['greetMode'] == 'custom') return (sp['greet'] ?? 'Chào mừng về nhà').toString();
+  if (sp['greetMode'] == 'custom') return (sp['greet'] ?? 'Welcome home').toString();
   final h = DateTime.now().hour;
   final g = h >= 5 && h < 11
-      ? 'Chào buổi sáng'
+      ? 'Good morning'
       : h >= 11 && h < 13
-      ? 'Chào buổi trưa'
+      ? 'Hello'
       : h >= 13 && h < 18
-      ? 'Chào buổi chiều'
-      : 'Chào buổi tối';
+      ? 'Good afternoon'
+      : 'Good evening';
   final owner = (sp['owner'] ?? '').toString().trim();
   return owner.isEmpty ? g : '$g, $owner';
 }

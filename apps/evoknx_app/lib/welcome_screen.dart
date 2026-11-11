@@ -63,7 +63,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                   ),
                   const SizedBox(height: 10),
                   Text(
-                    'Chưa có hồ sơ. Gửi file dự án (.evoknx) từ máy tính sang điện thoại (Zalo, Drive, cáp USB), rồi mở file và chọn Chia sẻ → EvoKNX, hoặc bấm nút bên dưới để chọn file.',
+                    'No profile yet. Send the project file (.evoknx) from your computer to the phone (Zalo, Drive, USB cable), then open the file and choose Share → EvoKNX, or tap the button below to pick a file.',
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 15.5, height: 1.45, color: pal.muted),
                   ),
@@ -78,7 +78,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                       ),
                       icon: const Icon(Icons.folder_open_outlined),
-                      label: const Text('Mở cấu hình', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                      label: const Text('Open configuration', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -93,7 +93,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                       ),
                       icon: const Icon(Icons.wifi_tethering),
-                      label: const Text('Nhận từ máy tính (Wi-Fi)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                      label: const Text('Receive from computer (Wi-Fi)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
                     ),
                   ),
                   if (error != null) ...[

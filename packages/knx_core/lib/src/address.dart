@@ -13,18 +13,18 @@ class GroupAddress {
     var m = _three.firstMatch(t);
     if (m != null) {
       final a = int.parse(m[1]!), b = int.parse(m[2]!), c = int.parse(m[3]!);
-      if (a > 31 || b > 7 || c > 255) throw FormatException('Địa chỉ nhóm không hợp lệ', s);
+      if (a > 31 || b > 7 || c > 255) throw FormatException('Invalid group address', s);
       return GroupAddress((a << 11) | (b << 8) | c);
     }
     m = _two.firstMatch(t);
     if (m != null) {
       final a = int.parse(m[1]!), c = int.parse(m[2]!);
-      if (a > 31 || c > 2047) throw FormatException('Địa chỉ nhóm không hợp lệ', s);
+      if (a > 31 || c > 2047) throw FormatException('Invalid group address', s);
       return GroupAddress((a << 11) | c);
     }
     final n = int.tryParse(t);
     if (n != null && n >= 0 && n <= 0xFFFF) return GroupAddress(n);
-    throw FormatException('Địa chỉ nhóm không hợp lệ', s);
+    throw FormatException('Invalid group address', s);
   }
 
   static GroupAddress? tryParse(String s) {
@@ -61,9 +61,9 @@ class IndividualAddress {
 
   factory IndividualAddress.parse(String s) {
     final p = s.trim().split('.');
-    if (p.length != 3) throw FormatException('Địa chỉ vật lý không hợp lệ', s);
+    if (p.length != 3) throw FormatException('Invalid physical address', s);
     final a = int.parse(p[0]), l = int.parse(p[1]), d = int.parse(p[2]);
-    if (a > 15 || l > 15 || d > 255) throw FormatException('Địa chỉ vật lý không hợp lệ', s);
+    if (a > 15 || l > 15 || d > 255) throw FormatException('Invalid physical address', s);
     return IndividualAddress((a << 12) | (l << 8) | d);
   }
 

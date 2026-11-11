@@ -38,7 +38,7 @@ class PropsPanel extends StatelessWidget {
       body = [
         if (d.cell != null) _CellBox(d: d),
         if (d.room != null) _RoomProps(key: ValueKey('rp-${d.room!['id']}-${d.sub?['id']}'), d: d),
-        if (d.room == null) const _Hint('Chọn một phòng ở cột bên trái, hoặc thêm phòng mới.'),
+        if (d.room == null) const _Hint('Select a room in the left column, or add a new room.'),
       ];
     }
     return ListenableBuilder(
@@ -246,7 +246,7 @@ class _WidgetPropsState extends State<_WidgetProps> {
     if (k == 'h') hh = v;
     if (x + ww > cols(box)) x = max(0, cols(box) - ww);
     if (!isFree(box, x, y, ww, hh, id)) {
-      toast(context, 'Không đủ chỗ: vùng mới bị trùng với thành phần khác.');
+      toast(context, 'Not enough room: the new area overlaps another component.');
       return;
     }
     d.editWidget(id, (o) => o['pos'] = {'x': x, 'y': y, 'w': ww, 'h': hh});
@@ -284,16 +284,20 @@ class _WidgetPropsState extends State<_WidgetProps> {
                 ),
               ),
               IconButton(
-                tooltip: tr('Sao chép (Ctrl+C)'),
+                tooltip: tr('Copy (Ctrl+C)'),
                 icon: const Icon(Icons.copy_outlined),
                 onPressed: () {
                   final m = d.copy();
                   if (m != null) toast(context, m);
                 },
               ),
-              IconButton(tooltip: tr('Xuất thẻ ra file để dùng lại'), icon: const Icon(Icons.file_upload_outlined), onPressed: () => exportCard(context, d, w)),
               IconButton(
-                tooltip: tr('Xoá (Delete)'),
+                tooltip: tr('Export the card to a file for reuse'),
+                icon: const Icon(Icons.file_upload_outlined),
+                onPressed: () => exportCard(context, d, w),
+              ),
+              IconButton(
+                tooltip: tr('Delete (Delete)'),
                 icon: Icon(Icons.delete_outline, color: c.danger),
                 onPressed: d.deleteWidget,
               ),
@@ -304,17 +308,16 @@ class _WidgetPropsState extends State<_WidgetProps> {
         const SizedBox(height: 16),
         _Section('Chung', [
           FieldLabel(
-            'Tên hiển thị',
+            'Display name',
             SyncedField(
               value: (w['label'] ?? '').toString(),
               onChanged: (v) => set('label', v, coalesce: 'label-$id'),
             ),
           ),
-          if (type != 'group')
-            FieldLabel('Biểu tượng', IconField(d: d, value: w['icon'] as String?, scope: IconScope.widget, onChanged: (v) => set('icon', v))),
+          if (type != 'group') FieldLabel('Icon', IconField(d: d, value: w['icon'] as String?, scope: IconScope.widget, onChanged: (v) => set('icon', v))),
           if (type != 'group')
             FieldLabel(
-              'Nền thẻ',
+              'Card background',
               _BgPicker(
                 value: (type == 'group' ? w['gbg'] : jsonMap(w['style'])['bg']) as String?,
                 onChanged: (v) => d.editWidget(id, (x) {
@@ -340,23 +343,23 @@ class _WidgetPropsState extends State<_WidgetProps> {
             children: [
               Expanded(
                 child: FieldLabel(
-                  'Rộng (ô)',
+                  'Width (cells)',
                   EvoDropdown<int>(value: pi(w, 'w'), items: [for (var i = 1; i <= maxCols; i++) (i, '$i')], onChanged: (v) => setSize('w', v)),
                 ),
               ),
               const SizedBox(width: 10),
               Expanded(
                 child: FieldLabel(
-                  'Cao (hàng)',
+                  'Height (rows)',
                   EvoDropdown<int>(value: pi(w, 'h'), items: [for (var i = 1; i <= max(maxH, pi(w, 'h')); i++) (i, '$i')], onChanged: (v) => setSize('h', v)),
                 ),
               ),
             ],
           ),
-          if (inGroup) Hint('Nằm trong khung lưới “${box['label'] ?? ''}”: vị trí tính theo lưới của khung.'),
+          if (inGroup) Hint('Inside the grid frame “${box['label'] ?? ''}”: the position is counted on the frame\'s grid.'),
         ]),
         ..._typeSpecific(context, type),
-        _Section('Cỡ chữ', [
+        _Section('Font size', [
           for (final k in fsKeysFor(type))
             StepRow(
               label: kFs[k]!.name,
@@ -372,7 +375,7 @@ class _WidgetPropsState extends State<_WidgetProps> {
           if (text.isNotEmpty)
             Align(
               alignment: Alignment.centerLeft,
-              child: TextButton(onPressed: () => set('text', <String, dynamic>{}), child: const Text('Về cỡ mặc định')),
+              child: TextButton(onPressed: () => set('text', <String, dynamic>{}), child: const Text('About the default size')),
             ),
         ]),
         if (slotsFor(w).isNotEmpty)
@@ -383,12 +386,12 @@ class _WidgetPropsState extends State<_WidgetProps> {
                 GaPickerField(
                   value: (bind[sl.key] ?? '').toString(),
                   items: [
-                    ('', 'Chưa gán'),
+                    ('', 'Not assigned'),
                     for (final g
                         in (gas.where((g) => slotAccepts(sl, g) || g['id'] == bind[sl.key]).toList()
                           ..sort((a, b) => gaSortKey(a['address'].toString()).compareTo(gaSortKey(b['address'].toString())))))
                       (g['id'].toString(), '${g['address']}   ${g['name']}'),
-                    if (bind[sl.key] != null && byId(gas, bind[sl.key] as String) == null) (bind[sl.key].toString(), 'Địa chỉ đã bị xoá'),
+                    if (bind[sl.key] != null && byId(gas, bind[sl.key] as String) == null) (bind[sl.key].toString(), 'The address was deleted'),
                   ],
                   onChanged: (v) => d.editWidget(id, (o) {
                     final b = jsonMap(o['bind']);
@@ -411,9 +414,9 @@ class _WidgetPropsState extends State<_WidgetProps> {
       case 'link':
       case 'webview':
         return [
-          _Section('Trang web', [
+          _Section('Web page', [
             FieldLabel(
-              'Địa chỉ web',
+              'Web address',
               SyncedField(
                 value: (w['url'] ?? '').toString(),
                 hint: 'https://…',
@@ -422,18 +425,18 @@ class _WidgetPropsState extends State<_WidgetProps> {
             ),
             if (type == 'link')
               FieldLabel(
-                'Cách mở',
+                'How to open',
                 EvoDropdown<String>(
                   value: (w['openIn'] ?? 'inApp').toString(),
-                  items: const [('inApp', 'Mở trong App'), ('external', 'Mở bằng trình duyệt')],
+                  items: const [('inApp', 'Open in App'), ('external', 'Open in browser')],
                   onChanged: (v) => set('openIn', v),
                 ),
               ),
             if (type == 'webview') ...[
               for (final o in const [
-                ('showHeader', 'Hiện tên và biểu tượng phía trên'),
-                ('interactive', 'Cho phép thao tác trên trang'),
-                ('fullscreen', 'Cho phép mở toàn màn hình'),
+                ('showHeader', 'Show the name and icon at the top'),
+                ('interactive', 'Allow interaction on the page'),
+                ('fullscreen', 'Allow full screen'),
               ])
                 _Check(
                   o.$2,
@@ -445,10 +448,10 @@ class _WidgetPropsState extends State<_WidgetProps> {
                   }),
                 ),
               FieldLabel(
-                'Tự làm mới',
+                'Auto refresh',
                 EvoDropdown<int>(
                   value: ((jsonMap(w['web'])['refresh'] as num?) ?? 0).toInt(),
-                  items: const [(0, 'Không'), (30, 'Mỗi 30 giây'), (60, 'Mỗi phút'), (300, 'Mỗi 5 phút'), (900, 'Mỗi 15 phút')],
+                  items: const [(0, 'No'), (30, 'Every 30 seconds'), (60, 'Every minute'), (300, 'Every 5 minutes'), (900, 'Every 15 minutes')],
                   onChanged: (v) => d.editWidget(id, (x) {
                     final m = jsonMap(x['web']);
                     m['refresh'] = v;
@@ -471,11 +474,11 @@ class _WidgetPropsState extends State<_WidgetProps> {
         }, coalesce: co);
         final simple = w['look'] == 'simple';
         return [
-          _Section('Kiểu hiển thị', [
+          _Section('Display style', [
             FieldLabel(
-              'Kiểu thẻ',
+              'Card style',
               Seg<String>(
-                items: const [('full', 'Đầy đủ'), ('simple', 'Đơn giản')],
+                items: const [('full', 'Full'), ('simple', 'Simple')],
                 value: w['look'] == 'simple' ? 'simple' : 'full',
                 onChanged: (v) => set('look', v),
               ),
@@ -483,26 +486,26 @@ class _WidgetPropsState extends State<_WidgetProps> {
             Hint(
               simple
                   ? (w['type'] == 'dimmer'
-                        ? 'Chỉ có biểu tượng và tên; khi bật, thẻ đổi sang màu khi bật. Bấm thẻ để bật/tắt, bấm biểu tượng chỉnh để mở thanh độ sáng${feat['tw'] == true || feat['rgb'] == true ? ', nhiệt độ màu, màu RGB' : ''}.'
-                        : 'Chỉ có biểu tượng và tên; khi bật, cả thẻ đổi sang màu khi bật.')
-                  : 'Biểu tượng, tên và dòng trạng thái.',
+                        ? 'Only the icon and the name; when on, the card changes colour. Tap the card to switch on/off, tap the control icon to open the brightness slider${feat['tw'] == true || feat['rgb'] == true ? ', colour temperature, RGB colour' : ''}.'
+                        : 'Only the icon and the name; when on, the whole card changes colour.')
+                  : 'Icon, name and status line.',
             ),
             if (simple && w['type'] == 'dimmer')
               FieldLabel(
-                'Biểu tượng mở bảng chỉnh',
+                'Icon that opens the panel',
                 IconField(d: d, value: (w['tuneIcon'] ?? 'mdi:tune-vertical').toString(), scope: IconScope.widget, onChanged: (v) => set('tuneIcon', v)),
               ),
           ]),
-          _Section('Màu và trạng thái', [
+          _Section('Colour and status', [
             FieldLabel(
-              'Màu khi bật',
+              'Colour when on',
               _ColorPicker(
                 value: (st['colorOn'] ?? '#EE9B2A').toString(),
                 onChanged: (v) => setStyle('colorOn', v, co: 'con-$id'),
               ),
             ),
             FieldLabel(
-              'Màu khi tắt',
+              'Colour when off',
               _ColorPicker(
                 value: (st['colorOff'] ?? '#8A938F').toString(),
                 onChanged: (v) => setStyle('colorOff', v, co: 'coff-$id'),
@@ -512,9 +515,9 @@ class _WidgetPropsState extends State<_WidgetProps> {
               children: [
                 Expanded(
                   child: FieldLabel(
-                    'Chữ khi bật',
+                    'Text when on',
                     SyncedField(
-                      value: (st['textOn'] ?? 'Đang bật').toString(),
+                      value: (st['textOn'] ?? 'On').toString(),
                       onChanged: (v) => setStyle('textOn', v, co: 'ton-$id'),
                     ),
                   ),
@@ -522,9 +525,9 @@ class _WidgetPropsState extends State<_WidgetProps> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: FieldLabel(
-                    'Chữ khi tắt',
+                    'Text when off',
                     SyncedField(
-                      value: (st['textOff'] ?? 'Đang tắt').toString(),
+                      value: (st['textOff'] ?? 'Off').toString(),
                       onChanged: (v) => setStyle('textOff', v, co: 'toff-$id'),
                     ),
                   ),
@@ -533,9 +536,9 @@ class _WidgetPropsState extends State<_WidgetProps> {
             ),
           ]),
           if (type == 'dimmer')
-            _Section('Tính năng đèn', [
+            _Section('Light features', [
               _Check(
-                'Nhiệt độ màu (Tunable White, DPT 7.600)',
+                'Colour temperature (Tunable White, DPT 7.600)',
                 feat['tw'] == true,
                 (v) => d.editWidget(id, (x) {
                   final m = jsonMap(x['features']);
@@ -548,7 +551,7 @@ class _WidgetPropsState extends State<_WidgetProps> {
                   children: [
                     Expanded(
                       child: FieldLabel(
-                        'Ấm nhất (K)',
+                        'Warmest (K)',
                         SyncedField(
                           value: '${tw['min'] ?? 2700}',
                           number: true,
@@ -563,7 +566,7 @@ class _WidgetPropsState extends State<_WidgetProps> {
                     const SizedBox(width: 10),
                     Expanded(
                       child: FieldLabel(
-                        'Lạnh nhất (K)',
+                        'Coolest (K)',
                         SyncedField(
                           value: '${tw['max'] ?? 6500}',
                           number: true,
@@ -578,7 +581,7 @@ class _WidgetPropsState extends State<_WidgetProps> {
                   ],
                 ),
               _Check(
-                'Màu RGB (DPT 232.600 / 251.600)',
+                'RGB colour (DPT 232.600 / 251.600)',
                 feat['rgb'] == true,
                 (v) => d.editWidget(id, (x) {
                   final m = jsonMap(x['features']);
@@ -590,11 +593,11 @@ class _WidgetPropsState extends State<_WidgetProps> {
         ];
       case 'shutter':
         return [
-          _Section('Rèm', [
+          _Section('Blind', [
             FieldLabel(
-              'Kiểu rèm',
+              'Blind type',
               Seg<String>(
-                items: const [('roller', 'Rèm cuốn'), ('curtain', 'Rèm vải')],
+                items: const [('roller', 'Roller blind'), ('curtain', 'Curtain')],
                 value: (w['shStyle'] ?? 'roller').toString(),
                 onChanged: (v) => d.editWidget(id, (x) {
                   x['shStyle'] = v;
@@ -603,15 +606,15 @@ class _WidgetPropsState extends State<_WidgetProps> {
               ),
             ),
             FieldLabel(
-              'Cách điều khiển',
+              'Control type',
               EvoDropdown<String>(
                 value: (w['shCtrl'] ?? 'buttons').toString(),
-                items: const [('buttons', 'Nút lên / dừng / xuống'), ('slider', 'Thanh kéo vị trí'), ('both', 'Cả nút và thanh kéo')],
+                items: const [('buttons', 'Up / stop / down buttons'), ('slider', 'Position slider'), ('both', 'Both buttons and slider')],
                 onChanged: (v) => set('shCtrl', v),
               ),
             ),
-            _Check('Hiện nút dừng', w['showStop'] != false, (v) => set('showStop', v)),
-            _Check('Đảo chiều lên/xuống (gửi 1 khi lên, 0 khi xuống)', w['udInvert'] == true, (v) => set('udInvert', v)),
+            _Check('Show stop button', w['showStop'] != false, (v) => set('showStop', v)),
+            _Check('Reverse up/down (send 1 for up, 0 for down)', w['udInvert'] == true, (v) => set('udInvert', v)),
           ]),
         ];
       case 'ac':
@@ -645,22 +648,22 @@ class _WidgetPropsState extends State<_WidgetProps> {
           x['ac'] = m;
         });
         return [
-          _Section('Kiểu hiển thị', [
+          _Section('Display style', [
             FieldLabel(
-              'Kiểu thẻ',
+              'Card style',
               Seg<String>(
-                items: const [('full', 'Đầy đủ'), ('simple', 'Đơn giản')],
+                items: const [('full', 'Full'), ('simple', 'Simple')],
                 value: w['look'] == 'simple' ? 'simple' : 'full',
                 onChanged: (v) => set('look', v),
               ),
             ),
             Hint(
               w['look'] == 'simple'
-                  ? 'Biểu tượng, tên và trạng thái (Cool - 25°C). Bấm nút chỉnh để mở thanh nhiệt độ, chế độ và tốc độ quạt. Khi máy chạy, thẻ sáng lên như đèn dim.'
-                  : 'Biểu tượng, tên, trạng thái và thanh trượt nhiệt độ. Bấm nút chỉnh để chọn chế độ và tốc độ quạt. Bấm thẻ để bật/tắt. Khi máy chạy, thẻ sáng lên như đèn dim.',
+                  ? 'Icon, name and status (Cool - 25°C). The control button opens the temperature slider, mode and fan speed. The card lights up while the unit is running.'
+                  : 'Icon, name, status and temperature slider. The control button selects the mode and fan speed. Tap the card to switch it on/off. The card lights up while the unit is running.',
             ),
             FieldLabel(
-              'Màu khi bật',
+              'Colour when on',
               _ColorPicker(
                 value: (jsonMap(w['style'])['colorOn'] ?? '#EE9B2A').toString(),
                 onChanged: (v) => d.editWidget(id, (x) {
@@ -671,15 +674,15 @@ class _WidgetPropsState extends State<_WidgetProps> {
               ),
             ),
             FieldLabel(
-              'Biểu tượng nút chỉnh',
+              'Control button icon',
               IconField(d: d, value: (ac['moreIcon'] ?? 'mdi:tune-variant').toString(), scope: IconScope.widget, onChanged: (v) => setAc('moreIcon', v)),
             ),
           ]),
-          _Section('Tốc độ quạt', [
+          _Section('Fan speed', [
             Row(
               children: [
                 Checkbox(value: fan['enabled'] == true, onChanged: (v) => setFan('enabled', v == true)),
-                const Expanded(child: Text('Điều khiển tốc độ quạt')),
+                const Expanded(child: Text('Fan speed control')),
               ],
             ),
             if (fan['enabled'] == true) ...[
@@ -687,10 +690,10 @@ class _WidgetPropsState extends State<_WidgetProps> {
                 children: [
                   Expanded(
                     child: FieldLabel(
-                      'Số mức',
+                      'Number of levels',
                       EvoDropdown<int>(
                         value: ((fan['levels'] as num?) ?? 3).toInt().clamp(2, 5),
-                        items: const [(2, '2 mức'), (3, '3 mức'), (4, '4 mức'), (5, '5 mức')],
+                        items: const [(2, '2 levels'), (3, '3 levels'), (4, '4 levels'), (5, '5 levels')],
                         onChanged: (v) => setFan('levels', v),
                       ),
                     ),
@@ -698,13 +701,13 @@ class _WidgetPropsState extends State<_WidgetProps> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: FieldLabel(
-                      'Tự động',
-                      Seg<bool>(items: const [(true, 'Có'), (false, 'Không')], value: fan['auto'] != false, onChanged: (v) => setFan('auto', v)),
+                      'Auto',
+                      Seg<bool>(items: const [(true, 'Yes'), (false, 'No')], value: fan['auto'] != false, onChanged: (v) => setFan('auto', v)),
                     ),
                   ),
                 ],
               ),
-              Hint('Giá trị gửi cho từng mức (mặc định theo DPT 5.010: Tự động = 0, mức 1…N = 1…N; nếu địa chỉ dùng phần trăm, nhập ví dụ 33, 67, 100):'),
+              Hint('Value sent for each level (default per DPT 5.010: Auto = 0, level 1…N = 1…N; if the address uses percentages, enter e.g. 33, 67, 100):'),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
@@ -713,7 +716,7 @@ class _WidgetPropsState extends State<_WidgetProps> {
                     SizedBox(
                       width: 86,
                       child: FieldLabel(
-                        lv == 'auto' ? 'Tự động' : 'Mức $lv',
+                        lv == 'auto' ? 'Auto' : 'Level $lv',
                         SyncedField(
                           value: '${acFanValue(ac, lv)}',
                           onChanged: (v) {
@@ -736,12 +739,12 @@ class _WidgetPropsState extends State<_WidgetProps> {
               ),
             ],
           ]),
-          _Section('Máy lạnh', [
+          _Section('Air conditioner', [
             Row(
               children: [
                 Expanded(
                   child: FieldLabel(
-                    'Nhiệt độ thấp nhất',
+                    'Minimum temperature',
                     SyncedField(
                       value: '${ac['min'] ?? 16}',
                       number: true,
@@ -752,7 +755,7 @@ class _WidgetPropsState extends State<_WidgetProps> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: FieldLabel(
-                    'Nhiệt độ cao nhất',
+                    'Maximum temperature',
                     SyncedField(
                       value: '${ac['max'] ?? 30}',
                       number: true,
@@ -766,7 +769,7 @@ class _WidgetPropsState extends State<_WidgetProps> {
               children: [
                 Expanded(
                   child: FieldLabel(
-                    'Bước (°C)',
+                    'Step (°C)',
                     SyncedField(
                       value: '${acStep(ac)}'.replaceAll('.', ','),
                       number: true,
@@ -781,27 +784,27 @@ class _WidgetPropsState extends State<_WidgetProps> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: FieldLabel(
-                    'Nút − và +',
-                    Seg<bool>(items: const [(true, 'Có'), (false, 'Không')], value: ac['stepButtons'] != false, onChanged: (v) => setAc('stepButtons', v)),
+                    '− and + buttons',
+                    Seg<bool>(items: const [(true, 'Yes'), (false, 'No')], value: ac['stepButtons'] != false, onChanged: (v) => setAc('stepButtons', v)),
                   ),
                 ),
               ],
             ),
-            Hint('Thanh trượt nhiệt độ và nút − + cùng dùng một bước (từ 0,1 đến 5 °C), nhiệt độ trượt "hít" theo bước.'),
-            _Check('Hiện nhiệt độ phòng (cần gán ô Nhiệt độ phòng)', ac['showCur'] != false, (v) => setAc('showCur', v)),
+            Hint('The temperature slider and the − + buttons share one step (0.1 to 5 °C); the temperature snaps to the step.'),
+            _Check('Show room temperature (assign the Room temperature field)', ac['showCur'] != false, (v) => setAc('showCur', v)),
             FieldLabel(
-              'Nút chế độ hiển thị',
+              'Display mode button',
               EvoDropdown<String>(
                 value: (ac['modeLabel'] ?? 'icon').toString(),
-                items: const [('both', 'Biểu tượng và chữ'), ('icon', 'Chỉ biểu tượng'), ('text', 'Chỉ chữ')],
+                items: const [('both', 'Icon and text'), ('icon', 'Icon only'), ('text', 'Text only')],
                 onChanged: (v) => setAc('modeLabel', v),
               ),
             ),
             FieldLabel(
-              'Cách gửi chế độ',
+              'How the mode is sent',
               EvoDropdown<String>(
                 value: sep ? 'separate' : 'single',
-                items: const [('single', 'Một địa chỉ chung, mỗi chế độ một giá trị'), ('separate', 'Mỗi chế độ một địa chỉ riêng (1 bit)')],
+                items: const [('single', 'One shared address, one value per mode'), ('separate', 'One address per mode (1 bit)')],
                 onChanged: (v) => d.editWidget(id, (x) {
                   final m = jsonMap(x['ac']);
                   m['modeAddr'] = v;
@@ -817,7 +820,7 @@ class _WidgetPropsState extends State<_WidgetProps> {
                 }),
               ),
             ),
-            Hint('Chế độ: đánh dấu để hiện, đặt tên và giá trị gửi'),
+            Hint('Mode: tick to show, set the name and the value sent'),
             Row(
               children: [
                 const SizedBox(width: 40),
@@ -826,7 +829,7 @@ class _WidgetPropsState extends State<_WidgetProps> {
                 Expanded(
                   child: SyncedField(
                     value: (names['off'] ?? '').toString(),
-                    hint: 'Tắt',
+                    hint: 'Off',
                     onChanged: (v) => setAcMap('names', 'off', v, co: 'acn-off-$id'),
                   ),
                 ),
@@ -834,7 +837,7 @@ class _WidgetPropsState extends State<_WidgetProps> {
                 SizedBox(
                   width: 64,
                   child: Text(
-                    'Bật/tắt',
+                    'On/Off',
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 14, color: context.evo.muted),
                   ),
@@ -865,7 +868,7 @@ class _WidgetPropsState extends State<_WidgetProps> {
                     width: 64,
                     child: sep
                         ? Text(
-                            'Gửi 1',
+                            'Send 1',
                             textAlign: TextAlign.center,
                             style: TextStyle(fontSize: 14, color: context.evo.muted),
                           )
@@ -888,38 +891,38 @@ class _WidgetPropsState extends State<_WidgetProps> {
           x['popup'] = m;
         }, coalesce: co);
         return [
-          _Section('Cảnh', [
+          _Section('Scene', [
             FieldLabel(
-              'Giá trị gửi',
+              'Value sent',
               SyncedField(
                 value: sceneSendValue(w),
                 onChanged: (v) => set('sendValue', v.trim(), coalesce: 'sv-$id'),
               ),
             ),
-            Hint('Giá trị gửi tới địa chỉ ghi khi bấm, giống nút nhấn. Với địa chỉ cảnh KNX (DPT 17.001), cảnh 1 = 0, cảnh 2 = 1…'),
+            Hint('Value sent to the write address when pressed, like a push button. For a KNX scene address (DPT 17.001), scene 1 = 0, scene 2 = 1…'),
             FieldLabel(
-              'Kiểu hiển thị',
-              Seg<String>(items: const [('card', 'Thẻ thường'), ('image', 'Hình ảnh')], value: sImg ? 'image' : 'card', onChanged: (v) => set('btnStyle', v)),
+              'Display style',
+              Seg<String>(items: const [('card', 'Standard card'), ('image', 'Image')], value: sImg ? 'image' : 'card', onChanged: (v) => set('btnStyle', v)),
             ),
           ]),
           if (sImg) _ButtonImageSettings(d: d, w: w),
-          _Section('Popup khi bấm', [
+          _Section('Popup when pressed', [
             Row(
               children: [
                 Checkbox(value: pp['enabled'] != false, onChanged: (v) => setPop('enabled', v == true)),
-                const Expanded(child: Text('Hiện popup và làm mờ giao diện phía sau')),
+                const Expanded(child: Text('Show as a popup and blur the background')),
               ],
             ),
             if (pp['enabled'] != false) ...[
               FieldLabel(
-                'Nội dung popup ({tên} = tên cảnh)',
+                'Popup text ({name} = scene name)',
                 SyncedField(
-                  value: (pp['text'] ?? 'Đã bật cảnh {tên}').toString(),
+                  value: (pp['text'] ?? 'Scene {name} activated').toString(),
                   onChanged: (v) => setPop('text', v, co: 'ptext-$id'),
                 ),
               ),
               StepRow(
-                label: 'Độ mờ nền',
+                label: 'Background opacity',
                 unit: '',
                 value: ((pp['blur'] as num?) ?? 8).toInt(),
                 min: 0,
@@ -928,31 +931,23 @@ class _WidgetPropsState extends State<_WidgetProps> {
                 onChanged: (v) => setPop('blur', v, co: 'pblur-$id'),
               ),
               StepRow(
-                label: 'Cỡ chữ',
+                label: 'Font size',
                 value: ((pp['size'] as num?) ?? 20).toInt(),
                 min: 12,
                 max: 40,
                 onChanged: (v) => setPop('size', v, co: 'psize-$id'),
               ),
               FieldLabel(
-                'Thời gian hiện',
+                'Time shown',
                 EvoDropdown<double>(
                   value: const [1.0, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0].contains(((pp['seconds'] as num?) ?? 2).toDouble())
                       ? ((pp['seconds'] as num?) ?? 2).toDouble()
                       : 2.0,
-                  items: const [
-                    (1.0, '1 giây'),
-                    (1.5, '1,5 giây'),
-                    (2.0, '2 giây'),
-                    (2.5, '2,5 giây'),
-                    (3.0, '3 giây'),
-                    (4.0, '4 giây'),
-                    (5.0, '5 giây (tối đa)'),
-                  ],
+                  items: const [(1.0, '1 s'), (1.5, '1.5 s'), (2.0, '2 s'), (2.5, '2.5 s'), (3.0, '3 s'), (4.0, '4 s'), (5.0, '5 s (max)')],
                   onChanged: (v) => setPop('seconds', v),
                 ),
               ),
-              Hint('Thử ở chế độ Chạy thử: bấm thẻ cảnh để xem popup. Bấm vào popup để tắt sớm.'),
+              Hint('Try it in Run test mode: click a scene card to see the popup. Click the popup to dismiss it early.'),
             ],
           ]),
         ];
@@ -967,7 +962,7 @@ class _WidgetPropsState extends State<_WidgetProps> {
         return [
           _Section('Camera', [
             FieldLabel(
-              'Giao thức',
+              'Protocol',
               Seg<String>(
                 items: const [('rtsp', 'RTSP'), ('http', 'HTTP')],
                 value: rtsp ? 'rtsp' : 'http',
@@ -985,7 +980,7 @@ class _WidgetPropsState extends State<_WidgetProps> {
                 Expanded(
                   flex: 3,
                   child: FieldLabel(
-                    'Địa chỉ IP',
+                    'IP address',
                     SyncedField(
                       value: (cam['host'] ?? '').toString(),
                       hint: '192.168.1.64',
@@ -996,7 +991,7 @@ class _WidgetPropsState extends State<_WidgetProps> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: FieldLabel(
-                    'Cổng',
+                    'Port',
                     SyncedField(
                       value: '${cam['port'] ?? (rtsp ? 554 : 80)}',
                       number: true,
@@ -1010,7 +1005,7 @@ class _WidgetPropsState extends State<_WidgetProps> {
               ],
             ),
             FieldLabel(
-              'Đường dẫn',
+              'Path',
               SyncedField(
                 value: (cam['path'] ?? '').toString(),
                 hint: rtsp ? '/Streaming/Channels/101' : '/cgi-bin/snapshot.cgi',
@@ -1021,7 +1016,7 @@ class _WidgetPropsState extends State<_WidgetProps> {
               children: [
                 Expanded(
                   child: FieldLabel(
-                    'Tài khoản',
+                    'Account',
                     SyncedField(
                       value: (cam['user'] ?? '').toString(),
                       onChanged: (v) => setCam('user', v, co: 'cu-$id'),
@@ -1031,7 +1026,7 @@ class _WidgetPropsState extends State<_WidgetProps> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: FieldLabel(
-                    'Mật khẩu',
+                    'Password',
                     _SecretField(
                       value: (cam['pass'] ?? '').toString(),
                       onChanged: (v) => setCam('pass', v, co: 'cpw-$id'),
@@ -1048,30 +1043,30 @@ class _WidgetPropsState extends State<_WidgetProps> {
               ),
             Hint(
               rtsp
-                  ? 'Đường dẫn thường gặp: Hikvision /Streaming/Channels/101 (luồng chính) hoặc 102 (luồng phụ, nhẹ hơn); Dahua /cam/realmonitor?channel=1&subtype=1. Nên dùng luồng phụ cho điện thoại.'
-                  : 'HTTP: đường dẫn ảnh chụp (snapshot) hoặc luồng MJPEG của camera. Ở Chạy thử, Editor hiện ảnh chụp để kiểm tra địa chỉ; video RTSP chỉ phát trong App.',
+                  ? 'Common paths: Hikvision /Streaming/Channels/101 (main stream) or 102 (substream, lighter); Dahua /cam/realmonitor?channel=1&subtype=1. Use the substream for phones.'
+                  : 'HTTP: path of the camera snapshot or MJPEG stream. In Run test the Editor shows a snapshot to check the address; RTSP video only plays in the App.',
             ),
             Text(
-              'Mật khẩu camera được lưu trong file dự án và file cấu hình App. Nên tạo tài khoản chỉ có quyền xem trên camera.',
+              'The camera password is stored in the project file and in the App configuration file. Create an account that only has view rights on the camera.',
               style: TextStyle(fontSize: 14, color: context.evo.warn),
             ),
           ]),
-          _Section('Kiểu hiển thị', [
+          _Section('Display style', [
             Seg<String>(
-              items: const [('live', 'Luôn hiển thị'), ('button', 'Nút mở popup')],
+              items: const [('live', 'Always visible'), ('button', 'Popup button')],
               value: cam['view'] == 'button' ? 'button' : 'live',
               onChanged: (v) => setCam('view', v),
             ),
             Hint(
               cam['view'] == 'button'
-                  ? 'Thẻ như một nút bấm; bấm vào sẽ mở video camera trong popup.'
-                  : 'Video phát trực tiếp ngay trong thẻ, như trang web nhúng. Nên đặt thẻ rộng 4 cột, cao 3 hàng trở lên.',
+                  ? 'Looks like a push button; tapping it opens the camera video in a popup.'
+                  : 'Live video right in the card, like an embedded web page. Place the card at least 4 columns wide and 3 rows high.',
             ),
             if (cam['view'] != 'button')
               Row(
                 children: [
                   Checkbox(value: w['showHeader'] != false, onChanged: (v) => set('showHeader', v == true)),
-                  const Expanded(child: Text('Hiện tên camera phía trên video')),
+                  const Expanded(child: Text('Show the camera name above the video')),
                 ],
               ),
           ]),
@@ -1079,18 +1074,18 @@ class _WidgetPropsState extends State<_WidgetProps> {
       case 'button':
         final imgStyle = w['btnStyle'] == 'image';
         return [
-          _Section('Nút nhấn', [
+          _Section('Push button', [
             FieldLabel(
-              'Giá trị gửi',
+              'Value sent',
               SyncedField(
                 value: (w['sendValue'] ?? '1').toString(),
                 onChanged: (v) => set('sendValue', v.trim(), coalesce: 'sv-$id'),
               ),
             ),
             FieldLabel(
-              'Kiểu hiển thị',
+              'Display style',
               Seg<String>(
-                items: const [('card', 'Thẻ thường'), ('image', 'Hình ảnh')],
+                items: const [('card', 'Standard card'), ('image', 'Image')],
                 value: imgStyle ? 'image' : 'card',
                 onChanged: (v) => set('btnStyle', v),
               ),
@@ -1102,11 +1097,11 @@ class _WidgetPropsState extends State<_WidgetProps> {
         final f = jsonMap(w['format']);
         final stateStyle = isStateValue(w);
         return [
-          _Section('Hiển thị giá trị', [
+          _Section('Show value', [
             FieldLabel(
-              'Kiểu thẻ',
+              'Card style',
               Seg<String>(
-                items: const [('state', 'Đầy đủ (trạng thái)'), ('number', 'Đơn giản (số đo)')],
+                items: const [('state', 'Full (with status)'), ('number', 'Simple (measurement)')],
                 value: stateStyle ? 'state' : 'number',
                 onChanged: (v) => d.editWidget(id, (x) {
                   if (v == 'state') {
@@ -1120,25 +1115,25 @@ class _WidgetPropsState extends State<_WidgetProps> {
             ),
             Hint(
               stateStyle
-                  ? 'Mỗi giá trị nhận từ bus hiện chữ, biểu tượng và màu riêng (ví dụ 0 = Đóng, 1 = Mở). Ở Chạy thử, bấm thẻ để xem lần lượt từng trạng thái.'
-                  : 'Hiện con số kèm đơn vị, như nhiệt độ, độ ẩm, công suất.',
+                  ? 'Each value received from the bus shows its own text, icon and colour (for example 0 = Closed, 1 = Open). In Run test, click the card to step through each state.'
+                  : 'Shows a number with its unit, such as temperature, humidity, power.',
             ),
             if (!stateStyle)
               FieldLabel(
-                'Bố cục',
+                'Layout',
                 Seg<String>(
-                  items: const [('full', 'Khối'), ('simple', 'Một hàng')],
+                  items: const [('full', 'Block'), ('simple', 'One row')],
                   value: w['look'] == 'simple' ? 'simple' : 'full',
                   onChanged: (v) => set('look', v),
                 ),
               ),
-            if (!stateStyle && w['look'] == 'simple') Hint('Một hàng: biểu tượng và tên bên trái, giá trị bên phải. Hợp với thẻ cao 1 ô.'),
+            if (!stateStyle && w['look'] == 'simple') Hint('One row: icon and name on the left, value on the right. Suits a card 1 cell high.'),
             if (!stateStyle)
               Row(
                 children: [
                   Expanded(
                     child: FieldLabel(
-                      'Đơn vị',
+                      'Unit',
                       SyncedField(
                         value: (f['unit'] ?? '').toString(),
                         hint: '°C',
@@ -1153,7 +1148,7 @@ class _WidgetPropsState extends State<_WidgetProps> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: FieldLabel(
-                      'Số lẻ',
+                      'Decimals',
                       EvoDropdown<int>(
                         value: ((f['decimals'] as num?) ?? 1).toInt(),
                         items: const [(0, '0'), (1, '1'), (2, '2')],
@@ -1173,12 +1168,12 @@ class _WidgetPropsState extends State<_WidgetProps> {
       case 'group':
         final l = jsonMap(w['layout']);
         return [
-          _Section('Khung lưới', [
+          _Section('Grid frame', [
             Row(
               children: [
                 Expanded(
                   child: FieldLabel(
-                    'Số hàng của khung',
+                    'Frame rows',
                     EvoDropdown<int>(
                       value: ((l['rows'] as num?) ?? 4).toInt(),
                       items: [for (var i = 1; i <= 12; i++) (i, '$i')],
@@ -1196,7 +1191,7 @@ class _WidgetPropsState extends State<_WidgetProps> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: FieldLabel(
-                    'Số cột của khung',
+                    'Frame columns',
                     EvoDropdown<int>(
                       value: ((l['columns'] as num?) ?? 4).toInt(),
                       items: [for (var i = 1; i <= 6; i++) (i, '$i')],
@@ -1214,10 +1209,10 @@ class _WidgetPropsState extends State<_WidgetProps> {
               ],
             ),
             FieldLabel(
-              'Kiểu khung',
+              'Frame style',
               EvoDropdown<String>(
                 value: (w['gstyle'] ?? 'card').toString(),
-                items: const [('card', 'Nền thẻ'), ('line', 'Chỉ có viền'), ('none', 'Trong suốt')],
+                items: const [('card', 'Card background'), ('line', 'Border only'), ('none', 'Transparent')],
                 onChanged: (v) => set('gstyle', v),
               ),
             ),
@@ -1227,20 +1222,20 @@ class _WidgetPropsState extends State<_WidgetProps> {
               dense: true,
               contentPadding: EdgeInsets.zero,
               controlAffinity: ListTileControlAffinity.leading,
-              title: const Text('Hiện tiêu đề khung'),
+              title: const Text('Show frame title'),
             ),
             if (w['showTitle'] != false)
               FieldLabel(
-                'Canh tiêu đề',
+                'Title alignment',
                 Seg<String>(
-                  items: const [('left', 'Trái'), ('center', 'Giữa'), ('right', 'Phải')],
+                  items: const [('left', 'Left'), ('center', 'Center'), ('right', 'Right')],
                   value: (w['titleAlign'] ?? 'left').toString(),
                   onChanged: (v) => set('titleAlign', v),
                 ),
               ),
             if (w['showTitle'] != false)
               StepRow(
-                label: 'Khoảng cách tiêu đề',
+                label: 'Title spacing',
                 value: ((w['titleGap'] as num?) ?? 10).toInt(),
                 min: 0,
                 max: 40,
@@ -1263,14 +1258,14 @@ class _CellBox extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = d.cell!;
     final g = c.g == null || d.sub == null ? null : findWidget(d.sub!, c.g);
-    return _Section('Ô đã chọn', [
-      Text('${g != null ? 'Trong khung “${g['label'] ?? ''}”, ' : ''}hàng ${c.y + 1}, cột ${c.x + 1}', style: const TextStyle(fontSize: kUiText)),
-      Hint('Bấm một thành phần trên thanh công cụ để thêm vào đúng ô này.'),
+    return _Section('Selected cell', [
+      Text('${g != null ? 'Trong khung “${g['label'] ?? ''}”, ' : ''}row ${c.y + 1}, column ${c.x + 1}', style: const TextStyle(fontSize: kUiText)),
+      Hint('Click a component on the toolbar to add it to this cell.'),
       if (d.clip != null)
         Align(
           alignment: Alignment.centerLeft,
           child: EvoButton(
-            label: 'Dán “${d.clip!['label'] ?? ''}” vào đây',
+            label: 'Paste “${d.clip!['label'] ?? ''}” here',
             icon: Icons.content_paste,
             primary: true,
             small: true,
@@ -1295,26 +1290,26 @@ class _RoomCover extends StatelessWidget {
   Future<void> _pick(BuildContext context) async {
     final f = await openFile(
       acceptedTypeGroups: const [
-        XTypeGroup(label: 'Ảnh bìa (JPG, PNG)', extensions: ['jpg', 'jpeg', 'png']),
+        XTypeGroup(label: 'Cover image (JPG, PNG)', extensions: ['jpg', 'jpeg', 'png']),
       ],
-      confirmButtonText: tr('Chọn ảnh'),
+      confirmButtonText: tr('Select image'),
     );
     if (f == null) return;
     final bytes = await f.readAsBytes();
     if (!context.mounted) return;
     if (bytes.length > 1024 * 1024) {
-      toast(context, 'Ảnh nặng ${(bytes.length / 1024 / 1024).toStringAsFixed(1)} MB, vượt quá 1 MB. Hãy dùng ảnh khoảng 800 × 600 px (JPG).');
+      toast(context, 'The image is ${(bytes.length / 1024 / 1024).toStringAsFixed(1)} MB, over the 1 MB limit. Use about 1280 × 720 px (JPG).');
       return;
     }
     try {
       final img = await decodeImageFromList(bytes);
       if (!context.mounted) return;
       if (min(img.width, img.height) < 300) {
-        toast(context, 'Ảnh ${img.width} × ${img.height} px quá nhỏ. Nên dùng khoảng 800 × 600 px.');
+        toast(context, 'The image ${img.width} × ${img.height} px is too small. Use about 1280 × 720 px (16:9).');
         return;
       }
     } catch (_) {
-      if (context.mounted) toast(context, 'Không đọc được ảnh.');
+      if (context.mounted) toast(context, 'Could not read the image.');
       return;
     }
     final png = f.name.toLowerCase().endsWith('.png');
@@ -1341,8 +1336,8 @@ class _RoomCover extends StatelessWidget {
               : Icon(Icons.image_outlined, color: c.muted),
         ),
         const SizedBox(width: 10),
-        EvoButton(label: 'Chọn ảnh', small: true, onPressed: () => _pick(context)),
-        if (i > 0) ...[const SizedBox(width: 6), EvoButton(label: 'Xoá ảnh', small: true, onPressed: () => onChanged(null))],
+        EvoButton(label: 'Select image', small: true, onPressed: () => _pick(context)),
+        if (i > 0) ...[const SizedBox(width: 6), EvoButton(label: 'Remove image', small: true, onPressed: () => onChanged(null))],
       ],
     );
   }
@@ -1371,17 +1366,17 @@ class _RoomProps extends StatelessWidget {
         // selected in the structure tree, a page when that page is selected.
         if (d.roomFocus)
           _Section(
-            'Phòng',
+            'Room',
             [
               FieldLabel(
-                'Tên phòng',
+                'Room name',
                 SyncedField(
                   value: (r['title'] ?? '').toString(),
                   onChanged: (v) => editRoom((x) => x['title'] = v, coalesce: 'rt-$rid'),
                 ),
               ),
               FieldLabel(
-                'Thuộc tầng',
+                'Floor',
                 EvoDropdown<String>(
                   value: (r['floorId'] ?? '').toString(),
                   items: [for (final f in floors) (f['id'].toString(), (f['title'] ?? '').toString())],
@@ -1389,22 +1384,22 @@ class _RoomProps extends StatelessWidget {
                 ),
               ),
               FieldLabel(
-                'Ảnh bìa phòng (thư viện)',
+                'Room cover image (16:9)',
                 _RoomCover(value: (r['cover'] ?? '').toString(), onChanged: (v) => editRoom((x) => v == null ? x.remove('cover') : x['cover'] = v)),
               ),
               FieldLabel(
-                'Biểu tượng phòng',
+                'Room icon',
                 IconField(d: d, value: (r['icon'] ?? 'sofa').toString(), scope: IconScope.room, onChanged: (v) => editRoom((x) => x['icon'] = v)),
               ),
               Row(
                 children: [
                   Expanded(
-                    child: EvoButton(label: 'Thêm trang', icon: Icons.add, small: true, fit: true, onPressed: d.addSub),
+                    child: EvoButton(label: 'Add page', icon: Icons.add, small: true, fit: true, onPressed: d.addSub),
                   ),
                   const SizedBox(width: 6),
                   Expanded(
                     child: EvoButton(
-                      label: 'Nhập trang',
+                      label: 'Import page',
                       icon: Icons.file_download_outlined,
                       small: true,
                       fit: true,
@@ -1414,7 +1409,7 @@ class _RoomProps extends StatelessWidget {
                   const SizedBox(width: 6),
                   Expanded(
                     child: EvoButton(
-                      label: 'Xuất phòng',
+                      label: 'Export room',
                       icon: Icons.file_upload_outlined,
                       small: true,
                       fit: true,
@@ -1425,7 +1420,7 @@ class _RoomProps extends StatelessWidget {
               ),
             ],
             trailing: EvoButton(
-              label: 'Xoá phòng',
+              label: 'Delete room',
               icon: Icons.delete_outline,
               small: true,
               danger: true,
@@ -1433,11 +1428,11 @@ class _RoomProps extends StatelessWidget {
                 final ok = await showDialog<bool>(
                   context: context,
                   builder: (c) => AlertDialog(
-                    title: Text('Xoá phòng “${r['title']}”?'),
-                    content: const Text('Toàn bộ trang và thành phần trong phòng sẽ bị xoá. Bạn có thể hoàn tác (Ctrl+Z).'),
+                    title: Text('Delete the room “${r['title']}”?'),
+                    content: const Text('All pages and components in the room will be deleted. You can undo (Ctrl+Z).'),
                     actions: [
-                      TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Huỷ')),
-                      FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('Xoá phòng')),
+                      TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancel')),
+                      FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('Delete room')),
                     ],
                   ),
                 );
@@ -1447,10 +1442,10 @@ class _RoomProps extends StatelessWidget {
           ),
         if (!d.roomFocus && s != null)
           _Section(
-            'Trang ${si + 1}/${subs.length} · ${r['title'] ?? ''}',
+            'Page ${si + 1}/${subs.length} · ${r['title'] ?? ''}',
             [
               FieldLabel(
-                'Tên trang',
+                'Page name',
                 SyncedField(
                   value: (s['title'] ?? '').toString(),
                   onChanged: (v) => d.editSub((x) => x['title'] = v, coalesce: 'st-${s['id']}'),
@@ -1460,7 +1455,7 @@ class _RoomProps extends StatelessWidget {
                 children: [
                   Expanded(
                     child: EvoButton(
-                      label: 'Nhập thẻ',
+                      label: 'Import card',
                       icon: Icons.file_download_outlined,
                       small: true,
                       fit: true,
@@ -1470,7 +1465,7 @@ class _RoomProps extends StatelessWidget {
                   const SizedBox(width: 6),
                   Expanded(
                     child: EvoButton(
-                      label: 'Xuất trang',
+                      label: 'Export page',
                       icon: Icons.file_upload_outlined,
                       small: true,
                       fit: true,
@@ -1483,7 +1478,7 @@ class _RoomProps extends StatelessWidget {
                 children: [
                   Expanded(
                     child: FieldLabel(
-                      'Số hàng',
+                      'Rows',
                       EvoDropdown<int>(
                         value: rows(s),
                         items: [for (var i = devRange(d.doc)[0]; i <= devRange(d.doc)[1]; i++) (i, '$i')],
@@ -1501,7 +1496,7 @@ class _RoomProps extends StatelessWidget {
                   const SizedBox(width: 10),
                   Expanded(
                     child: FieldLabel(
-                      'Số cột',
+                      'Columns',
                       EvoDropdown<int>(
                         value: cols(s),
                         items: [for (var i = devRange(d.doc)[2]; i <= devRange(d.doc)[3]; i++) (i, '$i')],
@@ -1528,27 +1523,27 @@ class _RoomProps extends StatelessWidget {
                         if (v == true && x['scrollRows'] == null) x['scrollRows'] = rows(x) * 2;
                       }),
                     ),
-                    const Expanded(child: Text('Cho phép cuộn dọc khi nội dung dài hơn màn hình (chỉ điện thoại)')),
+                    const Expanded(child: Text('Allow vertical scrolling when the content is taller than the screen (phones only)')),
                   ],
                 ),
                 if (s['scroll'] == true) ...[
                   FieldLabel(
-                    'Tổng số hàng của trang (màn hình hiện ${rows(s)} hàng)',
+                    'Total rows of the page (the screen shows ${rows(s)} rows)',
                     EvoDropdown<int>(
                       value: pageRows(s, d.doc).clamp(rows(s) + 1, 60),
-                      items: [for (var i = rows(s) + 1; i <= 60; i++) (i, '$i hàng')],
+                      items: [for (var i = rows(s) + 1; i <= 60; i++) (i, '$i rows')],
                       onChanged: (v) => d.editSub((x) => x['scrollRows'] = v),
                     ),
                   ),
                   Hint(
-                    'Người dùng cuộn lên xuống trong trang này, vẫn vuốt ngang để sang trang khác. Thẻ có thanh kéo ngang (đèn dim, rèm) dùng bình thường; tránh đặt thanh kéo dọc. Bố cục tablet luôn cố định.',
+                    'The user scrolls up and down on this page and still swipes sideways to change pages. Cards with a horizontal slider (dimmer, blind) work normally; avoid a vertical slider. The tablet layout is always fixed.',
                   ),
                 ],
               ],
             ],
             trailing: subs.length > 1
                 ? EvoButton(
-                    label: 'Xoá trang',
+                    label: 'Delete page',
                     icon: Icons.delete_outline,
                     small: true,
                     danger: true,
@@ -1561,7 +1556,7 @@ class _RoomProps extends StatelessWidget {
           ),
         if (!d.roomFocus && s != null) _PageBgSettings(d: d, s: s),
         Hint(
-          'Kéo thành phần từ thanh công cụ vào ô trống, hoặc bấm vào một ô trống rồi bấm thành phần. Bấm vào thành phần để chỉnh tên, kích thước và địa chỉ nhóm.',
+          'Drag a component from the toolbar into an empty cell, or click an empty cell and then a component. Click a component to edit its name, size and group addresses.',
         ),
       ],
     );
@@ -1583,9 +1578,9 @@ class _FloorProps extends StatelessWidget {
       if (x != null) fn(x);
     }, coalesce: coalesce);
     final n = roomsOf(d.doc, fid).length;
-    return _Section('Tầng', [
+    return _Section('Floor', [
       FieldLabel(
-        'Tên tầng',
+        'Floor name',
         SyncedField(
           value: (f['title'] ?? '').toString(),
           onChanged: (v) => editFloor((x) => x['title'] = v, coalesce: 'ft-$fid'),
@@ -1593,11 +1588,11 @@ class _FloorProps extends StatelessWidget {
       ),
       if (f['special'] == null)
         FieldLabel(
-          'Ảnh bìa tầng',
+          'Floor cover image (16:9)',
           _RoomCover(value: (f['cover'] ?? '').toString(), onChanged: (v) => editFloor((x) => v == null ? x.remove('cover') : x['cover'] = v)),
         ),
       FieldLabel(
-        'Biểu tượng tầng',
+        'Floor icon',
         IconField(d: d, value: (f['icon'] ?? 'stairs').toString(), scope: IconScope.floor, onChanged: (v) => editFloor((x) => x['icon'] = v)),
       ),
       CheckboxListTile(
@@ -1606,18 +1601,18 @@ class _FloorProps extends StatelessWidget {
         dense: true,
         contentPadding: EdgeInsets.zero,
         controlAffinity: ListTileControlAffinity.leading,
-        title: const Text('Ẩn/hiện biểu tượng'),
+        title: const Text('Show/hide icon'),
       ),
-      Text('Tầng này có $n phòng.', style: TextStyle(fontSize: 13, color: context.evo.muted)),
+      Text('This floor has $n rooms.', style: TextStyle(fontSize: 13, color: context.evo.muted)),
       Row(
         children: [
           Expanded(
-            child: EvoButton(label: 'Thêm phòng', icon: Icons.add, small: true, fit: true, onPressed: () => d.addRoom(fid)),
+            child: EvoButton(label: 'Add room', icon: Icons.add, small: true, fit: true, onPressed: () => d.addRoom(fid)),
           ),
           const SizedBox(width: 6),
           Expanded(
             child: EvoButton(
-              label: 'Nhập phòng',
+              label: 'Import room',
               icon: Icons.file_download_outlined,
               small: true,
               fit: true,
@@ -1627,7 +1622,7 @@ class _FloorProps extends StatelessWidget {
           const SizedBox(width: 6),
           Expanded(
             child: EvoButton(
-              label: 'Xuất tầng',
+              label: 'Export floor',
               icon: Icons.file_upload_outlined,
               small: true,
               fit: true,
@@ -1636,7 +1631,7 @@ class _FloorProps extends StatelessWidget {
           ),
         ],
       ),
-    ], trailing: EvoButton(label: 'Xoá tầng', icon: Icons.delete_outline, small: true, danger: true, onPressed: () => deleteTreeSelection(context, d)));
+    ], trailing: EvoButton(label: 'Delete floor', icon: Icons.delete_outline, small: true, danger: true, onPressed: () => deleteTreeSelection(context, d)));
   }
 }
 
@@ -1661,17 +1656,17 @@ class _OverviewProps extends StatelessWidget {
           children: [
             Icon(Icons.settings_outlined, size: 20, color: context.evo.accent),
             const SizedBox(width: 8),
-            const Text('Tổng quan', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+            const Text('Overview', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
           ],
         ),
         const SizedBox(height: 16),
-        _Section('Thiết bị sử dụng', [
-          for (final dv in const [('mobile', 'Mobile', '12 × 4'), ('tabletP', 'Tablet dọc', '16 × 6'), ('tabletL', 'Tablet ngang', '10 × 8')])
+        _Section('Devices used', [
+          for (final dv in const [('mobile', 'Mobile', '12 × 4'), ('tabletP', 'Tablet (portrait)', '16 × 6'), ('tabletL', 'Tablet ngang', '10 × 8')])
             _Check('${dv.$2}   (${dv.$3})', dv.$1 == 'mobile' ? jsonMap(d.doc['devices'])['mobile'] != false : jsonMap(d.doc['devices'])[dv.$1] == true, (v) {
               final devs = jsonMap(d.doc['devices']);
               final on = ['mobile', 'tabletP', 'tabletL'].where((k) => k == 'mobile' ? devs['mobile'] != false : devs[k] == true).toList();
               if (!v && on.length <= 1) {
-                toast(context, 'Cần dùng ít nhất một thiết bị.');
+                toast(context, 'At least one device is required.');
                 return;
               }
               d.p.mutate((doc) {
@@ -1685,23 +1680,23 @@ class _OverviewProps extends StatelessWidget {
             }),
         ]),
         _SplashSettings(d: d),
-        _Section('Kiểu thẻ (tất cả thẻ)', [
+        _Section('Card style (all cards)', [
           StepRow(
-            label: 'Độ cong góc',
+            label: 'Corner radius',
             value: ((theme['cardRadius'] as num?) ?? 12).toInt(),
             min: 0,
             max: 32,
             onChanged: (v) => editTheme((x) => x['cardRadius'] = v, coalesce: 'crad'),
           ),
           StepRow(
-            label: 'Độ dày viền',
+            label: 'Border thickness',
             value: ((theme['cardBorder'] as num?) ?? 1).toInt(),
             min: 0,
             max: 4,
             onChanged: (v) => editTheme((x) => x['cardBorder'] = v, coalesce: 'cbor'),
           ),
           StepRow(
-            label: 'Độ đậm nền thẻ',
+            label: 'Card background opacity',
             unit: '%',
             step: 5,
             value: ((theme['cardOpacity'] as num?) ?? 100).toInt(),
@@ -1710,7 +1705,7 @@ class _OverviewProps extends StatelessWidget {
             onChanged: (v) => editTheme((x) => x['cardOpacity'] = v, coalesce: 'cop'),
           ),
           StepRow(
-            label: 'Độ đậm viền',
+            label: 'Border opacity',
             unit: '%',
             step: 5,
             value: ((theme['cardEdge'] as num?) ?? 100).toInt(),
@@ -1719,16 +1714,16 @@ class _OverviewProps extends StatelessWidget {
             onChanged: (v) => editTheme((x) => x['cardEdge'] = v, coalesce: 'cedge'),
           ),
           StepRow(
-            label: 'Đổ bóng',
+            label: 'Shadow',
             unit: '',
             value: ((theme['cardShadow'] as num?) ?? 0).toInt(),
             min: 0,
             max: 20,
             onChanged: (v) => editTheme((x) => x['cardShadow'] = v, coalesce: 'cshd'),
           ),
-          Hint('Mặc định: góc 12, viền 1, nền và viền đậm 100%, không đổ bóng. Áp dụng cho mọi thẻ và khung lưới.'),
+          Hint('Default: corner 12, border 1, background and border 100% opaque, no shadow. Applies to all cards and grid frames.'),
           StepRow(
-            label: 'Độ nổi',
+            label: 'Lift',
             unit: '%',
             step: 10,
             value: ((theme['btnRaise'] as num?) ?? 60).toInt(),
@@ -1737,12 +1732,12 @@ class _OverviewProps extends StatelessWidget {
             onChanged: (v) => editTheme((x) => x['btnRaise'] = v, coalesce: 'braise'),
           ),
           Hint(
-            'Độ nổi của tất cả các thẻ, khung lưới và nút điều khiển (kèm bóng đổ nhỏ phía dưới). 0% là phẳng, mặc định 60%. "Đổ bóng" ở trên là lớp bóng lớn thêm.',
+            'Lift of all cards, grid frames and control buttons (with a small drop shadow underneath). 0% is flat, default 60%. "Shadow" above is an extra, larger shadow layer.',
           ),
         ]),
-        _Section('Giao diện App', [
+        _Section('App appearance', [
           StepRow(
-            label: 'Tỉ lệ hiển thị trên tablet',
+            label: 'Display scale on tablet',
             unit: '%',
             step: 5,
             value: ((theme['tabletScale'] as num?) ?? 120).toInt(),
@@ -1759,11 +1754,11 @@ class _OverviewProps extends StatelessWidget {
               onChanged: (v) => editTheme((x) => x[t.key] = v, coalesce: 'tfs-${t.key}'),
             ),
           FieldLabel(
-            'Giao diện mặc định',
+            'Default theme',
             EvoDropdown<String>(value: themeKey(theme['mode']), items: kAppThemes, onChanged: (v) => editTheme((x) => x['mode'] = v)),
           ),
           FieldLabel(
-            'Bố cục',
+            'Layout',
             Seg<String>(
               items: const [('basic', 'Basic'), ('modern', 'Modern')],
               value: theme['layout'] == 'modern' ? 'modern' : 'basic',
@@ -1785,13 +1780,13 @@ class _OverviewProps extends StatelessWidget {
           const Padding(
             padding: EdgeInsets.only(bottom: 8),
             child: Hint(
-              'Basic: thanh tầng, thanh chọn phòng như cũ. Modern: App có ba mục Home, Floor, Security; Home và Security là hai trang thẻ riêng (hiện như hai tầng trong cột Cấu trúc), Floor mở thư viện tầng rồi thư viện phòng.',
+              'Basic: the floor bar and the room bar as before. Modern: the App has three sections, Home, Floor and Security; Home and Security are two separate card pages (shown as two floors in the Structure column), and Floor opens the floor gallery and then the room gallery.',
             ),
           ),
           FieldLabel(
-            'Kiểu chọn phòng',
+            'Room picker style',
             Seg<String>(
-              items: const [('bar', 'Thanh chọn phòng'), ('gallery', 'Thư viện phòng')],
+              items: const [('bar', 'Room bar'), ('gallery', 'Room gallery')],
               value: theme['roomPicker'] == 'gallery' ? 'gallery' : 'bar',
               onChanged: (v) {
                 editTheme((x) {
@@ -1809,7 +1804,7 @@ class _OverviewProps extends StatelessWidget {
             const Padding(
               padding: EdgeInsets.only(bottom: 8),
               child: Hint(
-                'Thư viện phòng: App mở bằng lưới thẻ phòng (ảnh bìa, biểu tượng, tên). Bấm một phòng để vào; nút lưới ở đầu trang để quay lại. Chọn ảnh bìa trong cài đặt của từng phòng.',
+                'Room gallery: the App opens with a grid of room cards (cover image, icon, name). Tap a room to enter it; the grid button at the top of the page returns. Choose the cover image in the settings of each room.',
               ),
             ),
           CheckboxListTile(
@@ -1818,7 +1813,7 @@ class _OverviewProps extends StatelessWidget {
             dense: true,
             contentPadding: EdgeInsets.zero,
             controlAffinity: ListTileControlAffinity.leading,
-            title: const Text('Ẩn tiêu đề phòng (dùng thanh chọn phòng làm tiêu đề)'),
+            title: const Text('Hide the room title (use the room bar as the title)'),
           ),
           CheckboxListTile(
             value: theme['pageArrows'] != false,
@@ -1826,7 +1821,7 @@ class _OverviewProps extends StatelessWidget {
             dense: true,
             contentPadding: EdgeInsets.zero,
             controlAffinity: ListTileControlAffinity.leading,
-            title: const Text('Hiện nút ‹ › để chuyển trang trong phòng'),
+            title: const Text('Show ‹ › buttons to switch pages in the room'),
           ),
         ]),
       ],
@@ -1938,13 +1933,13 @@ class _SplashSettings extends StatelessWidget {
       acceptedTypeGroups: const [
         XTypeGroup(label: 'Logo PNG', extensions: ['png']),
       ],
-      confirmButtonText: tr('Chọn logo'),
+      confirmButtonText: tr('Select logo'),
     );
     if (f == null) return;
     final bytes = await f.readAsBytes();
     if (!context.mounted) return;
     if (bytes.length > 300 * 1024) {
-      toast(context, 'File nặng ${bytes.length ~/ 1024} KB, vượt quá 300 KB. Hãy nén lại rồi thử lại.');
+      toast(context, 'The file is ${bytes.length ~/ 1024} KB, over the 300 KB limit. Compress it and try again.');
       return;
     }
     try {
@@ -1952,19 +1947,19 @@ class _SplashSettings extends StatelessWidget {
       final longSide = max(img.width, img.height);
       if (!context.mounted) return;
       if (longSide < 256) {
-        toast(context, 'Logo ${img.width} × ${img.height} px quá nhỏ, sẽ bị mờ. Cạnh dài cần tối thiểu 256 px (nên dùng 512 × 512 px).');
+        toast(context, 'The logo ${img.width} × ${img.height} px is too small and will look blurry. The long side must be at least 256 px (use 512 × 512 px).');
         return;
       }
       if (longSide > 2048) {
-        toast(context, 'Logo ${img.width} × ${img.height} px quá lớn. Cạnh dài tối đa 2048 px.');
+        toast(context, 'The logo ${img.width} × ${img.height} px is too large. The long side is at most 2048 px.');
         return;
       }
     } catch (_) {
-      if (context.mounted) toast(context, 'Không đọc được hình trong file.');
+      if (context.mounted) toast(context, 'Could not read the image in the file.');
       return;
     }
     _set('logo', 'data:image/png;base64,${base64Encode(bytes)}');
-    if (context.mounted) toast(context, 'Đã cập nhật logo.');
+    if (context.mounted) toast(context, 'Logo updated.');
     d.previewSplash(2000);
   }
 
@@ -1975,8 +1970,8 @@ class _SplashSettings extends StatelessWidget {
     final logo = (sp['logo'] ?? '').toString();
     final custom = sp['greetMode'] == 'custom';
     final dur = ((sp['duration'] as num?) ?? 2).toDouble();
-    return _Section('Màn hình chào', [
-      _Check('Hiện màn hình chào khi mở App', sp['enabled'] != false, (v) => _set('enabled', v)),
+    return _Section('Welcome screen', [
+      _Check('Show the welcome screen when the App opens', sp['enabled'] != false, (v) => _set('enabled', v)),
       Row(
         children: [
           Container(
@@ -1993,17 +1988,17 @@ class _SplashSettings extends StatelessWidget {
                     padding: const EdgeInsets.all(8),
                     child: Image.memory(base64Decode(logo.substring(22)), fit: BoxFit.contain),
                   )
-                : Text(logo.isEmpty ? 'Chưa có' : 'SVG', style: const TextStyle(color: Color(0xFF9AA59F), fontSize: 14)),
+                : Text(logo.isEmpty ? 'None' : 'SVG', style: const TextStyle(color: Color(0xFF9AA59F), fontSize: 14)),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                EvoButton(label: logo.isEmpty ? 'Tải logo lên' : 'Đổi logo', icon: Icons.upload_outlined, small: true, onPressed: () => _pickLogo(context)),
+                EvoButton(label: logo.isEmpty ? 'Upload logo' : 'Change logo', icon: Icons.upload_outlined, small: true, onPressed: () => _pickLogo(context)),
                 if (logo.isNotEmpty) ...[
                   const SizedBox(height: 6),
-                  EvoButton(label: 'Bỏ logo', icon: Icons.delete_outline, small: true, danger: true, onPressed: () => _set('logo', null)),
+                  EvoButton(label: 'Remove logo', icon: Icons.delete_outline, small: true, danger: true, onPressed: () => _set('logo', null)),
                 ],
               ],
             ),
@@ -2013,57 +2008,57 @@ class _SplashSettings extends StatelessWidget {
       Container(
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(color: c.paper, borderRadius: BorderRadius.circular(8)),
-        child: Hint('PNG nền trong suốt. Logo vuông 512 × 512 px, logo ngang 1024 × 512 px. Dung lượng dưới 300 KB.'),
+        child: Hint('PNG with a transparent background. Square logo 512 × 512 px, wide logo 1024 × 512 px. Under 300 KB.'),
       ),
       FieldLabel(
-        'Lời chào',
+        'Greeting',
         EvoDropdown<String>(
           value: custom ? 'custom' : 'auto',
-          items: const [('auto', 'Tự động theo giờ (sáng / trưa / chiều / tối)'), ('custom', 'Tự đặt lời chào')],
+          items: const [('auto', 'Automatic by time of day (morning / noon / afternoon / evening)'), ('custom', 'Custom greeting')],
           onChanged: (v) => _set('greetMode', v),
         ),
       ),
       if (custom)
         FieldLabel(
-          'Nội dung lời chào',
+          'Greeting text',
           SyncedField(
-            value: (sp['greet'] ?? 'Chào mừng về nhà').toString(),
+            value: (sp['greet'] ?? 'Welcome home').toString(),
             onChanged: (v) => _set('greet', v, co: 'sp-greet'),
           ),
         )
       else
         FieldLabel(
-          'Tên chủ nhà (không bắt buộc)',
+          'Homeowner name (optional)',
           SyncedField(
             value: (sp['owner'] ?? '').toString(),
-            hint: 'Ví dụ: anh Nam',
+            hint: 'e.g. Mr. Nam',
             onChanged: (v) => _set('owner', v, co: 'sp-owner'),
           ),
         ),
       FieldLabel(
-        'Dòng phụ (không bắt buộc)',
+        'Secondary line (optional)',
         SyncedField(
           value: (sp['sub'] ?? '').toString(),
-          hint: 'Ví dụ: Biệt thự Ecopark',
+          hint: 'e.g. Ecopark Villa',
           onChanged: (v) => _set('sub', v, co: 'sp-sub'),
         ),
       ),
       FieldLabel(
-        'Màu nền',
+        'Background colour',
         _ColorPicker(
           value: (sp['bg'] ?? '#1B2320').toString(),
           onChanged: (v) => _set('bg', v, co: 'sp-bg'),
         ),
       ),
       FieldLabel(
-        'Thời gian hiển thị',
+        'Display time',
         EvoDropdown<double>(
           value: [1.0, 1.5, 2.0, 2.5, 3.0].contains(dur) ? dur : 2.0,
-          items: const [(1.0, '1 giây'), (1.5, '1,5 giây'), (2.0, '2 giây'), (2.5, '2,5 giây'), (3.0, '3 giây')],
+          items: const [(1.0, '1 s'), (1.5, '1.5 s'), (2.0, '2 s'), (2.5, '2.5 s'), (3.0, '3 s')],
           onChanged: (v) => _set('duration', v),
         ),
       ),
-    ], trailing: EvoButton(label: 'Xem thử', icon: Icons.play_arrow_outlined, small: true, onPressed: () => d.previewSplash((dur * 1000).round())));
+    ], trailing: EvoButton(label: 'Preview', icon: Icons.play_arrow_outlined, small: true, onPressed: () => d.previewSplash((dur * 1000).round())));
   }
 }
 
@@ -2105,18 +2100,18 @@ class _BgPicker extends StatelessWidget {
           spacing: 6,
           runSpacing: 6,
           children: [
-            chip('Mặc định', isDefault, () => onChanged(null)),
-            chip('Chỉ có viền', outline, () => onChanged('outline')),
-            chip('Trong suốt', transparent, () => onChanged('transparent')),
+            chip('Default', isDefault, () => onChanged(null)),
+            chip('Border only', outline, () => onChanged('outline')),
+            chip('Transparent', transparent, () => onChanged('transparent')),
           ],
         ),
         const SizedBox(height: 6),
         Hint(
           transparent
-              ? 'Không nền, không viền'
+              ? 'No background, no border'
               : outline
-              ? 'Không nền, chỉ giữ viền'
-              : (isDefault ? 'Theo giao diện của App' : 'Chữ tự đổi sáng/tối cho dễ đọc'),
+              ? 'No background, border only'
+              : (isDefault ? 'Follow the App theme' : 'Text switches between light/dark for readability'),
         ),
         const SizedBox(height: 8),
         _ColorPicker(value: isDefault || transparent || outline ? '' : value!, swatches: _kBgSwatches, onChanged: onChanged),
@@ -2136,22 +2131,22 @@ class _ButtonImageSettings extends StatelessWidget {
   Future<void> _pick(BuildContext context) async {
     final f = await openFile(
       acceptedTypeGroups: const [
-        XTypeGroup(label: 'Hình ảnh (PNG, JPG, SVG)', extensions: ['png', 'jpg', 'jpeg', 'svg']),
+        XTypeGroup(label: 'Image (PNG, JPG, SVG)', extensions: ['png', 'jpg', 'jpeg', 'svg']),
       ],
-      confirmButtonText: tr('Chọn ảnh'),
+      confirmButtonText: tr('Select image'),
     );
     if (f == null) return;
     final bytes = await f.readAsBytes();
     if (!context.mounted) return;
     if (bytes.length > 500 * 1024) {
-      toast(context, 'Ảnh nặng ${bytes.length ~/ 1024} KB, vượt quá 500 KB. Nên dùng PNG nền trong suốt khoảng 512 × 512 px.');
+      toast(context, 'The image is ${bytes.length ~/ 1024} KB, over the 500 KB limit. Use a PNG with a transparent background of about 512 × 512 px.');
       return;
     }
     final name = f.name.toLowerCase();
     String mime;
     if (name.endsWith('.svg')) {
       if (!utf8.decode(bytes, allowMalformed: true).contains('<svg')) {
-        toast(context, 'File SVG không hợp lệ.');
+        toast(context, 'Invalid SVG file.');
         return;
       }
       mime = 'svg+xml';
@@ -2160,11 +2155,11 @@ class _ButtonImageSettings extends StatelessWidget {
         final img = await decodeImageFromList(bytes);
         if (!context.mounted) return;
         if (max(img.width, img.height) < 64) {
-          toast(context, 'Ảnh ${img.width} × ${img.height} px quá nhỏ, sẽ bị mờ. Nên dùng khoảng 512 × 512 px.');
+          toast(context, 'The image ${img.width} × ${img.height} px is too small and will look blurry. Use about 512 × 512 px.');
           return;
         }
       } catch (_) {
-        if (context.mounted) toast(context, 'Không đọc được ảnh.');
+        if (context.mounted) toast(context, 'Could not read the image.');
         return;
       }
       mime = name.endsWith('.png') ? 'png' : 'jpeg';
@@ -2178,9 +2173,9 @@ class _ButtonImageSettings extends StatelessWidget {
     final img = imageFromData((w['image'] ?? '').toString(), fit: BoxFit.contain);
     final useIcon = w['imgSource'] == 'icon';
     final iconColor = w['imgColor'] as String?;
-    return _Section('Hình ảnh', [
+    return _Section('Image', [
       Seg<String>(
-        items: const [('image', 'Ảnh tải lên'), ('icon', 'Biểu tượng (MDI…)')],
+        items: const [('image', 'Uploaded images'), ('icon', 'Icon (MDI…)')],
         value: useIcon ? 'icon' : 'image',
         onChanged: (v) => d.editWidget(id, (x) => x['imgSource'] = v),
       ),
@@ -2192,15 +2187,15 @@ class _ButtonImageSettings extends StatelessWidget {
           onChanged: (v) => d.editWidget(id, (x) => x['imgIcon'] = v),
         ),
         FieldLabel(
-          'Màu biểu tượng',
+          'Icon colour',
           Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Row(
                 children: [
-                  ChoiceChip(label: const Text('Mặc định'), selected: iconColor == null, onSelected: (_) => d.editWidget(id, (x) => x.remove('imgColor'))),
+                  ChoiceChip(label: const Text('Default'), selected: iconColor == null, onSelected: (_) => d.editWidget(id, (x) => x.remove('imgColor'))),
                   const SizedBox(width: 8),
-                  Expanded(child: Hint('Mặc định: theo màu chữ của thẻ')),
+                  Expanded(child: Hint('Default: follows the card\'s text colour')),
                 ],
               ),
               const SizedBox(height: 8),
@@ -2232,11 +2227,11 @@ class _ButtonImageSettings extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  EvoButton(label: img == null ? 'Chọn ảnh' : 'Đổi ảnh', icon: Icons.image_outlined, small: true, onPressed: () => _pick(context)),
+                  EvoButton(label: img == null ? 'Select image' : 'Change image', icon: Icons.image_outlined, small: true, onPressed: () => _pick(context)),
                   if (img != null) ...[
                     const SizedBox(height: 6),
                     EvoButton(
-                      label: 'Bỏ ảnh',
+                      label: 'Remove image',
                       icon: Icons.delete_outline,
                       small: true,
                       danger: true,
@@ -2244,14 +2239,14 @@ class _ButtonImageSettings extends StatelessWidget {
                     ),
                   ],
                   const SizedBox(height: 8),
-                  Hint('PNG nền trong suốt, JPG hoặc SVG; nên dùng ảnh vuông khoảng 512 × 512 px, dưới 500 KB.'),
+                  Hint('PNG with a transparent background, JPG or SVG; use a square image of about 512 × 512 px, under 500 KB.'),
                 ],
               ),
             ),
           ],
         ),
       StepRow(
-        label: useIcon ? 'Kích thước biểu tượng' : 'Kích thước ảnh',
+        label: useIcon ? 'Icon size' : 'Image size',
         unit: '%',
         step: 5,
         value: ((w['imageSize'] as num?) ?? 70).toInt(),
@@ -2260,9 +2255,9 @@ class _ButtonImageSettings extends StatelessWidget {
         onChanged: (v) => d.editWidget(id, (x) => x['imageSize'] = v, coalesce: 'imgsize-$id'),
       ),
       FieldLabel(
-        'Chữ trên nút',
+        'Button text',
         Seg<bool>(
-          items: const [(true, 'Có chữ'), (false, 'Không chữ')],
+          items: const [(true, 'With text'), (false, 'No text')],
           value: w['showLabel'] != false,
           onChanged: (v) => d.editWidget(id, (x) => x['showLabel'] = v),
         ),
@@ -2304,7 +2299,7 @@ class _SecretFieldState extends State<_SecretField> {
     decoration: InputDecoration(
       isDense: true,
       suffixIcon: IconButton(
-        tooltip: _show ? tr('Ẩn mật khẩu') : tr('Hiện mật khẩu'),
+        tooltip: _show ? tr('Hide password') : tr('Show password'),
         icon: Icon(_show ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: 18),
         onPressed: () => setState(() => _show = !_show),
       ),
@@ -2338,26 +2333,26 @@ class _PageBgSettings extends StatelessWidget {
   Future<void> _pick(BuildContext context) async {
     final f = await openFile(
       acceptedTypeGroups: const [
-        XTypeGroup(label: 'Ảnh nền (JPG, PNG)', extensions: ['jpg', 'jpeg', 'png']),
+        XTypeGroup(label: 'Background image (JPG, PNG)', extensions: ['jpg', 'jpeg', 'png']),
       ],
-      confirmButtonText: tr('Chọn ảnh'),
+      confirmButtonText: tr('Select image'),
     );
     if (f == null) return;
     final bytes = await f.readAsBytes();
     if (!context.mounted) return;
     if (bytes.length > 2 * 1024 * 1024) {
-      toast(context, 'Ảnh nặng ${(bytes.length / 1024 / 1024).toStringAsFixed(1)} MB, vượt quá 2 MB. Hãy nén lại (ví dụ JPG chất lượng 80%).');
+      toast(context, 'The image is ${(bytes.length / 1024 / 1024).toStringAsFixed(1)} MB, over the 2 MB limit. Compress it (for example JPG at 80% quality).');
       return;
     }
     try {
       final img = await decodeImageFromList(bytes);
       if (!context.mounted) return;
       if (min(img.width, img.height) < 600) {
-        toast(context, 'Ảnh ${img.width} × ${img.height} px quá nhỏ, sẽ bị vỡ hình. Nên dùng 1290 × 2796 px.');
+        toast(context, 'The image ${img.width} × ${img.height} px is too small and will look pixelated. Use 1290 × 2796 px.');
         return;
       }
     } catch (_) {
-      if (context.mounted) toast(context, 'Không đọc được ảnh.');
+      if (context.mounted) toast(context, 'Could not read the image.');
       return;
     }
     final png = f.name.toLowerCase().endsWith('.png');
@@ -2373,9 +2368,9 @@ class _PageBgSettings extends StatelessWidget {
     final i = img.indexOf('base64,');
     final legacyDim = (b['dim'] as num?)?.toInt();
     final bright = ((b['bright'] as num?) ?? (legacyDim != null ? 100 - legacyDim : 100)).toInt().clamp(20, 150).toInt();
-    return _Section('Nền của trang này', [
+    return _Section('Background of this page', [
       Seg<String>(
-        items: const [('default', 'Mặc định'), ('color', 'Màu'), ('image', 'Hình ảnh')],
+        items: const [('default', 'Default'), ('color', 'Colour'), ('image', 'Image')],
         value: mode,
         onChanged: (v) => _set({'mode': v, if (v == 'color' && b['color'] == null) 'color': '#E3F1E9'}),
       ),
@@ -2405,13 +2400,13 @@ class _PageBgSettings extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  EvoButton(label: i > 0 ? 'Đổi ảnh' : 'Chọn ảnh', small: true, onPressed: () => _pick(context)),
+                  EvoButton(label: i > 0 ? 'Change image' : 'Select image', small: true, onPressed: () => _pick(context)),
                   if (i > 0) ...[
                     const SizedBox(height: 6),
-                    EvoButton(label: 'Bỏ ảnh', small: true, danger: true, onPressed: () => _set({'image': null, 'mode': 'default'})),
+                    EvoButton(label: 'Remove image', small: true, danger: true, onPressed: () => _set({'image': null, 'mode': 'default'})),
                   ],
                   const SizedBox(height: 6),
-                  Text('JPG/PNG dọc, dưới 2 MB', style: TextStyle(fontSize: 13, color: c.muted)),
+                  Text('Portrait JPG/PNG, under 2 MB', style: TextStyle(fontSize: 13, color: c.muted)),
                 ],
               ),
             ),
@@ -2419,7 +2414,7 @@ class _PageBgSettings extends StatelessWidget {
         ),
       if (mode == 'image')
         StepRow(
-          label: 'Làm mờ',
+          label: 'Blur',
           unit: '',
           value: ((b['blur'] as num?) ?? 0).toInt(),
           min: 0,
@@ -2428,7 +2423,7 @@ class _PageBgSettings extends StatelessWidget {
         ),
       if (mode != 'default')
         StepRow(
-          label: 'Độ sáng',
+          label: 'Brightness',
           unit: '%',
           step: 5,
           value: bright,
@@ -2438,7 +2433,7 @@ class _PageBgSettings extends StatelessWidget {
         ),
       if (mode != 'default')
         StepRow(
-          label: 'Độ đậm',
+          label: 'Opacity',
           unit: '%',
           step: 5,
           value: ((b['opacity'] as num?) ?? 100).toInt().clamp(0, 100).toInt(),
@@ -2448,15 +2443,15 @@ class _PageBgSettings extends StatelessWidget {
         ),
       if (mode != 'default')
         FieldLabel(
-          'Màu chữ trên nền',
+          'Text colour on the background',
           EvoDropdown<String>(
             value: const ['auto', 'dark', 'light'].contains(b['text']) ? b['text'] as String : 'auto',
-            items: const [('auto', 'Tự động'), ('dark', 'Chữ đậm'), ('light', 'Chữ trắng')],
+            items: const [('auto', 'Auto'), ('dark', 'Bold text'), ('light', 'White text')],
             onChanged: (v) => _set({'text': v == 'auto' ? null : v}),
           ),
         ),
       Hint(
-        'Độ sáng 100% là nguyên bản; thấp hơn làm tối, cao hơn làm sáng. Độ đậm dưới 100% thì nhìn xuyên thấy nền mặc định của App. Màu chữ áp dụng cho chữ nằm trên nền (giờ, tên phòng, tên trang).',
+        'Brightness 100% is the original; lower darkens, higher brightens. Opacity below 100% lets the App\'s default background show through. The text colour applies to text that sits on the background (time, room name, page name).',
       ),
     ]);
   }
@@ -2465,38 +2460,38 @@ class _PageBgSettings extends StatelessWidget {
 // ------------------------------------------------------------------ value states
 
 const _stateTemplates = {
-  'onoff': 'Bật / Tắt',
-  'door': 'Cửa: Đóng / Mở',
-  'window': 'Cửa sổ: Đóng / Mở',
-  'presence': 'Có người / Không có người',
-  'leak': 'Rò nước (báo động)',
-  'smoke': 'Khói (báo động)',
+  'onoff': 'On / Off',
+  'door': 'Door: Closed / Open',
+  'window': 'Window: Closed / Open',
+  'presence': 'Presence / No presence',
+  'leak': 'Water leak (alarm)',
+  'smoke': 'Smoke (alarm)',
 };
 
 List<Map<String, dynamic>> _stateTemplate(String k) => switch (k) {
   'door' => [
-    {'v': '0', 'text': 'Đóng', 'icon': 'mdi:door-closed', 'color': '#8A938F'},
-    {'v': '1', 'text': 'Mở', 'icon': 'mdi:door-open', 'color': '#EE9B2A'},
+    {'v': '0', 'text': 'Close', 'icon': 'mdi:door-closed', 'color': '#8A938F'},
+    {'v': '1', 'text': 'Open', 'icon': 'mdi:door-open', 'color': '#EE9B2A'},
   ],
   'window' => [
-    {'v': '0', 'text': 'Đóng', 'icon': 'mdi:window-closed-variant', 'color': '#8A938F'},
-    {'v': '1', 'text': 'Mở', 'icon': 'mdi:window-open-variant', 'color': '#EE9B2A'},
+    {'v': '0', 'text': 'Close', 'icon': 'mdi:window-closed-variant', 'color': '#8A938F'},
+    {'v': '1', 'text': 'Open', 'icon': 'mdi:window-open-variant', 'color': '#EE9B2A'},
   ],
   'presence' => [
-    {'v': '0', 'text': 'Không có người', 'icon': 'mdi:account-off-outline', 'color': '#8A938F'},
-    {'v': '1', 'text': 'Có người', 'icon': 'mdi:account', 'color': '#3E8EF7'},
+    {'v': '0', 'text': 'No presence', 'icon': 'mdi:account-off-outline', 'color': '#8A938F'},
+    {'v': '1', 'text': 'Presence', 'icon': 'mdi:account', 'color': '#3E8EF7'},
   ],
   'leak' => [
-    {'v': '0', 'text': 'Bình thường', 'icon': 'mdi:water-check', 'color': '#1E7F57'},
-    {'v': '1', 'text': 'Rò nước!', 'icon': 'mdi:water-alert', 'color': '#E5484D', 'alarm': true},
+    {'v': '0', 'text': 'Normal', 'icon': 'mdi:water-check', 'color': '#1E7F57'},
+    {'v': '1', 'text': 'Water leak!', 'icon': 'mdi:water-alert', 'color': '#E5484D', 'alarm': true},
   ],
   'smoke' => [
-    {'v': '0', 'text': 'Bình thường', 'icon': 'mdi:smoke-detector', 'color': '#1E7F57'},
-    {'v': '1', 'text': 'Có khói!', 'icon': 'mdi:smoke-detector-alert', 'color': '#E5484D', 'alarm': true},
+    {'v': '0', 'text': 'Normal', 'icon': 'mdi:smoke-detector', 'color': '#1E7F57'},
+    {'v': '1', 'text': 'Smoke detected!', 'icon': 'mdi:smoke-detector-alert', 'color': '#E5484D', 'alarm': true},
   ],
   _ => [
-    {'v': '0', 'text': 'Tắt', 'icon': 'mdi:power', 'color': '#8A938F'},
-    {'v': '1', 'text': 'Bật', 'icon': 'mdi:power', 'color': '#1E7F57'},
+    {'v': '0', 'text': 'Off', 'icon': 'mdi:power', 'color': '#8A938F'},
+    {'v': '1', 'text': 'On', 'icon': 'mdi:power', 'color': '#1E7F57'},
   ],
 };
 
@@ -2527,14 +2522,14 @@ class _StatesEditor extends StatelessWidget {
     final v = await showDialog<String>(
       context: context,
       builder: (c) => AlertDialog(
-        title: const Text('Màu của trạng thái', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+        title: const Text('Status colour', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
         content: SizedBox(
           width: 340,
           child: _ColorPicker(value: cur ?? '', onChanged: (h) => Navigator.pop(c, h)),
         ),
         actions: [
-          EvoButton(label: 'Mặc định', onPressed: () => Navigator.pop(c, '')),
-          EvoButton(label: 'Đóng', onPressed: () => Navigator.pop(c)),
+          EvoButton(label: 'Default', onPressed: () => Navigator.pop(c, '')),
+          EvoButton(label: 'Close', onPressed: () => Navigator.pop(c)),
         ],
       ),
     );
@@ -2546,8 +2541,8 @@ class _StatesEditor extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = context.evo;
     final rows = jsonList(w['states']);
-    return _Section('Trạng thái', [
-      Hint('Giá trị · Chữ hiển thị · Biểu tượng · Màu · Báo động'),
+    return _Section('Status', [
+      Hint('Value · Display text · Icon · Colour · Alarm'),
       for (var i = 0; i < rows.length; i++)
         Row(
           children: [
@@ -2565,13 +2560,13 @@ class _StatesEditor extends StatelessWidget {
               child: SyncedField(
                 key: ValueKey('st-$id-$i'),
                 value: (rows[i]['text'] ?? '').toString(),
-                hint: 'Chữ hiển thị',
+                hint: 'Displayed text',
                 onChanged: (v) => _setRow(i, 'text', v, co: 'stt-$id-$i'),
               ),
             ),
             const SizedBox(width: 4),
             Tooltip(
-              message: tr('Biểu tượng'),
+              message: tr('Icon'),
               child: InkWell(
                 borderRadius: BorderRadius.circular(8),
                 onTap: () async {
@@ -2592,7 +2587,7 @@ class _StatesEditor extends StatelessWidget {
             ),
             const SizedBox(width: 4),
             Tooltip(
-              message: tr('Màu'),
+              message: tr('Colour'),
               child: InkWell(
                 borderRadius: BorderRadius.circular(8),
                 onTap: () => _pickColor(context, i, rows[i]['color'] as String?),
@@ -2608,11 +2603,11 @@ class _StatesEditor extends StatelessWidget {
               ),
             ),
             Tooltip(
-              message: tr('Báo động: thẻ chuyển đỏ khi ở trạng thái này'),
+              message: tr('Alarm: the card turns red in this state'),
               child: Checkbox(value: rows[i]['alarm'] == true, onChanged: (v) => _setRow(i, 'alarm', v == true)),
             ),
             IconButton(
-              tooltip: tr('Xoá trạng thái'),
+              tooltip: tr('Delete status'),
               visualDensity: VisualDensity.compact,
               icon: Icon(Icons.close, size: 16, color: c.muted),
               onPressed: () => _edit((r) => r.removeAt(i)),
@@ -2621,17 +2616,12 @@ class _StatesEditor extends StatelessWidget {
         ),
       Row(
         children: [
-          EvoButton(
-            label: 'Thêm trạng thái',
-            icon: Icons.add,
-            small: true,
-            onPressed: () => _edit((r) => r.add(<String, dynamic>{'v': '${r.length}', 'text': ''})),
-          ),
+          EvoButton(label: 'Add status', icon: Icons.add, small: true, onPressed: () => _edit((r) => r.add(<String, dynamic>{'v': '${r.length}', 'text': ''}))),
           const SizedBox(width: 8),
           Expanded(
             child: EvoDropdown<String>(
               value: '',
-              items: [('', 'Dùng mẫu…'), for (final e in _stateTemplates.entries) (e.key, e.value)],
+              items: [('', 'Use template…'), for (final e in _stateTemplates.entries) (e.key, e.value)],
               onChanged: (k) {
                 if (k.isEmpty) return;
                 d.editWidget(id, (x) => x['states'] = _stateTemplate(k));
@@ -2640,7 +2630,9 @@ class _StatesEditor extends StatelessWidget {
           ),
         ],
       ),
-      Hint('Giá trị là con số nhận từ địa chỉ trạng thái (1 bit: 0 / 1; 1 byte: 0–255…). Giá trị chưa có trong bảng sẽ hiện nguyên con số.'),
+      Hint(
+        'The value is the number received from the status address (1 bit: 0 / 1; 1 byte: 0–255…). A value that is not in the table is shown as the raw number.',
+      ),
     ]);
   }
 }
@@ -2659,7 +2651,7 @@ class _MultiProps extends StatelessWidget {
       for (final id in ids)
         if (s != null && findWidget(s, id) != null) findWidget(s, id)!,
     ];
-    return _Section('${cards.length} thẻ đã chọn', [
+    return _Section('${cards.length} cards selected', [
       for (final w in cards.take(8))
         Row(
           children: [
@@ -2672,17 +2664,17 @@ class _MultiProps extends StatelessWidget {
             ),
           ],
         ),
-      if (cards.length > 8) Text('… và ${cards.length - 8} thẻ khác', style: TextStyle(color: c.muted)),
+      if (cards.length > 8) Text('… and ${cards.length - 8} more cards', style: TextStyle(color: c.muted)),
       Wrap(
         spacing: 8,
         runSpacing: 8,
         children: [
-          EvoButton(label: 'Bỏ chọn', onPressed: () => d.selectWidget(null)),
-          EvoButton(label: 'Xoá ${cards.length} thẻ', icon: Icons.delete_outline, danger: true, onPressed: d.deleteWidget),
+          EvoButton(label: 'Deselect', onPressed: () => d.selectWidget(null)),
+          EvoButton(label: 'Delete ${cards.length} cards', icon: Icons.delete_outline, danger: true, onPressed: d.deleteWidget),
         ],
       ),
       Text(
-        'Kéo một thẻ trong nhóm để dời cả nhóm; phím mũi tên dời cả nhóm một ô. Ctrl + chuột trái vào thẻ để thêm hoặc bớt khỏi nhóm.',
+        'Drag a card in the group to move the whole group; arrow keys move the group one cell. Ctrl + click a card to add it to or remove it from the group.',
         style: TextStyle(fontSize: kUiText - 1, height: 1.4, color: c.muted),
       ),
     ]);

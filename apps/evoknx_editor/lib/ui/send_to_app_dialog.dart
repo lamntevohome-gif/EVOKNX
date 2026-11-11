@@ -76,7 +76,7 @@ class _SendDialogState extends State<_SendDialog> {
       ),
     );
     return AlertDialog(
-      title: const Text('Gửi sang App qua Wi-Fi'),
+      title: const Text('Send to App over Wi-Fi'),
       content: SizedBox(
         width: 460,
         child: !ready
@@ -91,12 +91,12 @@ class _SendDialogState extends State<_SendDialog> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Text(
-                    'Trên điện thoại (cùng Wi-Fi với máy tính này): mở App EvoKNX → Cài đặt → Mở cấu hình khác → Nhận từ máy tính, rồi nhập địa chỉ và mã dưới đây.',
+                    'On the phone (same Wi-Fi as this computer): open the EvoKNX App → Settings → Open another configuration → Receive from computer, then enter the address and code below.',
                     style: TextStyle(height: 1.45, color: c.muted),
                   ),
                   const SizedBox(height: 14),
                   box(
-                    'Mã (hết hạn sau 15 phút)',
+                    'Code (expires in 15 minutes)',
                     Row(
                       children: [
                         Expanded(
@@ -107,9 +107,9 @@ class _SendDialogState extends State<_SendDialog> {
                   ),
                   const SizedBox(height: 10),
                   box(
-                    'Địa chỉ máy tính',
+                    'Computer address',
                     share.addresses.isEmpty
-                        ? Text('Không tìm thấy địa chỉ mạng. Kiểm tra máy tính đã kết nối Wi-Fi hoặc mạng LAN.', style: TextStyle(color: c.danger))
+                        ? Text('No network address found. Check that the computer is connected to Wi-Fi or a LAN.', style: TextStyle(color: c.danger))
                         : Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -133,7 +133,7 @@ class _SendDialogState extends State<_SendDialog> {
                                       ),
                                     ),
                                     IconButton(
-                                      tooltip: tr('Chép địa chỉ'),
+                                      tooltip: tr('Copy address'),
                                       icon: const Icon(Icons.copy_outlined),
                                       onPressed: () => Clipboard.setData(ClipboardData(text: '${a.ip}:${share.port}')),
                                     ),
@@ -154,25 +154,25 @@ class _SendDialogState extends State<_SendDialog> {
                       Expanded(
                         child: Text(
                           share.locked
-                              ? 'Đã khoá vì nhập sai mã nhiều lần. Đóng và mở lại để lấy mã mới.'
+                              ? 'Locked after too many wrong codes. Close and reopen to get a new code.'
                               : share.expired
-                              ? 'Mã đã hết hạn. Đóng và mở lại để lấy mã mới.'
+                              ? 'The code has expired. Close and reopen to get a new code.'
                               : share.sent > 0
-                              ? 'Đã gửi ${share.sent} lần (lần cuối lúc ${_hm(share.lastSentAt!)}). Có thể gửi tiếp cho máy khác.'
-                              : 'Đang chờ App nhận…',
+                              ? 'Sent ${share.sent} times (last at ${_hm(share.lastSentAt!)}). You can send it to another device.'
+                              : 'Waiting for the App to receive…',
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 10),
                   Text(
-                    'Lần đầu dùng, Windows có thể hỏi về tường lửa: chọn Cho phép trên mạng riêng tư. Cấu hình có chứa mật khẩu camera, chỉ gửi trong mạng nhà và chỉ cho máy nhập đúng mã.',
+                    'The first time, Windows may ask about the firewall: choose Allow on private networks. The configuration contains the camera password; it is sent only on the home network and only to the device that enters the correct code.',
                     style: TextStyle(fontSize: kUiText - 1, height: 1.4, color: c.muted),
                   ),
                 ],
               ),
       ),
-      actions: [EvoButton(label: 'Đóng', primary: true, onPressed: () => Navigator.pop(context))],
+      actions: [EvoButton(label: 'Close', primary: true, onPressed: () => Navigator.pop(context))],
     );
   }
 }

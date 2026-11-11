@@ -29,8 +29,8 @@ class MonitorRow {
 
   String get typeText => switch (type) {
     TelegramType.write => 'Ghi',
-    TelegramType.read => 'Đọc',
-    TelegramType.response => 'Phản hồi',
+    TelegramType.read => 'Read',
+    TelegramType.response => 'Feedback',
   };
 }
 
@@ -65,9 +65,9 @@ class BusController extends ChangeNotifier {
 
   Future<String?> connect() async {
     final c = connection;
-    if (c == null) return 'Chưa có kết nối nào. Hãy tạo kết nối ở màn hình Kết nối.';
+    if (c == null) return 'No connections yet. Create one in the Connections screen.';
     final host = (c['host'] as String? ?? '').trim();
-    if (host.isEmpty) return 'Kết nối "${c['name']}" chưa có địa chỉ IP.';
+    if (host.isEmpty) return 'The connection "${c['name']}" has no IP address yet.';
     await disconnect();
     final client = KnxTunnelClient(KnxTunnelOptions(host: host, port: (c['port'] as num?)?.toInt() ?? 3671, natMode: c['natMode'] == true));
     _client = client;
@@ -139,9 +139,9 @@ class BusController extends ChangeNotifier {
 
   Future<String?> write(Json ga, Object value) async {
     final c = _client;
-    if (c == null || !connected) return 'Hãy kết nối trước khi ghi.';
+    if (c == null || !connected) return 'Connect before writing.';
     final dpt = (ga['dpt'] as String?) ?? '';
-    if (dpt.isEmpty) return 'Địa chỉ ${ga['address']} chưa có DPT, không biết cách mã hoá giá trị.';
+    if (dpt.isEmpty) return 'The address ${ga['address']} has no DPT, so the value cannot be encoded.';
     try {
       await c.writeValue(GroupAddress.parse(ga['address'] as String), dpt, value);
       return null;
@@ -152,10 +152,10 @@ class BusController extends ChangeNotifier {
 
   Future<String?> read(Json ga) async {
     final c = _client;
-    if (c == null || !connected) return 'Hãy kết nối trước khi đọc.';
+    if (c == null || !connected) return 'Connect before reading.';
     try {
       final r = await c.read(GroupAddress.parse(ga['address'] as String));
-      return r == null ? 'Không có thiết bị nào trả lời ${ga['address']} (hết thời gian chờ).' : null;
+      return r == null ? 'No device answered ${ga['address']} (timed out).' : null;
     } on KnxException catch (e) {
       return e.message;
     }
@@ -177,17 +177,17 @@ class BusController extends ChangeNotifier {
         XTypeGroup(label: 'CSV', extensions: ['csv']),
       ],
       suggestedName: 'evoknx-bus-${DateTime.now().millisecondsSinceEpoch}.csv',
-      confirmButtonText: tr('Xuất'),
+      confirmButtonText: tr('Export'),
     );
     if (loc == null) return null;
     String q(String s) => '"${s.replaceAll('"', '""')}"';
     final lines = [
-      'Thời gian;Nguồn;Đích;Tên;Loại;Giá trị;DPT',
+      'Time;Source;Destination;Name;Type;Value;DPT',
       ...list.reversed.map((r) => [r.timeText, r.source, r.destination, r.name, r.typeText, r.value, r.dpt].map(q).join(';')),
     ];
     final path = loc.path.toLowerCase().endsWith('.csv') ? loc.path : '${loc.path}.csv';
     await File(path).writeAsBytes([0xEF, 0xBB, 0xBF, ...utf8.encode(lines.join('\r\n'))]);
-    return 'Đã xuất ${list.length} telegram.';
+    return 'Exported ${list.length} telegrams.';
   }
 
   @override

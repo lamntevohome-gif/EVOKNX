@@ -21,21 +21,21 @@ Future<void> showNewProjectDialog(BuildContext context, ProjectController p) asy
       final floors = jsonList(doc['floors']).length, rooms = jsonList(doc['pages']).length, gas = jsonList(doc['groupAddresses']).length;
       toast(
         context,
-        'Đã tạo “${jsonMap(doc['project'])['name']}”: $floors tầng, $rooms phòng${gas > 0 ? ', $gas địa chỉ nhóm' : ''}. Có thể hoàn tác (Ctrl+Z).',
+        'Created “${jsonMap(doc['project'])['name']}”: $floors floors, $rooms rooms${gas > 0 ? ', $gas group addresses' : ''}. Can be undone (Ctrl+Z).',
       );
     }
   }
 }
 
 const _roomDefaults = [
-  ('sofa', 'Phòng khách'),
-  ('kitchen', 'Bếp'),
-  ('bed', 'Phòng ngủ'),
-  ('bath', 'Phòng tắm'),
-  ('desk', 'Phòng làm việc'),
-  ('kids', 'Phòng trẻ em'),
-  ('dining', 'Phòng ăn'),
-  ('cinema', 'Phòng giải trí'),
+  ('sofa', 'Living room'),
+  ('kitchen', 'Kitchen'),
+  ('bed', 'Bedroom'),
+  ('bath', 'Bathroom'),
+  ('desk', 'Office'),
+  ('kids', 'Kids\' room'),
+  ('dining', 'Dining room'),
+  ('cinema', 'Entertainment room'),
 ];
 
 class _Room {
@@ -49,8 +49,8 @@ class _Floor {
   final List<_Room> rooms;
 }
 
-_Room _newRoom(int k) => _Room('Phòng ${k + 1}', _roomDefaults[k % _roomDefaults.length].$1);
-_Floor _newFloor(int i) => _Floor(i == 0 ? 'Tầng 1' : 'Tầng ${i + 1}', kNoIcon, [for (var k = 0; k < 3; k++) _newRoom(k)]);
+_Room _newRoom(int k) => _Room('Room ${k + 1}', _roomDefaults[k % _roomDefaults.length].$1);
+_Floor _newFloor(int i) => _Floor(i == 0 ? 'Floor 1' : 'Floor ${i + 1}', kNoIcon, [for (var k = 0; k < 3; k++) _newRoom(k)]);
 
 class _NewProjectDialog extends StatefulWidget {
   const _NewProjectDialog({required this.p});
@@ -98,25 +98,25 @@ class _NewProjectDialogState extends State<_NewProjectDialog> {
       etsError = r.error;
       ets = r.error == null ? r.result : null;
       if (ets != null && ets!.items.isEmpty) {
-        etsError = 'Không tìm thấy địa chỉ nhóm trong file.';
+        etsError = 'No group addresses found in the file.';
         ets = null;
       }
     });
   }
 
   Json _build() {
-    final title = name.trim().isNotEmpty ? name.trim() : ((ets?.projectName ?? '').isNotEmpty ? ets!.projectName : 'Dự án mới');
+    final title = name.trim().isNotEmpty ? name.trim() : ((ets?.projectName ?? '').isNotEmpty ? ets!.projectName : 'New project');
     final d = newProject(title);
     if (step == 'manual') return d;
     final fl = <Json>[];
     final pages = <Json>[];
     for (var i = 0; i < floors.length; i++) {
       final f = floors[i];
-      final jf = makeFloor(f.title.trim().isEmpty ? 'Tầng ${i + 1}' : f.title.trim(), icon: f.icon);
+      final jf = makeFloor(f.title.trim().isEmpty ? 'Floor ${i + 1}' : f.title.trim(), icon: f.icon);
       fl.add(jf);
       for (var k = 0; k < f.rooms.length; k++) {
         final r = f.rooms[k];
-        pages.add(makeRoom(r.name.trim().isEmpty ? 'Phòng ${k + 1}' : r.name.trim(), icon: r.icon, floorId: jf['id'] as String));
+        pages.add(makeRoom(r.name.trim().isEmpty ? 'Room ${k + 1}' : r.name.trim(), icon: r.icon, floorId: jf['id'] as String));
       }
     }
     d['floors'] = fl;
@@ -129,7 +129,7 @@ class _NewProjectDialogState extends State<_NewProjectDialog> {
   Future<String?> _icon(String current, List<(String, String)> items) => showDialog<String>(
     context: context,
     builder: (c) => AlertDialog(
-      title: const Text('Chọn biểu tượng', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+      title: const Text('Select icon', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
       content: SizedBox(
         width: 460,
         child: Wrap(
@@ -170,12 +170,12 @@ class _NewProjectDialogState extends State<_NewProjectDialog> {
           ],
         ),
       ),
-      actions: [EvoButton(label: 'Đóng', onPressed: () => Navigator.pop(c))],
+      actions: [EvoButton(label: 'Close', onPressed: () => Navigator.pop(c))],
     ),
   );
 
   Widget _iconBtn(String icon, List<(String, String)> items, ValueChanged<String> onPick) => Tooltip(
-    message: tr('Đổi biểu tượng'),
+    message: tr('Change icon'),
     child: InkWell(
       borderRadius: BorderRadius.circular(8),
       onTap: () async {
@@ -262,12 +262,12 @@ class _NewProjectDialogState extends State<_NewProjectDialog> {
   Widget build(BuildContext context) {
     final c = context.evo;
     final nameField = FieldLabel(
-      'Tên dự án',
+      'Project name',
       TextFormField(
         initialValue: name,
         autofocus: true,
         onChanged: (v) => name = v,
-        decoration: InputDecoration(hintText: tr('Ví dụ: Biệt thự anh Nam')),
+        decoration: InputDecoration(hintText: tr('e.g. Mr. Nam\'s Villa')),
       ),
     );
     final Widget content;
@@ -277,26 +277,31 @@ class _NewProjectDialogState extends State<_NewProjectDialog> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Dự án hiện tại sẽ được thay thế. Bạn vẫn có thể hoàn tác (Ctrl+Z), hoặc lưu trước nếu cần giữ lại.', style: TextStyle(color: c.muted)),
+          Text('The current project will be replaced. You can still undo (Ctrl+Z), or save first if you want to keep it.', style: TextStyle(color: c.muted)),
           const SizedBox(height: 16),
           IntrinsicHeight(
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _choice(Icons.bolt_outlined, 'Tạo nhanh', 'Đặt tên, số tầng, số phòng, biểu tượng và nhập địa chỉ nhóm từ file ETS.', 'quick'),
+                _choice(
+                  Icons.bolt_outlined,
+                  'Quick create',
+                  'Set the name, number of floors, number of rooms, icons, and import group addresses from an ETS file.',
+                  'quick',
+                ),
                 const SizedBox(width: 12),
-                _choice(Icons.edit_note_outlined, 'Tạo thủ công', 'Bắt đầu với dự án trống, tự thêm tầng, phòng và địa chỉ nhóm.', 'manual'),
+                _choice(Icons.edit_note_outlined, 'Create manually', 'Start with an empty project; add floors, rooms and group addresses yourself.', 'manual'),
               ],
             ),
           ),
         ],
       );
-      actions = [EvoButton(label: 'Huỷ', onPressed: () => Navigator.pop(context))];
+      actions = [EvoButton(label: 'Cancel', onPressed: () => Navigator.pop(context))];
     } else if (step == 'manual') {
       content = Column(mainAxisSize: MainAxisSize.min, children: [nameField]);
       actions = [
-        EvoButton(label: 'Quay lại', onPressed: () => setState(() => step = 'choose')),
-        EvoButton(label: 'Tạo dự án', primary: true, onPressed: () => Navigator.pop(context, _build())),
+        EvoButton(label: 'Back', onPressed: () => setState(() => step = 'choose')),
+        EvoButton(label: 'Create project', primary: true, onPressed: () => Navigator.pop(context, _build())),
       ];
     } else {
       content = SizedBox(
@@ -308,7 +313,7 @@ class _NewProjectDialogState extends State<_NewProjectDialog> {
             Row(
               children: [
                 const Expanded(
-                  child: Text('Số tầng', style: TextStyle(fontWeight: FontWeight.w600)),
+                  child: Text('Number of floors', style: TextStyle(fontWeight: FontWeight.w600)),
                 ),
                 _counter(floors.length, 1, 10, _setFloorCount),
               ],
@@ -327,18 +332,18 @@ class _NewProjectDialogState extends State<_NewProjectDialog> {
                   children: [
                     Row(
                       children: [
-                        _iconBtn(floors[i].icon, const [(kNoIcon, 'Không có'), ...kFloorIcons], (v) => floors[i].icon = v),
+                        _iconBtn(floors[i].icon, const [(kNoIcon, 'None'), ...kFloorIcons], (v) => floors[i].icon = v),
                         const SizedBox(width: 8),
                         Expanded(
                           child: TextFormField(
                             initialValue: floors[i].title,
                             onChanged: (v) => floors[i].title = v,
                             style: const TextStyle(fontWeight: FontWeight.w600),
-                            decoration: InputDecoration(hintText: tr('Tên tầng')),
+                            decoration: InputDecoration(hintText: tr('Floor name')),
                           ),
                         ),
                         const SizedBox(width: 8),
-                        _counter(floors[i].rooms.length, 0, 30, (n) => _setRoomCount(floors[i], n), unit: ' phòng'),
+                        _counter(floors[i].rooms.length, 0, 30, (n) => _setRoomCount(floors[i], n), unit: ' room'),
                       ],
                     ),
                     for (var k = 0; k < floors[i].rooms.length; k++)
@@ -347,7 +352,7 @@ class _NewProjectDialogState extends State<_NewProjectDialog> {
                         child: Row(
                           children: [
                             _iconBtn(floors[i].rooms[k].icon, [
-                              (kNoIcon, 'Không có'),
+                              (kNoIcon, 'None'),
                               for (final i in kRoomIcons) (i.$1, trIcon(i.$2)),
                             ], (v) => floors[i].rooms[k].icon = v),
                             const SizedBox(width: 8),
@@ -355,7 +360,7 @@ class _NewProjectDialogState extends State<_NewProjectDialog> {
                               child: TextFormField(
                                 initialValue: floors[i].rooms[k].name,
                                 onChanged: (v) => floors[i].rooms[k].name = v,
-                                decoration: InputDecoration(hintText: tr('Tên phòng')),
+                                decoration: InputDecoration(hintText: tr('Room name')),
                               ),
                             ),
                           ],
@@ -365,27 +370,31 @@ class _NewProjectDialogState extends State<_NewProjectDialog> {
                 ),
               ),
             const SizedBox(height: 6),
-            const Text('File ETS (không bắt buộc)', style: TextStyle(fontWeight: FontWeight.w600)),
+            const Text('ETS file (optional)', style: TextStyle(fontWeight: FontWeight.w600)),
             const SizedBox(height: 8),
             Row(
               children: [
-                EvoButton(label: etsFile == null ? 'Chọn file ETS…' : 'Chọn file khác…', icon: Icons.upload_file_outlined, onPressed: busy ? null : _pickEts),
+                EvoButton(
+                  label: etsFile == null ? 'Select ETS file…' : 'Select another file…',
+                  icon: Icons.upload_file_outlined,
+                  onPressed: busy ? null : _pickEts,
+                ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
                     busy
-                        ? 'Đang đọc file…'
+                        ? 'Reading file…'
                         : etsError != null
                         ? etsError!
                         : ets != null
-                        ? '$etsFile: ${ets!.items.length} địa chỉ nhóm${ets!.projectName.isNotEmpty ? ' (project “${ets!.projectName}”)' : ''}'
-                        : '.knxproj, hoặc danh sách địa chỉ nhóm CSV/XML',
+                        ? '$etsFile: ${ets!.items.length} group addresses${ets!.projectName.isNotEmpty ? ' (project “${ets!.projectName}”)' : ''}'
+                        : '.knxproj, or a group address list as CSV/XML',
                     style: TextStyle(fontSize: 13.5, color: etsError != null ? c.danger : (ets != null ? c.accentInk : c.muted)),
                   ),
                 ),
                 if (ets != null || etsError != null)
                   IconButton(
-                    tooltip: tr('Bỏ file'),
+                    tooltip: tr('Remove file'),
                     onPressed: () => setState(() {
                       ets = null;
                       etsError = null;
@@ -399,15 +408,15 @@ class _NewProjectDialogState extends State<_NewProjectDialog> {
         ),
       );
       actions = [
-        EvoButton(label: 'Quay lại', onPressed: () => setState(() => step = 'choose')),
-        EvoButton(label: 'Tạo dự án', primary: true, onPressed: busy ? null : () => Navigator.pop(context, _build())),
+        EvoButton(label: 'Back', onPressed: () => setState(() => step = 'choose')),
+        EvoButton(label: 'Create project', primary: true, onPressed: busy ? null : () => Navigator.pop(context, _build())),
       ];
     }
     return AlertDialog(
       title: Text(switch (step) {
-        'quick' => 'Tạo dự án nhanh',
-        'manual' => 'Tạo dự án thủ công',
-        _ => 'Tạo dự án mới',
+        'quick' => 'Quick project',
+        'manual' => 'Manual project',
+        _ => 'Create a new project',
       }, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
       content: SizedBox(width: 600, child: content),
       actions: actions,

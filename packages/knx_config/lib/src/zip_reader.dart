@@ -7,7 +7,7 @@ import 'crypto_lite.dart';
 class ZipPasswordException implements Exception {
   const ZipPasswordException();
   @override
-  String toString() => 'Sai mật khẩu.';
+  String toString() => 'Wrong password.';
 }
 
 /// Minimal ZIP reader (stored + deflate), enough for ETS .knxproj files.
@@ -30,7 +30,7 @@ class ZipReader {
         break;
       }
     }
-    if (eocd < 0) throw const FormatException('Không phải file ZIP hợp lệ.');
+    if (eocd < 0) throw const FormatException('Not a valid ZIP file.');
     final count = bd.getUint16(eocd + 10, Endian.little);
     var p = bd.getUint32(eocd + 16, Endian.little);
     for (var n = 0; n < count; n++) {
@@ -99,7 +99,7 @@ class ZipReader {
         rethrow;
       }
     } else {
-      throw FormatException('Kiểu nén ZIP chưa hỗ trợ ($method).');
+      throw FormatException('This ZIP compression type is not supported ($method).');
     }
     // ZipCrypto has only a one-byte password check: the CRC settles it.
     if (zipCrypto && _crc32(out) != e.crc) throw const ZipPasswordException();
@@ -133,7 +133,7 @@ class ZipReader {
   /// Traditional PKWARE encryption (ETS 4 and 5): a 12-byte header, then the
   /// data, both XOR-ed with a stream made from three rolling keys.
   Uint8List _decryptZipCrypto(Uint8List d, _Entry e) {
-    if (d.length < 12) throw const FormatException('Dữ liệu mã hoá bị hỏng.');
+    if (d.length < 12) throw const FormatException('The encrypted data is corrupted.');
     var k0 = 0x12345678, k1 = 0x23456789, k2 = 0x34567890;
     void update(int c) {
       k0 = _crcStep(k0, c);
@@ -163,9 +163,9 @@ class ZipReader {
 
   /// WinZip AES: salt | 2-byte check | AES-CTR data | 10-byte HMAC-SHA1.
   Uint8List _decryptAes(Uint8List d, int strength) {
-    final keyLen = switch (strength) { 1 => 16, 2 => 24, 3 => 32, _ => throw const FormatException('Kiểu mã hoá ZIP chưa hỗ trợ.') };
+    final keyLen = switch (strength) { 1 => 16, 2 => 24, 3 => 32, _ => throw const FormatException('This ZIP encryption type is not supported.') };
     final saltLen = keyLen ~/ 2;
-    if (d.length < saltLen + 12) throw const FormatException('Dữ liệu mã hoá bị hỏng.');
+    if (d.length < saltLen + 12) throw const FormatException('The encrypted data is corrupted.');
     final salt = d.sublist(0, saltLen);
     final check = d.sublist(saltLen, saltLen + 2);
     final payload = d.sublist(saltLen + 2, d.length - 10);

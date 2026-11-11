@@ -38,7 +38,7 @@ class EditorSettingsDialog extends StatelessWidget {
             children: [
               Icon(Icons.settings_outlined, color: c.accent),
               const SizedBox(width: 10),
-              const Text('Cài đặt Editor', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+              const Text('Editor settings', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
             ],
           ),
           content: SizedBox(
@@ -48,39 +48,35 @@ class EditorSettingsDialog extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  section('Giao diện', [
+                  section('Appearance', [
                     Seg<ThemeMode>(
-                      items: const [(ThemeMode.light, 'Sáng'), (ThemeMode.dark, 'Tối')],
+                      items: const [(ThemeMode.light, 'Light'), (ThemeMode.dark, 'Dark')],
                       value: appSettings.themeMode,
                       onChanged: appSettings.setThemeMode,
                     ),
                   ]),
-                  section('Ngôn ngữ / Language', [
-                    Seg<String>(items: const [('vi', 'Tiếng Việt'), ('en', 'English')], value: appSettings.lang, onChanged: appSettings.setLang),
-                  ]),
-                  section('Tự lưu vào file dự án', [
+                  section('Auto-save to the project file', [
                     EvoDropdown<int>(
                       value: appSettings.autosaveMinutes,
-                      items: const [(0, 'Tắt'), (1, 'Mỗi 1 phút'), (2, 'Mỗi 2 phút'), (5, 'Mỗi 5 phút'), (10, 'Mỗi 10 phút')],
+                      items: const [(0, 'Off'), (1, 'Every 1 minute'), (2, 'Every 2 minutes'), (5, 'Every 5 minutes'), (10, 'Every 10 minutes')],
                       onChanged: appSettings.setAutosaveMinutes,
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Chỉ áp dụng cho dự án đã lưu thành file. Ngoài ra Editor luôn sao lưu ngầm phiên làm việc, '
-                      'nên nếu máy tắt đột ngột, lần mở sau dự án vẫn còn nguyên.',
+                      'Applies only to projects saved as a file. The Editor also silently backs up the working session, so if the computer shuts down suddenly the project is intact the next time you open it.',
                       style: TextStyle(fontSize: 13.5, color: c.muted),
                     ),
                   ]),
-                  section('Bảng thuộc tính', [
+                  section('Properties', [
                     Row(
                       children: [
                         Checkbox(value: appSettings.showHints, onChanged: (v) => appSettings.setShowHints(v == true)),
                         const SizedBox(width: 6),
-                        const Expanded(child: Text('Hiện chữ hướng dẫn dưới các ô cài đặt')),
+                        const Expanded(child: Text('Show help text under the settings fields')),
                       ],
                     ),
                   ]),
-                  section('Thư mục lưu mặc định', [
+                  section('Default save folder', [
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                       decoration: BoxDecoration(
@@ -89,7 +85,7 @@ class EditorSettingsDialog extends StatelessWidget {
                         border: Border.all(color: c.line),
                       ),
                       child: Text(
-                        folder ?? 'Chưa chọn (dùng thư mục Windows đề xuất)',
+                        folder ?? 'Not set (use the folder suggested by Windows)',
                         style: TextStyle(fontSize: kUiText, color: folder == null ? c.muted : c.ink),
                       ),
                     ),
@@ -97,20 +93,20 @@ class EditorSettingsDialog extends StatelessWidget {
                     Row(
                       children: [
                         EvoButton(
-                          label: 'Chọn thư mục',
+                          label: 'Select folder',
                           icon: Icons.folder_open_outlined,
                           small: true,
                           onPressed: () async {
-                            final d = await getDirectoryPath(initialDirectory: folder, confirmButtonText: tr('Chọn'));
+                            final d = await getDirectoryPath(initialDirectory: folder, confirmButtonText: tr('Select'));
                             if (d != null) await appSettings.setDefaultFolder(d);
                           },
                         ),
                         const SizedBox(width: 8),
-                        if (folder != null) EvoButton(label: 'Bỏ chọn', small: true, onPressed: () => appSettings.setDefaultFolder(null)),
+                        if (folder != null) EvoButton(label: 'Deselect', small: true, onPressed: () => appSettings.setDefaultFolder(null)),
                       ],
                     ),
                   ]),
-                  section('Giới thiệu', [
+                  section('About', [
                     Row(
                       children: [
                         Container(
@@ -125,12 +121,12 @@ class EditorSettingsDialog extends StatelessWidget {
                         const SizedBox(width: 10),
                         const Text('EvoKNX Editor', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
                         const SizedBox(width: 8),
-                        Text('phiên bản $kEditorVersion', style: TextStyle(color: c.muted)),
+                        Text('version $kEditorVersion', style: TextStyle(color: c.muted)),
                       ],
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'Thiết kế giao diện điều khiển nhà thông minh KNX.\n© ${DateTime.now().year} Evohome. Bảo lưu mọi quyền.\n\nBiểu tượng: Material Design Icons của Pictogrammers, giấy phép Apache 2.0.\nPhông chữ: Inter của Rasmus Andersson, giấy phép SIL Open Font License.',
+                      'Design tool for KNX smart-home control interfaces.\n© ${DateTime.now().year} Evohome. All rights reserved.\n\nIcons: Material Design Icons by Pictogrammers, Apache 2.0 license.\nFont: Inter by Rasmus Andersson, SIL Open Font License.',
                       style: TextStyle(fontSize: kUiText, color: c.muted),
                     ),
                   ]),
@@ -138,7 +134,7 @@ class EditorSettingsDialog extends StatelessWidget {
               ),
             ),
           ),
-          actions: [EvoButton(label: 'Đóng', primary: true, onPressed: () => Navigator.pop(context))],
+          actions: [EvoButton(label: 'Close', primary: true, onPressed: () => Navigator.pop(context))],
         );
       },
     );

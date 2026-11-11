@@ -54,7 +54,7 @@ class DesignCanvas extends StatelessWidget {
     final roomName = (d.room?['title'] ?? '').toString();
     final subName = (d.sub?['title'] ?? '').toString();
     final frameName = switch (d.view) {
-      'overview' => 'Tổng quan',
+      'overview' => 'Overview',
       'floor' => (d.floor?['title'] ?? '').toString(),
       _ => [roomName, if (subsOf(d.room ?? const {}).length > 1) subName].where((x) => x.isNotEmpty).join(' · '),
     };
@@ -223,13 +223,13 @@ class _Screen extends StatelessWidget {
                     Icon(Icons.meeting_room_outlined, size: 44, color: pal.sMuted),
                     const SizedBox(height: 12),
                     Text(
-                      'Phòng chưa được tạo',
+                      'The room has not been created',
                       textAlign: TextAlign.center,
                       style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: pal.sInk),
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'Chuột phải vào tầng trong cột Cấu trúc, chọn Thêm phòng.',
+                      'Right-click a floor in the Structure column and choose Add room.',
                       textAlign: TextAlign.center,
                       style: TextStyle(color: pal.sMuted, height: 1.4),
                     ),
@@ -296,28 +296,32 @@ class _Screen extends StatelessWidget {
         ),
       );
       final tab = !inFloors && special == 'home' ? 0 : (!inFloors && special == 'security' ? 2 : 1);
+      final nf = tfs(doc, 'navBar');
       Widget barItem(int t, IconData icon, String label, VoidCallback onTap) {
         final on = tab == t;
+        final fg = on ? pal.onChipSel : pal.muted;
         return Expanded(
           child: InkWell(
             onTap: onTap,
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 6),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 52,
-                    height: 28,
-                    decoration: on ? flatDecoration(pal, pal.chipSel, radius: BorderRadius.circular(16)) : null,
-                    child: Icon(icon, size: 20, color: on ? pal.onChipSel : pal.muted),
+              child: Center(
+                // The highlighted pill wraps the icon and the text.
+                child: Container(
+                  padding: EdgeInsets.symmetric(horizontal: nf * 1.5, vertical: nf * 0.55),
+                  decoration: on ? flatDecoration(pal, pal.chipSel, radius: BorderRadius.circular(nf * 1.6)) : null,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(icon, size: nf * 1.9, color: fg),
+                      SizedBox(height: nf * 0.2),
+                      Text(
+                        label,
+                        style: TextStyle(fontSize: nf, fontWeight: on ? FontWeight.w700 : FontWeight.w500, color: fg),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    label,
-                    style: TextStyle(fontSize: 11.5, fontWeight: on ? FontWeight.w700 : FontWeight.w500, color: on ? pal.ink : pal.muted),
-                  ),
-                ],
+                ),
               ),
             ),
           ),
@@ -477,7 +481,7 @@ class _Screen extends StatelessWidget {
           // In the gallery style a button returns to the gallery.
           if (onBack != null || (theme['roomPicker'] == 'gallery' && theme['layout'] != 'modern' && dev != 'tabletL')) ...[
             Tooltip(
-              message: tr('Thư viện phòng'),
+              message: tr('Room gallery'),
               child: InkWell(
                 customBorder: const CircleBorder(),
                 onTap: onBack ?? d.gallery,
@@ -525,7 +529,7 @@ class _Screen extends StatelessWidget {
 
   Widget _sidebar(Json doc, Json? room, bool multi) {
     final now = DateTime.now();
-    const days = ['Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy', 'Chủ nhật'];
+    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
     return Container(
       width: 230,
       margin: const EdgeInsets.fromLTRB(14, 4, 0, 14),
@@ -764,9 +768,9 @@ class _Screen extends StatelessWidget {
         padding: EdgeInsets.fromLTRB(14, max(0.0, pal.safeMargin - 8), 14, 0),
         child: Row(
           children: [
-            if (arrows) arrow(Icons.chevron_left, i > 0 ? () => d.stepSub(-1) : null, 'Trang trước'),
+            if (arrows) arrow(Icons.chevron_left, i > 0 ? () => d.stepSub(-1) : null, 'Previous page'),
             Expanded(child: Column(children: [title, const SizedBox(height: 5), dots])),
-            if (arrows) arrow(Icons.chevron_right, i < ss.length - 1 ? () => d.stepSub(1) : null, 'Trang sau'),
+            if (arrows) arrow(Icons.chevron_right, i < ss.length - 1 ? () => d.stepSub(1) : null, 'Next page'),
           ],
         ),
       );
@@ -776,9 +780,9 @@ class _Screen extends StatelessWidget {
       padding: EdgeInsets.fromLTRB(14, max(0.0, pal.safeMargin - 8), 14, 0),
       child: Row(
         children: [
-          arrow(Icons.chevron_left, i > 0 ? () => d.stepSub(-1) : null, 'Trang trước'),
+          arrow(Icons.chevron_left, i > 0 ? () => d.stepSub(-1) : null, 'Previous page'),
           Expanded(child: Column(children: [title, const SizedBox(height: 5), dots])),
-          i < ss.length - 1 ? arrow(Icons.chevron_right, () => d.stepSub(1), 'Trang sau') : arrow(Icons.add, d.addSub, 'Thêm trang trong phòng'),
+          i < ss.length - 1 ? arrow(Icons.chevron_right, () => d.stepSub(1), 'Next page') : arrow(Icons.add, d.addSub, 'Add a page to the room'),
         ],
       ),
     );
@@ -1224,7 +1228,7 @@ class _GridAreaState extends State<_GridArea> {
                   setState(() => resizing = null);
                   if (z == null || (z.w == pi(w, 'w') && z.h == pi(w, 'h'))) return;
                   if (!isFree(box, pi(w, 'x'), pi(w, 'y'), z.w, z.h, id)) {
-                    toast(context, 'Không đủ chỗ: vùng mới bị trùng với thẻ khác.');
+                    toast(context, 'Not enough room: the new area overlaps another card.');
                     return;
                   }
                   d.editWidget(id, (o) => o['pos'] = {'x': pi(w, 'x'), 'y': pi(w, 'y'), 'w': z.w, 'h': z.h});
@@ -1468,7 +1472,7 @@ class _TuneDialogState extends State<_TuneDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(dim ? 'Độ sáng: ${val.round()}%' : (w['shStyle'] == 'curtain' ? 'Mở ${100 - val.round()}%' : 'Đóng ${val.round()}%')),
+            Text(dim ? 'Brightness: ${val.round()}%' : (w['shStyle'] == 'curtain' ? 'Open ${100 - val.round()}%' : 'Close ${val.round()}%')),
             Slider(
               value: val.clamp(0.0, 100.0),
               max: 100,
@@ -1492,7 +1496,7 @@ class _TuneDialogState extends State<_TuneDialog> {
               ),
             if (dim && f['tw'] == true) ...[
               const SizedBox(height: 8),
-              Text('Nhiệt độ màu: ${((s['ct'] as num?) ?? ctMin).round()} K'),
+              Text('Colour temperature: ${((s['ct'] as num?) ?? ctMin).round()} K'),
               Slider(
                 value: (((s['ct'] as num?) ?? ctMin).toDouble()).clamp(ctMin, ctMax),
                 min: ctMin,
@@ -1503,7 +1507,7 @@ class _TuneDialogState extends State<_TuneDialog> {
             ],
             if (dim && f['rgb'] == true) ...[
               const SizedBox(height: 8),
-              const Text('Màu'),
+              const Text('Colour'),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
@@ -1768,7 +1772,7 @@ class _AppSettingsSheet extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      'Cài đặt',
+                      'Settings',
                       style: TextStyle(fontSize: 26, fontWeight: FontWeight.w700, color: pal.ink),
                     ),
                   ),
@@ -1793,18 +1797,18 @@ class _AppSettingsSheet extends StatelessWidget {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
                 children: [
-                  card('Tài khoản', [
+                  card('Account', [
                     row(
                       CircleAvatar(
                         radius: 18,
                         backgroundColor: pal.accentSoft,
                         child: Icon(Icons.person_outline, color: pal.accent, size: 20),
                       ),
-                      'Chưa đăng nhập',
-                      sub: 'Tài khoản và phân quyền người dùng sẽ có trong bản sau',
+                      'Not signed in',
+                      sub: 'Accounts and user permissions will come in a later version',
                     ),
                   ]),
-                  card('Giao diện', [
+                  card('Appearance', [
                     for (final (group, items) in kAppThemeGroups) ...[
                       Padding(
                         padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
@@ -1817,32 +1821,32 @@ class _AppSettingsSheet extends StatelessWidget {
                         row(
                           ThemeSwatch(AppPalette.of(k), size: 26),
                           n,
-                          sub: k == projMode ? 'Mặc định của dự án' : null,
+                          sub: k == projMode ? 'Project default' : null,
                           trailing: k == cur ? Icon(Icons.check, color: pal.accent, size: 20) : null,
                           onTap: () => d.setPreviewTheme(k == projMode ? null : k),
                         ),
                     ],
                   ]),
-                  card('Kết nối KNX', [
+                  card('KNX connection', [
                     for (final c in jsonList(doc['connections']))
                       row(
                         Icon(Icons.router_outlined, color: pal.muted, size: 22),
-                        (c['name'] ?? 'Kết nối').toString(),
+                        (c['name'] ?? 'Connections').toString(),
                         sub: '${c['host'] ?? ''}:${c['port'] ?? 3671}${c['natMode'] == true ? ' · NAT' : ''}',
-                        trailing: Text(online ? 'Đã kết nối' : 'Giả lập', style: TextStyle(fontSize: 12.5, color: online ? pal.accent : pal.muted)),
+                        trailing: Text(online ? 'Connected' : 'Simulation', style: TextStyle(fontSize: 12.5, color: online ? pal.accent : pal.muted)),
                       ),
                   ]),
-                  card('Giới thiệu', [
-                    row(Icon(Icons.info_outline, color: pal.muted, size: 22), 'EvoKNX', sub: 'Phiên bản 1.0 · © ${DateTime.now().year} Evohome'),
-                    row(Icon(Icons.palette_outlined, color: pal.muted, size: 22), 'Biểu tượng', sub: 'Material Design Icons · Pictogrammers (Apache 2.0)'),
+                  card('About', [
+                    row(Icon(Icons.info_outline, color: pal.muted, size: 22), 'EvoKNX', sub: 'Version 1.0 · © ${DateTime.now().year} Evohome'),
+                    row(Icon(Icons.palette_outlined, color: pal.muted, size: 22), 'Icon', sub: 'Material Design Icons · Pictogrammers (Apache 2.0)'),
                     row(
                       Icon(Icons.home_work_outlined, color: pal.muted, size: 22),
                       (jsonMap(doc['project'])['name'] ?? '').toString(),
-                      sub: 'Cấu hình phiên bản ${jsonMap(doc['project'])['revision'] ?? 0}',
+                      sub: 'Configuration version ${jsonMap(doc['project'])['revision'] ?? 0}',
                     ),
                   ]),
                   Text(
-                    'Đây là bản xem trước. Lựa chọn giao diện ở đây chỉ để thử, không đổi cài đặt của dự án; trên App mỗi người dùng tự chọn giao diện riêng.',
+                    'This is a preview. The theme choice here is only for trying: it does not change the project\'s setting; in the App each user picks their own theme.',
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 12, color: pal.muted),
                   ),
@@ -1870,7 +1874,7 @@ class _ScenePopup extends StatelessWidget {
     final blur = ((pp['blur'] as num?) ?? 8).toDouble().clamp(0, 30).toDouble();
     final size = ((pp['size'] as num?) ?? 20).toDouble().clamp(12, 40).toDouble();
     final label = (w['label'] ?? '').toString();
-    final text = ((pp['text'] ?? 'Đã bật cảnh {tên}').toString()).replaceAll('{tên}', label).replaceAll('{ten}', label);
+    final text = ((pp['text'] ?? 'Scene {name} activated').toString()).replaceAll('{name}', label).replaceAll('{tên}', label).replaceAll('{ten}', label);
     final image = w['btnStyle'] == 'image' && w['imgSource'] != 'icon' ? imageFromData((w['image'] ?? '').toString()) : null;
     final iconKey = w['btnStyle'] == 'image' && w['imgSource'] == 'icon' ? (w['imgIcon'] ?? 'mdi:gesture-tap-button').toString() : (w['icon'] as String?);
     return GestureDetector(

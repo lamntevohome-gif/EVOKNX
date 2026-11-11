@@ -54,7 +54,7 @@ class CardLibrary extends ChangeNotifier {
     final w = jsonList(part['widgets']).firstOrNull;
     final name = (part['name'] ?? '').toString().trim();
     final type = (w?['type'] ?? '').toString();
-    final label = name.isEmpty ? (kWidgetTypes[type]?.name ?? 'Thẻ') : name;
+    final label = name.isEmpty ? (kWidgetTypes[type]?.name ?? 'Card') : name;
     final old = entries.indexWhere((e) => e['name'] == label && e['type'] == type);
     final e = <String, dynamic>{'id': uid('lib_'), 'name': label, 'type': type, 'part': part};
     if (old >= 0) {

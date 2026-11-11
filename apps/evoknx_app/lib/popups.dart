@@ -13,14 +13,14 @@ void showScenePopup(BuildContext context, Json w, AppPalette pal) {
   final size = ((pp['size'] as num?) ?? 20).toDouble().clamp(12, 40).toDouble();
   final secs = ((pp['seconds'] as num?) ?? 2).toDouble().clamp(0.5, 5.0);
   final label = (w['label'] ?? '').toString();
-  final text = ((pp['text'] ?? 'Đã bật cảnh {tên}').toString()).replaceAll('{tên}', label).replaceAll('{ten}', label);
+  final text = ((pp['text'] ?? 'Scene {name} activated').toString()).replaceAll('{name}', label).replaceAll('{tên}', label).replaceAll('{ten}', label);
   final image = w['btnStyle'] == 'image' && w['imgSource'] != 'icon' ? imageFromData((w['image'] ?? '').toString()) : null;
   final iconKey = w['btnStyle'] == 'image' && w['imgSource'] == 'icon' ? (w['imgIcon'] ?? 'mdi:gesture-tap-button').toString() : (w['icon'] as String?);
   var open = true;
   showGeneralDialog<void>(
     context: context,
     barrierDismissible: true,
-    barrierLabel: 'Đóng',
+    barrierLabel: 'Close',
     barrierColor: Colors.transparent,
     transitionDuration: const Duration(milliseconds: 220),
     pageBuilder: (c, a, b) => GestureDetector(
@@ -116,7 +116,7 @@ class _DimmerSheet extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 10),
-                Text('Độ sáng', style: label()),
+                Text('Brightness', style: label()),
                 Slider(
                   value: val,
                   max: 100,
@@ -127,7 +127,7 @@ class _DimmerSheet extends StatelessWidget {
                 ),
                 if (f['tw'] == true) ...[
                   const SizedBox(height: 8),
-                  Text('Nhiệt độ màu: ${((s['ct'] as num?) ?? ctMin).round()} K', style: label()),
+                  Text('Colour temperature: ${((s['ct'] as num?) ?? ctMin).round()} K', style: label()),
                   Slider(
                     value: (((s['ct'] as num?) ?? ctMin).toDouble()).clamp(ctMin, ctMax),
                     min: ctMin,
@@ -139,7 +139,7 @@ class _DimmerSheet extends StatelessWidget {
                 ],
                 if (f['rgb'] == true) ...[
                   const SizedBox(height: 8),
-                  Text('Màu', style: label()),
+                  Text('Colour', style: label()),
                   const SizedBox(height: 10),
                   Wrap(
                     spacing: 12,

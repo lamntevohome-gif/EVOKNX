@@ -92,7 +92,7 @@ class SettingsScreen extends StatelessWidget {
                 elevation: 0,
                 scrolledUnderElevation: 0,
                 title: Text(
-                  'Cài đặt',
+                  'Settings',
                   style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: pal.sInk),
                 ),
                 bottom: TabBar(
@@ -105,11 +105,11 @@ class SettingsScreen extends StatelessWidget {
                   labelStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
                   unselectedLabelStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
                   tabs: [
-                    Tab(text: tr('Tài khoản')),
-                    Tab(text: tr('Hồ sơ')),
-                    Tab(text: tr('Giao diện')),
-                    Tab(text: tr('Kết nối')),
-                    Tab(text: tr('Giới thiệu')),
+                    Tab(text: tr('Account')),
+                    Tab(text: tr('Profile')),
+                    Tab(text: tr('Appearance')),
+                    Tab(text: tr('Connections')),
+                    Tab(text: tr('About')),
                   ],
                 ),
               ),
@@ -117,14 +117,14 @@ class SettingsScreen extends StatelessWidget {
                 children: [
                   tab([AccountPanel(account: store.account, pal: pal)]),
                   tab([
-                    card('Hồ sơ', [
+                    card('Profile', [
                       for (final pf in store.profiles)
                         row(
                           Icon(pf.id == store.activeId ? Icons.home : Icons.home_outlined, color: pf.id == store.activeId ? pal.accent : pal.muted),
                           pf.name,
                           sub: pf.id == store.activeId
-                              ? 'Đang dùng · phiên bản cấu hình ${jsonMap(store.config?['project'])['revision'] ?? 0}'
-                              : 'Bấm để chuyển sang nhà này',
+                              ? 'In use · configuration version ${jsonMap(store.config?['project'])['revision'] ?? 0}'
+                              : 'Tap to switch to this home',
                           trailing: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
@@ -135,12 +135,12 @@ class SettingsScreen extends StatelessWidget {
                                     if (context.mounted) Navigator.of(context).popUntil((x) => x.isFirst);
                                   },
                                   child: Text(
-                                    'Chuyển',
+                                    'Switch',
                                     style: TextStyle(color: pal.accent, fontWeight: FontWeight.w600),
                                   ),
                                 ),
                               PopupMenuButton<String>(
-                                tooltip: tr('Tuỳ chọn'),
+                                tooltip: tr('Options'),
                                 icon: Icon(Icons.more_vert, color: pal.muted),
                                 color: pal.panel,
                                 onSelected: (v) async {
@@ -148,13 +148,15 @@ class SettingsScreen extends StatelessWidget {
                                   final ok = await showDialog<bool>(
                                     context: context,
                                     builder: (c) => AlertDialog(
-                                      title: Text('Xoá hồ sơ “${pf.name}”?'),
-                                      content: const Text('Cấu hình của nhà này sẽ bị xoá khỏi điện thoại. Bạn vẫn có thể thêm lại từ EvoKNX Editor.'),
+                                      title: Text('Delete the profile “${pf.name}”?'),
+                                      content: const Text(
+                                        'This home\'s configuration will be removed from the phone. You can add it again from EvoKNX Editor.',
+                                      ),
                                       actions: [
-                                        TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Huỷ')),
+                                        TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancel')),
                                         TextButton(
                                           onPressed: () => Navigator.pop(c, true),
-                                          child: Text('Xoá', style: TextStyle(color: pal.danger)),
+                                          child: Text('Delete', style: TextStyle(color: pal.danger)),
                                         ),
                                       ],
                                     ),
@@ -167,7 +169,7 @@ class SettingsScreen extends StatelessWidget {
                                 itemBuilder: (_) => [
                                   PopupMenuItem(
                                     value: 'del',
-                                    child: Text('Xoá hồ sơ', style: TextStyle(color: pal.danger)),
+                                    child: Text('Delete profile', style: TextStyle(color: pal.danger)),
                                   ),
                                 ],
                               ),
@@ -182,8 +184,8 @@ class SettingsScreen extends StatelessWidget {
                         ),
                       row(
                         Icon(Icons.wifi_tethering, color: pal.muted),
-                        'Thêm hồ sơ từ máy tính (Wi-Fi)',
-                        sub: 'Editor → menu EvoKNX → Gửi sang App qua Wi-Fi',
+                        'Add a profile from the computer (Wi-Fi)',
+                        sub: 'Editor → EvoKNX menu → Send to App over Wi-Fi',
                         onTap: () async {
                           final before = store.profiles.length;
                           final ok = await showReceiveDialog(context, store, pal);
@@ -191,7 +193,9 @@ class SettingsScreen extends StatelessWidget {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text(
-                                store.profiles.length > before ? 'Đã thêm hồ sơ “${store.projectName}”.' : 'Đã cập nhật hồ sơ “${store.projectName}”.',
+                                store.profiles.length > before
+                                    ? 'Added the profile “${store.projectName}”.'
+                                    : 'The profile “${store.projectName}” was updated.',
                               ),
                             ),
                           );
@@ -200,8 +204,8 @@ class SettingsScreen extends StatelessWidget {
                       ),
                       row(
                         Icon(Icons.folder_open_outlined, color: pal.muted),
-                        'Thêm hồ sơ từ file cấu hình',
-                        sub: 'File .evoknx gửi từ máy tính. Hoặc trong Zalo, Drive: Chia sẻ → EvoKNX. Cùng tên dự án thì thay thế hồ sơ đó.',
+                        'Add a profile from a configuration file',
+                        sub: '.evoknx file sent from the computer. Or in Zalo, Drive: Share → EvoKNX. A project with the same name replaces that profile.',
                         onTap: () async {
                           final before = store.profiles.length;
                           final r = await store.importConfig();
@@ -212,7 +216,9 @@ class SettingsScreen extends StatelessWidget {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content: Text(
-                                  store.profiles.length > before ? 'Đã thêm hồ sơ “${store.projectName}”.' : 'Đã cập nhật hồ sơ “${store.projectName}”.',
+                                  store.profiles.length > before
+                                      ? 'Added the profile “${store.projectName}”.'
+                                      : 'The profile “${store.projectName}” was updated.',
                                 ),
                               ),
                             );
@@ -223,16 +229,7 @@ class SettingsScreen extends StatelessWidget {
                     ]),
                   ]),
                   tab([
-                    card('Ngôn ngữ / Language', [
-                      for (final (code, name) in const [('vi', 'Tiếng Việt'), ('en', 'English')])
-                        row(
-                          Icon(Icons.language, color: pal.muted),
-                          name,
-                          trailing: store.lang == code ? Icon(Icons.check, color: pal.accent) : null,
-                          onTap: () => store.setLang(code),
-                        ),
-                    ]),
-                    card('Giao diện', [
+                    card('Appearance', [
                       // Three groups (Sáng, Trung tính, Tối): tap one to show its three themes.
                       for (final (group, items) in kAppThemeGroups)
                         Theme(
@@ -263,7 +260,7 @@ class SettingsScreen extends StatelessWidget {
                                 row(
                                   ThemeSwatch(AppPalette.of(k)),
                                   n,
-                                  sub: k == themeKey(jsonMap(store.config?['theme'])['mode']) ? 'Mặc định của dự án' : null,
+                                  sub: k == themeKey(jsonMap(store.config?['theme'])['mode']) ? 'Project default' : null,
                                   trailing: k == store.mode ? Icon(Icons.check, color: pal.accent) : null,
                                   onTap: () => store.setTheme(k),
                                 ),
@@ -280,7 +277,7 @@ class SettingsScreen extends StatelessWidget {
                                 Icon(Icons.format_size, color: pal.muted),
                                 const SizedBox(width: 14),
                                 Expanded(
-                                  child: Text('Cỡ chữ', style: TextStyle(fontSize: 16, color: pal.ink)),
+                                  child: Text('Font size', style: TextStyle(fontSize: 16, color: pal.ink)),
                                 ),
                                 Text(
                                   '${(store.textScale * 100).round()}%',
@@ -298,7 +295,7 @@ class SettingsScreen extends StatelessWidget {
                               onChangeEnd: (v) => store.setTextScale(v),
                             ),
                             Text(
-                              '100% là đúng cỡ chữ đã thiết kế trong Editor. Không phụ thuộc cỡ chữ của điện thoại.',
+                              '100% is the font size designed in the Editor. It does not depend on the phone\'s font size.',
                               style: TextStyle(fontSize: 13, color: pal.muted),
                             ),
                           ],
@@ -307,16 +304,15 @@ class SettingsScreen extends StatelessWidget {
                       if (defaultTargetPlatform == TargetPlatform.android)
                         row(
                           Icon(Icons.aspect_ratio, color: pal.muted),
-                          'Tự cân cỡ chữ theo màn hình',
+                          'Auto-scale the font to the screen',
                           sub:
-                              'Màn hình ${MediaQuery.sizeOf(context).width.round()} × ${MediaQuery.sizeOf(context).height.round()} dp · '
-                              'hệ số ${store.uiScaleFor(MediaQuery.sizeOf(context)).toStringAsFixed(2)}',
+                              'Screen ${MediaQuery.sizeOf(context).width.round()} × ${MediaQuery.sizeOf(context).height.round()} dp · scale ${store.uiScaleFor(MediaQuery.sizeOf(context)).toStringAsFixed(2)}',
                           trailing: Switch(value: store.autoScale, onChanged: store.setAutoScale, activeColor: pal.accent),
                         ),
                       row(
                         Icon(Icons.screen_lock_portrait_outlined, color: pal.muted),
-                        'Giữ màn hình luôn sáng',
-                        sub: 'Dành cho tablet gắn tường',
+                        'Keep the screen on',
+                        sub: 'For wall-mounted tablets',
                         trailing: Switch(value: store.keepScreenOn, onChanged: store.setKeepScreenOn, activeColor: pal.accent),
                       ),
                     ]),
@@ -326,7 +322,7 @@ class SettingsScreen extends StatelessWidget {
                       for (final c in conns)
                         row(
                           Icon(Icons.router_outlined, color: pal.muted),
-                          (c['name'] ?? 'Kết nối').toString(),
+                          (c['name'] ?? 'Connections').toString(),
                           sub: '${c['host'] ?? ''}:${c['port'] ?? 3671}${c['natMode'] == true ? ' · NAT' : ''}',
                           trailing: c == cur ? Icon(Icons.check, color: pal.accent) : null,
                           onTap: conns.length > 1
@@ -339,25 +335,25 @@ class SettingsScreen extends StatelessWidget {
                       row(
                         Icon(knx.connected ? Icons.link : Icons.link_off, color: knx.connected ? pal.accent : pal.muted),
                         knx.statusText,
-                        trailing: TextButton(onPressed: knx.connect, child: Text(knx.connected ? 'Kết nối lại' : 'Thử lại')),
+                        trailing: TextButton(onPressed: knx.connect, child: Text(knx.connected ? 'Reconnect' : 'Retry')),
                       ),
                     ]),
                     // Home Assistant: set up in the Editor ("HA" tab), only its state is shown here.
                     if (ha != null)
                       card('Home Assistant', [
                         row(Icon(ha!.connected ? Icons.link : Icons.link_off, color: ha!.connected ? pal.accent : pal.muted), switch (ha!.state) {
-                          HaConnection.connected => 'Đã kết nối Home Assistant',
-                          HaConnection.connecting => 'Đang kết nối Home Assistant…',
-                          HaConnection.failed => ha!.error ?? 'Mất kết nối Home Assistant',
-                          HaConnection.disconnected => 'Chưa kết nối Home Assistant',
+                          HaConnection.connected => 'Connected to Home Assistant',
+                          HaConnection.connecting => 'Connecting to Home Assistant…',
+                          HaConnection.failed => ha!.error ?? 'Home Assistant connection lost',
+                          HaConnection.disconnected => 'Home Assistant not connected',
                         }, sub: ha!.url),
                       ]),
                   ]),
                   tab([
-                    card('Giới thiệu', [
-                      row(Icon(Icons.info_outline, color: pal.muted), 'EvoKNX', sub: 'Phiên bản 0.1.0 · © ${DateTime.now().year} Evohome'),
-                      row(Icon(Icons.palette_outlined, color: pal.muted), 'Biểu tượng', sub: 'Material Design Icons · Pictogrammers (Apache 2.0)'),
-                      row(Icon(Icons.text_fields, color: pal.muted), 'Phông chữ', sub: 'Inter · Rasmus Andersson (SIL Open Font License)'),
+                    card('About', [
+                      row(Icon(Icons.info_outline, color: pal.muted), 'EvoKNX', sub: 'Version 0.1.0 · © ${DateTime.now().year} Evohome'),
+                      row(Icon(Icons.palette_outlined, color: pal.muted), 'Icon', sub: 'Material Design Icons · Pictogrammers (Apache 2.0)'),
+                      row(Icon(Icons.text_fields, color: pal.muted), 'Font', sub: 'Inter · Rasmus Andersson (SIL Open Font License)'),
                     ]),
                   ]),
                 ],

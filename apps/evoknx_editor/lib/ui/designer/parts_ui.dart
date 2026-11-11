@@ -11,8 +11,8 @@ import '../../state/project_files.dart';
 import '../common.dart';
 import 'designer.dart';
 
-const _partType = XTypeGroup(label: 'Tầng / phòng / trang / thẻ EvoKNX', extensions: ['evoknxpart']);
-const _kindName = {'floor': 'tầng', 'room': 'phòng', 'page': 'trang', 'card': 'thẻ'};
+const _partType = XTypeGroup(label: 'EvoKNX floor / room / page / card', extensions: ['evoknxpart']);
+const _kindName = {'floor': 'floor', 'room': 'room', 'page': 'trang', 'card': 'card'};
 
 /// "Xuất tầng/phòng/trang…" and "Nhập…" buttons.
 class PartButtons extends StatelessWidget {
@@ -31,8 +31,8 @@ class PartButtons extends StatelessWidget {
       runSpacing: 6,
       children: [
         if (kind != null && id != null)
-          EvoButton(label: 'Xuất ${_kindName[kind]}…', icon: Icons.file_upload_outlined, small: true, onPressed: () => exportPart(context, d, kind!, id!)),
-        EvoButton(label: importHint ?? 'Nhập từ file…', icon: Icons.file_download_outlined, small: true, onPressed: () => importPart(context, d)),
+          EvoButton(label: 'Export ${_kindName[kind]}…', icon: Icons.file_upload_outlined, small: true, onPressed: () => exportPart(context, d, kind!, id!)),
+        EvoButton(label: importHint ?? 'Import from file…', icon: Icons.file_download_outlined, small: true, onPressed: () => importPart(context, d)),
       ],
     );
   }
@@ -46,17 +46,17 @@ Future<void> exportPart(BuildContext context, Designer d, String kind, String id
     acceptedTypeGroups: const [_partType],
     suggestedName: '${safeName((part['name'] ?? kind).toString())} (${_kindName[kind]}).evoknxpart',
     initialDirectory: dir,
-    confirmButtonText: tr('Xuất'),
+    confirmButtonText: tr('Export'),
   );
   if (loc == null) return;
   final file = loc.path.toLowerCase().endsWith('.evoknxpart') ? loc.path : '${loc.path}.evoknxpart';
   try {
     await File(file).writeAsString(const JsonEncoder.withIndent('  ').convert(part));
     if (context.mounted) {
-      toast(context, 'Đã xuất ${_kindName[kind]} “${part['name']}” (${jsonList(part['groupAddresses']).length} địa chỉ nhóm) ra ${baseName(file)}');
+      toast(context, 'Exported ${_kindName[kind]} “${part['name']}” (${jsonList(part['groupAddresses']).length} group addresses) to ${baseName(file)}');
     }
   } catch (e) {
-    if (context.mounted) toast(context, 'Không ghi được file: $e');
+    if (context.mounted) toast(context, 'Could not write the file: $e');
   }
 }
 
@@ -65,7 +65,7 @@ Future<void> exportPart(BuildContext context, Designer d, String kind, String id
 /// [only] limits what the place accepts: the "Nhập trang" button of a room
 /// takes page files only, the one of a page takes cards only, and so on.
 Future<void> importPart(BuildContext context, Designer d, {String? only}) async {
-  final f = await openFile(acceptedTypeGroups: const [_partType], confirmButtonText: tr('Nhập'));
+  final f = await openFile(acceptedTypeGroups: const [_partType], confirmButtonText: tr('Import'));
   if (f == null) return;
   Object? o;
   try {
@@ -75,7 +75,7 @@ Future<void> importPart(BuildContext context, Designer d, {String? only}) async 
   }
   if (!context.mounted) return;
   if (o is! Map || !isPart(o)) {
-    toast(context, 'File không phải tầng/phòng/trang EvoKNX.');
+    toast(context, 'The file is not an EvoKNX floor/room/page.');
     return;
   }
   final part = o.cast<String, dynamic>();
@@ -83,11 +83,11 @@ Future<void> importPart(BuildContext context, Designer d, {String? only}) async 
   if (only != null && kind != only) {
     toast(
       context,
-      'File này là ${_kindName[kind]}, không phải ${_kindName[only]}. Nhập ${_kindName[kind]} ở ${switch (kind) {
-        'floor' => 'Tổng quan (chuột phải)',
-        'room' => 'tầng',
-        'page' => 'phòng',
-        _ => 'trang',
+      'This file is a ${_kindName[kind]}, not a ${_kindName[only]}. Import ${_kindName[kind]} at ${switch (kind) {
+        'floor' => 'Overview (right-click)',
+        'room' => 'a floor',
+        'page' => 'a room',
+        _ => 'a page',
       }}.',
     );
     return;
@@ -99,23 +99,23 @@ Future<void> importPart(BuildContext context, Designer d, {String? only}) async 
   final floorId = d.floor?['id'] as String?;
   final roomId = d.room?['id'] as String?;
   final where = switch (kind) {
-    'room' => 'vào tầng “${d.floor?['title'] ?? ''}”',
-    'page' => 'vào phòng “${d.room?['title'] ?? ''}”',
-    _ => 'thành tầng mới',
+    'room' => 'into the floor “${d.floor?['title'] ?? ''}”',
+    'page' => 'into the room “${d.room?['title'] ?? ''}”',
+    _ => 'as a new floor',
   };
   final ok = await showDialog<bool>(
     context: context,
     builder: (c) => AlertDialog(
-      title: Text('Nhập ${_kindName[kind]} “${part['name']}”?', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+      title: Text('Import ${_kindName[kind]} “${part['name']}”?', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
       content: SizedBox(
         width: 460,
         child: Text(
-          'Sẽ thêm $where. Địa chỉ nhóm trùng địa chỉ KNX với dự án này được dùng lại, địa chỉ mới được thêm vào danh sách. Có thể hoàn tác (Ctrl+Z).',
+          '$where will be added. Group addresses that match a KNX address already in this project are reused; new addresses are added to the list. Can be undone (Ctrl+Z).',
         ),
       ),
       actions: [
-        EvoButton(label: 'Huỷ', onPressed: () => Navigator.pop(c, false)),
-        EvoButton(label: 'Nhập', primary: true, onPressed: () => Navigator.pop(c, true)),
+        EvoButton(label: 'Cancel', onPressed: () => Navigator.pop(c, false)),
+        EvoButton(label: 'Import', primary: true, onPressed: () => Navigator.pop(c, true)),
       ],
     ),
   );
@@ -135,8 +135,7 @@ Future<void> importPart(BuildContext context, Designer d, {String? only}) async 
   }
   toast(
     context,
-    'Đã nhập ${res.floors > 0 ? '${res.floors} tầng, ' : ''}${res.rooms > 0 ? '${res.rooms} phòng, ' : ''}${res.pages} trang, ${res.widgets} thành phần. '
-    'Địa chỉ nhóm: ${res.reusedAddresses} dùng lại, ${res.newAddresses} thêm mới.',
+    'Imported ${res.floors > 0 ? '${res.floors} floors, ' : ''}${res.rooms > 0 ? '${res.rooms} rooms, ' : ''}${res.pages} pages, ${res.widgets} components. Group addresses: ${res.reusedAddresses} reused, ${res.newAddresses} new.',
   );
 }
 
@@ -144,35 +143,35 @@ Future<void> importPart(BuildContext context, Designer d, {String? only}) async 
 /// name, then where to save it; optionally also adds it to the card library.
 Future<void> exportCard(BuildContext context, Designer d, Json w) async {
   final ctl = TextEditingController(
-    text: (w['label'] ?? '').toString().trim().isEmpty ? (kWidgetTypes[w['type']]?.name ?? 'Thẻ') : (w['label'] ?? '').toString().trim(),
+    text: (w['label'] ?? '').toString().trim().isEmpty ? (kWidgetTypes[w['type']]?.name ?? 'Card') : (w['label'] ?? '').toString().trim(),
   );
   var toLibrary = false;
   final ok = await showDialog<bool>(
     context: context,
     builder: (c) => StatefulBuilder(
       builder: (c, setS) => AlertDialog(
-        title: const Text('Xuất thẻ'),
+        title: const Text('Export card'),
         content: SizedBox(
           width: 380,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              FieldLabel('Tên thẻ', TextField(controller: ctl, autofocus: true, onSubmitted: (_) => Navigator.pop(c, true))),
+              FieldLabel('Card name', TextField(controller: ctl, autofocus: true, onSubmitted: (_) => Navigator.pop(c, true))),
               const SizedBox(height: 10),
               Row(
                 children: [
                   Checkbox(value: toLibrary, onChanged: (v) => setS(() => toLibrary = v == true)),
                   const SizedBox(width: 6),
-                  const Expanded(child: Text('Thêm vào Thư viện thẻ')),
+                  const Expanded(child: Text('Add to the Card library')),
                 ],
               ),
             ],
           ),
         ),
         actions: [
-          EvoButton(label: 'Huỷ', onPressed: () => Navigator.pop(c, false)),
-          EvoButton(label: 'Xuất…', primary: true, onPressed: () => Navigator.pop(c, true)),
+          EvoButton(label: 'Cancel', onPressed: () => Navigator.pop(c, false)),
+          EvoButton(label: 'Export…', primary: true, onPressed: () => Navigator.pop(c, true)),
         ],
       ),
     ),
@@ -184,25 +183,25 @@ Future<void> exportCard(BuildContext context, Designer d, Json w) async {
   if (name.isNotEmpty) part['name'] = name;
   final loc = await getSaveLocation(
     acceptedTypeGroups: const [_partType],
-    suggestedName: '${safeName((part['name'] ?? 'The').toString())} (thẻ).evoknxpart',
+    suggestedName: '${safeName((part['name'] ?? 'The').toString())} (card).evoknxpart',
     initialDirectory: d.p.projectDir,
-    confirmButtonText: tr('Xuất'),
+    confirmButtonText: tr('Export'),
   );
   if (loc == null) return;
   final file = loc.path.toLowerCase().endsWith('.evoknxpart') ? loc.path : '${loc.path}.evoknxpart';
   try {
     await File(file).writeAsString(const JsonEncoder.withIndent('  ').convert(part));
     if (toLibrary) await cardLibrary.add(part);
-    if (context.mounted) toast(context, 'Đã xuất thẻ “${part['name']}” ra ${baseName(file)}${toLibrary ? ' và thêm vào Thư viện thẻ' : ''}');
+    if (context.mounted) toast(context, 'Exported the card “${part['name']}” to ${baseName(file)}${toLibrary ? ' and added to the Card library' : ''}');
   } catch (e) {
-    if (context.mounted) toast(context, 'Không ghi được file: $e');
+    if (context.mounted) toast(context, 'Could not write the file: $e');
   }
 }
 
 Future<void> _importCard(BuildContext context, Designer d, Json part) async {
   final sub = d.sub;
   if (sub == null) {
-    toast(context, 'Hãy chọn một trang để nhập thẻ vào.');
+    toast(context, 'Select a page to import the card into.');
     return;
   }
   final nGa = jsonList(part['groupAddresses']).length;
@@ -211,37 +210,37 @@ Future<void> _importCard(BuildContext context, Designer d, Json part) async {
     context: context,
     builder: (c) => StatefulBuilder(
       builder: (c, setS) => AlertDialog(
-        title: Text('Nhập thẻ “${part['name']}”?', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+        title: Text('Import the card “${part['name']}”?', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
         content: SizedBox(
           width: 460,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text('Thẻ được đặt vào chỗ trống đầu tiên của trang “${sub['title'] ?? ''}”, giữ nguyên mọi cài đặt (kiểu, màu, biểu tượng, chế độ…).'),
+              Text('The card is placed in the first empty spot of the page “${sub['title'] ?? ''}”, keeping all its settings (style, colour, icon, mode…).'),
               const SizedBox(height: 12),
               RadioListTile<bool>(
                 value: true,
                 groupValue: keep,
                 onChanged: (v) => setS(() => keep = true),
-                title: const Text('Giữ địa chỉ nhóm đã gán'),
-                subtitle: Text(nGa == 0 ? 'Thẻ chưa gán địa chỉ nào.' : '$nGa địa chỉ; địa chỉ trùng với dự án này được dùng lại.'),
+                title: const Text('Keep the assigned group addresses'),
+                subtitle: Text(nGa == 0 ? 'The card has no addresses assigned.' : '$nGa addresses; addresses that match this project are reused.'),
                 contentPadding: EdgeInsets.zero,
               ),
               RadioListTile<bool>(
                 value: false,
                 groupValue: keep,
                 onChanged: (v) => setS(() => keep = false),
-                title: const Text('Bỏ địa chỉ nhóm, gán lại sau'),
-                subtitle: const Text('Dùng thẻ như mẫu cho phòng khác.'),
+                title: const Text('Clear the group address, assign again later'),
+                subtitle: const Text('Use the card as a template for other rooms.'),
                 contentPadding: EdgeInsets.zero,
               ),
             ],
           ),
         ),
         actions: [
-          EvoButton(label: 'Huỷ', onPressed: () => Navigator.pop(c, false)),
-          EvoButton(label: 'Nhập', primary: true, onPressed: () => Navigator.pop(c, true)),
+          EvoButton(label: 'Cancel', onPressed: () => Navigator.pop(c, false)),
+          EvoButton(label: 'Import', primary: true, onPressed: () => Navigator.pop(c, true)),
         ],
       ),
     ),
@@ -261,13 +260,13 @@ Future<void> _importCard(BuildContext context, Designer d, Json part) async {
   if (res.firstId != null) d.selectWidget(res.firstId!);
   toast(
     context,
-    'Đã nhập ${res.widgets} thẻ${keep ? '. Địa chỉ nhóm: ${res.reusedAddresses} dùng lại, ${res.newAddresses} thêm mới.' : ', chưa gán địa chỉ nhóm.'}',
+    'Imported ${res.widgets} cards${keep ? '. Group addresses: ${res.reusedAddresses} reused, ${res.newAddresses} new.' : ', no group addresses assigned.'}',
   );
 }
 
 /// "+" of the card library: adds card files (.evoknxpart) to the library.
 Future<void> importCardsToLibrary(BuildContext context) async {
-  final files = await openFiles(acceptedTypeGroups: const [_partType], confirmButtonText: tr('Thêm vào thư viện'));
+  final files = await openFiles(acceptedTypeGroups: const [_partType], confirmButtonText: tr('Add to library'));
   if (files.isEmpty) return;
   var n = 0, skipped = 0;
   for (final f in files) {
@@ -284,6 +283,6 @@ Future<void> importCardsToLibrary(BuildContext context) async {
     }
   }
   if (context.mounted) {
-    toast(context, 'Đã thêm $n thẻ vào thư viện${skipped > 0 ? '; bỏ qua $skipped file không phải thẻ' : ''}.');
+    toast(context, 'Added $n cards to the library${skipped > 0 ? '; skipped $skipped files that are not cards' : ''}.');
   }
 }

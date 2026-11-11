@@ -36,7 +36,7 @@ class FakeHa {
       'entity_id': 'climate.ac',
       'state': 'cool',
       'attributes': {
-        'friendly_name': 'Máy lạnh',
+        'friendly_name': 'Air conditioner',
         'temperature': 25.0,
         'current_temperature': 27.5,
         'hvac_modes': ['off', 'cool', 'heat', 'fan_only', 'dry']
@@ -45,7 +45,7 @@ class FakeHa {
     'sensor.t': {
       'entity_id': 'sensor.t',
       'state': '23.4',
-      'attributes': {'friendly_name': 'Nhiệt độ'}
+      'attributes': {'friendly_name': 'Temperature'}
     },
   };
 
@@ -213,10 +213,10 @@ Future<void> main() async {
   check(haValidateMain(doc, 31) != null, 'room: main group 31 is refused (KNX range)');
   check(haValidateMain(doc, 1000) != null, 'room: main group above 999 is refused');
   check(haNextMain(doc) == 32, 'room: the first free main group is 32');
-  final room1 = addHaRoom(doc, 'Phòng khách', 40);
+  final room1 = addHaRoom(doc, 'Living room', 40);
   check(haValidateMain(doc, 40) != null, 'room: the same main group twice is refused');
   check(haValidateMain(doc, 40, exceptRoom: room1['id'] as String) == null, 'room: its own main group is fine when editing it');
-  final room2 = addHaRoom(doc, 'Phòng ngủ', 41);
+  final room2 = addHaRoom(doc, 'Bedroom', 41);
   check(haRooms(doc).length == 2 && haNextMain(doc) == 42, 'room: two rooms, next main group 42');
   renameHaRoom(doc, room1['id'] as String, '  Khách  ');
   check(haRoomById(doc, room1['id'] as String)!['name'] == 'Khách', 'room: rename');
@@ -236,13 +236,13 @@ Future<void> main() async {
       'addresses: cover position = kind 3 + 20 (40/23/1 and 40/23/101)');
   addHaEntity(doc, light, ['colortemp'], roomId: room1['id'] as String);
   check((doc['groupAddresses'] as List).any((g) => g['address'] == '40/22/1'), 'addresses: an entity keeps its number (colour temperature 40/22/1)');
-  final ac = ent('climate.ac', 'cool', {'friendly_name': 'Máy lạnh'});
+  final ac = ent('climate.ac', 'cool', {'friendly_name': 'Air conditioner'});
   addHaEntity(doc, ac, ['onoff', 'setpoint', 'current', 'mode'], roomId: room2['id'] as String);
-  addHaEntity(doc, ent('sensor.t', '23.4', {'friendly_name': 'Nhiệt độ'}), ['sensor'], roomId: room2['id'] as String);
+  addHaEntity(doc, ent('sensor.t', '23.4', {'friendly_name': 'Temperature'}), ['sensor'], roomId: room2['id'] as String);
   check(added.every((g) => g['dpt'] != null && isHaAddress(g) && g['ha']['room'] == room1['id'] && g['ha']['kind'] == 2),
       'addresses: have a DPT, the ha link, their room and kind');
   addHaEntity(doc, ent('light.den2', 'on', {'friendly_name': 'Đèn 2', 'brightness': 1}), ['onoff'], roomId: room1['id'] as String);
-  addHaEntity(doc, ent('switch.quat', 'on', {'friendly_name': 'Quạt'}), ['onoff'], roomId: room1['id'] as String);
+  addHaEntity(doc, ent('switch.quat', 'on', {'friendly_name': 'Fan'}), ['onoff'], roomId: room1['id'] as String);
   addHaEntity(doc, ent('cover.rem2', 'open', {'friendly_name': 'Rèm 2'}), ['move', 'stop'], roomId: room1['id'] as String);
   final tv = ent('media_player.tv', 'playing', {'friendly_name': 'TV'});
   check(haKind(tv) == 5 && haSuggest(tv).map((a) => a.key).join(',') == 'onoff,playpause,mstop,prev,next,volume,mute,playing',
@@ -278,7 +278,7 @@ Future<void> main() async {
     addHaEntity(doc, ent('light.moi', 'on'), ['onoff'], roomId: 'khong-co');
     check(false, 'entity: unknown room is refused');
   } on StateError catch (e) {
-    check(e.message.contains('phòng'), 'entity: unknown room is refused');
+    check(e.message.contains('room'), 'entity: unknown room is refused');
   }
 
   String addr(String entity, String attr, String role) {
@@ -338,9 +338,9 @@ Future<void> main() async {
   }
 
   // ---- rename keeps the entity id
-  renameHaEntity(doc, 'light.den1', 'Đèn bàn');
+  renameHaEntity(doc, 'light.den1', 'Table lamp');
   final onoff = ga(addr('light.den1', 'onoff', 'cmd'));
-  check(onoff['name'] == 'Đèn bàn · Bật/tắt (lệnh)' && onoff['ha']['entity'] == 'light.den1' && onoff['ha']['title'] == 'Đèn bàn',
+  check(onoff['name'] == 'Table lamp · On/Off (command)' && onoff['ha']['entity'] == 'light.den1' && onoff['ha']['title'] == 'Table lamp',
       'rename: new name, same HA entity id');
 
   // ---- point an item at another entity
@@ -432,7 +432,7 @@ Future<void> main() async {
     await haFetchEntities(url, 'sai');
     check(false, 'connect: wrong token is refused');
   } on HaException catch (e) {
-    check(e.message.contains('Token'), 'connect: wrong token is refused (${e.message})');
+    check(e.message.contains('token'), 'connect: wrong token is refused (${e.message})');
   }
   final r = await haFetchEntities(url, 'tok');
   check(r.version == '2025.1.0' && r.entities.length == 4, 'connect: version and ${r.entities.length} entities');

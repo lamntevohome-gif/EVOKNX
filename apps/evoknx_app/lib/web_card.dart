@@ -24,7 +24,7 @@ WebViewController _controller(Uri uri, {void Function(int)? onProgress, void Fun
         onProgress: onProgress,
         onPageStarted: (_) => onError?.call(null),
         onWebResourceError: (e) {
-          if (e.isForMainFrame != false) onError?.call('Không tải được trang (${e.description}).');
+          if (e.isForMainFrame != false) onError?.call('Could not load the page (${e.description}).');
         },
       ),
     )
@@ -84,7 +84,7 @@ class _WebCardState extends State<WebCard> {
     final label = (w['label'] ?? '').toString();
     final c = _c;
     Widget fullButton() => IconButton(
-      tooltip: tr('Mở toàn màn hình'),
+      tooltip: tr('Open full screen'),
       visualDensity: VisualDensity.compact,
       icon: Icon(Icons.open_in_full, size: 20, color: pal.muted),
       onPressed: () => openWebPage(context, label, _uri!, pal),
@@ -131,7 +131,7 @@ class _WebCardState extends State<WebCard> {
                   Positioned.fill(
                     child: c == null
                         ? Center(
-                            child: Text('Chưa có địa chỉ web', style: TextStyle(color: pal.muted)),
+                            child: Text('No web address', style: TextStyle(color: pal.muted)),
                           )
                         : IgnorePointer(
                             ignoring: !interactive,
@@ -173,7 +173,7 @@ class _WebCardState extends State<WebCard> {
                                     setState(() => _error = null);
                                     c?.reload();
                                   },
-                                  child: const Text('Thử lại'),
+                                  child: const Text('Retry'),
                                 ),
                               ],
                             ),
@@ -234,7 +234,7 @@ class _WebPageState extends State<WebPage> {
           widget.title.isEmpty ? widget.uri.host : widget.title,
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: pal.ink),
         ),
-        actions: [IconButton(tooltip: tr('Tải lại'), icon: const Icon(Icons.refresh), onPressed: () => _c.reload())],
+        actions: [IconButton(tooltip: tr('Reload'), icon: const Icon(Icons.refresh), onPressed: () => _c.reload())],
       ),
       body: Stack(
         children: [

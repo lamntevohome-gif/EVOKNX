@@ -41,25 +41,25 @@ class HaAttr {
 }
 
 const List<HaAttr> kHaAttrs = [
-  HaAttr('onoff', 'Bật/tắt', '1.001'),
-  HaAttr('brightness', 'Độ sáng', '5.001'),
-  HaAttr('colortemp', 'Nhiệt độ màu', '7.600'),
-  HaAttr('position', 'Vị trí rèm', '5.001'),
-  HaAttr('move', 'Rèm lên/xuống', '1.008', status: false),
-  HaAttr('stop', 'Rèm dừng', '1.007', status: false),
-  HaAttr('setpoint', 'Nhiệt độ cài đặt', '9.001'),
-  HaAttr('current', 'Nhiệt độ phòng', '9.001', cmd: false),
-  HaAttr('mode', 'Chế độ', '20.105'),
-  HaAttr('sensor', 'Giá trị cảm biến', '9.001', cmd: false),
-  HaAttr('binary', 'Trạng thái (bật/tắt)', '1.001', cmd: false),
-  HaAttr('scene', 'Kích hoạt', '17.001', status: false),
-  HaAttr('playpause', 'Phát/Tạm dừng', '1.001', status: false),
-  HaAttr('mstop', 'Dừng phát', '1.001', status: false),
-  HaAttr('prev', 'Bài trước', '1.001', status: false),
-  HaAttr('next', 'Bài sau', '1.001', status: false),
-  HaAttr('volume', 'Âm lượng', '5.001'),
-  HaAttr('mute', 'Tắt tiếng', '1.001'),
-  HaAttr('playing', 'Đang phát', '1.001', cmd: false),
+  HaAttr('onoff', 'On/Off', '1.001'),
+  HaAttr('brightness', 'Brightness', '5.001'),
+  HaAttr('colortemp', 'Colour temperature', '7.600'),
+  HaAttr('position', 'Blind position', '5.001'),
+  HaAttr('move', 'Blind up/down', '1.008', status: false),
+  HaAttr('stop', 'Blind stop', '1.007', status: false),
+  HaAttr('setpoint', 'Setpoint', '9.001'),
+  HaAttr('current', 'Room temperature', '9.001', cmd: false),
+  HaAttr('mode', 'Mode', '20.105'),
+  HaAttr('sensor', 'Sensor value', '9.001', cmd: false),
+  HaAttr('binary', 'Status (on/off)', '1.001', cmd: false),
+  HaAttr('scene', 'Activate', '17.001', status: false),
+  HaAttr('playpause', 'Play/Pause', '1.001', status: false),
+  HaAttr('mstop', 'Stop playback', '1.001', status: false),
+  HaAttr('prev', 'Previous track', '1.001', status: false),
+  HaAttr('next', 'Next track', '1.001', status: false),
+  HaAttr('volume', 'Volume', '5.001'),
+  HaAttr('mute', 'Mute', '1.001'),
+  HaAttr('playing', 'Playing', '1.001', cmd: false),
 ];
 
 /// Functions of each kind of entity, in the order that gives their middle group
@@ -74,7 +74,7 @@ const Map<int, List<String>> kHaFunctions = {
   6: ['onoff', 'setpoint', 'current', 'mode'],
 };
 
-const List<String> kHaKindNames = ['Cảnh, script, tự động hoá', 'Công tắc, đèn', 'Đèn dim', 'Rèm', 'Cảm biến', 'Media player', 'Máy lạnh'];
+const List<String> kHaKindNames = ['Scenes, scripts, automations', 'Switches, lights', 'Dimmer', 'Blind', 'Sensor', 'Media player', 'Air conditioner'];
 
 bool _lightDims(HaEntity e) {
   final modes = [for (final x in (e.attributes['supported_color_modes'] as List? ?? const [])) x.toString()];
@@ -185,10 +185,10 @@ Map<String, dynamic> _haMap(Json doc) {
 
 /// Why [main] cannot be the main group of a room (null = it can).
 String? haValidateMain(Json doc, int main, {String? exceptRoom}) {
-  if (main < kHaMinMain) return 'Nhóm chính phải lớn hơn 31 (0–31 là địa chỉ KNX thật).';
-  if (main > 999) return 'Nhóm chính tối đa là 999.';
+  if (main < kHaMinMain) return 'The main group must be greater than 31 (0–31 are real KNX addresses).';
+  if (main > 999) return 'The main group is at most 999.';
   for (final r in haRooms(doc)) {
-    if (r['id'] != exceptRoom && r['main'] == main) return 'Nhóm chính $main đã dùng cho phòng “${r['name']}”.';
+    if (r['id'] != exceptRoom && r['main'] == main) return 'Main group $main is already used for the room “${r['name']}”.';
   }
   return null;
 }
@@ -222,7 +222,7 @@ void renameHaRoom(Json doc, String roomId, String name) {
 /// text (nothing is changed) or null.
 String? moveHaRoom(Json doc, String roomId, int main) {
   final r = haRoomById(doc, roomId);
-  if (r == null) return 'Không tìm thấy phòng.';
+  if (r == null) return 'Room not found.';
   final err = haValidateMain(doc, main, exceptRoom: roomId);
   if (err != null) return err;
   final old = (r['main'] as num).toInt();
@@ -235,7 +235,7 @@ String? moveHaRoom(Json doc, String roomId, int main) {
     for (final g in jsonList(doc['groupAddresses']))
       if (!renamed.containsKey(g['id'])) g['address'].toString()
   };
-  if (renamed.values.any(taken.contains)) return 'Có địa chỉ trùng sau khi đổi nhóm chính.';
+  if (renamed.values.any(taken.contains)) return 'Duplicate addresses after changing the main group.';
   for (final g in mine) {
     g['address'] = renamed[g['id']];
   }
@@ -282,7 +282,7 @@ String haAddressFor(int main, int kind, String attrKey, int n, String role) {
   final gas = jsonList(doc['groupAddresses']);
   // An entity stays in the room it was first added to.
   final room = haRoomById(doc, haEntityRoom(doc, e.id) ?? roomId);
-  if (room == null) throw StateError('Hãy tạo phòng trước.');
+  if (room == null) throw StateError('Create a room first.');
   final rid = room['id'] as String;
   final kind = haKind(e);
   var n = 0;
@@ -301,7 +301,7 @@ String haAddressFor(int main, int kind, String attrKey, int n, String role) {
       if (h is Map && h['room'] == rid && h['kind'] == kind) top = [top, (h['n'] as num?)?.toInt() ?? 0].reduce((a, b) => a > b ? a : b);
     }
     n = top + 1;
-    if (n > kHaMaxEntities) throw StateError('Phòng “${room['name']}” đã đủ $kHaMaxEntities entity loại “${kHaKindNames[kind]}”.');
+    if (n > kHaMaxEntities) throw StateError('The room “${room['name']}” already has $kHaMaxEntities entities of the type “${kHaKindNames[kind]}”.');
   }
   return (room: room, kind: kind, n: n, shown: shown);
 }
@@ -349,13 +349,13 @@ List<Json> addHaEntity(Json doc, HaEntity e, List<String> attrKeys, {required St
       final typed = addresses?['$key|$role']?.trim();
       final addr = (typed != null && typed.isNotEmpty) ? haCanonicalAddress(typed) : haAddressFor(main, plan.kind, key, plan.n, role);
       if (gas.any((g) => (g as Map)['address'] == addr)) {
-        if (typed != null && typed.isNotEmpty) throw StateError('Địa chỉ $addr đã dùng cho entity khác.');
+        if (typed != null && typed.isNotEmpty) throw StateError('The address $addr is already used for another entity.');
         continue;
       }
       final ga = <String, dynamic>{
         'id': uid('ga_'),
         'address': addr,
-        'name': '$name · ${a.label}${role == 'cmd' ? ' (lệnh)' : ' (trạng thái)'}',
+        'name': '$name · ${a.label}${role == 'cmd' ? ' (command)' : ' (status)'}',
         'dpt': a.dpt,
         'ha': {'entity': e.id, 'attr': key, 'role': role, 'room': rid, 'kind': plan.kind, 'n': plan.n, 'title': name},
       };
@@ -409,7 +409,8 @@ int readdressHaRoom(Json doc, String roomId) {
     for (final g in jsonList(doc['groupAddresses']))
       if (!fresh.containsKey(g['id'])) g['address'].toString()
   };
-  if (fresh.values.any(others.contains) || fresh.values.toSet().length != fresh.length) throw StateError('Có địa chỉ trùng với địa chỉ khác trong dự án.');
+  if (fresh.values.any(others.contains) || fresh.values.toSet().length != fresh.length)
+    throw StateError('An address would duplicate another address in the project.');
   var changed = 0;
   for (final g in mine) {
     final a = fresh[g['id']]!;
@@ -426,12 +427,13 @@ int readdressHaRoom(Json doc, String roomId) {
 /// null. The addresses, the cards' links and the display name stay.
 String? haChangeEntityId(Json doc, String oldId, String newId) {
   final id = newId.trim().toLowerCase();
-  if (!RegExp(r'^[a-z0-9_]+\.[a-z0-9_]+$').hasMatch(id)) return 'Mã entity có dạng loại.tên, ví dụ light.den1.';
+  if (!RegExp(r'^[a-z0-9_]+\.[a-z0-9_]+$').hasMatch(id)) return 'An entity ID has the form domain.name, for example light.den1.';
   if (id == oldId) return null;
-  if (id.split('.').first != oldId.split('.').first) return 'Phải cùng loại với entity cũ (${oldId.split('.').first}), vì mỗi loại có chức năng khác nhau.';
+  if (id.split('.').first != oldId.split('.').first)
+    return 'It must be the same type as the old entity (${oldId.split('.').first}), because each type has different functions.';
   for (final g in jsonList(doc['groupAddresses'])) {
     final h = g['ha'];
-    if (h is Map && h['entity'] == id) return 'Entity $id đã có trong dự án.';
+    if (h is Map && h['entity'] == id) return 'Entity $id is already in the project.';
   }
   for (final g in jsonList(doc['groupAddresses'])) {
     final h = g['ha'];
@@ -449,19 +451,19 @@ void renameHaEntity(Json doc, String entityId, String title) {
     if (h is! Map || h['entity'] != entityId) continue;
     h['title'] = t;
     final a = haAttr((h['attr'] ?? '').toString());
-    g['name'] = '$t · ${a?.label ?? h['attr']}${h['role'] == 'cmd' ? ' (lệnh)' : ' (trạng thái)'}';
+    g['name'] = '$t · ${a?.label ?? h['attr']}${h['role'] == 'cmd' ? ' (command)' : ' (status)'}';
   }
 }
 
 /// Why [address] cannot be the virtual address of [exceptId] (null = it can).
 String? haValidateAddress(Json doc, String address, {String? exceptId}) {
   final m = RegExp(r'^(\d{1,3})/(\d{1,3})/(\d{1,3})$').firstMatch(address.trim());
-  if (m == null) return 'Địa chỉ phải có dạng nhóm chính/nhóm giữa/nhóm phụ, ví dụ 40/10/1.';
+  if (m == null) return 'An address has the form main group/middle group/sub group, for example 40/10/1.';
   final main = int.parse(m[1]!), mid = int.parse(m[2]!), sub = int.parse(m[3]!);
-  if (main < kHaMinMain) return 'Nhóm chính phải lớn hơn 31 (0–31 là địa chỉ KNX thật).';
-  if (mid > 255 || sub > 255) return 'Nhóm giữa và nhóm phụ tối đa là 255.';
+  if (main < kHaMinMain) return 'The main group must be greater than 31 (0–31 are real KNX addresses).';
+  if (mid > 255 || sub > 255) return 'The middle and sub groups are at most 255.';
   for (final g in jsonList(doc['groupAddresses'])) {
-    if (g['id'] != exceptId && g['address'] == '$main/$mid/$sub') return 'Địa chỉ $main/$mid/$sub đã dùng cho “${g['name']}”.';
+    if (g['id'] != exceptId && g['address'] == '$main/$mid/$sub') return 'The address $main/$mid/$sub is already used for “${g['name']}”.';
   }
   return null;
 }
@@ -693,26 +695,26 @@ class HaSession {
     try {
       ws = await WebSocket.connect(haWebSocketUrl(url), customClient: client).timeout(timeout);
     } on TimeoutException {
-      throw HaException('Không kết nối được Home Assistant (quá thời gian chờ). Kiểm tra địa chỉ và mạng.');
+      throw HaException('Could not connect to Home Assistant (timed out). Check the address and the network.');
     } catch (e) {
-      throw HaException('Không kết nối được Home Assistant. Kiểm tra địa chỉ, cổng và mạng. ($e)');
+      throw HaException('Could not connect to Home Assistant. Check the address, port and network. ($e)');
     }
     final s = HaSession._(ws);
     ws.listen(s._onData, onDone: s._onDone, onError: (_) => s._onDone(), cancelOnError: true);
     try {
       final hello = await s._next(timeout);
-      if (hello['type'] != 'auth_required') throw HaException('Máy chủ không phải Home Assistant.');
+      if (hello['type'] != 'auth_required') throw HaException('The server is not Home Assistant.');
       s.version = hello['ha_version']?.toString();
       ws.add(jsonEncode({'type': 'auth', 'access_token': token}));
       final r = await s._next(timeout);
-      if (r['type'] == 'auth_invalid') throw HaException('Token không đúng hoặc đã bị thu hồi.');
-      if (r['type'] != 'auth_ok') throw HaException('Home Assistant không chấp nhận đăng nhập.');
+      if (r['type'] == 'auth_invalid') throw HaException('The token is wrong or has been revoked.');
+      if (r['type'] != 'auth_ok') throw HaException('Home Assistant did not accept the login.');
       s._authed = true;
       return s;
     } catch (e) {
       await s.close();
       if (e is HaException) rethrow;
-      if (e is TimeoutException) throw HaException('Home Assistant không trả lời.');
+      if (e is TimeoutException) throw HaException('Home Assistant did not respond.');
       throw HaException('$e');
     }
   }
@@ -747,10 +749,10 @@ class HaSession {
 
   void _onDone() {
     for (final c in _handshake) {
-      if (!c.isCompleted) c.completeError(HaException('Mất kết nối Home Assistant.'));
+      if (!c.isCompleted) c.completeError(HaException('Home Assistant connection lost.'));
     }
     for (final c in _pending.values) {
-      if (!c.isCompleted) c.completeError(HaException('Mất kết nối Home Assistant.'));
+      if (!c.isCompleted) c.completeError(HaException('Home Assistant connection lost.'));
     }
     _pending.clear();
     if (!_closed.isCompleted) _closed.complete();
@@ -767,11 +769,11 @@ class HaSession {
       r = await c.future.timeout(timeout);
     } on TimeoutException {
       _pending.remove(id);
-      throw HaException('Home Assistant không trả lời.');
+      throw HaException('Home Assistant did not respond.');
     }
     if (r['success'] == false) {
       final err = r['error'];
-      throw HaException(err is Map ? (err['message'] ?? 'Lỗi từ Home Assistant').toString() : 'Lỗi từ Home Assistant');
+      throw HaException(err is Map ? (err['message'] ?? 'Error from Home Assistant').toString() : 'Error from Home Assistant');
     }
     return r['result'];
   }
@@ -873,7 +875,7 @@ class HaBridge {
         wait = 1;
         _set(HaConnection.connected);
         await s.closed;
-        if (!_stopped) _set(HaConnection.failed, 'Mất kết nối Home Assistant. Đang thử lại…');
+        if (!_stopped) _set(HaConnection.failed, 'Home Assistant connection lost. Retrying…');
       } on HaException catch (e) {
         _set(HaConnection.failed, e.message);
       } catch (e) {
@@ -904,13 +906,13 @@ class HaBridge {
   /// Writes a card's value to the entity of the virtual address [ga].
   Future<String?> write(Json ga, Object value) async {
     final s = _session;
-    if (s == null || !connected) return 'Chưa kết nối được Home Assistant.';
+    if (s == null || !connected) return 'Could not connect to Home Assistant.';
     final h = jsonMap(ga['ha']);
     final id = (h['entity'] ?? '').toString();
     final e = _entities[id] ?? HaEntity(id, '', const {});
     final call = haCommand(e, (h['attr'] ?? '').toString(), value);
     if (call != null && call.isNone) return null;
-    if (call == null) return 'Không gửi được lệnh “${ga['name'] ?? ga['address']}” tới Home Assistant.';
+    if (call == null) return 'Could not send the command “${ga['name'] ?? ga['address']}” to Home Assistant.';
     try {
       await s.callService(call, id);
       return null;
