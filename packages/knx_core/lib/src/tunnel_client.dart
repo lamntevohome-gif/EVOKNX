@@ -112,9 +112,9 @@ class KnxTunnelClient {
     try {
       resolved = await InternetAddress.lookup(options.host, type: InternetAddressType.IPv4);
     } on SocketException {
-      throw KnxException('Không phân giải được địa chỉ "${options.host}".');
+      throw KnxException('Could not resolve the address "${options.host}".');
     }
-    if (resolved.isEmpty) throw KnxException('Không phân giải được địa chỉ "${options.host}".');
+    if (resolved.isEmpty) throw KnxException('Could not resolve the address "${options.host}".');
     _remote = resolved.first;
     final socket = await RawDatagramSocket.bind(InternetAddress.anyIPv4, 0);
     _socket = socket;
@@ -128,12 +128,12 @@ class KnxTunnelClient {
     try {
       resp = await w.future.timeout(options.connectTimeout);
     } on TimeoutException {
-      throw KnxException('Không có phản hồi từ ${options.host}:${options.port}. Kiểm tra địa chỉ IP, cổng và mạng.');
+      throw KnxException('No response from ${options.host}:${options.port}. Check the IP address, port and network.');
     } finally {
       _connectWaiter = null;
     }
     final b = resp.body;
-    if (b.length < 2) throw KnxException('Phản hồi kết nối không hợp lệ.');
+    if (b.length < 2) throw KnxException('Invalid connection response.');
     if (b[1] != KnxError.noError) throw KnxException(KnxError.describe(b[1]));
     _channel = b[0];
     if (b.length >= 14 && b[10] == 0x04 && b[11] == 0x04) {
@@ -195,7 +195,7 @@ class KnxTunnelClient {
       case KnxService.disconnectRequest:
         if (b.isNotEmpty && b[0] == _channel) {
           _send(KnxIpFrame.disconnectResponse(_channel, KnxError.noError));
-          lastError = 'Interface đã chủ động ngắt kết nối.';
+          lastError = 'The interface closed the connection.';
           _onLost();
         }
         break;
@@ -242,7 +242,7 @@ class KnxTunnelClient {
         if (status == KnxError.noError) return;
         lastError = KnxError.describe(status);
       } on TimeoutException {
-        lastError = 'Interface không trả lời kiểm tra kết nối.';
+        lastError = 'The interface did not respond to the connection check.';
       } finally {
         _stateWaiter = null;
       }
@@ -252,7 +252,7 @@ class KnxTunnelClient {
 
   void _onLost() {
     _heartbeat?.cancel();
-    _failPending(KnxException(lastError ?? 'Mất kết nối.'));
+    _failPending(KnxException(lastError ?? 'Connection lost.'));
     _closeSocket();
     if (_userClosed || !options.autoReconnect) {
       _setState(KnxConnectionState.disconnected);
@@ -312,7 +312,7 @@ class KnxTunnelClient {
       } catch (_) {}
       _disconnectWaiter = null;
     }
-    _failPending(KnxException('Đã ngắt kết nối.'));
+    _failPending(KnxException('Disconnected.'));
     await _closeSocket();
     _setState(KnxConnectionState.disconnected);
   }
@@ -332,7 +332,7 @@ class KnxTunnelClient {
   }
 
   Future<void> _sendCemi(CemiFrame frame) => _enqueue(() async {
-        if (_state != KnxConnectionState.connected) throw KnxException('Chưa kết nối tới bus KNX.');
+        if (_state != KnxConnectionState.connected) throw KnxException('Not connected to the KNX bus.');
         final wait = options.minSendInterval - DateTime.now().difference(_lastSend);
         if (!wait.isNegative) await Future<void>.delayed(wait);
         final bytes = frame.toBytes();
@@ -351,7 +351,7 @@ class KnxTunnelClient {
           } on TimeoutException {
             _ackWaiters.remove(seq);
             if (attempt == 1) {
-              lastError = 'Interface không xác nhận telegram.';
+              lastError = 'The interface did not acknowledge the telegram.';
               _onLost();
               throw KnxException(lastError!);
             }
@@ -359,7 +359,7 @@ class KnxTunnelClient {
         }
         try {
           final ok = await _conWaiter!.future.timeout(const Duration(seconds: 3));
-          if (!ok) throw KnxException('Bus KNX không xác nhận telegram (L_Data.con báo lỗi).');
+          if (!ok) throw KnxException('The KNX bus did not acknowledge the telegram (L_Data.con reported an error).');
         } on TimeoutException {
           // Some interfaces do not send L_Data.con; accept.
         } finally {
@@ -378,15 +378,13 @@ class KnxTunnelClient {
       });
 
   /// Sends a GroupValueWrite with an encoded payload.
-  Future<void> write(GroupAddress ga, KnxPayload payload) =>
-      _sendCemi(CemiFrame.groupRequest(ga, TelegramType.write, payload));
+  Future<void> write(GroupAddress ga, KnxPayload payload) => _sendCemi(CemiFrame.groupRequest(ga, TelegramType.write, payload));
 
   /// Encodes [value] with [dpt] and writes it.
   Future<void> writeValue(GroupAddress ga, String dpt, Object value) => write(ga, Dpt.encode(dpt, value));
 
   /// Sends a GroupValueResponse.
-  Future<void> respond(GroupAddress ga, KnxPayload payload) =>
-      _sendCemi(CemiFrame.groupRequest(ga, TelegramType.response, payload));
+  Future<void> respond(GroupAddress ga, KnxPayload payload) => _sendCemi(CemiFrame.groupRequest(ga, TelegramType.response, payload));
 
   /// Sends a GroupValueRead and waits for the answer (or null on timeout).
   Future<KnxTelegram?> read(GroupAddress ga, {Duration timeout = const Duration(seconds: 2)}) async {

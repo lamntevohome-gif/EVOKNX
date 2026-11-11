@@ -68,7 +68,9 @@ class FakeKnxInterface {
 
   /// Sends an L_Data.ind (as if another device wrote to the bus).
   void inject(int destination, List<int> data, {bool short = true}) {
-    _push(CemiFrame(messageCode: CemiCode.lDataInd, source: const IndividualAddress(0x110A), destination: destination, apci: Apci.write, data: data, shortData: short).toBytes());
+    _push(CemiFrame(
+            messageCode: CemiCode.lDataInd, source: const IndividualAddress(0x110A), destination: destination, apci: Apci.write, data: data, shortData: short)
+        .toBytes());
   }
 
   void _push(List<int> cemi) {
@@ -82,4 +84,3 @@ class FakeKnxInterface {
 
   void close() => _s?.close();
 }
-

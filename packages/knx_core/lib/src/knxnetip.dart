@@ -26,17 +26,17 @@ class KnxError {
   static String describe(int code) {
     switch (code) {
       case noMoreConnections:
-        return 'Interface đã hết kênh tunnel trống (đang có quá nhiều thiết bị kết nối).';
+        return 'The interface has no free tunnel channels left (too many devices are connected).';
       case connectionType:
-        return 'Interface không hỗ trợ kiểu kết nối tunnel này.';
+        return 'The interface does not support this tunnel connection type.';
       case connectionOption:
-        return 'Interface không hỗ trợ tuỳ chọn kết nối này.';
+        return 'The interface does not support this connection option.';
       case connectionId:
-        return 'Mã kênh kết nối không hợp lệ.';
+        return 'Invalid connection channel ID.';
       case knxConnection:
-        return 'Interface mất kết nối với bus KNX.';
+        return 'The interface lost its connection to the KNX bus.';
       default:
-        return 'Lỗi KNXnet/IP 0x${code.toRadixString(16).padLeft(2, '0')}.';
+        return 'KNXnet/IP error 0x${code.toRadixString(16).padLeft(2, '0')}.';
     }
   }
 }
@@ -81,17 +81,13 @@ class KnxIpFrame {
   static Uint8List connectRequest(Hpai control, Hpai data) =>
       build(KnxService.connectRequest, [...control.toBytes(), ...data.toBytes(), 0x04, 0x04, 0x02, 0x00]);
 
-  static Uint8List connectionStateRequest(int channel, Hpai control) =>
-      build(KnxService.connectionStateRequest, [channel, 0x00, ...control.toBytes()]);
+  static Uint8List connectionStateRequest(int channel, Hpai control) => build(KnxService.connectionStateRequest, [channel, 0x00, ...control.toBytes()]);
 
-  static Uint8List disconnectRequest(int channel, Hpai control) =>
-      build(KnxService.disconnectRequest, [channel, 0x00, ...control.toBytes()]);
+  static Uint8List disconnectRequest(int channel, Hpai control) => build(KnxService.disconnectRequest, [channel, 0x00, ...control.toBytes()]);
 
   static Uint8List disconnectResponse(int channel, int status) => build(KnxService.disconnectResponse, [channel, status]);
 
-  static Uint8List tunnellingRequest(int channel, int seq, List<int> cemi) =>
-      build(KnxService.tunnellingRequest, [0x04, channel, seq & 0xFF, 0x00, ...cemi]);
+  static Uint8List tunnellingRequest(int channel, int seq, List<int> cemi) => build(KnxService.tunnellingRequest, [0x04, channel, seq & 0xFF, 0x00, ...cemi]);
 
-  static Uint8List tunnellingAck(int channel, int seq, int status) =>
-      build(KnxService.tunnellingAck, [0x04, channel, seq & 0xFF, status]);
+  static Uint8List tunnellingAck(int channel, int seq, int status) => build(KnxService.tunnellingAck, [0x04, channel, seq & 0xFF, status]);
 }
