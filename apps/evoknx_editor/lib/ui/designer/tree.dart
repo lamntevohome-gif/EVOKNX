@@ -194,6 +194,22 @@ class StructureTree extends StatelessWidget {
             (Icons.file_download_outlined, 'Nhập tầng', () => importPart(context, d, only: 'floor')),
           ]),
         ),
+        if (d.galleryOn)
+          row(
+            leading: Icon(Icons.grid_view_rounded, size: 14, color: c.muted),
+            text: 'Thư viện phòng',
+            on: d.view == 'gallery',
+            onTap: d.gallery,
+            onMenu: (at) {},
+          ),
+        if (d.modernOn)
+          row(
+            leading: Icon(Icons.layers_rounded, size: 14, color: c.muted),
+            text: 'Thư viện tầng',
+            on: d.view == 'floors',
+            onTap: d.floorsGallery,
+            onMenu: (at) {},
+          ),
         const SizedBox(height: 6),
         for (final f in floorsOf(doc)) ...[
           row(

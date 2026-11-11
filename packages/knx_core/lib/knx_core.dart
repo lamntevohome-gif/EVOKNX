@@ -1,4 +1,4 @@
-/// KNX core library for EVOKNX: addresses, DPT codecs, cEMI, KNXnet/IP tunneling.
+/// KNX core library for EvoKNX: addresses, DPT codecs, cEMI, KNXnet/IP tunneling.
 library knx_core;
 
 export 'src/address.dart';

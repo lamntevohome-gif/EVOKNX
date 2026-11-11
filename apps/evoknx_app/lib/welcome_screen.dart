@@ -58,12 +58,12 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                   ),
                   const SizedBox(height: 24),
                   Text(
-                    'EVOKNX',
+                    'EvoKNX',
                     style: TextStyle(fontSize: 30, fontWeight: FontWeight.w700, color: pal.ink, letterSpacing: 0.4),
                   ),
                   const SizedBox(height: 10),
                   Text(
-                    'Chưa có hồ sơ. Gửi file dự án (.evoknx) từ máy tính sang điện thoại (Zalo, Drive, cáp USB), rồi mở file và chọn Chia sẻ → EVOKNX, hoặc bấm nút bên dưới để chọn file.',
+                    'Chưa có hồ sơ. Gửi file dự án (.evoknx) từ máy tính sang điện thoại (Zalo, Drive, cáp USB), rồi mở file và chọn Chia sẻ → EvoKNX, hoặc bấm nút bên dưới để chọn file.',
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 15.5, height: 1.45, color: pal.muted),
                   ),

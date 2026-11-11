@@ -1,4 +1,4 @@
-# EVOKNX
+# EvoKNX
 
 Phần mềm thiết kế và điều khiển giao diện nhà thông minh KNX của Evohome.
 
@@ -16,8 +16,8 @@ packages/knx_config/  File dự án .evoknx, nâng cấp phiên bản, nhập ET
 ## Lấy bản cài đặt Windows
 
 1. Mỗi lần đưa code lên nhánh `main`, GitHub tự build (tab **Actions**).
-2. Mở lần chạy mới nhất có dấu ✓ xanh, kéo xuống mục **Artifacts**, tải **EVOKNX-Editor-Windows**.
-3. Giải nén, chạy `EVOKNX-Editor/evoknx_editor.exe`. Không cần cài đặt thêm.
+2. Mở lần chạy mới nhất có dấu ✓ xanh, kéo xuống mục **Artifacts**, tải **EvoKNX-Editor-Windows**.
+3. Giải nén, chạy `EvoKNX-Editor/evoknx_editor.exe`. Không cần cài đặt thêm.
 
 ## Chạy trên máy lập trình
 

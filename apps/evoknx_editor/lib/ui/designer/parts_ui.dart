@@ -11,7 +11,7 @@ import '../../state/project_files.dart';
 import '../common.dart';
 import 'designer.dart';
 
-const _partType = XTypeGroup(label: 'Tầng / phòng / trang / thẻ EVOKNX', extensions: ['evoknxpart']);
+const _partType = XTypeGroup(label: 'Tầng / phòng / trang / thẻ EvoKNX', extensions: ['evoknxpart']);
 const _kindName = {'floor': 'tầng', 'room': 'phòng', 'page': 'trang', 'card': 'thẻ'};
 
 /// "Xuất tầng/phòng/trang…" and "Nhập…" buttons.
@@ -75,7 +75,7 @@ Future<void> importPart(BuildContext context, Designer d, {String? only}) async 
   }
   if (!context.mounted) return;
   if (o is! Map || !isPart(o)) {
-    toast(context, 'File không phải tầng/phòng/trang EVOKNX.');
+    toast(context, 'File không phải tầng/phòng/trang EvoKNX.');
     return;
   }
   final part = o.cast<String, dynamic>();

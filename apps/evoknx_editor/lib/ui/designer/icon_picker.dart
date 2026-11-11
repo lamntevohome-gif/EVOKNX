@@ -54,7 +54,7 @@ class IconField extends StatelessWidget {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              iconLabel(value),
+              trIcon(iconLabel(value)),
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(fontSize: kUiText),
             ),
@@ -323,7 +323,7 @@ class _IconPickerDialogState extends State<_IconPickerDialog> {
                         items: [
                           (-1, 'Tất cả (${Mdi.all.length})'),
                           for (final e in kMdiTagNames.entries)
-                            if (Mdi.tagIndex(e.key) >= 0) (Mdi.tagIndex(e.key), e.value),
+                            if (Mdi.tagIndex(e.key) >= 0) (Mdi.tagIndex(e.key), trIcon(e.value)),
                           for (var i = 0; i < Mdi.tags.length; i++)
                             if (!kMdiTagNames.containsKey(Mdi.tags[i])) (i, Mdi.tags[i]),
                         ],
@@ -380,7 +380,7 @@ class _IconPickerDialogState extends State<_IconPickerDialog> {
                         final custom = isCustomIcon(key);
                         final ci = custom ? customIcons.firstWhere((x) => x.id == key) : null;
                         return Tooltip(
-                          message: name,
+                          message: trIcon(name),
                           child: Material(
                             color: on ? c.accentSoft : c.panel,
                             shape: RoundedRectangleBorder(

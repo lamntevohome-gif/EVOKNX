@@ -63,7 +63,7 @@ class _AccountPanelState extends State<AccountPanel> {
   }
 
   InputDecoration _dec(String label, {Widget? suffix}) => InputDecoration(
-    labelText: label,
+    labelText: tr(label),
     filled: true,
     fillColor: pal.panel,
     suffixIcon: suffix,

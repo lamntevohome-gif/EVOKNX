@@ -34,7 +34,34 @@ Json? byId(List<Json> l, String? id) {
   return null;
 }
 
-List<Json> floorsOf(Json d) => jsonList(d['floors']);
+List<Json> floorsOf(Json d) {
+  final all = jsonList(d['floors']);
+  // The Home and Security floors belong to the "Modern" layout; the "Basic" layout does not see them.
+  if (jsonMap(d['theme'])['layout'] == 'modern') return all;
+  return [
+    for (final f in all)
+      if (f['special'] == null) f,
+  ];
+}
+
+/// The floors a person walks through in the Modern layout (without Home and Security).
+List<Json> normalFloorsOf(Json d) => [
+  for (final f in jsonList(d['floors']))
+    if (f['special'] == null) f,
+];
+
+/// Creates the Home and Security floors (one room, one page each) of the Modern layout when they are missing.
+void ensureModernPages(Json d) {
+  final floors = (d['floors'] = List<dynamic>.from(d['floors'] as List? ?? const []));
+  final pages = (d['pages'] = List<dynamic>.from(d['pages'] as List? ?? const []));
+  for (final (kind, title, icon) in const [('home', 'Home', 'home'), ('security', 'Security', 'shield-home')]) {
+    if (floors.any((f) => (f as Map)['special'] == kind)) continue;
+    final f = makeFloor(title, icon: icon)..['special'] = kind;
+    floors.add(f);
+    pages.add(makeRoom(title, icon: icon, floorId: f['id'] as String));
+  }
+}
+
 List<Json> roomsOf(Json d, [String? floorId]) => jsonList(d['pages']).where((r) => floorId == null || r['floorId'] == floorId).toList();
 List<Json> subsOf(Json room) => jsonList(room['subpages']);
 

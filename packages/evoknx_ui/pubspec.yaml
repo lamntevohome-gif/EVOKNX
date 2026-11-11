@@ -1,5 +1,5 @@
 name: evoknx_ui
-description: EVOKNX – giao diện dùng chung cho Editor (màn hình mô phỏng) và App (thẻ, biểu tượng, bố cục).
+description: EvoKNX – giao diện dùng chung cho Editor (màn hình mô phỏng) và App (thẻ, biểu tượng, bố cục).
 publish_to: none
 version: 0.1.0
 
@@ -21,7 +21,7 @@ flutter:
     - assets/mdi/mdi_meta.json
   fonts:
     # Inter by Rasmus Andersson (SIL Open Font License) – see assets/fonts/inter/OFL.txt
-    # "Inter Medium" is the normal text weight of EVOKNX: weights 400 and 500 both
+    # "Inter Medium" is the normal text weight of EvoKNX: weights 400 and 500 both
     # use the Medium file, so every text without an explicit weight (or with a
     # regular one) is drawn in Inter Medium.
     - family: Inter

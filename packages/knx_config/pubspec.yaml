@@ -1,5 +1,5 @@
 name: knx_config
-description: EVOKNX project file model, migration and ETS import. Pure Dart.
+description: EvoKNX project file model, migration and ETS import. Pure Dart.
 version: 0.1.0
 publish_to: none
 

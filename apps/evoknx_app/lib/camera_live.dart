@@ -462,7 +462,7 @@ class _MjpegSource {
   Future<HttpClientResponse> _get(HttpClient c) async {
     for (var attempt = 0; attempt < 2; attempt++) {
       final req = await c.getUrl(url);
-      req.headers.set(HttpHeaders.userAgentHeader, 'EVOKNX');
+      req.headers.set(HttpHeaders.userAgentHeader, 'EvoKNX');
       final a = _authorization();
       if (a != null) req.headers.set(HttpHeaders.authorizationHeader, a);
       final res = await req.close().timeout(const Duration(seconds: 10));

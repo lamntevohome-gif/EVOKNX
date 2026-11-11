@@ -162,6 +162,7 @@ class _Screen extends StatelessWidget {
     final floors = floorsOf(doc);
     final floor = d.floor;
     final theme = jsonMap(doc['theme']);
+    final galleryOn = theme['roomPicker'] == 'gallery' && dev != 'tabletL';
     final now = TimeOfDay.now();
     final statusBar = SizedBox(
       height: 38,
@@ -279,6 +280,124 @@ class _Screen extends StatelessWidget {
       );
     }
 
+    // ---- "Modern" layout: Home | Floor | Security with a bar of three buttons.
+    if (theme['layout'] == 'modern' && dev != 'tabletL') {
+      final special = floor?['special'];
+      final normal = normalFloorsOf(doc);
+      final inFloors = d.view == 'floors';
+      final inRooms = special == null && d.view == 'floor';
+      Widget title(String t) => Padding(
+        padding: const EdgeInsets.fromLTRB(18, 6, 14, 10),
+        child: Text(
+          t,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(fontSize: tfs(doc, 'titleSize'), fontWeight: FontWeight.w600, color: pal.sInk),
+        ),
+      );
+      final tab = !inFloors && special == 'home' ? 0 : (!inFloors && special == 'security' ? 2 : 1);
+      Widget barItem(int t, IconData icon, String label, VoidCallback onTap) {
+        final on = tab == t;
+        return Expanded(
+          child: InkWell(
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 52,
+                    height: 28,
+                    decoration: on ? flatDecoration(pal, pal.chipSel, radius: BorderRadius.circular(16)) : null,
+                    child: Icon(icon, size: 20, color: on ? pal.onChipSel : pal.muted),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    label,
+                    style: TextStyle(fontSize: 11.5, fontWeight: on ? FontWeight.w700 : FontWeight.w500, color: on ? pal.ink : pal.muted),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      }
+
+      return SizedBox(
+        width: size.width,
+        height: size.height,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            statusBar,
+            if (inFloors) ...[
+              title('Floor'),
+              Expanded(
+                child: RoomGallery(doc: doc, rooms: normal, pal: pal, onOpen: d.selectFloor),
+              ),
+            ] else if (inRooms) ...[
+              Padding(
+                padding: const EdgeInsets.fromLTRB(18, 6, 14, 10),
+                child: Row(
+                  children: [
+                    if (normal.length > 1) ...[
+                      InkWell(
+                        customBorder: const CircleBorder(),
+                        onTap: d.floorsGallery,
+                        child: Container(
+                          width: 32,
+                          height: 32,
+                          decoration: flatDecoration(pal, pal.chipFill, circle: true),
+                          child: Icon(Icons.arrow_back_rounded, size: 17, color: pal.ink),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                    ],
+                    Expanded(
+                      child: Text(
+                        (floor?['title'] ?? '').toString(),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: tfs(doc, 'titleSize'), fontWeight: FontWeight.w600, color: pal.sInk),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: RoomGallery(doc: doc, rooms: roomsOf(doc, floor?['id'] as String?), pal: pal, onOpen: d.selectRoom),
+              ),
+            ] else if (room == null || sub == null)
+              empty
+            else ...[
+              _header(doc, room, floor, false, theme, onBack: special == null ? () => d.selectFloor((floor?['id'] ?? '').toString()) : null),
+              tablet ? _pageTabs(room, sub) : _subNav(room, sub),
+              grid(room, sub),
+            ],
+            Container(
+              decoration: BoxDecoration(
+                color: Color.lerp(pal.screen, pal.ink, 0.07),
+                border: Border(top: BorderSide(color: pal.tileEdge)),
+              ),
+              child: Row(
+                children: [
+                  barItem(0, Icons.home_rounded, 'Home', () => d.selectSpecial('home')),
+                  barItem(
+                    1,
+                    Icons.layers_rounded,
+                    'Floor',
+                    () => normal.length > 1 ? d.floorsGallery() : (normal.isEmpty ? null : d.selectFloor(normal.first['id'] as String)),
+                  ),
+                  barItem(2, Icons.shield_outlined, 'Security', () => d.selectSpecial('security')),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return SizedBox(
       width: size.width,
       height: size.height,
@@ -286,11 +405,24 @@ class _Screen extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           statusBar,
-          if (room == null || sub == null)
+          if (galleryOn && d.view == 'gallery') ...[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 6, 14, 10),
+              child: Text(
+                (floor?['title'] ?? (doc['project'] is Map ? (doc['project']['name'] ?? '') : '')).toString(),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: tfs(doc, 'titleSize'), fontWeight: FontWeight.w600, color: pal.sInk),
+              ),
+            ),
+            Expanded(
+              child: RoomGallery(doc: doc, rooms: roomsOf(doc, floor?['id'] as String?), pal: pal, onOpen: d.selectRoom),
+            ),
+          ] else if (room == null || sub == null)
             empty
           else ...[
             _header(doc, room, floor, floors.length > 1, theme),
-            _roomsBar(doc, room, floor),
+            if (!galleryOn) _roomsBar(doc, room, floor),
             tablet ? _pageTabs(room, sub) : _subNav(room, sub),
             grid(room, sub),
           ],
@@ -336,12 +468,29 @@ class _Screen extends StatelessWidget {
     child: Icon(Icons.settings_outlined, size: 17, color: pal.ink),
   );
 
-  Widget _header(Json doc, Json room, Json? floor, bool multi, Json theme, {bool pill = true}) {
+  Widget _header(Json doc, Json room, Json? floor, bool multi, Json theme, {bool pill = true, VoidCallback? onBack}) {
     final hide = theme['hideTitle'] == true && dev != 'tabletL';
     return Padding(
       padding: EdgeInsets.fromLTRB(18, dev == 'tabletL' ? 10 : 6, 14, 10),
       child: Row(
         children: [
+          // In the gallery style a button returns to the gallery.
+          if (onBack != null || (theme['roomPicker'] == 'gallery' && theme['layout'] != 'modern' && dev != 'tabletL')) ...[
+            Tooltip(
+              message: tr('Thư viện phòng'),
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                onTap: onBack ?? d.gallery,
+                child: Container(
+                  width: 32,
+                  height: 32,
+                  decoration: flatDecoration(pal, pal.chipFill, circle: true),
+                  child: Icon(onBack != null ? Icons.arrow_back_rounded : Icons.grid_view_rounded, size: 17, color: pal.ink),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+          ],
           Expanded(
             child: hide
                 ? Text(
@@ -591,7 +740,7 @@ class _Screen extends StatelessWidget {
       style: TextStyle(fontSize: f, fontWeight: FontWeight.w600, color: pal.sMuted),
     );
     Widget arrow(IconData icon, VoidCallback? onTap, String tip) => Tooltip(
-      message: tip,
+      message: tr(tip),
       child: InkWell(
         onTap: onTap,
         customBorder: const CircleBorder(),
@@ -661,7 +810,7 @@ class _Screen extends StatelessWidget {
                     padding: const EdgeInsets.only(right: 4),
                     child: InkWell(
                       borderRadius: BorderRadius.circular(26),
-                      onTap: () => d.selectFloor(fl['id'] as String),
+                      onTap: () => d.view == 'gallery' ? d.galleryFloor(fl['id'] as String) : d.selectFloor(fl['id'] as String),
                       child: Container(
                         width: w,
                         decoration: flatDecoration(
@@ -1684,7 +1833,7 @@ class _AppSettingsSheet extends StatelessWidget {
                       ),
                   ]),
                   card('Giới thiệu', [
-                    row(Icon(Icons.info_outline, color: pal.muted, size: 22), 'EVOKNX', sub: 'Phiên bản 1.0 · © ${DateTime.now().year} Evohome'),
+                    row(Icon(Icons.info_outline, color: pal.muted, size: 22), 'EvoKNX', sub: 'Phiên bản 1.0 · © ${DateTime.now().year} Evohome'),
                     row(Icon(Icons.palette_outlined, color: pal.muted, size: 22), 'Biểu tượng', sub: 'Material Design Icons · Pictogrammers (Apache 2.0)'),
                     row(
                       Icon(Icons.home_work_outlined, color: pal.muted, size: 22),

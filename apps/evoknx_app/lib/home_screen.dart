@@ -33,6 +33,77 @@ class _HomeScreenState extends State<HomeScreen> {
 
   /// Link to Home Assistant (null when the project does not use it).
   HaBridge? ha;
+
+  /// "Thư viện phòng": the rooms are chosen from a gallery instead of the room bar.
+  bool get _galleryMode => jsonMap(doc['theme'])['roomPicker'] == 'gallery';
+
+  /// True while the gallery (and not a room) is shown.
+  bool _gallery = true;
+
+  // ---- "Modern" layout: Home | Floor | Security
+  bool get _modernMode => jsonMap(doc['theme'])['layout'] == 'modern';
+
+  /// 0 Home, 1 Floor, 2 Security.
+  int _tab = 0;
+
+  /// In the Floor tab: 0 floor gallery, 1 room gallery of a floor, 2 a room.
+  int _lvl = 0;
+  bool _modernReady = false;
+
+  Json? _special(String kind) => floorsOf(doc).where((f) => f['special'] == kind).firstOrNull;
+
+  /// Puts Home or Security on the screen.
+  void _openSpecial(String kind) {
+    final f = _special(kind);
+    if (f == null) return;
+    final rs = roomsOf(doc, f['id'] as String);
+    setState(() => floorId = f['id'] as String);
+    if (rs.isNotEmpty) _openRoom(rs.first['id'] as String);
+  }
+
+  void _modernTab(int t) {
+    if (t == 1) {
+      final fs = normalFloorsOf(doc);
+      setState(() {
+        _tab = 1;
+        if (fs.length == 1) floorId = fs.first['id'] as String;
+        _lvl = fs.length > 1 ? 0 : 1;
+      });
+      return;
+    }
+    setState(() => _tab = t);
+    _openSpecial(t == 0 ? 'home' : 'security');
+  }
+
+  void _openFloor(String id) => setState(() {
+    floorId = id;
+    _lvl = 1;
+  });
+
+  void _openRoomModern(String id) {
+    setState(() => _lvl = 2);
+    _openRoom(id);
+  }
+
+  /// The back button of the phone in the Modern layout. False: leave the App.
+  bool _modernBack() {
+    if (_tab == 1) {
+      if (_lvl == 2) {
+        setState(() => _lvl = 1);
+        return true;
+      }
+      if (_lvl == 1 && normalFloorsOf(doc).length > 1) {
+        setState(() => _lvl = 0);
+        return true;
+      }
+    }
+    if (_tab != 0) {
+      _modernTab(0);
+      return true;
+    }
+    return false;
+  }
+
   PageController? _pages;
   String? floorId, roomId;
   int page = 0;
@@ -158,7 +229,22 @@ class _HomeScreenState extends State<HomeScreen> {
     _readPage();
   }
 
+  /// A tap on a room card of the gallery.
+  void _openRoom(String id) {
+    setState(() => _gallery = false);
+    if (id == roomId) {
+      _readPage();
+    } else {
+      _goRoom(id);
+    }
+  }
+
   void _goFloor(String id) {
+    // In the gallery a floor only changes the rooms that are listed.
+    if (_galleryMode && _gallery) {
+      setState(() => floorId = id);
+      return;
+    }
     final rooms = roomsOf(doc, id);
     setState(() => floorId = id);
     if (rooms.isNotEmpty) {
@@ -249,7 +335,9 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     engine.doc = doc;
     final pal0 = store.palette;
-    final s = sub;
+    if (_modernMode) return _buildModern(pal0);
+    final inGallery = _galleryMode && _gallery;
+    final s = inGallery ? null : sub;
     final bg = pageBackground(s, pal0);
     final pal = pal0.copyWith(onScreenInk: bg?.ink, onScreenMuted: bg?.muted);
     final d = doc;
@@ -259,76 +347,225 @@ class _HomeScreenState extends State<HomeScreen> {
     final subs = r == null ? const <Json>[] : subsOf(r);
     final floor = floors.where((f) => f['id'] == floorId).firstOrNull;
 
-    return Scaffold(
-      backgroundColor: pal.screen,
-      body: Stack(
-        children: [
-          Positioned.fill(
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 280),
-              child: bg == null
-                  ? const SizedBox.expand(key: ValueKey('bg-none'))
-                  : ClipRect(
-                      key: ValueKey('bg-${s?['id']}'),
-                      child: ImageFiltered(
-                        enabled: bg.blur > 0,
-                        imageFilter: ImageFilter.blur(sigmaX: bg.blur, sigmaY: bg.blur, tileMode: TileMode.clamp),
-                        child: DecoratedBox(decoration: bg.decoration, child: const SizedBox.expand()),
-                      ),
-                    ),
-            ),
-          ),
-          SafeArea(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _banner(pal),
-                _header(d, pal, floor, r, floors.length > 1),
-                if (rooms.length > 1) _roomsBar(d, pal, rooms),
-                if (r != null && subs.length > 1) _pageNav(subs, pal),
-                Expanded(
-                  child: r == null
-                      ? Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(30),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.meeting_room_outlined, size: 48, color: pal.sMuted),
-                                const SizedBox(height: 12),
-                                Text(
-                                  'Phòng chưa được tạo',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: pal.sInk),
-                                ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  'Tầng này chưa có phòng nào.',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(fontSize: 14, color: pal.sMuted),
-                                ),
-                              ],
-                            ),
-                          ),
-                        )
-                      : PageView.builder(
-                          key: ValueKey('pages-$roomId-$_dev'),
-                          controller: _pages,
-                          itemCount: subs.length,
-                          onPageChanged: (i) {
-                            setState(() => page = i);
-                            store.remember(roomId, sub?['id'] as String?);
-                            _readPage();
-                          },
-                          itemBuilder: (context, i) => Padding(padding: EdgeInsets.all(pal.safeMargin), child: _grid(subs[i], null, pal)),
+    return PopScope(
+      canPop: !(_galleryMode && !_gallery),
+      // The back button of the phone leaves a room and returns to the gallery.
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) setState(() => _gallery = true);
+      },
+      child: Scaffold(
+        backgroundColor: pal.screen,
+        body: Stack(
+          children: [
+            Positioned.fill(
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 280),
+                child: bg == null
+                    ? const SizedBox.expand(key: ValueKey('bg-none'))
+                    : ClipRect(
+                        key: ValueKey('bg-${s?['id']}'),
+                        child: ImageFiltered(
+                          enabled: bg.blur > 0,
+                          imageFilter: ImageFilter.blur(sigmaX: bg.blur, sigmaY: bg.blur, tileMode: TileMode.clamp),
+                          child: DecoratedBox(decoration: bg.decoration, child: const SizedBox.expand()),
                         ),
+                      ),
+              ),
+            ),
+            SafeArea(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _banner(pal),
+                  _header(d, pal, floor, inGallery ? null : r, floors.length > 1),
+                  if (!_galleryMode && rooms.length > 1) _roomsBar(d, pal, rooms),
+                  if (!inGallery && r != null && subs.length > 1) _pageNav(subs, pal),
+                  Expanded(
+                    child: inGallery
+                        ? RoomGallery(doc: d, rooms: rooms, pal: pal, onOpen: _openRoom)
+                        : r == null
+                        ? Center(
+                            child: Padding(
+                              padding: const EdgeInsets.all(30),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.meeting_room_outlined, size: 48, color: pal.sMuted),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    'Phòng chưa được tạo',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: pal.sInk),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    'Tầng này chưa có phòng nào.',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(fontSize: 14, color: pal.sMuted),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          )
+                        : PageView.builder(
+                            key: ValueKey('pages-$roomId-$_dev'),
+                            controller: _pages,
+                            itemCount: subs.length,
+                            onPageChanged: (i) {
+                              setState(() => page = i);
+                              store.remember(roomId, sub?['id'] as String?);
+                              _readPage();
+                            },
+                            itemBuilder: (context, i) => Padding(padding: EdgeInsets.all(pal.safeMargin), child: _grid(subs[i], null, pal)),
+                          ),
+                  ),
+                  if (floors.length > 1) _floorBar(d, pal, floors),
+                  const SizedBox(height: 6),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ----------------------------------------------------------------- modern layout
+
+  /// The "Modern" layout: Home, Floor (floor gallery → room gallery → room) and Security,
+  /// with a bar of three buttons at the bottom.
+  Widget _buildModern(AppPalette pal0) {
+    if (!_modernReady) {
+      _modernReady = true;
+      // Open on Home (without a rebuild: this is the first build).
+      final f = _special('home');
+      final rs = f == null ? const <Json>[] : roomsOf(doc, f['id'] as String);
+      if (rs.isNotEmpty) {
+        floorId = f!['id'] as String;
+        roomId = rs.first['id'] as String;
+        page = 0;
+        _pages?.dispose();
+        _pages = PageController();
+      }
+    }
+    final d = doc;
+    final onPage = _tab != 1 || _lvl == 2;
+    final s = onPage ? sub : null;
+    final bg = pageBackground(s, pal0);
+    final pal = pal0.copyWith(onScreenInk: bg?.ink, onScreenMuted: bg?.muted);
+    final r = room;
+    final subs = r == null ? const <Json>[] : subsOf(r);
+    final floor = floorsOf(d).where((f) => f['id'] == floorId).firstOrNull;
+    final normal = normalFloorsOf(d);
+    final VoidCallback? onBack = _tab == 1 && (_lvl == 2 || (_lvl == 1 && normal.length > 1)) ? () => _modernBack() : null;
+    final Json? headFloor = _tab == 1 && _lvl == 0 ? <String, dynamic>{'title': 'Floor'} : floor;
+    final Widget content;
+    if (_tab == 1 && _lvl == 0) {
+      content = RoomGallery(doc: d, rooms: normal, pal: pal, onOpen: _openFloor);
+    } else if (_tab == 1 && _lvl == 1) {
+      content = RoomGallery(doc: d, rooms: roomsOf(d, floorId), pal: pal, onOpen: _openRoomModern);
+    } else if (r == null) {
+      content = Center(
+        child: Text(
+          tr('Phòng chưa được tạo'),
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: pal.sInk),
+        ),
+      );
+    } else {
+      content = PageView.builder(
+        key: ValueKey('pages-$roomId-$_dev'),
+        controller: _pages,
+        itemCount: subs.length,
+        onPageChanged: (i) {
+          setState(() => page = i);
+          store.remember(roomId, sub?['id'] as String?);
+          _readPage();
+        },
+        itemBuilder: (context, i) => Padding(padding: EdgeInsets.all(pal.safeMargin), child: _grid(subs[i], null, pal)),
+      );
+    }
+    return PopScope(
+      canPop: _tab == 0,
+      // Back leaves a room, then a floor, then returns to Home.
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _modernBack();
+      },
+      child: Scaffold(
+        backgroundColor: pal.screen,
+        body: Stack(
+          children: [
+            Positioned.fill(
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 280),
+                child: bg == null
+                    ? const SizedBox.expand(key: ValueKey('bg-none'))
+                    : ClipRect(
+                        key: ValueKey('bg-${s?['id']}'),
+                        child: ImageFiltered(
+                          enabled: bg.blur > 0,
+                          imageFilter: ImageFilter.blur(sigmaX: bg.blur, sigmaY: bg.blur, tileMode: TileMode.clamp),
+                          child: DecoratedBox(decoration: bg.decoration, child: const SizedBox.expand()),
+                        ),
+                      ),
+              ),
+            ),
+            SafeArea(
+              bottom: false,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _banner(pal),
+                  _header(d, pal, headFloor, onPage ? r : null, false, onBack: onBack),
+                  if (onPage && r != null && subs.length > 1) _pageNav(subs, pal),
+                  Expanded(child: content),
+                  _modernBar(pal),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// The three buttons at the bottom.
+  Widget _modernBar(AppPalette pal) {
+    Widget item(int t, IconData icon, String label) {
+      final on = _tab == t;
+      return Expanded(
+        child: InkWell(
+          onTap: () => _modernTab(t),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 56,
+                  height: 30,
+                  decoration: on ? flatDecoration(pal, pal.chipSel, radius: BorderRadius.circular(16)) : null,
+                  child: Icon(icon, size: 22, color: on ? pal.onChipSel : pal.muted),
                 ),
-                if (floors.length > 1) _floorBar(d, pal, floors),
-                const SizedBox(height: 6),
+                const SizedBox(height: 2),
+                Text(
+                  label,
+                  style: TextStyle(fontSize: 12, fontWeight: on ? FontWeight.w700 : FontWeight.w500, color: on ? pal.ink : pal.muted),
+                ),
               ],
             ),
           ),
-        ],
+        ),
+      );
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Color.lerp(pal.screen, pal.ink, 0.07),
+        border: Border(top: BorderSide(color: pal.tileEdge)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Row(children: [item(0, Icons.home_rounded, 'Home'), item(1, Icons.layers_rounded, 'Floor'), item(2, Icons.shield_outlined, 'Security')]),
       ),
     );
   }
@@ -362,12 +599,33 @@ class _HomeScreenState extends State<HomeScreen> {
 
   /// "Tầng 1 › Phòng 1" on one row (floor shown only when there are several),
   /// settings button on the right: as in the Editor preview.
-  Widget _header(Json d, AppPalette pal, Json? floor, Json? r, bool multi) {
+  Widget _header(Json d, AppPalette pal, Json? floor, Json? r, bool multi, {VoidCallback? onBack}) {
     final hide = jsonMap(d['theme'])['hideTitle'] == true && r != null;
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 10, 12, 8),
       child: Row(
         children: [
+          if (onBack != null || (_galleryMode && !_gallery)) ...[
+            Tooltip(
+              message: tr('Thư viện phòng'),
+              child: DecoratedBox(
+                decoration: flatDecoration(pal, pal.chipFill, circle: true),
+                child: Material(
+                  type: MaterialType.transparency,
+                  child: InkWell(
+                    customBorder: const CircleBorder(),
+                    onTap: onBack ?? () => setState(() => _gallery = true),
+                    child: SizedBox(
+                      width: 40,
+                      height: 40,
+                      child: Icon(onBack != null ? Icons.arrow_back_rounded : Icons.grid_view_rounded, size: 20, color: pal.ink),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+          ],
           Expanded(
             child: hide
                 ? Text(
@@ -485,7 +743,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     Widget arrow(IconData icon, bool enabled, VoidCallback onTap, String tip) => Tooltip(
-      message: tip,
+      message: tr(tip),
       child: InkWell(
         onTap: enabled ? onTap : null,
         customBorder: const CircleBorder(),

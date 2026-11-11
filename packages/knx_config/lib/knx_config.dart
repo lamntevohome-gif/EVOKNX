@@ -1,4 +1,4 @@
-/// EVOKNX project model, migration and ETS import.
+/// EvoKNX project model, migration and ETS import.
 library knx_config;
 
 export 'src/project.dart';

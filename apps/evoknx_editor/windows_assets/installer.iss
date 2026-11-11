@@ -1,28 +1,28 @@
-; EVOKNX Editor – Windows installer (Inno Setup 6)
+; EvoKNX Editor – Windows installer (Inno Setup 6)
 ; Built by GitHub Actions: ISCC /DAppVersion=x.y.z /DSourceDir=<Release folder> installer.iss
 
 #ifndef AppVersion
   #define AppVersion "0.0.0"
 #endif
 #ifndef SourceDir
-  #define SourceDir "..\build\windows\x64\runner\EVOKNX-Editor"
+  #define SourceDir "..\build\windows\x64\runner\EvoKNX-Editor"
 #endif
 #define AppExe "evoknx_editor.exe"
 
 [Setup]
 AppId={{8C1E7A52-3F4B-4E3A-9B7D-5A2C1E0B9F11}
-AppName=EVOKNX Editor
+AppName=EvoKNX Editor
 AppVersion={#AppVersion}
-AppVerName=EVOKNX Editor {#AppVersion}
+AppVerName=EvoKNX Editor {#AppVersion}
 AppPublisher=Evohome
-DefaultDirName={autopf}\EVOKNX Editor
-DefaultGroupName=EVOKNX
+DefaultDirName={autopf}\EvoKNX Editor
+DefaultGroupName=EvoKNX
 DisableProgramGroupPage=yes
 OutputDir=..\installer
-OutputBaseFilename=EVOKNX-Editor-Setup-{#AppVersion}
+OutputBaseFilename=EvoKNX-Editor-Setup-{#AppVersion}
 SetupIconFile=app_icon.ico
 UninstallDisplayIcon={app}\{#AppExe}
-UninstallDisplayName=EVOKNX Editor
+UninstallDisplayName=EvoKNX Editor
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
@@ -44,15 +44,15 @@ Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs 
 Source: "evoknx_file.ico"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
-Name: "{autoprograms}\EVOKNX Editor"; Filename: "{app}\{#AppExe}"
-Name: "{autodesktop}\EVOKNX Editor"; Filename: "{app}\{#AppExe}"; Tasks: desktopicon
+Name: "{autoprograms}\EvoKNX Editor"; Filename: "{app}\{#AppExe}"
+Name: "{autodesktop}\EvoKNX Editor"; Filename: "{app}\{#AppExe}"; Tasks: desktopicon
 
 [Registry]
-; .evoknx files open in EVOKNX Editor (double-click opens a new window)
-Root: HKA; Subkey: "Software\Classes\.evoknx"; ValueType: string; ValueName: ""; ValueData: "EVOKNX.Project"; Flags: uninsdeletevalue
-Root: HKA; Subkey: "Software\Classes\EVOKNX.Project"; ValueType: string; ValueName: ""; ValueData: "EVOKNX Project"; Flags: uninsdeletekey
-Root: HKA; Subkey: "Software\Classes\EVOKNX.Project\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\evoknx_file.ico"
-Root: HKA; Subkey: "Software\Classes\EVOKNX.Project\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#AppExe}"" ""%1"""
+; .evoknx files open in EvoKNX Editor (double-click opens a new window)
+Root: HKA; Subkey: "Software\Classes\.evoknx"; ValueType: string; ValueName: ""; ValueData: "EvoKNX.Project"; Flags: uninsdeletevalue
+Root: HKA; Subkey: "Software\Classes\EvoKNX.Project"; ValueType: string; ValueName: ""; ValueData: "EvoKNX Project"; Flags: uninsdeletekey
+Root: HKA; Subkey: "Software\Classes\EvoKNX.Project\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\evoknx_file.ico"
+Root: HKA; Subkey: "Software\Classes\EvoKNX.Project\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#AppExe}"" ""%1"""
 
 [Run]
-Filename: "{app}\{#AppExe}"; Description: "{cm:LaunchProgram,EVOKNX Editor}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\{#AppExe}"; Description: "{cm:LaunchProgram,EvoKNX Editor}"; Flags: nowait postinstall skipifsilent

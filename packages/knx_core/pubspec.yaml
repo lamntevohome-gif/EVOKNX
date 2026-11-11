@@ -1,5 +1,5 @@
 name: knx_core
-description: KNXnet/IP tunneling client, cEMI frames and DPT codecs for EVOKNX. Pure Dart, no dependencies.
+description: KNXnet/IP tunneling client, cEMI frames and DPT codecs for EvoKNX. Pure Dart, no dependencies.
 version: 0.1.0
 publish_to: none
 

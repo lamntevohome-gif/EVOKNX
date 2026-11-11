@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// EVOKNX colour tokens (same values as the web editor).
+/// EvoKNX colour tokens (same values as the web editor).
 @immutable
 class EvoColors extends ThemeExtension<EvoColors> {
   final Color paper, panel, ink, muted, line, lineStrong, accent, accentInk, accentSoft, led, danger, dangerSoft, warn;

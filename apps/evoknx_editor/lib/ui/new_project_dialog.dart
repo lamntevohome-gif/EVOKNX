@@ -138,7 +138,7 @@ class _NewProjectDialogState extends State<_NewProjectDialog> {
           children: [
             for (final (k, n) in items)
               Tooltip(
-                message: n,
+                message: trIcon(n),
                 child: InkWell(
                   borderRadius: BorderRadius.circular(5),
                   onTap: () => Navigator.pop(c, k),
@@ -346,7 +346,10 @@ class _NewProjectDialogState extends State<_NewProjectDialog> {
                         padding: const EdgeInsets.only(top: 6, left: 20),
                         child: Row(
                           children: [
-                            _iconBtn(floors[i].rooms[k].icon, const [(kNoIcon, 'Không có'), ...kRoomIcons], (v) => floors[i].rooms[k].icon = v),
+                            _iconBtn(floors[i].rooms[k].icon, [
+                              (kNoIcon, 'Không có'),
+                              for (final i in kRoomIcons) (i.$1, trIcon(i.$2)),
+                            ], (v) => floors[i].rooms[k].icon = v),
                             const SizedBox(width: 8),
                             Expanded(
                               child: TextFormField(

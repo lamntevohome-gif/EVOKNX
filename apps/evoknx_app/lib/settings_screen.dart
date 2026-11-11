@@ -149,7 +149,7 @@ class SettingsScreen extends StatelessWidget {
                                     context: context,
                                     builder: (c) => AlertDialog(
                                       title: Text('Xoá hồ sơ “${pf.name}”?'),
-                                      content: const Text('Cấu hình của nhà này sẽ bị xoá khỏi điện thoại. Bạn vẫn có thể thêm lại từ EVOKNX Editor.'),
+                                      content: const Text('Cấu hình của nhà này sẽ bị xoá khỏi điện thoại. Bạn vẫn có thể thêm lại từ EvoKNX Editor.'),
                                       actions: [
                                         TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Huỷ')),
                                         TextButton(
@@ -183,7 +183,7 @@ class SettingsScreen extends StatelessWidget {
                       row(
                         Icon(Icons.wifi_tethering, color: pal.muted),
                         'Thêm hồ sơ từ máy tính (Wi-Fi)',
-                        sub: 'Editor → menu EVOKNX → Gửi sang App qua Wi-Fi',
+                        sub: 'Editor → menu EvoKNX → Gửi sang App qua Wi-Fi',
                         onTap: () async {
                           final before = store.profiles.length;
                           final ok = await showReceiveDialog(context, store, pal);
@@ -201,7 +201,7 @@ class SettingsScreen extends StatelessWidget {
                       row(
                         Icon(Icons.folder_open_outlined, color: pal.muted),
                         'Thêm hồ sơ từ file cấu hình',
-                        sub: 'File .evoknx gửi từ máy tính. Hoặc trong Zalo, Drive: Chia sẻ → EVOKNX. Cùng tên dự án thì thay thế hồ sơ đó.',
+                        sub: 'File .evoknx gửi từ máy tính. Hoặc trong Zalo, Drive: Chia sẻ → EvoKNX. Cùng tên dự án thì thay thế hồ sơ đó.',
                         onTap: () async {
                           final before = store.profiles.length;
                           final r = await store.importConfig();
@@ -355,7 +355,7 @@ class SettingsScreen extends StatelessWidget {
                   ]),
                   tab([
                     card('Giới thiệu', [
-                      row(Icon(Icons.info_outline, color: pal.muted), 'EVOKNX', sub: 'Phiên bản 0.1.0 · © ${DateTime.now().year} Evohome'),
+                      row(Icon(Icons.info_outline, color: pal.muted), 'EvoKNX', sub: 'Phiên bản 0.1.0 · © ${DateTime.now().year} Evohome'),
                       row(Icon(Icons.palette_outlined, color: pal.muted), 'Biểu tượng', sub: 'Material Design Icons · Pictogrammers (Apache 2.0)'),
                       row(Icon(Icons.text_fields, color: pal.muted), 'Phông chữ', sub: 'Inter · Rasmus Andersson (SIL Open Font License)'),
                     ]),

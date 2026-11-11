@@ -171,6 +171,15 @@ class Designer extends ChangeNotifier {
       for (final k in keys)
         if (k.startsWith('f:')) k.substring(2),
     };
+    // Home and Security are fixed parts of the Modern layout.
+    final locked = <String>{
+      for (final f in allFloors)
+        if (f['special'] != null) f['id'] as String,
+    };
+    if (fl.any(locked.contains)) {
+      fl = fl.where((x) => !locked.contains(x)).toSet();
+      notes.add('Home và Security là hai mục cố định của bố cục Modern nên không xoá được (đổi Bố cục về Basic để ẩn chúng).');
+    }
     if (fl.isNotEmpty && fl.length >= allFloors.length) {
       final keep = allFloors.first['id'] as String;
       fl = fl.where((x) => x != keep).toSet();
@@ -237,6 +246,47 @@ class Designer extends ChangeNotifier {
     final n = plan.subs.values.fold<int>(0, (a, b) => a + b.length);
     final parts = [if (plan.floors.isNotEmpty) '${plan.floors.length} tầng', if (plan.rooms.isNotEmpty) '${plan.rooms.length} phòng', if (n > 0) '$n trang'];
     return 'Đã xoá ${parts.isEmpty ? 'không mục nào' : parts.join(', ')}.${plan.notes.isEmpty ? '' : ' ${plan.notes.join(' ')}'}';
+  }
+
+  /// "Thư viện phòng" is the room picker of the project (theme.roomPicker).
+  bool get galleryOn => jsonMap(doc['theme'])['roomPicker'] == 'gallery';
+
+  /// The "Modern" layout (Home | Floor | Security) of the project.
+  bool get modernOn => jsonMap(doc['theme'])['layout'] == 'modern';
+
+  /// Shows the floor gallery of the Modern layout in the preview.
+  void floorsGallery() {
+    treeSel.clear();
+    view = 'floors';
+    widgetId = null;
+    cell = null;
+    _n();
+  }
+
+  /// Selects the room of the Home or Security floor.
+  void selectSpecial(String kind) {
+    final f = floorsOf(doc).where((x) => x['special'] == kind).firstOrNull;
+    if (f == null) return;
+    final rs = roomsOf(doc, f['id'] as String);
+    if (rs.isNotEmpty) selectRoom(rs.first['id'] as String);
+  }
+
+  /// Shows the room gallery in the preview.
+  void gallery() {
+    treeSel.clear();
+    view = 'gallery';
+    widgetId = null;
+    cell = null;
+    _n();
+  }
+
+  /// Another floor in the gallery: only the listed rooms change.
+  void galleryFloor(String id) {
+    floorId = id;
+    final rs = roomsOf(doc, id);
+    roomId = rs.isEmpty ? null : rs.first['id'] as String?;
+    subId = null;
+    _n();
   }
 
   void overview() {

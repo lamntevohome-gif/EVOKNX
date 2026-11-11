@@ -123,7 +123,7 @@ class EditorSettingsDialog extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: 10),
-                        const Text('EVOKNX Editor', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                        const Text('EvoKNX Editor', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
                         const SizedBox(width: 8),
                         Text('phiên bản $kEditorVersion', style: TextStyle(color: c.muted)),
                       ],

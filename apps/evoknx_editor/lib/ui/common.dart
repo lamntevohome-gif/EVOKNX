@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart' hide Text;
-import 'package:evoknx_ui/evoknx_ui.dart' show Text, tr;
+import 'package:evoknx_ui/evoknx_ui.dart' show Text, tr, trn;
 import 'package:knx_core/knx_core.dart';
 
 import '../app/theme.dart';
@@ -63,7 +63,7 @@ class EvoButton extends StatelessWidget {
         ),
       ),
     );
-    if (tooltip != null) child = Tooltip(message: tooltip!, child: child);
+    if (tooltip != null) child = Tooltip(message: tr(tooltip!), child: child);
     return child;
   }
 
@@ -179,7 +179,7 @@ class FieldLabel extends StatelessWidget {
   }
 }
 
-/// Bordered dropdown with EVOKNX styling.
+/// Bordered dropdown with EvoKNX styling.
 class EvoDropdown<T> extends StatelessWidget {
   const EvoDropdown({super.key, required this.value, required this.items, required this.onChanged, this.width, this.warn = false});
   final T value;
@@ -432,7 +432,7 @@ class _SyncedFieldState extends State<SyncedField> {
       keyboardType: widget.number ? TextInputType.number : TextInputType.text,
       style: TextStyle(fontSize: widget.bold ? 13 : kUiText, fontWeight: widget.bold ? FontWeight.w600 : FontWeight.w400, color: c.ink),
       decoration: InputDecoration(
-        hintText: widget.hint,
+        hintText: trn(widget.hint),
         filled: !widget.borderless,
         fillColor: widget.borderless ? Colors.transparent : c.panel,
         border: widget.borderless ? OutlineInputBorder(borderSide: BorderSide.none, borderRadius: BorderRadius.circular(4)) : null,
@@ -492,7 +492,7 @@ class SearchField extends StatelessWidget {
         minLines: framed ? null : null,
         textAlignVertical: framed ? TextAlignVertical.center : null,
         decoration: InputDecoration(
-          hintText: hint,
+          hintText: tr(hint),
           isDense: framed ? true : null,
           fillColor: c.paper,
           enabledBorder: OutlineInputBorder(

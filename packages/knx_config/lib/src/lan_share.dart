@@ -166,10 +166,10 @@ Future<({Json? config, String? error})> fetchConfigFromEditor(String address, St
       final msg = o is Map ? o['error'] : null;
       return (config: null, error: msg is String ? msg : 'Máy tính trả lời lỗi ${res.statusCode}.');
     }
-    if (!isProject(o)) return (config: null, error: 'Dữ liệu nhận được không phải cấu hình EVOKNX.');
+    if (!isProject(o)) return (config: null, error: 'Dữ liệu nhận được không phải cấu hình EvoKNX.');
     return (config: (o as Map).cast<String, dynamic>(), error: null);
   } on SocketException {
-    return (config: null, error: 'Không kết nối được tới máy tính. Kiểm tra điện thoại và máy tính cùng Wi-Fi, địa chỉ đúng, và cho phép EVOKNX qua tường lửa Windows.');
+    return (config: null, error: 'Không kết nối được tới máy tính. Kiểm tra điện thoại và máy tính cùng Wi-Fi, địa chỉ đúng, và cho phép EvoKNX qua tường lửa Windows.');
   } on TimeoutException {
     return (config: null, error: 'Hết thời gian chờ. Kiểm tra cùng Wi-Fi và tường lửa Windows.');
   } on HttpException catch (e) {

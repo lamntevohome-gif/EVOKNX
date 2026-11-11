@@ -30,7 +30,7 @@ class DptInfo {
   const DptInfo(this.id, this.name, [this.unit = '']);
 }
 
-/// Common datapoint types used by EVOKNX.
+/// Common datapoint types used by EvoKNX.
 const List<DptInfo> kCommonDpts = [
   DptInfo('1.001', 'Bật/tắt'),
   DptInfo('1.008', 'Lên/xuống'),

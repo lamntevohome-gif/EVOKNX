@@ -59,12 +59,30 @@ String _fill(String en, List<String?> groups) {
 String _translate(String vi) {
   final exact = kEn[vi];
   if (exact != null) return exact;
+  // A required field is written "label *".
+  if (vi.endsWith(' *') && vi.length > 3) {
+    final base = _translate(vi.substring(0, vi.length - 2));
+    if (base != vi.substring(0, vi.length - 2)) return '$base *';
+  }
+  // Spaces around a text (a unit written " phòng") are kept.
+  if (vi != vi.trim() && vi.trim().isNotEmpty) {
+    final r = _part(vi);
+    if (r != vi) return r;
+  }
   for (final t in (_templates ??= _compile())) {
     final m = t.$1.firstMatch(vi);
     if (m != null) return _fill(t.$2, [for (var i = 1; i <= m.groupCount; i++) m[i]]);
   }
   return vi;
 }
+
+/// [tr] for a text that may be null.
+String? trn(String? vi) => vi == null ? null : tr(vi);
+
+/// The name of an icon or of an icon group, in the current language. Icon
+/// names have their own dictionary: a room named "Phòng khách" by a person
+/// must never be translated, but the icon called "Phòng khách" is.
+String trIcon(String vi) => appLang.isEn ? (kEnIcons[vi] ?? tr(vi)) : vi;
 
 /// A label of the program in the current language (Vietnamese is the key).
 /// Anything that is not in the dictionary is returned unchanged.

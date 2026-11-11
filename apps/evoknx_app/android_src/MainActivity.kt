@@ -8,7 +8,7 @@ import io.flutter.plugin.common.MethodChannel
 import java.io.File
 
 /**
- * Receives a project file (.evoknx) that is shared to the App ("Chia sẻ → EVOKNX")
+ * Receives a project file (.evoknx) that is shared to the App ("Chia sẻ → EvoKNX")
  * or opened with it. The content is copied into the cache folder and its path is
  * given to Dart through the "evoknx/share" channel.
  */

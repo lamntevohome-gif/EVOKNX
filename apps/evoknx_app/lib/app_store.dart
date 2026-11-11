@@ -81,7 +81,7 @@ class AppStore extends ChangeNotifier {
       autoScale = p['autoScale'] != false;
       editorAddress = p['editor'] as String?;
       for (final e in (p['profiles'] as List? ?? const [])) {
-        if (e is Map && e['id'] is String) profiles.add(Profile(e['id'] as String, (e['name'] ?? 'EVOKNX').toString(), projectId: e['pid'] as String?));
+        if (e is Map && e['id'] is String) profiles.add(Profile(e['id'] as String, (e['name'] ?? 'EvoKNX').toString(), projectId: e['pid'] as String?));
       }
       activeId = p['active'] as String?;
       final pp = p['profilePrefs'];
@@ -101,7 +101,7 @@ class AppStore extends ChangeNotifier {
           if (isProject(o)) {
             final doc = (o as Map).cast<String, dynamic>();
             final proj = jsonMap(doc['project']);
-            final pf = Profile('pf_${DateTime.now().millisecondsSinceEpoch}', (proj['name'] ?? 'EVOKNX').toString(), projectId: proj['id'] as String?);
+            final pf = Profile('pf_${DateTime.now().millisecondsSinceEpoch}', (proj['name'] ?? 'EvoKNX').toString(), projectId: proj['id'] as String?);
             await _writeProfile(pf.id, doc);
             profiles.add(pf);
             activeId = pf.id;
@@ -197,9 +197,9 @@ class AppStore extends ChangeNotifier {
     try {
       o = jsonDecode(utf8.decode(await f.readAsBytes(), allowMalformed: true));
     } catch (_) {
-      return 'File “${f.name}” không phải dự án EVOKNX (.evoknx).';
+      return 'File “${f.name}” không phải dự án EvoKNX (.evoknx).';
     }
-    if (!isProject(o)) return 'File “${f.name}” không phải dự án EVOKNX (.evoknx).';
+    if (!isProject(o)) return 'File “${f.name}” không phải dự án EvoKNX (.evoknx).';
     await adopt((o as Map).cast<String, dynamic>());
     return null;
   }
@@ -221,7 +221,7 @@ class AppStore extends ChangeNotifier {
     final doc = exportProject(migrate(o));
     final proj = jsonMap(doc['project']);
     final pid = (proj['id'] ?? '').toString();
-    final name = (proj['name'] ?? '').toString().trim().isEmpty ? 'EVOKNX' : (proj['name'] as String).trim();
+    final name = (proj['name'] ?? '').toString().trim().isEmpty ? 'EvoKNX' : (proj['name'] as String).trim();
     var pf = profiles.where((x) => _key(x.name) == _key(name)).firstOrNull;
     final updated = pf != null;
     if (pf == null) {
@@ -305,7 +305,7 @@ class AppStore extends ChangeNotifier {
     notifyListeners();
   }
 
-  String get projectName => (jsonMap(config?['project'])['name'] ?? 'EVOKNX').toString();
+  String get projectName => (jsonMap(config?['project'])['name'] ?? 'EvoKNX').toString();
 
   /// Theme in use: the phone's choice, else the project's default.
   String get mode {

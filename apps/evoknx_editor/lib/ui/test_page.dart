@@ -340,7 +340,7 @@ class _TestPageState extends State<TestPage> {
           Expanded(
             child: TextField(
               controller: _value,
-              decoration: InputDecoration(hintText: (m == 232 || m == 251) ? '#FFFFFF' : 'Giá trị'),
+              decoration: InputDecoration(hintText: (m == 232 || m == 251) ? '#FFFFFF' : tr('Giá trị')),
             ),
           ),
           if (unit.isNotEmpty)

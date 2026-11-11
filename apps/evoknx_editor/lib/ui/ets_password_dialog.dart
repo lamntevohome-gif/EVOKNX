@@ -56,9 +56,9 @@ class _EtsPasswordDialogState extends State<_EtsPasswordDialog> {
               onSubmitted: (v) => Navigator.pop(context, v),
               decoration: InputDecoration(
                 hintText: tr('Mật khẩu'),
-                errorText: widget.wrong ? 'Mật khẩu không đúng, nhập lại.' : null,
+                errorText: widget.wrong ? tr('Mật khẩu không đúng, nhập lại.') : null,
                 suffixIcon: IconButton(
-                  tooltip: _show ? 'Ẩn mật khẩu' : 'Hiện mật khẩu',
+                  tooltip: _show ? tr('Ẩn mật khẩu') : tr('Hiện mật khẩu'),
                   icon: Icon(_show ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: 18),
                   onPressed: () => setState(() => _show = !_show),
                 ),

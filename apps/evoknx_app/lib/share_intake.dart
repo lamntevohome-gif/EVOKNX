@@ -10,7 +10,7 @@ import 'package:knx_config/knx_config.dart';
 import 'app_store.dart';
 
 /// Takes a project file (.evoknx) that is shared to the App ("Chia sẻ →
-/// EVOKNX" from Zalo, Drive, a file manager…) or opened with it. The Android
+/// EvoKNX" from Zalo, Drive, a file manager…) or opened with it. The Android
 /// side (MainActivity.kt) copies the file to the cache and tells Dart its path.
 class ShareIntake {
   ShareIntake(this.store, this.navigator);
@@ -51,15 +51,15 @@ class ShareIntake {
       try {
         o = jsonDecode(utf8.decode(await File(path).readAsBytes(), allowMalformed: true));
       } catch (_) {
-        _say('File chia sẻ không phải dự án EVOKNX (.evoknx).');
+        _say('File chia sẻ không phải dự án EvoKNX (.evoknx).');
         return;
       }
       if (!isProject(o)) {
-        _say('File chia sẻ không phải dự án EVOKNX (.evoknx).');
+        _say('File chia sẻ không phải dự án EvoKNX (.evoknx).');
         return;
       }
       final doc = (o as Map).cast<String, dynamic>();
-      final name = (jsonMap(doc['project'])['name'] ?? 'EVOKNX').toString();
+      final name = (jsonMap(doc['project'])['name'] ?? 'EvoKNX').toString();
       final exists = store.hasProfileNamed(name);
       final ctx = navigator.currentContext;
       if (ctx == null) return;

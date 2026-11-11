@@ -110,7 +110,7 @@ class PartResult {
 /// Inserts [part] into [doc]: a floor at the end, a room into [floorId],
 /// a page into [roomId].
 PartResult applyPart(Json doc, Json part, {String? floorId, String? roomId}) {
-  if (!isPart(part)) return PartResult(error: 'File không phải tầng/phòng/trang EVOKNX.');
+  if (!isPart(part)) return PartResult(error: 'File không phải tầng/phòng/trang EvoKNX.');
   final p = Json.from(_copy(part) as Map);
   final kind = p['kind'] as String;
   final rooms0 = jsonList(doc['pages']);
@@ -288,7 +288,7 @@ Json makeCardPart(Json doc, Json widget) {
 /// has the same KNX address (used for the card library). [atX]/[atY] place
 /// the card there when that spot is free.
 PartResult applyCardPart(Json doc, Json part, Json sub, {bool keepAddresses = true, bool matchExisting = false, int? atX, int? atY}) {
-  if (!isPart(part) || part['kind'] != 'card') return PartResult(error: 'File không phải thẻ EVOKNX.');
+  if (!isPart(part) || part['kind'] != 'card') return PartResult(error: 'File không phải thẻ EvoKNX.');
   final p = Json.from(_copy(part) as Map);
   // Check there is room before changing anything (addresses, icons).
   {

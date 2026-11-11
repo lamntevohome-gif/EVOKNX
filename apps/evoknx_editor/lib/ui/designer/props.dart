@@ -30,7 +30,7 @@ class PropsPanel extends StatelessWidget {
       body = [_MultiProps(d: d)];
     } else if (w != null) {
       body = [_WidgetProps(key: ValueKey('wp-${w['id']}'), d: d, w: w)];
-    } else if (d.view == 'overview') {
+    } else if (d.view == 'overview' || d.view == 'gallery' || d.view == 'floors') {
       body = [_OverviewProps(d: d)];
     } else if (d.view == 'floor' && d.floor != null) {
       body = [_FloorProps(key: ValueKey('fp-${d.floor!['id']}'), d: d, f: d.floor!)];
@@ -1286,6 +1286,68 @@ class _CellBox extends StatelessWidget {
 
 // ------------------------------------------------------------------ room + page
 
+/// The cover image of a room for the gallery: choose, preview, remove.
+class _RoomCover extends StatelessWidget {
+  const _RoomCover({required this.value, required this.onChanged});
+  final String value;
+  final ValueChanged<String?> onChanged;
+
+  Future<void> _pick(BuildContext context) async {
+    final f = await openFile(
+      acceptedTypeGroups: const [
+        XTypeGroup(label: 'Ảnh bìa (JPG, PNG)', extensions: ['jpg', 'jpeg', 'png']),
+      ],
+      confirmButtonText: tr('Chọn ảnh'),
+    );
+    if (f == null) return;
+    final bytes = await f.readAsBytes();
+    if (!context.mounted) return;
+    if (bytes.length > 1024 * 1024) {
+      toast(context, 'Ảnh nặng ${(bytes.length / 1024 / 1024).toStringAsFixed(1)} MB, vượt quá 1 MB. Hãy dùng ảnh khoảng 800 × 600 px (JPG).');
+      return;
+    }
+    try {
+      final img = await decodeImageFromList(bytes);
+      if (!context.mounted) return;
+      if (min(img.width, img.height) < 300) {
+        toast(context, 'Ảnh ${img.width} × ${img.height} px quá nhỏ. Nên dùng khoảng 800 × 600 px.');
+        return;
+      }
+    } catch (_) {
+      if (context.mounted) toast(context, 'Không đọc được ảnh.');
+      return;
+    }
+    final png = f.name.toLowerCase().endsWith('.png');
+    onChanged('data:image/${png ? 'png' : 'jpeg'};base64,${base64Encode(bytes)}');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.evo;
+    final i = value.indexOf('base64,');
+    return Row(
+      children: [
+        Container(
+          width: 72,
+          height: 48,
+          decoration: BoxDecoration(
+            color: c.paper,
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: c.line),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: i > 0
+              ? Image.memory(base64Decode(value.substring(i + 7)), fit: BoxFit.cover, gaplessPlayback: true)
+              : Icon(Icons.image_outlined, color: c.muted),
+        ),
+        const SizedBox(width: 10),
+        EvoButton(label: 'Chọn ảnh', small: true, onPressed: () => _pick(context)),
+        if (i > 0) ...[const SizedBox(width: 6), EvoButton(label: 'Xoá ảnh', small: true, onPressed: () => onChanged(null))],
+      ],
+    );
+  }
+}
+
 class _RoomProps extends StatelessWidget {
   const _RoomProps({super.key, required this.d});
   final Designer d;
@@ -1325,6 +1387,10 @@ class _RoomProps extends StatelessWidget {
                   items: [for (final f in floors) (f['id'].toString(), (f['title'] ?? '').toString())],
                   onChanged: (v) => editRoom((x) => x['floorId'] = v),
                 ),
+              ),
+              FieldLabel(
+                'Ảnh bìa phòng (thư viện)',
+                _RoomCover(value: (r['cover'] ?? '').toString(), onChanged: (v) => editRoom((x) => v == null ? x.remove('cover') : x['cover'] = v)),
               ),
               FieldLabel(
                 'Biểu tượng phòng',
@@ -1525,6 +1591,11 @@ class _FloorProps extends StatelessWidget {
           onChanged: (v) => editFloor((x) => x['title'] = v, coalesce: 'ft-$fid'),
         ),
       ),
+      if (f['special'] == null)
+        FieldLabel(
+          'Ảnh bìa tầng',
+          _RoomCover(value: (f['cover'] ?? '').toString(), onChanged: (v) => editFloor((x) => v == null ? x.remove('cover') : x['cover'] = v)),
+        ),
       FieldLabel(
         'Biểu tượng tầng',
         IconField(d: d, value: (f['icon'] ?? 'stairs').toString(), scope: IconScope.floor, onChanged: (v) => editFloor((x) => x['icon'] = v)),
@@ -1691,6 +1762,56 @@ class _OverviewProps extends StatelessWidget {
             'Giao diện mặc định',
             EvoDropdown<String>(value: themeKey(theme['mode']), items: kAppThemes, onChanged: (v) => editTheme((x) => x['mode'] = v)),
           ),
+          FieldLabel(
+            'Bố cục',
+            Seg<String>(
+              items: const [('basic', 'Basic'), ('modern', 'Modern')],
+              value: theme['layout'] == 'modern' ? 'modern' : 'basic',
+              onChanged: (v) {
+                d.p.mutate((doc) {
+                  final t = jsonMap(doc['theme']);
+                  if (v == 'modern') {
+                    t['layout'] = 'modern';
+                    ensureModernPages(doc);
+                  } else {
+                    t.remove('layout');
+                  }
+                  doc['theme'] = t;
+                });
+                if (v == 'modern') d.selectSpecial('home');
+              },
+            ),
+          ),
+          const Padding(
+            padding: EdgeInsets.only(bottom: 8),
+            child: Hint(
+              'Basic: thanh tầng, thanh chọn phòng như cũ. Modern: App có ba mục Home, Floor, Security; Home và Security là hai trang thẻ riêng (hiện như hai tầng trong cột Cấu trúc), Floor mở thư viện tầng rồi thư viện phòng.',
+            ),
+          ),
+          FieldLabel(
+            'Kiểu chọn phòng',
+            Seg<String>(
+              items: const [('bar', 'Thanh chọn phòng'), ('gallery', 'Thư viện phòng')],
+              value: theme['roomPicker'] == 'gallery' ? 'gallery' : 'bar',
+              onChanged: (v) {
+                editTheme((x) {
+                  if (v == 'gallery') {
+                    x['roomPicker'] = 'gallery';
+                  } else {
+                    x.remove('roomPicker');
+                  }
+                });
+                if (v == 'gallery') d.gallery();
+              },
+            ),
+          ),
+          if (theme['roomPicker'] == 'gallery')
+            const Padding(
+              padding: EdgeInsets.only(bottom: 8),
+              child: Hint(
+                'Thư viện phòng: App mở bằng lưới thẻ phòng (ảnh bìa, biểu tượng, tên). Bấm một phòng để vào; nút lưới ở đầu trang để quay lại. Chọn ảnh bìa trong cài đặt của từng phòng.',
+              ),
+            ),
           CheckboxListTile(
             value: theme['hideTitle'] == true,
             onChanged: (v) => editTheme((x) => x['hideTitle'] = v ?? false),
@@ -2183,7 +2304,7 @@ class _SecretFieldState extends State<_SecretField> {
     decoration: InputDecoration(
       isDense: true,
       suffixIcon: IconButton(
-        tooltip: _show ? 'Ẩn mật khẩu' : 'Hiện mật khẩu',
+        tooltip: _show ? tr('Ẩn mật khẩu') : tr('Hiện mật khẩu'),
         icon: Icon(_show ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: 18),
         onPressed: () => setState(() => _show = !_show),
       ),

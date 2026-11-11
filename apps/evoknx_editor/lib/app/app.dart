@@ -22,7 +22,7 @@ class EvoknxApp extends StatelessWidget {
         lang: appLang,
         child: MaterialApp(
           key: ValueKey(appLang.code),
-          title: 'EVOKNX Editor',
+          title: 'EvoKNX Editor',
           debugShowCheckedModeBanner: false,
           theme: buildTheme(Brightness.light),
           darkTheme: buildTheme(Brightness.dark),

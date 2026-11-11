@@ -45,7 +45,7 @@ class SplashView extends StatelessWidget {
               ),
               const SizedBox(width: 10),
               Text(
-                'EVOKNX',
+                'EvoKNX',
                 style: TextStyle(color: fg, fontSize: 26, fontWeight: FontWeight.w700, letterSpacing: 0.5),
               ),
             ],

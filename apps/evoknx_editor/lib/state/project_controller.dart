@@ -46,7 +46,7 @@ class ProjectController extends ChangeNotifier {
   /// project get their own session file so several windows never collide.
   String _sessionName = 'autosave.evoknx';
 
-  static const _typeGroup = XTypeGroup(label: 'Dự án EVOKNX', extensions: ['evoknx', 'json']);
+  static const _typeGroup = XTypeGroup(label: 'Dự án EvoKNX', extensions: ['evoknx', 'json']);
 
   bool get canUndo => _undo.isNotEmpty;
   bool get canRedo => _redo.isNotEmpty;
@@ -267,7 +267,7 @@ class ProjectController extends ChangeNotifier {
     }
     try {
       final o = jsonDecode(await File(p).readAsString());
-      if (!isProject(o)) return 'File không đúng định dạng dự án EVOKNX.';
+      if (!isProject(o)) return 'File không đúng định dạng dự án EvoKNX.';
       mutate((_) {});
       doc = migrate((o as Map).cast<String, dynamic>());
       final snap = snapshotInfo(p);

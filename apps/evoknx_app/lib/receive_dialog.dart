@@ -70,7 +70,7 @@ class _ReceiveDialogState extends State<_ReceiveDialog> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              'Trên máy tính, mở EVOKNX Editor → menu EVOKNX → Gửi sang App qua Wi-Fi. Nhập địa chỉ và mã hiện ở đó. Điện thoại phải cùng Wi-Fi với máy tính.',
+              'Trên máy tính, mở EvoKNX Editor → menu EvoKNX → Gửi sang App qua Wi-Fi. Nhập địa chỉ và mã hiện ở đó. Điện thoại phải cùng Wi-Fi với máy tính.',
               style: TextStyle(fontSize: 14, height: 1.45, color: pal.muted),
             ),
             const SizedBox(height: 16),

@@ -45,7 +45,7 @@ class EvoknxApp extends StatelessWidget {
           child: MaterialApp(
             key: ValueKey(appLang.code),
             navigatorKey: navigatorKey,
-            title: 'EVOKNX',
+            title: 'EvoKNX',
             debugShowCheckedModeBanner: false,
             theme: ThemeData(
               useMaterial3: true,

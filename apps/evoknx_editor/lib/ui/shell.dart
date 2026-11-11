@@ -223,7 +223,7 @@ class _ShellState extends State<Shell> {
               ),
               const SizedBox(width: 6),
               Tooltip(
-                message: p.path ?? 'Dự án chưa được lưu thành file',
+                message: p.path ?? tr('Dự án chưa được lưu thành file'),
                 child: Text(
                   _status(),
                   style: TextStyle(fontSize: kUiText, color: p.dirty ? c.warn : c.muted),
@@ -360,7 +360,7 @@ class _ShellState extends State<Shell> {
               ),
               const SizedBox(width: 8),
               Text(
-                'EVOKNX',
+                'EvoKNX',
                 style: TextStyle(fontSize: kUiText, fontWeight: FontWeight.w700, letterSpacing: 0.2, color: Colors.white),
               ),
               const SizedBox(width: 2),

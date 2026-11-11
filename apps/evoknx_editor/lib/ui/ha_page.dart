@@ -846,7 +846,7 @@ class _TokenFieldState extends State<_TokenField> {
       onChanged: widget.onChanged,
       decoration: InputDecoration(
         suffixIcon: IconButton(
-          tooltip: hide ? 'Hiện token' : 'Ẩn token',
+          tooltip: hide ? tr('Hiện token') : tr('Ẩn token'),
           icon: Icon(hide ? Icons.visibility_outlined : Icons.visibility_off_outlined, size: 18),
           onPressed: () => setState(() => hide = !hide),
         ),
@@ -1272,7 +1272,7 @@ class _AddEntityDialogState extends State<_AddEntityDialog> {
                                             style: const TextStyle(fontSize: kUiText),
                                             decoration: InputDecoration(
                                               isDense: true,
-                                              labelText: role == 'cmd' ? 'Lệnh' : 'Trạng thái',
+                                              labelText: role == 'cmd' ? tr('Lệnh') : tr('Trạng thái'),
                                               hintText: plan['${a.key}|$role'],
                                               errorText: (errors['${a.key}|$role'] ?? '').isEmpty ? null : errors['${a.key}|$role'],
                                               errorMaxLines: 3,

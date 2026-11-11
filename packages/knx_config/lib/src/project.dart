@@ -1,4 +1,4 @@
-// EVOKNX project document (JSON). The document is kept as a plain
+// EvoKNX project document (JSON). The document is kept as a plain
 // Map<String, dynamic> so that files written by the web editor and the
 // Windows editor stay 100% compatible. Helpers below give typed access.
 import 'dart:math';

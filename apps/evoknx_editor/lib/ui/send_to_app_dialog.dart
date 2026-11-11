@@ -91,7 +91,7 @@ class _SendDialogState extends State<_SendDialog> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Text(
-                    'Trên điện thoại (cùng Wi-Fi với máy tính này): mở App EVOKNX → Cài đặt → Mở cấu hình khác → Nhận từ máy tính, rồi nhập địa chỉ và mã dưới đây.',
+                    'Trên điện thoại (cùng Wi-Fi với máy tính này): mở App EvoKNX → Cài đặt → Mở cấu hình khác → Nhận từ máy tính, rồi nhập địa chỉ và mã dưới đây.',
                     style: TextStyle(height: 1.45, color: c.muted),
                   ),
                   const SizedBox(height: 14),
