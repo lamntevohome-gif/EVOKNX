@@ -296,18 +296,26 @@ class _Screen extends StatelessWidget {
         ),
       );
       final tab = !inFloors && special == 'home' ? 0 : (!inFloors && special == 'security' ? 2 : 1);
-      final ns = tfs(doc, 'navBar') * 2.2;
-      // Only icons: the selected one is filled and tinted, the others are outlined.
-      Widget barItem(int t, IconData on, IconData off, VoidCallback onTap) {
+      final nf = tfs(doc, 'navBar');
+      // An icon with a small label; the selected one is filled and tinted.
+      Widget barItem(int t, IconData on, IconData off, String label, VoidCallback onTap) {
         final sel = tab == t;
+        final col = sel ? pal.accent : pal.muted;
         return Expanded(
-          child: InkResponse(
+          child: PressFade(
             onTap: onTap,
-            radius: 30,
-            child: SizedBox(
-              height: ns + 22,
-              child: Center(
-                child: Icon(sel ? on : off, size: ns, color: sel ? pal.accent : pal.muted),
+            child: Padding(
+              padding: const EdgeInsets.only(top: 8, bottom: 6),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(sel ? on : off, size: nf * 2.2, color: col),
+                  const SizedBox(height: 2),
+                  Text(
+                    label,
+                    style: TextStyle(fontSize: nf * 0.9, fontWeight: FontWeight.w500, color: col),
+                  ),
+                ],
               ),
             ),
           ),
@@ -322,7 +330,7 @@ class _Screen extends StatelessWidget {
           children: [
             statusBar,
             if (inFloors) ...[
-              title('Floor'),
+              title('Area'),
               Expanded(
                 child: RoomGallery(doc: doc, rooms: normal, pal: pal, onOpen: d.selectFloor),
               ),
@@ -362,7 +370,7 @@ class _Screen extends StatelessWidget {
               empty
             else ...[
               _header(doc, room, floor, false, theme, onBack: special == null ? () => d.selectFloor((floor?['id'] ?? '').toString()) : null),
-              tablet ? _pageTabs(room, sub) : _subNav(room, sub),
+              if (tablet) _pageTabs(room, sub),
               grid(room, sub),
             ],
             Container(
@@ -372,15 +380,15 @@ class _Screen extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  barItem(0, Icons.home_rounded, Icons.home_outlined, () => d.selectSpecial('home')),
-                  barItem(1, Icons.layers_rounded, Icons.layers_outlined, () {
+                  barItem(0, Icons.home_rounded, Icons.home_outlined, 'Home', () => d.selectSpecial('home')),
+                  barItem(1, Icons.layers_rounded, Icons.layers_outlined, 'Area', () {
                     if (normal.length > 1) {
                       d.floorsGallery();
                     } else if (normal.isNotEmpty) {
                       d.selectFloor(normal.first['id'] as String);
                     }
                   }),
-                  barItem(2, Icons.shield, Icons.shield_outlined, () => d.selectSpecial('security')),
+                  barItem(2, Icons.shield, Icons.shield_outlined, 'Security', () => d.selectSpecial('security')),
                 ],
               ),
             ),
@@ -414,7 +422,7 @@ class _Screen extends StatelessWidget {
           else ...[
             _header(doc, room, floor, floors.length > 1, theme),
             if (!galleryOn) _roomsBar(doc, room, floor),
-            tablet ? _pageTabs(room, sub) : _subNav(room, sub),
+            if (tablet) _pageTabs(room, sub),
             grid(room, sub),
           ],
           if (floors.length > 1) _floorBar(floors, floor),
@@ -464,9 +472,8 @@ class _Screen extends StatelessWidget {
           if (onBack != null || (theme['roomPicker'] == 'gallery' && theme['layout'] != 'modern' && dev != 'tabletL')) ...[
             Tooltip(
               message: tr(onBack != null ? 'Back' : 'Room gallery'),
-              child: InkResponse(
+              child: PressFade(
                 onTap: onBack ?? d.gallery,
-                radius: 20,
                 child: SizedBox(
                   width: 36,
                   height: 36,
@@ -499,6 +506,12 @@ class _Screen extends StatelessWidget {
                           style: TextStyle(fontSize: tfs(doc, 'titleSize'), fontWeight: FontWeight.w600, color: pal.sInk),
                         ),
                       ),
+                      // A phone shows the page after the room name: "Living room (1/3)".
+                      if (dev == 'mobile' && subsOf(room).length > 1)
+                        Text(
+                          '  (${max(0, subsOf(room).indexWhere((x) => x['id'] == d.sub?['id'])) + 1}/${subsOf(room).length})',
+                          style: TextStyle(fontSize: tfs(doc, 'crumb'), color: pal.sMuted, fontWeight: FontWeight.w500),
+                        ),
                     ],
                   ),
           ),
@@ -695,72 +708,6 @@ class _Screen extends StatelessWidget {
                 child: Icon(Icons.add, size: 16, color: pal.accent),
               ),
             ),
-        ],
-      ),
-    );
-  }
-
-  Widget _subNav(Json room, Json sub) {
-    final ss = subsOf(room);
-    final i = ss.indexWhere((x) => x['id'] == sub['id']);
-    final f = tfs(d.doc, 'pageTitle');
-    final dots = Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        for (var k = 0; k < ss.length; k++)
-          GestureDetector(
-            onTap: () => d.selectSub(room['id'] as String, ss[k]['id'] as String),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              width: k == i ? 16 : 6,
-              height: 6,
-              margin: const EdgeInsets.symmetric(horizontal: 2),
-              decoration: BoxDecoration(color: k == i ? pal.sInk : pal.sMuted.withValues(alpha: 0.45), borderRadius: BorderRadius.circular(3)),
-            ),
-          ),
-      ],
-    );
-    final title = Text(
-      (sub['title'] ?? '').toString(),
-      style: TextStyle(fontSize: f, fontWeight: FontWeight.w600, color: pal.sMuted),
-    );
-    Widget arrow(IconData icon, VoidCallback? onTap, String tip) => Tooltip(
-      message: tr(tip),
-      child: InkWell(
-        onTap: onTap,
-        customBorder: const CircleBorder(),
-        child: Container(
-          width: 30,
-          height: 30,
-          decoration: BoxDecoration(
-            color: onTap == null ? Colors.transparent : pal.panel,
-            shape: BoxShape.circle,
-            border: Border.all(color: pal.tileEdge),
-          ),
-          child: Icon(icon, size: 17, color: onTap == null ? pal.lineStrong : pal.ink),
-        ),
-      ),
-    );
-    if (d.test) {
-      if (ss.length < 2) return const SizedBox(height: 4);
-      return Padding(
-        // Centred between the rooms bar (8 px under it) and the cards (the safe margin).
-        padding: EdgeInsets.fromLTRB(14, max(0.0, pal.safeMargin - 8), 14, 0),
-        child: Row(
-          children: [
-            Expanded(child: Column(children: [title, const SizedBox(height: 5), dots])),
-          ],
-        ),
-      );
-    }
-    return Padding(
-      // Centred between the rooms bar (8 px under it) and the cards (the safe margin).
-      padding: EdgeInsets.fromLTRB(14, max(0.0, pal.safeMargin - 8), 14, 0),
-      child: Row(
-        children: [
-          if (i >= ss.length - 1) const SizedBox(width: 30),
-          Expanded(child: Column(children: [title, const SizedBox(height: 5), dots])),
-          if (i >= ss.length - 1) arrow(Icons.add, d.addSub, 'Add a page to the room'),
         ],
       ),
     );

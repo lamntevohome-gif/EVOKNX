@@ -409,7 +409,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   _banner(pal),
                   _header(d, pal, floor, inGallery ? null : r, floors.length > 1),
                   if (!_galleryMode && rooms.length > 1) _roomsBar(d, pal, rooms),
-                  if (!inGallery && r != null && subs.length > 1) _pageNav(subs, pal),
+                  if (!inGallery && r != null && subs.length > 1 && _dev != 'mobile') _pageNav(subs, pal),
                   Expanded(
                     child: _fade(
                       ValueKey('c$inGallery-$roomId-$floorId'),
@@ -507,7 +507,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final floor = floorsOf(d).where((f) => f['id'] == floorId).firstOrNull;
     final normal = normalFloorsOf(d);
     final VoidCallback? onBack = _tab == 1 && (_lvl == 2 || (_lvl == 1 && normal.length > 1)) ? () => _modernBack() : null;
-    final Json? headFloor = _tab == 1 && _lvl == 0 ? <String, dynamic>{'title': 'Floor'} : floor;
+    final Json? headFloor = _tab == 1 && _lvl == 0 ? <String, dynamic>{'title': 'Area'} : floor;
     final Widget content;
     if (_tab == 1 && _lvl == 0) {
       content = RoomGallery(doc: d, rooms: normal, pal: pal, onOpen: _openFloor);
@@ -565,7 +565,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 children: [
                   _banner(pal),
                   _header(d, pal, headFloor, onPage ? r : null, false, onBack: onBack),
-                  if (onPage && r != null && subs.length > 1) _pageNav(subs, pal),
+                  if (onPage && r != null && subs.length > 1 && _dev != 'mobile') _pageNav(subs, pal),
                   Expanded(child: _fade(ValueKey('m$_tab-$_lvl-$floorId-$roomId'), content)),
                   _modernBar(pal),
                 ],
@@ -579,22 +579,31 @@ class _HomeScreenState extends State<HomeScreen> {
 
   /// The three buttons at the bottom.
   Widget _modernBar(AppPalette pal) {
-    final size = tfs(doc, 'navBar') * 2.2;
-    // Only icons, like the tab bar of iOS: the selected one is filled and tinted, the others are outlined.
+    final f = tfs(doc, 'navBar');
+    // Like the tab bar of iOS: an icon with a small label; the selected one is filled and tinted.
     Widget item(int t, IconData on, IconData off, String label) {
       final sel = _tab == t;
+      final col = sel ? pal.accent : pal.muted;
       return Expanded(
         child: Semantics(
           button: true,
           selected: sel,
           label: label,
-          child: InkResponse(
+          excludeSemantics: true,
+          child: PressFade(
             onTap: () => _modernTab(t),
-            radius: 36,
-            child: SizedBox(
-              height: size + 22,
-              child: Center(
-                child: Icon(sel ? on : off, size: size, color: sel ? pal.accent : pal.muted),
+            child: Padding(
+              padding: const EdgeInsets.only(top: 8, bottom: 6),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(sel ? on : off, size: f * 2.2, color: col),
+                  const SizedBox(height: 2),
+                  Text(
+                    label,
+                    style: TextStyle(fontSize: f * 0.9, fontWeight: FontWeight.w500, color: col),
+                  ),
+                ],
               ),
             ),
           ),
@@ -612,7 +621,7 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Row(
           children: [
             item(0, Icons.home_rounded, Icons.home_outlined, 'Home'),
-            item(1, Icons.layers_rounded, Icons.layers_outlined, 'Floor'),
+            item(1, Icons.layers_rounded, Icons.layers_outlined, 'Area'),
             item(2, Icons.shield, Icons.shield_outlined, 'Security'),
           ],
         ),
@@ -689,6 +698,12 @@ class _HomeScreenState extends State<HomeScreen> {
                           style: TextStyle(fontSize: tfs(d, 'titleSize'), fontWeight: FontWeight.w600, color: pal.sInk),
                         ),
                       ),
+                      // A phone shows the page after the room name: "Living room (1/3)".
+                      if (_dev == 'mobile' && r != null && subsOf(r).length > 1)
+                        Text(
+                          '  (${page + 1}/${subsOf(r).length})',
+                          style: TextStyle(fontSize: tfs(d, 'crumb'), color: pal.sMuted, fontWeight: FontWeight.w500),
+                        ),
                     ],
                   ),
           ),
@@ -702,9 +717,8 @@ class _HomeScreenState extends State<HomeScreen> {
   /// An icon button without a frame (iOS style): a large touch area and only the icon is drawn.
   Widget _iconBtn(AppPalette pal, IconData icon, VoidCallback onTap, String tip, {double size = 24}) => Tooltip(
     message: tr(tip),
-    child: InkResponse(
+    child: PressFade(
       onTap: onTap,
-      radius: 24,
       child: SizedBox(
         width: 44,
         height: 44,

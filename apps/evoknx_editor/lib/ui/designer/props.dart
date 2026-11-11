@@ -1780,7 +1780,7 @@ class _OverviewProps extends StatelessWidget {
           const Padding(
             padding: EdgeInsets.only(bottom: 8),
             child: Hint(
-              'Basic: the floor bar and the room bar as before. Modern: the App has three sections, Home, Floor and Security; Home and Security are two separate card pages (shown as two floors in the Structure column), and Floor opens the floor gallery and then the room gallery.',
+              'Basic: the floor bar and the room bar as before. Modern: the App has three sections, Home, Area and Security; Home and Security are two separate card pages (shown as two floors in the Structure column), and Area opens the floor gallery and then the room gallery.',
             ),
           ),
           FieldLabel(

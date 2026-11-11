@@ -5,7 +5,6 @@ import 'package:knx_config/knx_config.dart';
 
 import 'account_panel.dart';
 import 'app_store.dart';
-import 'intro_screen.dart';
 import 'knx_link.dart';
 import 'receive_dialog.dart';
 
@@ -401,15 +400,6 @@ class SettingsScreen extends StatelessWidget {
                       row(Icon(Icons.info_outline, color: pal.muted), 'EvoKNX', sub: 'Version 0.1.0 · © ${DateTime.now().year} Evohome'),
                       row(Icon(Icons.palette_outlined, color: pal.muted), 'Icon', sub: 'Material Design Icons · Pictogrammers (Apache 2.0)'),
                       row(Icon(Icons.text_fields, color: pal.muted), 'Font', sub: 'Inter · Rasmus Andersson (SIL Open Font License)'),
-                      row(
-                        Icon(Icons.slideshow_outlined, color: pal.muted),
-                        'Show the introduction',
-                        onTap: () => Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (c) => IntroScreen(store: store, onDone: () => Navigator.of(c).pop()),
-                          ),
-                        ),
-                      ),
                     ]),
                   ]),
                 ],
