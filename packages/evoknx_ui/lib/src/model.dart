@@ -218,7 +218,7 @@ const kTfs = [
   TfsDef('pageTitle', 'Page name', 13, 10, 24),
   TfsDef('floorBar', 'Floor bar', 15, 10, 24),
   TfsDef('crumb', 'Floor line (Floor 1 ›)', 13, 10, 20),
-  TfsDef('navBar', 'Navigation bar (Home, Floor, Security)', 12, 10, 20),
+  TfsDef('navBar', 'Navigation bar icon size', 12, 10, 20),
 ];
 
 double tfs(Json doc, String key) {

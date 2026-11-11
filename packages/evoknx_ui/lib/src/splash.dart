@@ -23,9 +23,12 @@ String greeting(Json sp) {
 /// line of text on a background colour. Used by the Editor preview and by
 /// the App when it opens.
 class SplashView extends StatelessWidget {
-  const SplashView({super.key, required this.splash, this.onTap});
+  const SplashView({super.key, required this.splash, this.onTap, this.fadeIn = false});
   final Json splash;
   final VoidCallback? onTap;
+
+  /// The logo and the greeting appear with a soft fade (the App); the Editor preview shows them at once.
+  final bool fadeIn;
 
   @override
   Widget build(BuildContext context) {
@@ -56,27 +59,49 @@ class SplashView extends StatelessWidget {
       child: Container(
         color: bg,
         padding: const EdgeInsets.all(30),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            mark,
-            const SizedBox(height: 20),
-            Text(
-              greeting(sp),
-              textAlign: TextAlign.center,
-              style: TextStyle(color: fg, fontSize: 22, fontWeight: FontWeight.w500, decoration: TextDecoration.none),
-            ),
-            if ((sp['sub'] ?? '').toString().isNotEmpty) ...[
-              const SizedBox(height: 8),
+        child: _Soft(
+          enabled: fadeIn,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              mark,
+              const SizedBox(height: 20),
               Text(
-                sp['sub'].toString(),
+                greeting(sp),
                 textAlign: TextAlign.center,
-                style: TextStyle(color: fg.withValues(alpha: 0.7), fontSize: 14, decoration: TextDecoration.none),
+                style: TextStyle(color: fg, fontSize: 22, fontWeight: FontWeight.w500, decoration: TextDecoration.none),
               ),
+              if ((sp['sub'] ?? '').toString().isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(
+                  sp['sub'].toString(),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: fg.withValues(alpha: 0.7), fontSize: 14, decoration: TextDecoration.none),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
+    );
+  }
+}
+
+/// Fades its child in the first moments (when [enabled]).
+class _Soft extends StatelessWidget {
+  const _Soft({required this.enabled, required this.child});
+  final bool enabled;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!enabled || MediaQuery.of(context).disableAnimations) return child;
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: const Duration(milliseconds: 700),
+      curve: Curves.easeOut,
+      builder: (context, v, child) => Opacity(opacity: v, child: child),
+      child: child,
     );
   }
 }

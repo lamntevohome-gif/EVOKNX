@@ -43,6 +43,12 @@ class AppStore extends ChangeNotifier {
   bool autoScale = true;
   String? lastRoom, lastSub, connectionId;
 
+  /// The introduction of a new installation was shown (phones that already had the App count as having seen it).
+  bool introSeen = true;
+
+  /// "Start at": null (the default of the layout), 'home', 'last' or 'room' (then [startRoom]).
+  String? startMode, startRoom;
+
   /// Last address typed when receiving from the Editor (e.g. 192.168.1.20:47800).
   String? editorAddress;
 
@@ -109,6 +115,8 @@ class AppStore extends ChangeNotifier {
         }
       } catch (_) {}
     }
+    // A fresh install shows the introduction once; phones that already had the App do not.
+    introSeen = p != null ? p['introSeen'] != false : profiles.isNotEmpty;
     if (activeId == null || !profiles.any((x) => x.id == activeId)) activeId = profiles.firstOrNull?.id;
     final act = profiles.where((x) => x.id == activeId).firstOrNull;
     if (act != null) {
@@ -138,6 +146,8 @@ class AppStore extends ChangeNotifier {
     lastRoom = m['room'] as String?;
     lastSub = m['sub'] as String?;
     connectionId = m['conn'] as String?;
+    startMode = m['start'] as String?;
+    startRoom = m['startRoom'] as String?;
   }
 
   Future<Json?> _readProfile(String id) async {
@@ -160,13 +170,14 @@ class AppStore extends ChangeNotifier {
   Future<void> savePrefs() async {
     try {
       final id = activeId;
-      if (id != null) _pp[id] = {'room': lastRoom, 'sub': lastSub, 'conn': connectionId};
+      if (id != null) _pp[id] = {'room': lastRoom, 'sub': lastSub, 'conn': connectionId, 'start': startMode, 'startRoom': startRoom};
       final f = await _file('evoknx_prefs.json');
       await f.writeAsString(
         jsonEncode({
           'theme': themeMode,
           'keepOn': keepScreenOn,
           'textScale': textScale,
+          'introSeen': introSeen,
           'autoScale': autoScale,
           'editor': editorAddress,
           'profiles': [
@@ -382,6 +393,19 @@ class AppStore extends ChangeNotifier {
 
   Future<void> setConnection(String id) async {
     connectionId = id;
+    notifyListeners();
+    await savePrefs();
+  }
+
+  Future<void> markIntroSeen() async {
+    introSeen = true;
+    notifyListeners();
+    await savePrefs();
+  }
+
+  Future<void> setStart(String? mode, [String? room]) async {
+    startMode = mode;
+    startRoom = mode == 'room' ? room : null;
     notifyListeners();
     await savePrefs();
   }

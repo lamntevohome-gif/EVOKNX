@@ -35,7 +35,7 @@ class _HomeScreenState extends State<HomeScreen> {
   HaBridge? ha;
 
   /// "Thư viện phòng": the rooms are chosen from a gallery instead of the room bar.
-  bool get _galleryMode => jsonMap(doc['theme'])['roomPicker'] == 'gallery';
+  bool get _galleryMode => !_modernMode && jsonMap(doc['theme'])['roomPicker'] == 'gallery';
 
   /// True while the gallery (and not a room) is shown.
   bool _gallery = true;
@@ -116,10 +116,13 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     final doc = store.config!;
     final rooms = roomsOf(doc);
-    final last = rooms.where((r) => r['id'] == store.lastRoom).firstOrNull ?? rooms.firstOrNull;
+    // "Start at" (Settings): a fixed room, or the room that was open last time.
+    final fixed = store.startMode == 'room' ? rooms.where((r) => r['id'] == store.startRoom).firstOrNull : null;
+    final last = fixed ?? rooms.where((r) => r['id'] == store.lastRoom).firstOrNull ?? rooms.firstOrNull;
+    if (store.startMode != null) _gallery = false;
     roomId = last?['id'] as String?;
     floorId = last?['floorId'] as String? ?? floorsOf(doc).firstOrNull?['id'] as String?;
-    if (last != null) {
+    if (last != null && fixed == null) {
       final i = subsOf(last).indexWhere((s) => s['id'] == store.lastSub);
       page = i < 0 ? 0 : i;
     }
@@ -228,6 +231,32 @@ class _HomeScreenState extends State<HomeScreen> {
     });
     store.remember(roomId, sub?['id'] as String?);
     _readPage();
+  }
+
+  bool get _noMotion => MediaQuery.of(context).disableAnimations;
+
+  /// A gentle fade between two screens (another floor, another room…).
+  Widget _fade(Key key, Widget child) => AnimatedSwitcher(
+    duration: _noMotion ? Duration.zero : const Duration(milliseconds: 220),
+    switchInCurve: Curves.easeOut,
+    switchOutCurve: Curves.easeIn,
+    layoutBuilder: (current, previous) => Stack(fit: StackFit.expand, children: [...previous, if (current != null) current]),
+    child: KeyedSubtree(key: key, child: child),
+  );
+
+  /// While pages are swiped, the page that leaves becomes a little transparent.
+  Widget _pageFade(int i, Widget child) {
+    final pc = _pages;
+    if (pc == null || _noMotion) return child;
+    return AnimatedBuilder(
+      animation: pc,
+      child: child,
+      builder: (context, child) {
+        final p = pc.hasClients && pc.position.haveDimensions ? (pc.page ?? page.toDouble()) : page.toDouble();
+        final o = (1 - (p - i).abs() * 0.6).clamp(0.0, 1.0).toDouble();
+        return o >= 0.999 ? child! : Opacity(opacity: o, child: child);
+      },
+    );
   }
 
   /// A tap on a room card of the gallery.
@@ -382,43 +411,46 @@ class _HomeScreenState extends State<HomeScreen> {
                   if (!_galleryMode && rooms.length > 1) _roomsBar(d, pal, rooms),
                   if (!inGallery && r != null && subs.length > 1) _pageNav(subs, pal),
                   Expanded(
-                    child: inGallery
-                        ? RoomGallery(doc: d, rooms: rooms, pal: pal, onOpen: _openRoom)
-                        : r == null
-                        ? Center(
-                            child: Padding(
-                              padding: const EdgeInsets.all(30),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(Icons.meeting_room_outlined, size: 48, color: pal.sMuted),
-                                  const SizedBox(height: 12),
-                                  Text(
-                                    'The room has not been created',
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: pal.sInk),
-                                  ),
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    'This floor has no rooms yet.',
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(fontSize: 14, color: pal.sMuted),
-                                  ),
-                                ],
+                    child: _fade(
+                      ValueKey('c$inGallery-$roomId-$floorId'),
+                      inGallery
+                          ? RoomGallery(doc: d, rooms: rooms, pal: pal, onOpen: _openRoom)
+                          : r == null
+                          ? Center(
+                              child: Padding(
+                                padding: const EdgeInsets.all(30),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.meeting_room_outlined, size: 48, color: pal.sMuted),
+                                    const SizedBox(height: 12),
+                                    Text(
+                                      'The room has not been created',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: pal.sInk),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      'This floor has no rooms yet.',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(fontSize: 14, color: pal.sMuted),
+                                    ),
+                                  ],
+                                ),
                               ),
+                            )
+                          : PageView.builder(
+                              key: ValueKey('pages-$roomId-$_dev'),
+                              controller: _pages,
+                              itemCount: subs.length,
+                              onPageChanged: (i) {
+                                setState(() => page = i);
+                                store.remember(roomId, sub?['id'] as String?);
+                                _readPage();
+                              },
+                              itemBuilder: (context, i) => _pageFade(i, Padding(padding: EdgeInsets.all(pal.safeMargin), child: _grid(subs[i], null, pal))),
                             ),
-                          )
-                        : PageView.builder(
-                            key: ValueKey('pages-$roomId-$_dev'),
-                            controller: _pages,
-                            itemCount: subs.length,
-                            onPageChanged: (i) {
-                              setState(() => page = i);
-                              store.remember(roomId, sub?['id'] as String?);
-                              _readPage();
-                            },
-                            itemBuilder: (context, i) => Padding(padding: EdgeInsets.all(pal.safeMargin), child: _grid(subs[i], null, pal)),
-                          ),
+                    ),
                   ),
                   if (floors.length > 1) _floorBar(d, pal, floors),
                   const SizedBox(height: 6),
@@ -438,15 +470,31 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildModern(AppPalette pal0) {
     if (!_modernReady) {
       _modernReady = true;
-      // Open on Home (without a rebuild: this is the first build).
-      final f = _special('home');
-      final rs = f == null ? const <Json>[] : roomsOf(doc, f['id'] as String);
-      if (rs.isNotEmpty) {
-        floorId = f!['id'] as String;
-        roomId = rs.first['id'] as String;
-        page = 0;
+      // Open on Home, on the room that was open last time or on the room chosen in Settings
+      // (without a rebuild: this is the first build).
+      final mode = store.startMode ?? 'home';
+      final want = mode == 'room' ? store.startRoom : (mode == 'last' ? store.lastRoom : null);
+      final tgt = want == null ? null : roomsOf(doc).where((r) => r['id'] == want).firstOrNull;
+      final tf = tgt == null ? null : floorsOf(doc).where((f) => f['id'] == tgt['floorId']).firstOrNull;
+      if (tgt != null && tf != null) {
+        floorId = tf['id'] as String;
+        roomId = tgt['id'] as String;
+        final si = mode == 'last' ? subsOf(tgt).indexWhere((x) => x['id'] == store.lastSub) : -1;
+        page = si < 0 ? 0 : si;
+        _tab = tf['special'] == 'home' ? 0 : (tf['special'] == 'security' ? 2 : 1);
+        _lvl = 2;
         _pages?.dispose();
-        _pages = PageController();
+        _pages = PageController(initialPage: page);
+      } else {
+        final f = _special('home');
+        final rs = f == null ? const <Json>[] : roomsOf(doc, f['id'] as String);
+        if (rs.isNotEmpty) {
+          floorId = f!['id'] as String;
+          roomId = rs.first['id'] as String;
+          page = 0;
+          _pages?.dispose();
+          _pages = PageController();
+        }
       }
     }
     final d = doc;
@@ -482,7 +530,7 @@ class _HomeScreenState extends State<HomeScreen> {
           store.remember(roomId, sub?['id'] as String?);
           _readPage();
         },
-        itemBuilder: (context, i) => Padding(padding: EdgeInsets.all(pal.safeMargin), child: _grid(subs[i], null, pal)),
+        itemBuilder: (context, i) => _pageFade(i, Padding(padding: EdgeInsets.all(pal.safeMargin), child: _grid(subs[i], null, pal))),
       );
     }
     return PopScope(
@@ -518,7 +566,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   _banner(pal),
                   _header(d, pal, headFloor, onPage ? r : null, false, onBack: onBack),
                   if (onPage && r != null && subs.length > 1) _pageNav(subs, pal),
-                  Expanded(child: content),
+                  Expanded(child: _fade(ValueKey('m$_tab-$_lvl-$floorId-$roomId'), content)),
                   _modernBar(pal),
                 ],
               ),
@@ -531,31 +579,22 @@ class _HomeScreenState extends State<HomeScreen> {
 
   /// The three buttons at the bottom.
   Widget _modernBar(AppPalette pal) {
-    final f = tfs(doc, 'navBar');
-    Widget item(int t, IconData icon, String label) {
-      final on = _tab == t;
-      final fg = on ? pal.onChipSel : pal.muted;
+    final size = tfs(doc, 'navBar') * 2.2;
+    // Only icons, like the tab bar of iOS: the selected one is filled and tinted, the others are outlined.
+    Widget item(int t, IconData on, IconData off, String label) {
+      final sel = _tab == t;
       return Expanded(
-        child: InkWell(
-          onTap: () => _modernTab(t),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 6),
-            child: Center(
-              // The highlighted pill wraps the icon and the text.
-              child: Container(
-                padding: EdgeInsets.symmetric(horizontal: f * 1.5, vertical: f * 0.55),
-                decoration: on ? flatDecoration(pal, pal.chipSel, radius: BorderRadius.circular(f * 1.6)) : null,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(icon, size: f * 1.9, color: fg),
-                    SizedBox(height: f * 0.2),
-                    Text(
-                      label,
-                      style: TextStyle(fontSize: f, fontWeight: on ? FontWeight.w700 : FontWeight.w500, color: fg),
-                    ),
-                  ],
-                ),
+        child: Semantics(
+          button: true,
+          selected: sel,
+          label: label,
+          child: InkResponse(
+            onTap: () => _modernTab(t),
+            radius: 36,
+            child: SizedBox(
+              height: size + 22,
+              child: Center(
+                child: Icon(sel ? on : off, size: size, color: sel ? pal.accent : pal.muted),
               ),
             ),
           ),
@@ -565,12 +604,18 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Container(
       decoration: BoxDecoration(
-        color: Color.lerp(pal.screen, pal.ink, 0.07),
-        border: Border(top: BorderSide(color: pal.tileEdge)),
+        color: Color.lerp(pal.screen, pal.ink, 0.05),
+        border: Border(top: BorderSide(color: pal.tileEdge, width: 0.5)),
       ),
       child: SafeArea(
         top: false,
-        child: Row(children: [item(0, Icons.home_rounded, 'Home'), item(1, Icons.layers_rounded, 'Floor'), item(2, Icons.shield_outlined, 'Security')]),
+        child: Row(
+          children: [
+            item(0, Icons.home_rounded, Icons.home_outlined, 'Home'),
+            item(1, Icons.layers_rounded, Icons.layers_outlined, 'Floor'),
+            item(2, Icons.shield, Icons.shield_outlined, 'Security'),
+          ],
+        ),
       ),
     );
   }
@@ -611,25 +656,14 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Row(
         children: [
           if (onBack != null || (_galleryMode && !_gallery)) ...[
-            Tooltip(
-              message: tr('Room gallery'),
-              child: DecoratedBox(
-                decoration: flatDecoration(pal, pal.chipFill, circle: true),
-                child: Material(
-                  type: MaterialType.transparency,
-                  child: InkWell(
-                    customBorder: const CircleBorder(),
-                    onTap: onBack ?? () => setState(() => _gallery = true),
-                    child: SizedBox(
-                      width: 40,
-                      height: 40,
-                      child: Icon(onBack != null ? Icons.arrow_back_rounded : Icons.grid_view_rounded, size: 20, color: pal.ink),
-                    ),
-                  ),
-                ),
-              ),
+            _iconBtn(
+              pal,
+              onBack != null ? Icons.chevron_left_rounded : Icons.grid_view_rounded,
+              onBack ?? () => setState(() => _gallery = true),
+              onBack != null ? 'Back' : 'Room gallery',
+              size: onBack != null ? 34 : 22,
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 2),
           ],
           Expanded(
             child: hide
@@ -658,38 +692,26 @@ class _HomeScreenState extends State<HomeScreen> {
                     ],
                   ),
           ),
-          if (store.profiles.length > 1) ...[
-            Tooltip(
-              message: tr('Switch profile'),
-              child: DecoratedBox(
-                decoration: flatDecoration(pal, pal.chipFill, circle: true),
-                child: Material(
-                  type: MaterialType.transparency,
-                  child: InkWell(
-                    customBorder: const CircleBorder(),
-                    onTap: () => _openProfiles(pal),
-                    child: SizedBox(width: 40, height: 40, child: Icon(Icons.home_work_outlined, size: 20, color: pal.ink)),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-          ],
-          DecoratedBox(
-            decoration: flatDecoration(pal, pal.chipFill, circle: true),
-            child: Material(
-              type: MaterialType.transparency,
-              child: InkWell(
-                customBorder: const CircleBorder(),
-                onTap: _openSettings,
-                child: SizedBox(width: 40, height: 40, child: Icon(Icons.settings_outlined, size: 20, color: pal.ink)),
-              ),
-            ),
-          ),
+          if (store.profiles.length > 1) _iconBtn(pal, Icons.home_work_outlined, () => _openProfiles(pal), 'Switch profile'),
+          _iconBtn(pal, Icons.settings_outlined, _openSettings, 'Settings'),
         ],
       ),
     );
   }
+
+  /// An icon button without a frame (iOS style): a large touch area and only the icon is drawn.
+  Widget _iconBtn(AppPalette pal, IconData icon, VoidCallback onTap, String tip, {double size = 24}) => Tooltip(
+    message: tr(tip),
+    child: InkResponse(
+      onTap: onTap,
+      radius: 24,
+      child: SizedBox(
+        width: 44,
+        height: 44,
+        child: Icon(icon, size: size, color: pal.ink),
+      ),
+    ),
+  );
 
   Widget _roomsBar(Json d, AppPalette pal, List<Json> rooms) {
     final f = tfs(d, 'roomBar');
@@ -739,7 +761,8 @@ class _HomeScreenState extends State<HomeScreen> {
   /// Tổng quan) a button on each side. Swiping the cards also changes the page.
   Widget _pageNav(List<Json> subs, AppPalette pal) {
     final f = tfs(doc, 'pageTitle');
-    final arrows = jsonMap(doc['theme'])['pageArrows'] != false;
+    // A phone changes page by swiping: no arrow buttons there.
+    final arrows = jsonMap(doc['theme'])['pageArrows'] != false && _dev != 'mobile';
     final title = (sub?['title'] ?? '').toString();
     void go(int to) {
       final pc = _pages;

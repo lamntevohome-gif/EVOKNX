@@ -56,7 +56,7 @@ class _SplashGateState extends State<SplashGate> {
               curve: Curves.easeOut,
               child: Material(
                 type: MaterialType.transparency,
-                child: SplashView(splash: _sp, onTap: _hide),
+                child: SplashView(splash: _sp, onTap: _hide, fadeIn: true),
               ),
             ),
           ),

@@ -7,6 +7,7 @@ import 'package:media_kit/media_kit.dart';
 import 'app_store.dart';
 import 'camera_live.dart';
 import 'home_screen.dart';
+import 'intro_screen.dart';
 import 'share_intake.dart';
 import 'splash_gate.dart';
 import 'welcome_screen.dart';
@@ -60,7 +61,9 @@ class EvoknxApp extends StatelessWidget {
               data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(store.textScale)),
               child: child!,
             ),
-            home: store.config == null
+            home: !store.introSeen
+                ? IntroScreen(store: store, onDone: store.markIntroSeen)
+                : store.config == null
                 ? WelcomeScreen(store: store)
                 : SplashGate(
                     // The Editor's splash plays each time a home screen starts

@@ -5,10 +5,34 @@ import 'package:knx_config/knx_config.dart';
 
 import 'account_panel.dart';
 import 'app_store.dart';
+import 'intro_screen.dart';
 import 'knx_link.dart';
 import 'receive_dialog.dart';
 
 /// Settings: theme, KNX connection, another configuration, about.
+/// "Floor › Room" of a room, or a hint when none is chosen.
+String _roomLabel(Json cfg, String? id) {
+  for (final f in floorsOf(cfg)) {
+    for (final r in roomsOf(cfg, f['id'] as String)) {
+      if (r['id'] == id) return '${f['title']} › ${r['title']}';
+    }
+  }
+  return 'Choose a room';
+}
+
+/// A list of all the rooms of the project to choose the room to start at.
+Future<String?> _pickRoom(BuildContext context, Json cfg) => showDialog<String>(
+  context: context,
+  builder: (c) => SimpleDialog(
+    title: const Text('Choose a room'),
+    children: [
+      for (final f in floorsOf(cfg))
+        for (final r in roomsOf(cfg, f['id'] as String))
+          SimpleDialogOption(onPressed: () => Navigator.pop(c, r['id'] as String), child: Text('${f['title']} › ${r['title']}')),
+    ],
+  ),
+);
+
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key, required this.store, required this.knx, this.ha});
   final AppStore store;
@@ -229,6 +253,29 @@ class SettingsScreen extends StatelessWidget {
                     ]),
                   ]),
                   tab([
+                    // What the App shows when it opens (kept for each profile on this device).
+                    () {
+                      final cfg = store.config ?? const <String, dynamic>{};
+                      final modern = jsonMap(cfg['theme'])['layout'] == 'modern';
+                      final cur = store.startMode ?? (modern ? 'home' : 'last');
+                      return card('Start at', [
+                        for (final (mode, name) in [if (modern) ('home', 'Home'), ('last', 'Last viewed'), ('room', 'Fixed room')])
+                          row(
+                            Icon(mode == 'room' ? Icons.push_pin_outlined : (mode == 'home' ? Icons.home_outlined : Icons.history), color: pal.muted),
+                            name,
+                            sub: mode == 'room' && cur == 'room' ? _roomLabel(cfg, store.startRoom) : null,
+                            trailing: cur == mode ? Icon(Icons.check, color: pal.accent) : null,
+                            onTap: () async {
+                              if (mode != 'room') {
+                                store.setStart(mode);
+                                return;
+                              }
+                              final id = await _pickRoom(context, cfg);
+                              if (id != null) store.setStart('room', id);
+                            },
+                          ),
+                      ]);
+                    }(),
                     card('Appearance', [
                       // Three groups (Sáng, Trung tính, Tối): tap one to show its three themes.
                       for (final (group, items) in kAppThemeGroups)
@@ -354,6 +401,15 @@ class SettingsScreen extends StatelessWidget {
                       row(Icon(Icons.info_outline, color: pal.muted), 'EvoKNX', sub: 'Version 0.1.0 · © ${DateTime.now().year} Evohome'),
                       row(Icon(Icons.palette_outlined, color: pal.muted), 'Icon', sub: 'Material Design Icons · Pictogrammers (Apache 2.0)'),
                       row(Icon(Icons.text_fields, color: pal.muted), 'Font', sub: 'Inter · Rasmus Andersson (SIL Open Font License)'),
+                      row(
+                        Icon(Icons.slideshow_outlined, color: pal.muted),
+                        'Show the introduction',
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (c) => IntroScreen(store: store, onDone: () => Navigator.of(c).pop()),
+                          ),
+                        ),
+                      ),
                     ]),
                   ]),
                 ],

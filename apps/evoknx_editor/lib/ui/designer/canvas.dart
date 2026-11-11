@@ -296,32 +296,18 @@ class _Screen extends StatelessWidget {
         ),
       );
       final tab = !inFloors && special == 'home' ? 0 : (!inFloors && special == 'security' ? 2 : 1);
-      final nf = tfs(doc, 'navBar');
-      Widget barItem(int t, IconData icon, String label, VoidCallback onTap) {
-        final on = tab == t;
-        final fg = on ? pal.onChipSel : pal.muted;
+      final ns = tfs(doc, 'navBar') * 2.2;
+      // Only icons: the selected one is filled and tinted, the others are outlined.
+      Widget barItem(int t, IconData on, IconData off, VoidCallback onTap) {
+        final sel = tab == t;
         return Expanded(
-          child: InkWell(
+          child: InkResponse(
             onTap: onTap,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 6),
+            radius: 30,
+            child: SizedBox(
+              height: ns + 22,
               child: Center(
-                // The highlighted pill wraps the icon and the text.
-                child: Container(
-                  padding: EdgeInsets.symmetric(horizontal: nf * 1.5, vertical: nf * 0.55),
-                  decoration: on ? flatDecoration(pal, pal.chipSel, radius: BorderRadius.circular(nf * 1.6)) : null,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(icon, size: nf * 1.9, color: fg),
-                      SizedBox(height: nf * 0.2),
-                      Text(
-                        label,
-                        style: TextStyle(fontSize: nf, fontWeight: on ? FontWeight.w700 : FontWeight.w500, color: fg),
-                      ),
-                    ],
-                  ),
-                ),
+                child: Icon(sel ? on : off, size: ns, color: sel ? pal.accent : pal.muted),
               ),
             ),
           ),
@@ -381,19 +367,20 @@ class _Screen extends StatelessWidget {
             ],
             Container(
               decoration: BoxDecoration(
-                color: Color.lerp(pal.screen, pal.ink, 0.07),
-                border: Border(top: BorderSide(color: pal.tileEdge)),
+                color: Color.lerp(pal.screen, pal.ink, 0.05),
+                border: Border(top: BorderSide(color: pal.tileEdge, width: 0.5)),
               ),
               child: Row(
                 children: [
-                  barItem(0, Icons.home_rounded, 'Home', () => d.selectSpecial('home')),
-                  barItem(
-                    1,
-                    Icons.layers_rounded,
-                    'Floor',
-                    () => normal.length > 1 ? d.floorsGallery() : (normal.isEmpty ? null : d.selectFloor(normal.first['id'] as String)),
-                  ),
-                  barItem(2, Icons.shield_outlined, 'Security', () => d.selectSpecial('security')),
+                  barItem(0, Icons.home_rounded, Icons.home_outlined, () => d.selectSpecial('home')),
+                  barItem(1, Icons.layers_rounded, Icons.layers_outlined, () {
+                    if (normal.length > 1) {
+                      d.floorsGallery();
+                    } else if (normal.isNotEmpty) {
+                      d.selectFloor(normal.first['id'] as String);
+                    }
+                  }),
+                  barItem(2, Icons.shield, Icons.shield_outlined, () => d.selectSpecial('security')),
                 ],
               ),
             ),
@@ -465,12 +452,7 @@ class _Screen extends StatelessWidget {
     child: MouseRegion(cursor: SystemMouseCursors.click, child: _gearIcon()),
   );
 
-  Widget _gearIcon() => Container(
-    width: 32,
-    height: 32,
-    decoration: flatDecoration(pal, pal.chipFill, circle: true),
-    child: Icon(Icons.settings_outlined, size: 17, color: pal.ink),
-  );
+  Widget _gearIcon() => SizedBox(width: 32, height: 32, child: Icon(Icons.settings_outlined, size: 20, color: pal.ink));
 
   Widget _header(Json doc, Json room, Json? floor, bool multi, Json theme, {bool pill = true, VoidCallback? onBack}) {
     final hide = theme['hideTitle'] == true && dev != 'tabletL';
@@ -481,19 +463,18 @@ class _Screen extends StatelessWidget {
           // In the gallery style a button returns to the gallery.
           if (onBack != null || (theme['roomPicker'] == 'gallery' && theme['layout'] != 'modern' && dev != 'tabletL')) ...[
             Tooltip(
-              message: tr('Room gallery'),
-              child: InkWell(
-                customBorder: const CircleBorder(),
+              message: tr(onBack != null ? 'Back' : 'Room gallery'),
+              child: InkResponse(
                 onTap: onBack ?? d.gallery,
-                child: Container(
-                  width: 32,
-                  height: 32,
-                  decoration: flatDecoration(pal, pal.chipFill, circle: true),
-                  child: Icon(onBack != null ? Icons.arrow_back_rounded : Icons.grid_view_rounded, size: 17, color: pal.ink),
+                radius: 20,
+                child: SizedBox(
+                  width: 36,
+                  height: 36,
+                  child: Icon(onBack != null ? Icons.chevron_left_rounded : Icons.grid_view_rounded, size: onBack != null ? 30 : 19, color: pal.ink),
                 ),
               ),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 4),
           ],
           Expanded(
             child: hide
@@ -762,15 +743,12 @@ class _Screen extends StatelessWidget {
     );
     if (d.test) {
       if (ss.length < 2) return const SizedBox(height: 4);
-      final arrows = jsonMap(d.doc['theme'])['pageArrows'] != false;
       return Padding(
         // Centred between the rooms bar (8 px under it) and the cards (the safe margin).
         padding: EdgeInsets.fromLTRB(14, max(0.0, pal.safeMargin - 8), 14, 0),
         child: Row(
           children: [
-            if (arrows) arrow(Icons.chevron_left, i > 0 ? () => d.stepSub(-1) : null, 'Previous page'),
             Expanded(child: Column(children: [title, const SizedBox(height: 5), dots])),
-            if (arrows) arrow(Icons.chevron_right, i < ss.length - 1 ? () => d.stepSub(1) : null, 'Next page'),
           ],
         ),
       );
@@ -780,9 +758,9 @@ class _Screen extends StatelessWidget {
       padding: EdgeInsets.fromLTRB(14, max(0.0, pal.safeMargin - 8), 14, 0),
       child: Row(
         children: [
-          arrow(Icons.chevron_left, i > 0 ? () => d.stepSub(-1) : null, 'Previous page'),
+          if (i >= ss.length - 1) const SizedBox(width: 30),
           Expanded(child: Column(children: [title, const SizedBox(height: 5), dots])),
-          i < ss.length - 1 ? arrow(Icons.chevron_right, () => d.stepSub(1), 'Next page') : arrow(Icons.add, d.addSub, 'Add a page to the room'),
+          if (i >= ss.length - 1) arrow(Icons.add, d.addSub, 'Add a page to the room'),
         ],
       ),
     );
