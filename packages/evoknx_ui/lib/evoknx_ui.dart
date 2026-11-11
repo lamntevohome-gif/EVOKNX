@@ -7,6 +7,7 @@ export 'src/icons.dart';
 export 'src/gallery.dart';
 export 'src/i18n.dart';
 export 'src/look.dart';
+export 'src/press.dart';
 export 'src/model.dart';
 export 'src/splash.dart';
 export 'src/tiles.dart';
