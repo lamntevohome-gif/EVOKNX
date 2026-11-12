@@ -66,7 +66,7 @@ class _RoomCard extends StatelessWidget {
     final radius = BorderRadius.circular(pal.radius + 4);
     final cover = (room['cover'] ?? '').toString();
     final img = cover.isEmpty ? null : _coverOf(cover);
-    final f = tfs(doc, 'roomBar');
+    final f = tfs(doc, 'galleryTitle');
     final fg = img != null ? Colors.white : pal.ink;
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -101,7 +101,7 @@ class _RoomCard extends StatelessWidget {
                     ),
                   ),
                 ),
-              Positioned(left: 12, top: 12, child: iconWidget(room['icon'] as String?, f * 1.9, fg)),
+              Positioned(left: 12, top: 12, child: iconWidget(room['icon'] as String?, f * 1.65, fg)),
               Positioned(
                 left: 14,
                 right: 12,
@@ -111,7 +111,7 @@ class _RoomCard extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: f * 1.15,
+                    fontSize: f,
                     fontWeight: FontWeight.w600,
                     color: fg,
                     shadows: img != null ? const [Shadow(blurRadius: 6, color: Colors.black54)] : null,

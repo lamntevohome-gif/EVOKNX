@@ -215,10 +215,11 @@ class TfsDef {
 const kTfs = [
   TfsDef('titleSize', 'Room title', 23, 16, 36),
   TfsDef('roomBar', 'Room bar', 13, 11, 20),
-  TfsDef('pageTitle', 'Page name', 13, 10, 24),
+  TfsDef('pageTitle', 'Page name and page count', 13, 10, 24),
   TfsDef('floorBar', 'Floor bar', 15, 10, 24),
   TfsDef('crumb', 'Floor line (Floor 1 ›)', 13, 10, 20),
   TfsDef('navBar', 'Navigation bar icon size', 12, 10, 20),
+  TfsDef('galleryTitle', 'Gallery card title', 15, 11, 28),
 ];
 
 double tfs(Json doc, String key) {
