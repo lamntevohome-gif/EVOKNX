@@ -37,6 +37,16 @@ class CardEngine extends ChangeNotifier {
     return id == null ? null : byId(jsonList(doc['groupAddresses']), id);
   }
 
+  /// A card that runs a script does not need an address to write.
+  bool runsScript(Json w) => (w['script'] ?? '').toString().isNotEmpty;
+
+  /// What a push button or a scene writes: the text of "Value sent" when its address is a text address
+  /// (DPT 16), otherwise a number.
+  Object sendValueOf(Json w, String raw, num fallback) {
+    if ((gaOf(w, 'write')?['dpt'] ?? '').toString().startsWith('16')) return raw;
+    return num.tryParse(raw.replaceAll(',', '.')) ?? fallback;
+  }
+
   void send(Json w, String slot, Object value) {
     final ga = gaOf(w, slot);
     if (ga == null) {
@@ -95,10 +105,10 @@ class CardEngine extends ChangeNotifier {
         }
         break;
       case 'button':
-        send(w, 'write', num.tryParse((w['sendValue'] ?? '1').toString()) ?? 1);
+        if (gaOf(w, 'write') != null || !runsScript(w)) send(w, 'write', sendValueOf(w, (w['sendValue'] ?? '1').toString(), 1));
         break;
       case 'scene':
-        send(w, 'write', num.tryParse(sceneSendValue(w).replaceAll(',', '.')) ?? 0);
+        if (gaOf(w, 'write') != null || !runsScript(w)) send(w, 'write', sendValueOf(w, sceneSendValue(w), 0));
         onScene?.call(w);
         break;
       case 'shutter':

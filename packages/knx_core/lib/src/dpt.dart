@@ -167,11 +167,10 @@ class Dpt {
         final b = ByteData(4)..setFloat32(0, (n ?? 0).toDouble());
         return KnxPayload.bytes(b.buffer.asUint8List());
       case 16:
-        final s = value.toString();
+        final s = dpt16Text(value.toString(), latin1: dpt.startsWith('16.001'));
         final out = List<int>.filled(14, 0);
-        for (var i = 0; i < s.length && i < 14; i++) {
-          final c = s.codeUnitAt(i);
-          out[i] = c < 256 ? c : 0x3F;
+        for (var i = 0; i < s.length; i++) {
+          out[i] = s.codeUnitAt(i);
         }
         return KnxPayload.bytes(out);
       case 17:
@@ -288,4 +287,27 @@ class Dpt {
     if (h.length < 6) return [0, 0, 0];
     return [int.parse(h.substring(0, 2), radix: 16), int.parse(h.substring(2, 4), radix: 16), int.parse(h.substring(4, 6), radix: 16)];
   }
+}
+
+const _foldFrom =
+    'ÀÁÂÃÄÅÇÈÉÊËÌÍÎÏÑÒÓÔÕÖÙÚÛÜÝàáâãäåçèéêëìíîïñòóôõöùúûüýÿĀāĂăĄąĆćĈĉĊċČčĎďĒēĔĕĖėĘęĚěĜĝĞğĠġĢģĤĥĨĩĪīĬĭĮįİĴĵĶķĹĺĻļĽľŃńŅņŇňŌōŎŏŐőŔŕŖŗŘřŚśŜŝŞşŠšŢţŤťŨũŪūŬŭŮůŰűŲųŴŵŶŷŸŹźŻżŽžƠơƯưǍǎǏǐǑǒǓǔǕǖǗǘǙǚǛǜǞǟǠǡǦǧǨǩǪǫǬǭǰǴǵǸǹǺǻȀȁȂȃȄȅȆȇȈȉȊȋȌȍȎȏȐȑȒȓȔȕȖȗȘșȚțȞȟȦȧȨȩȪȫȬȭȮȯȰȱȲȳḀḁḂḃḄḅḆḇḈḉḊḋḌḍḎḏḐḑḒḓḔḕḖḗḘḙḚḛḜḝḞḟḠḡḢḣḤḥḦḧḨḩḪḫḬḭḮḯḰḱḲḳḴḵḶḷḸḹḺḻḼḽḾḿṀṁṂṃṄṅṆṇṈṉṊṋṌṍṎṏṐṑṒṓṔṕṖṗṘṙṚṛṜṝṞṟṠṡṢṣṤṥṦṧṨṩṪṫṬṭṮṯṰṱṲṳṴṵṶṷṸṹṺṻṼṽṾṿẀẁẂẃẄẅẆẇẈẉẊẋẌẍẎẏẐẑẒẓẔẕẖẗẘẙẠạẢảẤấẦầẨẩẪẫẬậẮắẰằẲẳẴẵẶặẸẹẺẻẼẽẾếỀềỂểỄễỆệỈỉỊịỌọỎỏỐốỒồỔổỖỗỘộỚớỜờỞởỠỡỢợỤụỦủỨứỪừỬửỮữỰựỲỳỴỵỶỷỸỹđĐøØłŁħĦŧŦı';
+const _foldTo =
+    'AAAAAACEEEEIIIINOOOOOUUUUYaaaaaaceeeeiiiinooooouuuuyyAaAaAaCcCcCcCcDdEeEeEeEeEeGgGgGgGgHhIiIiIiIiIJjKkLlLlLlNnNnNnOoOoOoRrRrRrSsSsSsSsTtTtUuUuUuUuUuUuWwYyYZzZzZzOoUuAaIiOoUuUuUuUuUuAaAaGgKkOoOojGgNnAaAaAaEeEeIiIiOoOoRrRrUuUuSsTtHhAaEeOoOoOoOoYyAaBbBbBbCcDdDdDdDdDdEeEeEeEeEeFfGgHhHhHhHhHhIiIiKkKkKkLlLlLlLlMmMmMmNnNnNnNnOoOoOoOoPpPpRrRrRrRrSsSsSsSsSsTtTtTtTtUuUuUuUuUuVvVvWwWwWwWwWwXxXxYyZzZzZzhtwyAaAaAaAaAaAaAaAaAaAaAaAaEeEeEeEeEeEeEeEeIiIiOoOoOoOoOoOoOoOoOoOoOoOoUuUuUuUuUuUuUuYyYyYyYydDoOlLhHtTi';
+
+/// The text that a text address (DPT 16) receives: 14 characters at most. DPT 16.000 is ASCII and 16.001 is
+/// ISO 8859-1. A letter with an accent (Vietnamese letters too) is written without it; anything else that is
+/// outside the character set becomes "?".
+String dpt16Text(String s, {bool latin1 = false}) {
+  final limit = latin1 ? 256 : 128;
+  final out = StringBuffer();
+  for (final c in s.runes) {
+    if (out.length >= 14) break;
+    if (c < limit) {
+      out.writeCharCode(c);
+      continue;
+    }
+    final i = _foldFrom.indexOf(String.fromCharCode(c));
+    out.write(i >= 0 ? _foldTo[i] : '?');
+  }
+  return out.toString();
 }

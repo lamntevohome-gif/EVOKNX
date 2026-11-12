@@ -33,6 +33,13 @@ Future<void> main() async {
   }
   check(Dpt.encode('9.001', 0).bytes[0] == 0 && Dpt.encode('9.001', 0).bytes[1] == 0, 'float16 zero');
   check(Dpt.encode('5.001', 100).bytes[0] == 255 && Dpt.decode('5.001', [128]) == 50, 'dpt5.001');
+  // Text address (DPT 16)
+  final txt = Dpt.encode('16.000', 'Phòng khách').bytes;
+  check(txt.length == 14 && String.fromCharCodes(txt.where((c) => c != 0)) == 'Phong khach', 'dpt16.000 writes ASCII without accents');
+  check(String.fromCharCodes(Dpt.encode('16.000', 'Xem phim - cinema 2').bytes) == 'Xem phim - cin', 'dpt16 keeps 14 characters');
+  check(Dpt.encode('16.001', 'é').bytes[0] == 0xE9 && Dpt.encode('16.001', 'ă').bytes[0] == 0x61, 'dpt16.001 keeps Latin-1 and folds the rest');
+  check(Dpt.encode('16.000', '€').bytes[0] == 0x3F, 'dpt16 unknown character is ?');
+  check(Dpt.decode('16.000', txt) == 'Phong khach', 'dpt16 decode');
   check(Dpt.encode('1.001', true).short && Dpt.encode('1.001', true).shortValue == 1, 'dpt1');
   check(Dpt.decode('14.056', Dpt.encode('14.056', 1234.5).bytes) == 1234.5, 'dpt14');
   check(Dpt.decode('232.600', Dpt.encode('232.600', '#FF8000').bytes) == '#FF8000', 'dpt232');

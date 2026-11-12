@@ -803,6 +803,17 @@ class HaSession {
     });
   }
 
+  /// Calls any service ("light.turn_on") with its data; [entityId] may be empty.
+  Future<void> callServiceRaw(String domain, String service, Json data, String entityId) async {
+    await call({
+      'type': 'call_service',
+      'domain': domain,
+      'service': service,
+      'service_data': data,
+      if (entityId.isNotEmpty) 'target': {'entity_id': entityId},
+    });
+  }
+
   Future<void> close() async {
     try {
       await _ws.close();
@@ -904,6 +915,22 @@ class HaBridge {
   }
 
   /// Writes a card's value to the entity of the virtual address [ga].
+  /// Calls a Home Assistant service ("light.turn_on") for a script. An error text, or null.
+  Future<String?> callRaw(String service, String entity, Json data) async {
+    final s = _session;
+    if (s == null || !connected) return 'Could not connect to Home Assistant.';
+    final i = service.indexOf('.');
+    if (i <= 0) return 'The service “$service” is not valid, use the form domain.service.';
+    try {
+      await s.callServiceRaw(service.substring(0, i), service.substring(i + 1), data, entity);
+      return null;
+    } on HaException catch (e) {
+      return e.message;
+    } catch (e) {
+      return '$e';
+    }
+  }
+
   Future<String?> write(Json ga, Object value) async {
     final s = _session;
     if (s == null || !connected) return 'Could not connect to Home Assistant.';

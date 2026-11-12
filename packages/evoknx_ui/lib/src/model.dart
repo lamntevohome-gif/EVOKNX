@@ -260,6 +260,9 @@ List<Issue> computeIssues(Json d) {
         );
     }
   }
+  for (final m in scriptProblems(d)) {
+    out.add(Issue(true, m));
+  }
   // The targets that cards open after a press.
   final floorIds = {for (final f in jsonList(d['floors'])) f['id']};
   final roomIds = {for (final r in jsonList(d['pages'])) r['id']};
@@ -285,6 +288,18 @@ List<Issue> computeIssues(Json d) {
         final name = '“${(w['label'] ?? t.name)}”';
         final where = '${r['title']}: ';
         final nav = jsonMap(w['nav']);
+        final scriptId = (w['script'] ?? '').toString();
+        if (scriptId.isNotEmpty && scriptsOf(d).every((x) => x['id'] != scriptId)) {
+          out.add(
+            Issue(
+              true,
+              '$where$name: the script does not exist. Please check.',
+              roomId: r['id'] as String?,
+              subId: s['id'] as String?,
+              widgetId: w['id'] as String?,
+            ),
+          );
+        }
         final navKind = (nav['kind'] ?? '').toString();
         if (navKind.isNotEmpty) {
           final found = navKind == 'floor' ? floorIds.contains(nav['id']) : (navKind == 'room' ? roomIds.contains(nav['id']) : pageIds.contains(nav['id']));
