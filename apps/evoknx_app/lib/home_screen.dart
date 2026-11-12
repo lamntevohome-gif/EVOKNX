@@ -13,6 +13,7 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 
 import 'app_store.dart';
 import 'knx_link.dart';
+import 'pin_dialog.dart';
 import 'popups.dart';
 import 'room_pages.dart';
 import 'settings_screen.dart';
@@ -63,6 +64,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _modernTab(int t) {
+    _navSeq++;
     if (t == 1) {
       final fs = normalFloorsOf(doc);
       setState(() {
@@ -82,6 +84,7 @@ class _HomeScreenState extends State<HomeScreen> {
   });
 
   void _openRoomModern(String id) {
+    _navSeq++;
     setState(() => _lvl = 2);
     _openRoom(id);
   }
@@ -142,7 +145,9 @@ class _HomeScreenState extends State<HomeScreen> {
     engine.writer = (ga, v) =>
         isHaAddress(ga) ? (ha?.write(ga, v) ?? Future<String?>.value('Home Assistant is not enabled in the project.')) : knx.write(ga, v);
     engine.onMessage = _toast;
-    engine.onScene = (w) => showScenePopup(context, w, store.palette);
+    engine.onScene = (w) {
+      _popup = showScenePopup(context, w, store.palette);
+    };
     engine.onOpenUrl = (url) => launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
     knx.onValue = engine.onBusValue;
     knx.addListener(_onKnx);
@@ -216,11 +221,13 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _readPage() {
+    if (_closedItem() != null) return;
     final s = sub;
     if (s != null) knx.readAll(engine.readsFor(s));
   }
 
   void _goRoom(String id) {
+    _navSeq++;
     if (id == roomId) return;
     setState(() {
       roomId = id;
@@ -229,6 +236,167 @@ class _HomeScreenState extends State<HomeScreen> {
     store.remember(roomId, sub?['id'] as String?);
     _readPage();
   }
+
+  // ---------------------------------------------------------------- navigation after a press
+
+  int _navSeq = 0;
+  Future<void>? _popup;
+
+  /// After a scene card or a push button was pressed: the popup (if any) shows first, then the delay
+  /// passes, then the card's target (floor, room or page) opens, unless the person went elsewhere meanwhile.
+  Future<void> _afterTap(Json w) async {
+    final nav = jsonMap(w['nav']);
+    final kind = (nav['kind'] ?? '').toString();
+    if (kind.isEmpty) return;
+    final seq = ++_navSeq;
+    final popup = _popup;
+    _popup = null;
+    if (popup != null) await popup;
+    final ms = (((nav['delay'] as num?) ?? 0).toDouble().clamp(0, 10) * 1000).round();
+    if (ms > 0) await Future<void>.delayed(Duration(milliseconds: ms));
+    if (!mounted || seq != _navSeq) return;
+    _goTarget(kind, (nav['id'] ?? '').toString());
+  }
+
+  void _goTarget(String kind, String id) {
+    Json? tf, tr;
+    var pi = 0;
+    if (kind == 'floor') {
+      tf = floorsOf(doc).where((f) => f['id'] == id).firstOrNull;
+    } else if (kind == 'room') {
+      tr = roomsOf(doc).where((r) => r['id'] == id).firstOrNull;
+    } else {
+      for (final r in roomsOf(doc)) {
+        final i = subsOf(r).indexWhere((x) => x['id'] == id);
+        if (i >= 0) {
+          tr = r;
+          pi = i;
+          break;
+        }
+      }
+    }
+    final target = tr;
+    if (target != null) tf = floorsOf(doc).where((f) => f['id'] == target['floorId']).firstOrNull;
+    final floor = tf;
+    if (floor == null || (kind != 'floor' && target == null)) {
+      _toast('The $kind does not exist. Please check.');
+      return;
+    }
+    final fid = floor['id'] as String;
+    setState(() {
+      floorId = fid;
+      if (target == null) {
+        // A floor: its rooms.
+        final rs = roomsOf(doc, fid);
+        if (_modernMode) {
+          _tab = 1;
+          _lvl = 1;
+        } else if (_galleryMode) {
+          _gallery = true;
+        } else if (rs.isNotEmpty) {
+          roomId = rs.first['id'] as String;
+          page = 0;
+        }
+      } else {
+        roomId = target['id'] as String;
+        page = pi;
+        _gallery = false;
+        if (_modernMode) {
+          _tab = floor['special'] == 'home' ? 0 : (floor['special'] == 'security' ? 2 : 1);
+          _lvl = 2;
+        }
+      }
+    });
+    if (target != null) {
+      store.remember(roomId, sub?['id'] as String?);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final pc = _pages;
+        if (mounted && pc != null && pc.hasClients && (pc.page ?? 0).round() != pi) {
+          pc.animateToPage(pi, duration: _noMotion ? const Duration(milliseconds: 1) : const Duration(milliseconds: 300), curve: Curves.easeOutCubic);
+        }
+      });
+    }
+    _readPage();
+  }
+
+  // ---------------------------------------------------------------- locks
+
+  /// The 4-digit code of a floor, room or page ('' = not locked).
+  String _lockOf(Json? item) {
+    final l = (item?['lock'] ?? '').toString();
+    return RegExp(r'^\d{4}$').hasMatch(l) ? l : '';
+  }
+
+  bool _isOpen(Json? item) => item == null || _lockOf(item).isEmpty || store.unlocked.contains(item['id']);
+
+  /// The floor or the room that is shown now and is still locked (the page is checked apart).
+  Json? _closedAbove() {
+    final f = floorsOf(doc).where((x) => x['id'] == floorId).firstOrNull;
+    final listsFloors = _modernMode && _tab == 1 && _lvl == 0;
+    if (!listsFloors && !_isOpen(f)) return f;
+    final showsRoom = _modernMode ? (_tab != 1 || _lvl == 2) : !(_galleryMode && _gallery);
+    if (showsRoom && !_isOpen(room)) return room;
+    return null;
+  }
+
+  /// What is locked at the place that is shown now: the floor, the room or the page.
+  Json? _closedItem() {
+    final above = _closedAbove();
+    if (above != null) return above;
+    final showsRoom = _modernMode ? (_tab != 1 || _lvl == 2) : !(_galleryMode && _gallery);
+    final s = sub;
+    return showsRoom && s != null && !_isOpen(s) ? s : null;
+  }
+
+  String? _asked;
+
+  /// Asks for the code once when the person arrives at something locked.
+  void _maybePrompt(Json? item) {
+    if (item == null) {
+      _asked = null;
+      return;
+    }
+    if (_asked == item['id']) return;
+    _asked = item['id'] as String;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _askCode(item);
+    });
+  }
+
+  Future<bool> _askCode(Json item) async {
+    final ok = await showPinDialog(context, store: store, code: _lockOf(item), title: (item['title'] ?? '').toString(), pal: store.palette);
+    if (!mounted || !ok) return false;
+    setState(() => store.unlocked.add(item['id'] as String));
+    _readPage();
+    return true;
+  }
+
+  Widget _lockedView(Json item, AppPalette pal) => Center(
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(Icons.lock_outline_rounded, size: 52, color: pal.sMuted),
+        const SizedBox(height: 14),
+        Text(
+          'Locked',
+          style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600, color: pal.sInk),
+        ),
+        const SizedBox(height: 4),
+        Text((item['title'] ?? '').toString(), style: TextStyle(fontSize: 14, color: pal.sMuted)),
+        const SizedBox(height: 20),
+        FilledButton(
+          onPressed: () => _askCode(item),
+          style: FilledButton.styleFrom(
+            backgroundColor: pal.accent,
+            foregroundColor: Colors.white,
+            shape: const StadiumBorder(),
+            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
+          ),
+          child: const Text('Enter code', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+        ),
+      ],
+    ),
+  );
 
   bool get _noMotion => MediaQuery.of(context).disableAnimations;
 
@@ -257,6 +425,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   /// A tap on a room card of the gallery.
   void _openRoom(String id) {
+    _navSeq++;
     setState(() => _gallery = false);
     if (id == roomId) {
       // Entering a room always starts on its first page.
@@ -277,6 +446,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _goFloor(String id) {
+    _navSeq++;
     // In the gallery a floor only changes the rooms that are listed.
     if (_galleryMode && _gallery) {
       setState(() => floorId = id);
@@ -373,6 +543,8 @@ class _HomeScreenState extends State<HomeScreen> {
     engine.doc = doc;
     final pal0 = store.palette;
     if (_modernMode) return _buildModern(pal0);
+    _maybePrompt(_closedItem());
+    final blockedAbove = _closedAbove();
     final inGallery = _galleryMode && _gallery;
     final s = inGallery ? null : sub;
     final bg = pageBackground(s, pal0);
@@ -419,9 +591,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   if (!inGallery && r != null && subs.length > 1 && _dev != 'mobile') _pageNav(subs, pal),
                   Expanded(
                     child: _fade(
-                      ValueKey('c$inGallery-$roomId-$floorId'),
-                      inGallery
-                          ? RoomGallery(doc: d, rooms: rooms, pal: pal, onOpen: _openRoom)
+                      ValueKey('c$inGallery-$roomId-$floorId-${blockedAbove?['id']}'),
+                      blockedAbove != null
+                          ? _lockedView(blockedAbove, pal)
+                          : inGallery
+                          ? RoomGallery(doc: d, rooms: rooms, pal: pal, onOpen: _openRoom, unlocked: store.unlocked)
                           : r == null
                           ? Center(
                               child: Padding(
@@ -451,6 +625,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               initialPage: page,
                               count: subs.length,
                               onChanged: (i) {
+                                _navSeq++;
                                 setState(() => page = i);
                                 store.remember(roomId, sub?['id'] as String?);
                                 _readPage();
@@ -459,8 +634,14 @@ class _HomeScreenState extends State<HomeScreen> {
                               onDetach: (pc) {
                                 if (identical(_pages, pc)) _pages = null;
                               },
-                              itemBuilder: (context, i, pc) =>
-                                  _pageFade(i, pc, Padding(padding: EdgeInsets.all(pal.safeMargin), child: _grid(subs[i], null, pal))),
+                              itemBuilder: (context, i, pc) => _pageFade(
+                                i,
+                                pc,
+                                Padding(
+                                  padding: EdgeInsets.all(pal.safeMargin),
+                                  child: _isOpen(subs[i]) ? _grid(subs[i], null, pal) : _lockedView(subs[i], pal),
+                                ),
+                              ),
                             ),
                     ),
                   ),
@@ -505,6 +686,8 @@ class _HomeScreenState extends State<HomeScreen> {
         }
       }
     }
+    _maybePrompt(_closedItem());
+    final blockedAbove = _closedAbove();
     final d = doc;
     final onPage = _tab != 1 || _lvl == 2;
     final s = onPage ? sub : null;
@@ -517,10 +700,12 @@ class _HomeScreenState extends State<HomeScreen> {
     final VoidCallback? onBack = _tab == 1 && (_lvl == 2 || (_lvl == 1 && normal.length > 1)) ? () => _modernBack() : null;
     final Json? headFloor = _tab == 1 && _lvl == 0 ? <String, dynamic>{'title': 'Area'} : floor;
     final Widget content;
-    if (_tab == 1 && _lvl == 0) {
-      content = RoomGallery(doc: d, rooms: normal, pal: pal, onOpen: _openFloor);
+    if (blockedAbove != null) {
+      content = _lockedView(blockedAbove, pal);
+    } else if (_tab == 1 && _lvl == 0) {
+      content = RoomGallery(doc: d, rooms: normal, pal: pal, onOpen: _openFloor, unlocked: store.unlocked);
     } else if (_tab == 1 && _lvl == 1) {
-      content = RoomGallery(doc: d, rooms: roomsOf(d, floorId), pal: pal, onOpen: _openRoomModern);
+      content = RoomGallery(doc: d, rooms: roomsOf(d, floorId), pal: pal, onOpen: _openRoomModern, unlocked: store.unlocked);
     } else if (r == null) {
       content = Center(
         child: Text(
@@ -534,6 +719,7 @@ class _HomeScreenState extends State<HomeScreen> {
         initialPage: page,
         count: subs.length,
         onChanged: (i) {
+          _navSeq++;
           setState(() => page = i);
           store.remember(roomId, sub?['id'] as String?);
           _readPage();
@@ -542,7 +728,8 @@ class _HomeScreenState extends State<HomeScreen> {
         onDetach: (pc) {
           if (identical(_pages, pc)) _pages = null;
         },
-        itemBuilder: (context, i, pc) => _pageFade(i, pc, Padding(padding: EdgeInsets.all(pal.safeMargin), child: _grid(subs[i], null, pal))),
+        itemBuilder: (context, i, pc) =>
+            _pageFade(i, pc, Padding(padding: EdgeInsets.all(pal.safeMargin), child: _isOpen(subs[i]) ? _grid(subs[i], null, pal) : _lockedView(subs[i], pal))),
       );
     }
     return PopScope(
@@ -578,7 +765,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   _banner(pal),
                   _header(d, pal, headFloor, onPage ? r : null, false, onBack: onBack),
                   if (onPage && r != null && subs.length > 1 && _dev != 'mobile') _pageNav(subs, pal),
-                  Expanded(child: _fade(ValueKey('m$_tab-$_lvl-$floorId-$roomId'), content)),
+                  Expanded(child: _fade(ValueKey('m$_tab-$_lvl-$floorId-$roomId-${blockedAbove?['id']}'), content)),
                   _modernBar(pal),
                 ],
               ),
@@ -1071,6 +1258,7 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
     engine.act(w, action, arg);
+    if (action == 'tap' && (type == 'scene' || type == 'button')) _afterTap(w);
   }
 }
 

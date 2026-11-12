@@ -950,6 +950,7 @@ class _WidgetPropsState extends State<_WidgetProps> {
               Hint('Try it in Run test mode: click a scene card to see the popup. Click the popup to dismiss it early.'),
             ],
           ]),
+          _NavSection(d: d, w: w),
         ];
       case 'camera':
         final cam = jsonMap(w['cam']);
@@ -1092,6 +1093,7 @@ class _WidgetPropsState extends State<_WidgetProps> {
             ),
           ]),
           if (imgStyle) _ButtonImageSettings(d: d, w: w),
+          _NavSection(d: d, w: w),
         ];
       case 'value':
         final f = jsonMap(w['format']);
@@ -1375,6 +1377,11 @@ class _RoomProps extends StatelessWidget {
                   onChanged: (v) => editRoom((x) => x['title'] = v, coalesce: 'rt-$rid'),
                 ),
               ),
+              _lockField(
+                context,
+                (r['lock'] ?? '').toString(),
+                (v) => editRoom((x) => v.isEmpty ? x.remove('lock') : x['lock'] = v, coalesce: 'lock-${r['id']}'),
+              ),
               FieldLabel(
                 'Floor',
                 EvoDropdown<String>(
@@ -1450,6 +1457,11 @@ class _RoomProps extends StatelessWidget {
                   value: (s['title'] ?? '').toString(),
                   onChanged: (v) => d.editSub((x) => x['title'] = v, coalesce: 'st-${s['id']}'),
                 ),
+              ),
+              _lockField(
+                context,
+                (s['lock'] ?? '').toString(),
+                (v) => d.editSub((x) => v.isEmpty ? x.remove('lock') : x['lock'] = v, coalesce: 'lock-${s['id']}'),
               ),
               Row(
                 children: [
@@ -1586,6 +1598,7 @@ class _FloorProps extends StatelessWidget {
           onChanged: (v) => editFloor((x) => x['title'] = v, coalesce: 'ft-$fid'),
         ),
       ),
+      _lockField(context, (f['lock'] ?? '').toString(), (v) => editFloor((x) => v.isEmpty ? x.remove('lock') : x['lock'] = v, coalesce: 'lock-${f['id']}')),
       if (f['special'] == null)
         FieldLabel(
           'Floor cover image (16:9)',
@@ -2695,6 +2708,87 @@ class _MultiProps extends StatelessWidget {
         'Drag a card in the group to move the whole group; arrow keys move the group one cell. Ctrl + click a card to add it to or remove it from the group.',
         style: TextStyle(fontSize: kUiText - 1, height: 1.4, color: c.muted),
       ),
+    ]);
+  }
+}
+
+/// The 4-digit code that locks a floor, a room or a page. It is set by the installer and stays visible.
+Widget _lockField(BuildContext context, String value, ValueChanged<String> onChanged) {
+  final bad = value.isNotEmpty && !RegExp(r'^\d{4}$').hasMatch(value);
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      FieldLabel('Lock code (4 digits)', SyncedField(value: value, number: true, hint: 'None', onChanged: (v) => onChanged(v.trim()))),
+      if (bad)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 6),
+          child: Text('The code must have exactly 4 digits.', style: TextStyle(fontSize: 12, color: context.evo.warn)),
+        )
+      else
+        const Hint('Leave empty for no lock. The App asks for this code when it opens this; it stays open while the App runs in the background.'),
+    ],
+  );
+}
+
+/// What a scene card or a push button does after it is pressed: open a floor, a room or a page.
+class _NavSection extends StatelessWidget {
+  const _NavSection({required this.d, required this.w});
+  final Designer d;
+  final Json w;
+
+  @override
+  Widget build(BuildContext context) {
+    final id = w['id'] as String;
+    final nav = jsonMap(w['nav']);
+    final kind = (nav['kind'] ?? '').toString();
+    final cur = kind.isEmpty ? '' : '$kind:${nav['id']}';
+    final items = <(String, String)>[('', 'None')];
+    for (final f in floorsOf(d.doc)) {
+      items.add(('floor:${f['id']}', 'Floor · ${f['title']}'));
+      for (final r in roomsOf(d.doc, f['id'] as String)) {
+        items.add(('room:${r['id']}', '    Room · ${f['title']} › ${r['title']}'));
+        for (final s in subsOf(r)) {
+          items.add(('page:${s['id']}', '        Page · ${r['title']} › ${s['title']}'));
+        }
+      }
+    }
+    // A target that was deleted stays in the list so that it can be seen and changed.
+    if (!items.any((x) => x.$1 == cur)) items.add((cur, 'Missing $kind (deleted)'));
+    final delay = ((nav['delay'] as num?) ?? 0).toDouble();
+    const delays = [0.0, 0.5, 1.0, 1.5, 2.0, 3.0, 4.0, 5.0, 7.0, 10.0];
+    return _Section('After pressing', [
+      FieldLabel(
+        'Go to',
+        EvoDropdown<String>(
+          value: cur,
+          items: items,
+          onChanged: (v) => d.editWidget(id, (x) {
+            if (v.isEmpty) {
+              x.remove('nav');
+              return;
+            }
+            final m = jsonMap(x['nav']);
+            final at = v.indexOf(':');
+            m['kind'] = v.substring(0, at);
+            m['id'] = v.substring(at + 1);
+            x['nav'] = m;
+          }),
+        ),
+      ),
+      if (cur.isNotEmpty)
+        FieldLabel(
+          'Delay',
+          EvoDropdown<double>(
+            value: delays.contains(delay) ? delay : 0.0,
+            items: [for (final x in delays) (x, x == 0 ? 'No delay' : '$x s')],
+            onChanged: (v) => d.editWidget(id, (x) {
+              final m = jsonMap(x['nav']);
+              m['delay'] = v;
+              x['nav'] = m;
+            }),
+          ),
+        ),
+      const Hint('After the popup (if the card has one) and the delay, the App opens this floor, room or page. If it is locked, the App asks for its code.'),
     ]);
   }
 }

@@ -6,9 +6,9 @@ import 'package:knx_config/knx_config.dart';
 
 /// Scene confirmation: blurs the screen behind, shows the picture or icon and
 /// the message, then closes by itself (up to 5 seconds, as set in the Editor).
-void showScenePopup(BuildContext context, Json w, AppPalette pal) {
+Future<void> showScenePopup(BuildContext context, Json w, AppPalette pal) {
   final pp = jsonMap(w['popup']);
-  if (pp['enabled'] == false) return;
+  if (pp['enabled'] == false) return Future<void>.value();
   final blur = ((pp['blur'] as num?) ?? 8).toDouble().clamp(0, 30).toDouble();
   final size = ((pp['size'] as num?) ?? 20).toDouble().clamp(12, 40).toDouble();
   final secs = ((pp['seconds'] as num?) ?? 2).toDouble().clamp(0.5, 5.0);
@@ -17,7 +17,7 @@ void showScenePopup(BuildContext context, Json w, AppPalette pal) {
   final image = w['btnStyle'] == 'image' && w['imgSource'] != 'icon' ? imageFromData((w['image'] ?? '').toString()) : null;
   final iconKey = w['btnStyle'] == 'image' && w['imgSource'] == 'icon' ? (w['imgIcon'] ?? 'mdi:gesture-tap-button').toString() : (w['icon'] as String?);
   var open = true;
-  showGeneralDialog<void>(
+  final shown = showGeneralDialog<void>(
     context: context,
     barrierDismissible: true,
     barrierLabel: 'Close',
@@ -63,6 +63,7 @@ void showScenePopup(BuildContext context, Json w, AppPalette pal) {
   Future<void>.delayed(Duration(milliseconds: (secs * 1000).round()), () {
     if (open && context.mounted) Navigator.of(context, rootNavigator: true).maybePop();
   });
+  return shown;
 }
 
 /// Brightness slider (and colour temperature / RGB when the card has them).

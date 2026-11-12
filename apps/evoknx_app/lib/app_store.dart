@@ -31,6 +31,12 @@ class AppStore extends ChangeNotifier {
   /// Grows each time a configuration is opened (a new home screen starts).
   int configVersion = 0;
 
+  /// Ids of the floors, rooms and pages that were opened with their code. Kept while the App runs
+  /// (also in the background); everything is locked again when the App is closed.
+  final Set<String> unlocked = {};
+  int pinFails = 0;
+  DateTime? pinWaitUntil;
+
   /// Theme chosen on this phone (null = the project's default theme).
   String? themeMode;
   bool keepScreenOn = false;
@@ -251,6 +257,7 @@ class AppStore extends ChangeNotifier {
     activeId = pf.id;
     config = doc;
     configVersion++;
+    unlocked.clear();
     _views.clear();
     if (fresh) {
       _pp.remove(pf.id);
@@ -294,6 +301,7 @@ class AppStore extends ChangeNotifier {
       activeId = null;
       config = null;
       configVersion++;
+      unlocked.clear();
       _views.clear();
       for (final other in List.of(profiles)) {
         final doc = await _readProfile(other.id);
