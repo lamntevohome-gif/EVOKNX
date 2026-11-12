@@ -347,7 +347,7 @@ class _Screen extends StatelessWidget {
                           width: 32,
                           height: 32,
                           decoration: flatDecoration(pal, pal.chipFill, circle: true),
-                          child: Icon(Icons.arrow_back_rounded, size: 17, color: pal.ink),
+                          child: Icon(Icons.arrow_back, size: 17, color: pal.ink),
                         ),
                       ),
                       const SizedBox(width: 10),
@@ -380,8 +380,8 @@ class _Screen extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  barItem(0, Icons.home_rounded, Icons.home_outlined, 'Home', () => d.selectSpecial('home')),
-                  barItem(1, Icons.layers_rounded, Icons.layers_outlined, 'Area', () {
+                  barItem(0, Icons.home, Icons.home_outlined, 'Home', () => d.selectSpecial('home')),
+                  barItem(1, Icons.layers, Icons.layers_outlined, 'Area', () {
                     if (normal.length > 1) {
                       d.floorsGallery();
                     } else if (normal.isNotEmpty) {
@@ -477,7 +477,7 @@ class _Screen extends StatelessWidget {
                 child: SizedBox(
                   width: 36,
                   height: 36,
-                  child: Icon(onBack != null ? Icons.chevron_left_rounded : Icons.grid_view_rounded, size: onBack != null ? 30 : 19, color: pal.ink),
+                  child: Icon(onBack != null ? Icons.chevron_left : Icons.grid_view, size: onBack != null ? 30 : 19, color: pal.ink),
                 ),
               ),
             ),
@@ -1317,7 +1317,7 @@ class _GroupFrame extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final style = (w['gstyle'] ?? 'card').toString();
-    // The frame look comes from its style (Kiểu khung); no separate colour.
+    // The frame look comes from its style (Kiểu khung); no separate color.
     final titleColor = style == 'card' ? pal.ink : pal.sInk;
     final align = switch (w['titleAlign']) {
       'center' => TextAlign.center,
@@ -1367,7 +1367,7 @@ class _GroupFrame extends StatelessWidget {
   }
 }
 
-/// Slider sheet for dimmers (brightness, colour temperature, RGB) and
+/// Slider sheet for dimmers (brightness, color temperature, RGB) and
 /// shutters (position) in test mode.
 class _TuneDialog extends StatefulWidget {
   const _TuneDialog({required this.d, required this.w});
@@ -1421,7 +1421,7 @@ class _TuneDialogState extends State<_TuneDialog> {
               ),
             if (dim && f['tw'] == true) ...[
               const SizedBox(height: 8),
-              Text('Colour temperature: ${((s['ct'] as num?) ?? ctMin).round()} K'),
+              Text('Color temperature: ${((s['ct'] as num?) ?? ctMin).round()} K'),
               Slider(
                 value: (((s['ct'] as num?) ?? ctMin).toDouble()).clamp(ctMin, ctMax),
                 min: ctMin,
@@ -1432,7 +1432,7 @@ class _TuneDialogState extends State<_TuneDialog> {
             ],
             if (dim && f['rgb'] == true) ...[
               const SizedBox(height: 8),
-              const Text('Colour'),
+              const Text('Color'),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
@@ -1461,7 +1461,7 @@ class _TuneDialogState extends State<_TuneDialog> {
           ],
         ),
       ),
-      actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Xong'))],
+      actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Done'))],
     );
   }
 }
@@ -1547,7 +1547,7 @@ class _PagedGridState extends State<_PagedGrid> {
   }
 }
 
-/// Screen background (default, colour or image) and the text colours that
+/// Screen background (default, color or image) and the text colors that
 /// stay readable on it.
 class ScreenBg {
   const ScreenBg(this.decoration, this.ink, this.muted, {this.blur = 0, this.key = ''});
@@ -1564,7 +1564,7 @@ class ScreenBg {
 final Map<String, MemoryImage> _pageImages = {};
 
 /// Background of one page (sub-page), drawn over the common background:
-/// a colour or an image, each with its own opacity. Null = none.
+/// a color or an image, each with its own opacity. Null = none.
 ScreenBg? pageBackground(Json? sub, ScreenBg screen, Json theme) {
   final b = jsonMap(sub?['bg']);
   final mode = (b['mode'] ?? 'default').toString();
@@ -1758,7 +1758,7 @@ class _AppSettingsSheet extends StatelessWidget {
                         Icon(Icons.router_outlined, color: pal.muted, size: 22),
                         (c['name'] ?? 'Connections').toString(),
                         sub: '${c['host'] ?? ''}:${c['port'] ?? 3671}${c['natMode'] == true ? ' · NAT' : ''}',
-                        trailing: Text(online ? 'Connected' : 'Simulation', style: TextStyle(fontSize: 12.5, color: online ? pal.accent : pal.muted)),
+                        trailing: Text(online ? 'Connected' : 'Simulator', style: TextStyle(fontSize: 12.5, color: online ? pal.accent : pal.muted)),
                       ),
                   ]),
                   card('About', [

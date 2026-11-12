@@ -66,7 +66,7 @@ Future<void> showScenePopup(BuildContext context, Json w, AppPalette pal) {
   return shown;
 }
 
-/// Brightness slider (and colour temperature / RGB when the card has them).
+/// Brightness slider (and color temperature / RGB when the card has them).
 void showDimmerSheet(BuildContext context, CardEngine engine, Json w, AppPalette pal) {
   showModalBottomSheet<void>(
     context: context,
@@ -128,7 +128,7 @@ class _DimmerSheet extends StatelessWidget {
                 ),
                 if (f['tw'] == true) ...[
                   const SizedBox(height: 8),
-                  Text('Colour temperature: ${((s['ct'] as num?) ?? ctMin).round()} K', style: label()),
+                  Text('Color temperature: ${((s['ct'] as num?) ?? ctMin).round()} K', style: label()),
                   Slider(
                     value: (((s['ct'] as num?) ?? ctMin).toDouble()).clamp(ctMin, ctMax),
                     min: ctMin,
@@ -140,7 +140,7 @@ class _DimmerSheet extends StatelessWidget {
                 ],
                 if (f['rgb'] == true) ...[
                   const SizedBox(height: 8),
-                  Text('Colour', style: label()),
+                  Text('Color', style: label()),
                   const SizedBox(height: 10),
                   Wrap(
                     spacing: 12,

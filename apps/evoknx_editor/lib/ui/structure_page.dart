@@ -425,7 +425,7 @@ class _StructurePageState extends State<StructurePage> {
             child: Padding(
               padding: const EdgeInsets.all(10),
               child: Text(
-                'Run test is on. Switch to Design to add cards.',
+                'Simulator is on. Switch to Design to add cards.',
                 style: TextStyle(fontSize: kUiText - 1, color: c.muted),
               ),
             ),
@@ -447,15 +447,24 @@ class _StructurePageState extends State<StructurePage> {
       ),
       child: Row(
         children: [
-          Seg<bool>(items: const [(false, 'Design'), (true, 'Run test')], value: d.test, onChanged: d.setTest),
+          Seg<String>(
+            items: const [('design', 'Design'), ('sim', 'Simulator'), ('live', 'Live Mode')],
+            value: !d.test ? 'design' : (d.live ? 'live' : 'sim'),
+            onChanged: (v) {
+              if (v == 'design') {
+                d.setTest(false);
+              } else {
+                d.setTest(true);
+                d.setLive(v == 'live');
+              }
+            },
+          ),
           if (_devices().length > 1) ...[
             const SizedBox(width: 8),
             Seg<String>(items: [for (final dv in _devices()) (dv, _devName(dv))], value: (d.doc['activeDev'] ?? 'mobile').toString(), onChanged: d.setDevice),
           ],
           if (d.test) ...[
-            const SizedBox(width: 8),
-            Seg<bool>(items: const [(false, 'Simulation'), (true, 'Live test')], value: d.live, onChanged: d.setLive),
-            const SizedBox(width: 10),
+            const SizedBox(width: 12),
             Flexible(
               child: Text(
                 d.live
@@ -499,7 +508,7 @@ class _StructurePageState extends State<StructurePage> {
 
   String _devName(String k) => switch (k) {
     'tabletP' => 'Tablet (portrait)',
-    'tabletL' => 'Tablet ngang',
+    'tabletL' => 'Tablet (landscape)',
     _ => 'Mobile',
   };
 
@@ -579,7 +588,7 @@ class _StructurePageState extends State<StructurePage> {
               child: Row(
                 children: [
                   Icon(
-                    issues.isEmpty ? Icons.check_circle_outline : Icons.warning_amber_rounded,
+                    issues.isEmpty ? Icons.check_circle_outline : Icons.warning_amber,
                     size: 15,
                     color: errs > 0 ? c.danger : (warns > 0 ? c.warn : const Color(0xFF14AE5C)),
                   ),

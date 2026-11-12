@@ -67,15 +67,6 @@ class EditorSettingsDialog extends StatelessWidget {
                       style: TextStyle(fontSize: 13.5, color: c.muted),
                     ),
                   ]),
-                  section('Properties', [
-                    Row(
-                      children: [
-                        Checkbox(value: appSettings.showHints, onChanged: (v) => appSettings.setShowHints(v == true)),
-                        const SizedBox(width: 6),
-                        const Expanded(child: Text('Show help text under the settings fields')),
-                      ],
-                    ),
-                  ]),
                   section('Default save folder', [
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),

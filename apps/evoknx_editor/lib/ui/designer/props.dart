@@ -306,7 +306,7 @@ class _WidgetPropsState extends State<_WidgetProps> {
         ),
         Divider(color: c.line),
         const SizedBox(height: 16),
-        _Section('Chung', [
+        _Section('General', [
           FieldLabel(
             'Display name',
             SyncedField(
@@ -375,7 +375,7 @@ class _WidgetPropsState extends State<_WidgetProps> {
           if (text.isNotEmpty)
             Align(
               alignment: Alignment.centerLeft,
-              child: TextButton(onPressed: () => set('text', <String, dynamic>{}), child: const Text('About the default size')),
+              child: TextButton(onPressed: () => set('text', <String, dynamic>{}), child: const Text('Default size')),
             ),
         ]),
         if (slotsFor(w).isNotEmpty)
@@ -486,8 +486,8 @@ class _WidgetPropsState extends State<_WidgetProps> {
             Hint(
               simple
                   ? (w['type'] == 'dimmer'
-                        ? 'Only the icon and the name; when on, the card changes colour. Tap the card to switch on/off, tap the control icon to open the brightness slider${feat['tw'] == true || feat['rgb'] == true ? ', colour temperature, RGB colour' : ''}.'
-                        : 'Only the icon and the name; when on, the whole card changes colour.')
+                        ? 'Only the icon and the name; when on, the card changes color. Tap the card to switch on/off, tap the control icon to open the brightness slider${feat['tw'] == true || feat['rgb'] == true ? ', color temperature, RGB color' : ''}.'
+                        : 'Only the icon and the name; when on, the whole card changes color.')
                   : 'Icon, name and status line.',
             ),
             if (simple && w['type'] == 'dimmer')
@@ -496,16 +496,16 @@ class _WidgetPropsState extends State<_WidgetProps> {
                 IconField(d: d, value: (w['tuneIcon'] ?? 'mdi:tune-vertical').toString(), scope: IconScope.widget, onChanged: (v) => set('tuneIcon', v)),
               ),
           ]),
-          _Section('Colour and status', [
+          _Section('Color and status', [
             FieldLabel(
-              'Colour when on',
+              'Color when on',
               _ColorPicker(
                 value: (st['colorOn'] ?? '#EE9B2A').toString(),
                 onChanged: (v) => setStyle('colorOn', v, co: 'con-$id'),
               ),
             ),
             FieldLabel(
-              'Colour when off',
+              'Color when off',
               _ColorPicker(
                 value: (st['colorOff'] ?? '#8A938F').toString(),
                 onChanged: (v) => setStyle('colorOff', v, co: 'coff-$id'),
@@ -538,7 +538,7 @@ class _WidgetPropsState extends State<_WidgetProps> {
           if (type == 'dimmer')
             _Section('Light features', [
               _Check(
-                'Colour temperature (Tunable White, DPT 7.600)',
+                'Color temperature (Tunable White, DPT 7.600)',
                 feat['tw'] == true,
                 (v) => d.editWidget(id, (x) {
                   final m = jsonMap(x['features']);
@@ -581,7 +581,7 @@ class _WidgetPropsState extends State<_WidgetProps> {
                   ],
                 ),
               _Check(
-                'RGB colour (DPT 232.600 / 251.600)',
+                'RGB color (DPT 232.600 / 251.600)',
                 feat['rgb'] == true,
                 (v) => d.editWidget(id, (x) {
                   final m = jsonMap(x['features']);
@@ -663,7 +663,7 @@ class _WidgetPropsState extends State<_WidgetProps> {
                   : 'Icon, name, status and temperature slider. The control button selects the mode and fan speed. Tap the card to switch it on/off. The card lights up while the unit is running.',
             ),
             FieldLabel(
-              'Colour when on',
+              'Color when on',
               _ColorPicker(
                 value: (jsonMap(w['style'])['colorOn'] ?? '#EE9B2A').toString(),
                 onChanged: (v) => d.editWidget(id, (x) {
@@ -947,7 +947,7 @@ class _WidgetPropsState extends State<_WidgetProps> {
                   onChanged: (v) => setPop('seconds', v),
                 ),
               ),
-              Hint('Try it in Run test mode: click a scene card to see the popup. Click the popup to dismiss it early.'),
+              Hint('Try it in the Simulator: click a scene card to see the popup. Click the popup to dismiss it early.'),
             ],
           ]),
           _NavSection(d: d, w: w),
@@ -1045,7 +1045,7 @@ class _WidgetPropsState extends State<_WidgetProps> {
             Hint(
               rtsp
                   ? 'Common paths: Hikvision /Streaming/Channels/101 (main stream) or 102 (substream, lighter); Dahua /cam/realmonitor?channel=1&subtype=1. Use the substream for phones.'
-                  : 'HTTP: path of the camera snapshot or MJPEG stream. In Run test the Editor shows a snapshot to check the address; RTSP video only plays in the App.',
+                  : 'HTTP: path of the camera snapshot or MJPEG stream. In the Simulator the Editor shows a snapshot to check the address; RTSP video only plays in the App.',
             ),
             Text(
               'The camera password is stored in the project file and in the App configuration file. Create an account that only has view rights on the camera.',
@@ -1103,7 +1103,7 @@ class _WidgetPropsState extends State<_WidgetProps> {
             FieldLabel(
               'Card style',
               Seg<String>(
-                items: const [('state', 'Full (with status)'), ('number', 'Simple (measurement)')],
+                items: const [('state', 'Full'), ('number', 'Simple')],
                 value: stateStyle ? 'state' : 'number',
                 onChanged: (v) => d.editWidget(id, (x) {
                   if (v == 'state') {
@@ -1117,7 +1117,7 @@ class _WidgetPropsState extends State<_WidgetProps> {
             ),
             Hint(
               stateStyle
-                  ? 'Each value received from the bus shows its own text, icon and colour (for example 0 = Closed, 1 = Open). In Run test, click the card to step through each state.'
+                  ? 'Each value received from the bus shows its own text, icon and color (for example 0 = Closed, 1 = Open). In the Simulator, click the card to step through each state.'
                   : 'Shows a number with its unit, such as temperature, humidity, power.',
             ),
             if (!stateStyle)
@@ -1398,31 +1398,19 @@ class _RoomProps extends StatelessWidget {
                 'Room icon',
                 IconField(d: d, value: (r['icon'] ?? 'sofa').toString(), scope: IconScope.room, onChanged: (v) => editRoom((x) => x['icon'] = v)),
               ),
-              Row(
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
                 children: [
-                  Expanded(
-                    child: EvoButton(label: 'Add page', icon: Icons.add, small: true, fit: true, onPressed: d.addSub),
+                  EvoButton(label: 'Add page', icon: Icons.add, small: true, onPressed: d.addSub),
+                  EvoButton(
+                    label: 'Import page',
+                    icon: Icons.file_download_outlined,
+                    small: true,
+
+                    onPressed: () => importPart(context, d, only: 'page'),
                   ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: EvoButton(
-                      label: 'Import page',
-                      icon: Icons.file_download_outlined,
-                      small: true,
-                      fit: true,
-                      onPressed: () => importPart(context, d, only: 'page'),
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: EvoButton(
-                      label: 'Export room',
-                      icon: Icons.file_upload_outlined,
-                      small: true,
-                      fit: true,
-                      onPressed: () => exportPart(context, d, 'room', rid),
-                    ),
-                  ),
+                  EvoButton(label: 'Export room', icon: Icons.file_upload_outlined, small: true, onPressed: () => exportPart(context, d, 'room', rid)),
                 ],
               ),
             ],
@@ -1463,26 +1451,23 @@ class _RoomProps extends StatelessWidget {
                 (s['lock'] ?? '').toString(),
                 (v) => d.editSub((x) => v.isEmpty ? x.remove('lock') : x['lock'] = v, coalesce: 'lock-${s['id']}'),
               ),
-              Row(
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
                 children: [
-                  Expanded(
-                    child: EvoButton(
-                      label: 'Import card',
-                      icon: Icons.file_download_outlined,
-                      small: true,
-                      fit: true,
-                      onPressed: () => importPart(context, d, only: 'card'),
-                    ),
+                  EvoButton(
+                    label: 'Import card',
+                    icon: Icons.file_download_outlined,
+                    small: true,
+
+                    onPressed: () => importPart(context, d, only: 'card'),
                   ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: EvoButton(
-                      label: 'Export page',
-                      icon: Icons.file_upload_outlined,
-                      small: true,
-                      fit: true,
-                      onPressed: () => exportPart(context, d, 'page', s['id'] as String),
-                    ),
+                  EvoButton(
+                    label: 'Export page',
+                    icon: Icons.file_upload_outlined,
+                    small: true,
+
+                    onPressed: () => exportPart(context, d, 'page', s['id'] as String),
                   ),
                 ],
               ),
@@ -1589,7 +1574,6 @@ class _FloorProps extends StatelessWidget {
       final x = byId(jsonList(doc['floors']), fid);
       if (x != null) fn(x);
     }, coalesce: coalesce);
-    final n = roomsOf(d.doc, fid).length;
     return _Section('Floor', [
       FieldLabel(
         'Floor name',
@@ -1616,32 +1600,19 @@ class _FloorProps extends StatelessWidget {
         controlAffinity: ListTileControlAffinity.leading,
         title: const Text('Show/hide icon'),
       ),
-      Text('This floor has $n rooms.', style: TextStyle(fontSize: 13, color: context.evo.muted)),
-      Row(
+      Wrap(
+        spacing: 6,
+        runSpacing: 6,
         children: [
-          Expanded(
-            child: EvoButton(label: 'Add room', icon: Icons.add, small: true, fit: true, onPressed: () => d.addRoom(fid)),
+          EvoButton(label: 'Add room', icon: Icons.add, small: true, onPressed: () => d.addRoom(fid)),
+          EvoButton(
+            label: 'Import room',
+            icon: Icons.file_download_outlined,
+            small: true,
+
+            onPressed: () => importPart(context, d, only: 'room'),
           ),
-          const SizedBox(width: 6),
-          Expanded(
-            child: EvoButton(
-              label: 'Import room',
-              icon: Icons.file_download_outlined,
-              small: true,
-              fit: true,
-              onPressed: () => importPart(context, d, only: 'room'),
-            ),
-          ),
-          const SizedBox(width: 6),
-          Expanded(
-            child: EvoButton(
-              label: 'Export floor',
-              icon: Icons.file_upload_outlined,
-              small: true,
-              fit: true,
-              onPressed: () => exportPart(context, d, 'floor', fid),
-            ),
-          ),
+          EvoButton(label: 'Export floor', icon: Icons.file_upload_outlined, small: true, onPressed: () => exportPart(context, d, 'floor', fid)),
         ],
       ),
     ], trailing: EvoButton(label: 'Delete floor', icon: Icons.delete_outline, small: true, danger: true, onPressed: () => deleteTreeSelection(context, d)));
@@ -1687,7 +1658,7 @@ class _OverviewProps extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         _Section('Devices used', [
-          for (final dv in const [('mobile', 'Mobile', '12 × 4'), ('tabletP', 'Tablet (portrait)', '16 × 6'), ('tabletL', 'Tablet ngang', '10 × 8')])
+          for (final dv in const [('mobile', 'Mobile', '12 × 4'), ('tabletP', 'Tablet (portrait)', '16 × 6'), ('tabletL', 'Tablet (landscape)', '10 × 8')])
             _Check('${dv.$2}   (${dv.$3})', dv.$1 == 'mobile' ? jsonMap(d.doc['devices'])['mobile'] != false : jsonMap(d.doc['devices'])[dv.$1] == true, (v) {
               final devs = jsonMap(d.doc['devices']);
               final on = ['mobile', 'tabletP', 'tabletL'].where((k) => k == 'mobile' ? devs['mobile'] != false : devs[k] == true).toList();
@@ -1750,7 +1721,7 @@ class _OverviewProps extends StatelessWidget {
             onChanged: (v) => editTheme((x) => x['cardBorder'] = v, coalesce: 'cbor'),
           ),
           StepRow(
-            label: 'Card background opacity',
+            label: 'Background opacity',
             unit: '%',
             step: 5,
             value: ((theme['cardOpacity'] as num?) ?? 100).toInt(),
@@ -2075,7 +2046,7 @@ class _SplashSettings extends StatelessWidget {
         ),
       ),
       FieldLabel(
-        'Background colour',
+        'Background color',
         _ColorPicker(
           value: (sp['bg'] ?? '#1B2320').toString(),
           onChanged: (v) => _set('bg', v, co: 'sp-bg'),
@@ -2095,7 +2066,7 @@ class _SplashSettings extends StatelessWidget {
 
 const _kBgSwatches = ['#FFFFFF', '#F3F4F6', '#E3F1E9', '#FDF1DC', '#E6EEF9', '#FBE9E5', '#2A3035', '#1B2320', '#0F1A2B', '#3A2D17'];
 
-/// "Mặc định" + colour swatches for card / frame backgrounds (null = default).
+/// "Mặc định" + color swatches for card / frame backgrounds (null = default).
 class _BgPicker extends StatelessWidget {
   const _BgPicker({required this.value, required this.onChanged});
   final String? value;
@@ -2218,7 +2189,7 @@ class _ButtonImageSettings extends StatelessWidget {
           onChanged: (v) => d.editWidget(id, (x) => x['imgIcon'] = v),
         ),
         FieldLabel(
-          'Icon colour',
+          'Icon color',
           Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -2226,7 +2197,7 @@ class _ButtonImageSettings extends StatelessWidget {
                 children: [
                   ChoiceChip(label: const Text('Default'), selected: iconColor == null, onSelected: (_) => d.editWidget(id, (x) => x.remove('imgColor'))),
                   const SizedBox(width: 8),
-                  Expanded(child: Hint('Default: follows the card\'s text colour')),
+                  Expanded(child: Hint('Default: follows the card\'s text color')),
                 ],
               ),
               const SizedBox(height: 8),
@@ -2338,7 +2309,7 @@ class _SecretFieldState extends State<_SecretField> {
   );
 }
 
-/// Background of one page: follows the overview, a colour (with opacity) or
+/// Background of one page: follows the overview, a color (with opacity) or
 /// an image (with darkening and opacity).
 class _PageBgSettings extends StatelessWidget {
   const _PageBgSettings({required this.d, required this.s});
@@ -2401,7 +2372,7 @@ class _PageBgSettings extends StatelessWidget {
     final bright = ((b['bright'] as num?) ?? (legacyDim != null ? 100 - legacyDim : 100)).toInt().clamp(20, 150).toInt();
     return _Section('Background of this page', [
       Seg<String>(
-        items: const [('default', 'Default'), ('color', 'Colour'), ('image', 'Image')],
+        items: const [('default', 'Default'), ('color', 'Color'), ('image', 'Image')],
         value: mode,
         onChanged: (v) => _set({'mode': v, if (v == 'color' && b['color'] == null) 'color': '#E3F1E9'}),
       ),
@@ -2474,7 +2445,7 @@ class _PageBgSettings extends StatelessWidget {
         ),
       if (mode != 'default')
         FieldLabel(
-          'Text colour on the background',
+          'Text color on the background',
           EvoDropdown<String>(
             value: const ['auto', 'dark', 'light'].contains(b['text']) ? b['text'] as String : 'auto',
             items: const [('auto', 'Auto'), ('dark', 'Bold text'), ('light', 'White text')],
@@ -2482,7 +2453,7 @@ class _PageBgSettings extends StatelessWidget {
           ),
         ),
       Hint(
-        'Brightness 100% is the original; lower darkens, higher brightens. Opacity below 100% lets the App\'s default background show through. The text colour applies to text that sits on the background (time, room name, page name).',
+        'Brightness 100% is the original; lower darkens, higher brightens. Opacity below 100% lets the App\'s default background show through. The text color applies to text that sits on the background (time, room name, page name).',
       ),
     ]);
   }
@@ -2526,7 +2497,7 @@ List<Map<String, dynamic>> _stateTemplate(String k) => switch (k) {
   ],
 };
 
-/// Table of states of a value card: value → text, icon, colour, alarm.
+/// Table of states of a value card: value → text, icon, color, alarm.
 class _StatesEditor extends StatelessWidget {
   const _StatesEditor({required this.d, required this.w});
   final Designer d;
@@ -2553,7 +2524,7 @@ class _StatesEditor extends StatelessWidget {
     final v = await showDialog<String>(
       context: context,
       builder: (c) => AlertDialog(
-        title: const Text('Status colour', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+        title: const Text('Status color', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
         content: SizedBox(
           width: 340,
           child: _ColorPicker(value: cur ?? '', onChanged: (h) => Navigator.pop(c, h)),
@@ -2573,7 +2544,7 @@ class _StatesEditor extends StatelessWidget {
     final c = context.evo;
     final rows = jsonList(w['states']);
     return _Section('Status', [
-      Hint('Value · Display text · Icon · Colour · Alarm'),
+      Hint('Value · Display text · Icon · Color · Alarm'),
       for (var i = 0; i < rows.length; i++)
         Row(
           children: [
@@ -2618,7 +2589,7 @@ class _StatesEditor extends StatelessWidget {
             ),
             const SizedBox(width: 4),
             Tooltip(
-              message: tr('Colour'),
+              message: tr('Color'),
               child: InkWell(
                 borderRadius: BorderRadius.circular(8),
                 onTap: () => _pickColor(context, i, rows[i]['color'] as String?),

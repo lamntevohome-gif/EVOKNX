@@ -3,7 +3,6 @@ import 'package:evoknx_ui/evoknx_ui.dart' show Text, tr, trn;
 import 'package:knx_core/knx_core.dart';
 
 import '../app/theme.dart';
-import '../state/app_settings.dart';
 
 void toast(BuildContext context, String message) {
   ScaffoldMessenger.of(context)
@@ -526,13 +525,12 @@ String fold(String s) {
   return b.toString();
 }
 
-/// Explanatory text under a field. Hidden unless "Hiện chữ hướng dẫn" is on
-/// in the Editor settings, so the panels stay compact.
+/// Explanatory text under a field. It is kept hidden so that the panels stay compact.
 class Hint extends StatelessWidget {
   const Hint(this.text, {super.key});
   final String text;
 
-  static bool get visible => appSettings.showHints;
+  static bool get visible => false;
 
   @override
   Widget build(BuildContext context) {

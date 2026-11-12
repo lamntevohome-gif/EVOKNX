@@ -177,7 +177,7 @@ class _IntroScreenState extends State<IntroScreen> {
             Align(
               alignment: Alignment.centerLeft,
               child: IconButton(
-                icon: const Icon(Icons.chevron_left_rounded, size: 32, color: Colors.white),
+                icon: const Icon(Icons.chevron_left, size: 32, color: Colors.white),
                 onPressed: () => _go(_slides.length - 1),
               ),
             ),

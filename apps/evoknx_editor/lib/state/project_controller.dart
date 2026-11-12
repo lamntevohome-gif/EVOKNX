@@ -345,7 +345,7 @@ class ProjectController extends ChangeNotifier {
       acceptedTypeGroups: const [
         XTypeGroup(label: 'App configuration', extensions: ['json']),
       ],
-      suggestedName: '${safeName(projectName)} - cau hinh App.json',
+      suggestedName: '${safeName(projectName)} - App config.json',
       initialDirectory: projectDir,
       confirmButtonText: tr('Export'),
     );

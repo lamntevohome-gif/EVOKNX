@@ -28,7 +28,7 @@ class MonitorRow {
   }
 
   String get typeText => switch (type) {
-    TelegramType.write => 'Ghi',
+    TelegramType.write => 'Write',
     TelegramType.read => 'Read',
     TelegramType.response => 'Feedback',
   };

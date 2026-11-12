@@ -124,7 +124,7 @@ class _PinPadState extends State<_PinPad> with SingleTickerProviderStateMixin {
                   alignment: Alignment.centerRight,
                   child: PressFade(
                     onTap: () => Navigator.of(context).pop(false),
-                    child: SizedBox(width: 40, height: 40, child: Icon(Icons.close_rounded, size: 22, color: pal.muted)),
+                    child: SizedBox(width: 40, height: 40, child: Icon(Icons.close, size: 22, color: pal.muted)),
                   ),
                 ),
                 Text(

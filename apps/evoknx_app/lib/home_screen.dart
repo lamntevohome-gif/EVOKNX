@@ -375,7 +375,7 @@ class _HomeScreenState extends State<HomeScreen> {
     child: Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(Icons.lock_outline_rounded, size: 52, color: pal.sMuted),
+        Icon(Icons.lock_outline, size: 52, color: pal.sMuted),
         const SizedBox(height: 14),
         Text(
           'Locked',
@@ -819,8 +819,8 @@ class _HomeScreenState extends State<HomeScreen> {
         top: false,
         child: Row(
           children: [
-            item(0, Icons.home_rounded, Icons.home_outlined, 'Home'),
-            item(1, Icons.layers_rounded, Icons.layers_outlined, 'Area'),
+            item(0, Icons.home, Icons.home_outlined, 'Home'),
+            item(1, Icons.layers, Icons.layers_outlined, 'Area'),
             item(2, Icons.shield, Icons.shield_outlined, 'Security'),
           ],
         ),
@@ -866,7 +866,7 @@ class _HomeScreenState extends State<HomeScreen> {
           if (onBack != null || (_galleryMode && !_gallery)) ...[
             _iconBtn(
               pal,
-              onBack != null ? Icons.chevron_left_rounded : Icons.grid_view_rounded,
+              onBack != null ? Icons.chevron_left : Icons.grid_view,
               onBack ?? () => setState(() => _gallery = true),
               onBack != null ? 'Back' : 'Room gallery',
               size: onBack != null ? 34 : 22,
@@ -1273,7 +1273,7 @@ class PageBg {
 
 final Map<String, MemoryImage> _images = {};
 
-/// Background of a page (colour or image with brightness, opacity, blur),
+/// Background of a page (color or image with brightness, opacity, blur),
 /// as designed in the Editor. Null = the theme background.
 PageBg? pageBackground(Json? sub, AppPalette pal) {
   final b = jsonMap(sub?['bg']);

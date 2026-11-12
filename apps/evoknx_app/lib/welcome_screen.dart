@@ -63,7 +63,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                   ),
                   const SizedBox(height: 10),
                   Text(
-                    'No profile yet. Send the project file (.evoknx) from your computer to the phone (Zalo, Drive, USB cable), then open the file and choose Share → EvoKNX, or tap the button below to pick a file.',
+                    'No profile yet. Send the project file (.evoknx) from your computer to the phone (a messaging app, Drive, USB cable), then open the file and choose Share → EvoKNX, or tap the button below to pick a file.',
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 15.5, height: 1.45, color: pal.muted),
                   ),

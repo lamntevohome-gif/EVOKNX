@@ -12,7 +12,7 @@ import '../common.dart';
 import 'designer.dart';
 
 const _partType = XTypeGroup(label: 'EvoKNX floor / room / page / card', extensions: ['evoknxpart']);
-const _kindName = {'floor': 'floor', 'room': 'room', 'page': 'trang', 'card': 'card'};
+const _kindName = {'floor': 'floor', 'room': 'room', 'page': 'page', 'card': 'card'};
 
 /// "Xuất tầng/phòng/trang…" and "Nhập…" buttons.
 class PartButtons extends StatelessWidget {
@@ -217,7 +217,7 @@ Future<void> _importCard(BuildContext context, Designer d, Json part) async {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text('The card is placed in the first empty spot of the page “${sub['title'] ?? ''}”, keeping all its settings (style, colour, icon, mode…).'),
+              Text('The card is placed in the first empty spot of the page “${sub['title'] ?? ''}”, keeping all its settings (style, color, icon, mode…).'),
               const SizedBox(height: 12),
               RadioListTile<bool>(
                 value: true,

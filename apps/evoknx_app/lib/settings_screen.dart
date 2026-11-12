@@ -228,7 +228,7 @@ class SettingsScreen extends StatelessWidget {
                       row(
                         Icon(Icons.folder_open_outlined, color: pal.muted),
                         'Add a profile from a configuration file',
-                        sub: '.evoknx file sent from the computer. Or in Zalo, Drive: Share → EvoKNX. A project with the same name replaces that profile.',
+                        sub: '.evoknx file sent from the computer. Or from a messaging app or Drive: Share → EvoKNX. A project with the same name replaces that profile.',
                         onTap: () async {
                           final before = store.profiles.length;
                           final r = await store.importConfig();

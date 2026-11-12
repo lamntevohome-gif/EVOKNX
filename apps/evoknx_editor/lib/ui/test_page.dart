@@ -210,7 +210,7 @@ class _TestPageState extends State<TestPage> {
               const SizedBox(width: 8),
               EvoDropdown<String>(
                 value: type,
-                items: const [('all', 'All types'), ('write', 'Ghi'), ('read', 'Read'), ('response', 'Feedback')],
+                items: const [('all', 'All types'), ('write', 'Write'), ('read', 'Read'), ('response', 'Feedback')],
                 onChanged: (v) => setState(() => type = v),
               ),
               const Spacer(),
@@ -407,7 +407,7 @@ class _TestPageState extends State<TestPage> {
             ),
             const SizedBox(width: 8),
             Expanded(
-              child: EvoButton(label: 'Ghi', primary: true, onPressed: ga == null ? null : () => _rw(true)),
+              child: EvoButton(label: 'Write', primary: true, onPressed: ga == null ? null : () => _rw(true)),
             ),
           ],
         ),

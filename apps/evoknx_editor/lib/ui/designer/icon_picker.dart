@@ -347,7 +347,7 @@ class _IconPickerDialogState extends State<_IconPickerDialog> {
                   children: [
                     Expanded(
                       child: Text(
-                        'SVG or PNG, square image 96 × 96 px, under 100 KB. Use a single-colour icon on a transparent background: the App tints it by the on/off state.',
+                        'SVG or PNG, square image 96 × 96 px, under 100 KB. Use a single-color icon on a transparent background: the App tints it by the on/off state.',
                         style: TextStyle(fontSize: 13.5, color: c.muted),
                       ),
                     ),

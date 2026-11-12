@@ -341,7 +341,7 @@ class _HaPageState extends State<HaPage> {
                       children: [
                         Checkbox(value: h['enabled'] == true, onChanged: (v) => _setHa('enabled', v == true)),
                         const SizedBox(width: 6),
-                        const Expanded(child: Text('Use Home Assistant in this project')),
+                        const Expanded(child: Text('Use Home Assistant')),
                       ],
                     ),
                     const SizedBox(height: 10),
@@ -624,7 +624,7 @@ class _HaPageState extends State<HaPage> {
                   const SizedBox(width: 6),
                 ],
                 EvoButton(
-                  label: selecting ? 'Xong' : 'Select',
+                  label: selecting ? 'Done' : 'Select',
                   icon: selecting ? Icons.check : Icons.checklist,
                   onPressed: () => setState(() {
                     selecting = !selecting;

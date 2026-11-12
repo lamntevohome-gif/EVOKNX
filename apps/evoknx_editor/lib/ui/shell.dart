@@ -373,7 +373,7 @@ class _ShellState extends State<Shell> {
   }
 }
 
-/// Top bar colours: a mid charcoal (lighter than Figma's near-black) so the
+/// Top bar colors: a mid charcoal (lighter than Figma's near-black) so the
 /// logo and labels stay clearly visible.
 const Color _kBar = Color(0xFF3A3A3A);
 const Color _kBarHover = Color(0xFF4A4A4A);

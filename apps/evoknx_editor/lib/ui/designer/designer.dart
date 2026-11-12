@@ -244,7 +244,11 @@ class Designer extends ChangeNotifier {
       _n();
     }
     final n = plan.subs.values.fold<int>(0, (a, b) => a + b.length);
-    final parts = [if (plan.floors.isNotEmpty) '${plan.floors.length} floors', if (plan.rooms.isNotEmpty) '${plan.rooms.length} rooms', if (n > 0) '$n trang'];
+    final parts = [
+      if (plan.floors.isNotEmpty) '${plan.floors.length} floors',
+      if (plan.rooms.isNotEmpty) '${plan.rooms.length} rooms',
+      if (n > 0) '$n ${n == 1 ? 'page' : 'pages'}',
+    ];
     return 'Deleted ${parts.isEmpty ? 'nothing' : parts.join(', ')}.${plan.notes.isEmpty ? '' : ' ${plan.notes.join(' ')}'}';
   }
 
@@ -630,7 +634,7 @@ class Designer extends ChangeNotifier {
 
   /// Drops [it] on cell (x, y) of box [g] (null = page). Returns an error.
   String? drop(DragItem it, String? g, int x, int y) {
-    if (test) return 'Run test is on: switch to Design to add or edit cards.';
+    if (test) return 'Simulator is on: switch to Design to add or edit cards.';
     final s = sub;
     if (s == null) return 'Select a room first.';
     final box = _box(s, g);
@@ -736,7 +740,7 @@ class Designer extends ChangeNotifier {
   /// Adds a card from the card library to the selected cell, or to the first
   /// free spot of the page.
   String? addLibCard(String entryId) {
-    if (test) return 'Run test is on: switch to Design to add or edit cards.';
+    if (test) return 'Simulator is on: switch to Design to add or edit cards.';
     if (room == null) return 'Select a room first.';
     final c = cell;
     if (c != null) return drop(DragItem.lib(entryId), c.g, c.x, c.y);
@@ -746,7 +750,7 @@ class Designer extends ChangeNotifier {
   }
 
   String? addWidget(String type) {
-    if (test) return 'Run test is on: switch to Design to add or edit cards.';
+    if (test) return 'Simulator is on: switch to Design to add or edit cards.';
     if (room == null) {
       final f = floor;
       if (f == null) return 'Add a floor first.';
@@ -798,7 +802,7 @@ class Designer extends ChangeNotifier {
   }
 
   String? paste() {
-    if (test) return 'Run test is on: switch to Design to add or edit cards.';
+    if (test) return 'Simulator is on: switch to Design to add or edit cards.';
     final cp = clip;
     final s = sub;
     if (cp == null) return null;
@@ -969,7 +973,7 @@ class Designer extends ChangeNotifier {
     switch (w['type']) {
       case 'value':
         // Test mode: tapping a state-style value card steps through its
-        // states so each text, icon, colour and alarm can be previewed.
+        // states so each text, icon, color and alarm can be previewed.
         final rows = jsonList(w['states']);
         if (!isStateValue(w) || rows.isEmpty) break;
         num? numOf(Object? v) => num.tryParse((v ?? '').toString().replaceAll(',', '.'));

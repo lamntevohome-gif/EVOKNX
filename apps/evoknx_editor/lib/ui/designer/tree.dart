@@ -342,7 +342,7 @@ Future<void> deleteTreeSelection(BuildContext context, Designer d) async {
   final parts = [
     if (plan.floors.isNotEmpty) '${plan.floors.length} floors',
     if (plan.rooms.isNotEmpty) '${plan.rooms.length} rooms',
-    if (nSubs > 0) '$nSubs trang',
+    if (nSubs > 0) '$nSubs ${nSubs == 1 ? 'page' : 'pages'}',
   ];
   final ok = await showDialog<bool>(
     context: context,
