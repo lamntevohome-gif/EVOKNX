@@ -19,11 +19,14 @@ MemoryImage? _coverOf(String data) {
 /// The room gallery: a grid of room cards (cover image or colour, icon, name).
 /// Tapping a card opens the room. Used by the App and by the Editor preview.
 class RoomGallery extends StatelessWidget {
-  const RoomGallery({super.key, required this.doc, required this.rooms, required this.pal, required this.onOpen});
+  const RoomGallery({super.key, required this.doc, required this.rooms, required this.pal, required this.onOpen, this.unlocked});
   final Json doc;
   final List<Json> rooms;
   final AppPalette pal;
   final void Function(String roomId) onOpen;
+
+  /// Ids of the locks that are open (a card with a lock that is not in this set shows a padlock).
+  final Set<String>? unlocked;
 
   @override
   Widget build(BuildContext context) {
@@ -48,7 +51,13 @@ class RoomGallery extends StatelessWidget {
           padding: EdgeInsets.all(pal.safeMargin),
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: cols, mainAxisSpacing: 12, crossAxisSpacing: 12, childAspectRatio: 16 / 9),
           itemCount: rooms.length,
-          itemBuilder: (context, i) => _RoomCard(doc: doc, room: rooms[i], pal: pal, onTap: () => onOpen(rooms[i]['id'] as String)),
+          itemBuilder: (context, i) => _RoomCard(
+            doc: doc,
+            room: rooms[i],
+            pal: pal,
+            locked: RegExp(r'^\d{4}$').hasMatch((rooms[i]['lock'] ?? '').toString()) && !(unlocked?.contains(rooms[i]['id']) ?? false),
+            onTap: () => onOpen(rooms[i]['id'] as String),
+          ),
         );
       },
     );
@@ -56,7 +65,8 @@ class RoomGallery extends StatelessWidget {
 }
 
 class _RoomCard extends StatelessWidget {
-  const _RoomCard({required this.doc, required this.room, required this.pal, required this.onTap});
+  const _RoomCard({required this.doc, required this.room, required this.pal, required this.onTap, this.locked = false});
+  final bool locked;
   final Json doc, room;
   final AppPalette pal;
   final VoidCallback onTap;
@@ -102,6 +112,16 @@ class _RoomCard extends StatelessWidget {
                   ),
                 ),
               Positioned(left: 12, top: 12, child: iconWidget(room['icon'] as String?, f * 1.65, fg)),
+              if (locked)
+                Positioned(
+                  right: 10,
+                  top: 10,
+                  child: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.35), shape: BoxShape.circle),
+                    child: const Icon(Icons.lock_outline_rounded, size: 16, color: Colors.white),
+                  ),
+                ),
               Positioned(
                 left: 14,
                 right: 12,

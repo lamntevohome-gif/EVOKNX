@@ -242,6 +242,31 @@ List<Issue> computeIssues(Json d) {
   final gas = jsonList(d['groupAddresses']);
   Json? ga(String? id) => byId(gas, id);
   if (jsonList(d['pages']).isEmpty) out.add(const Issue(false, 'The project has no rooms yet.'));
+  // Lock codes have 4 digits.
+  bool badLock(Json x) {
+    final l = (x['lock'] ?? '').toString();
+    return l.isNotEmpty && !RegExp(r'^\d{4}$').hasMatch(l);
+  }
+
+  for (final f in jsonList(d['floors'])) {
+    if (badLock(f)) out.add(Issue(true, 'The lock code of the floor “${f['title']}” must be 4 digits.'));
+  }
+  for (final r in jsonList(d['pages'])) {
+    if (badLock(r)) out.add(Issue(true, 'The lock code of the room “${r['title']}” must be 4 digits.', roomId: r['id'] as String?));
+    for (final s in subsOf(r)) {
+      if (badLock(s))
+        out.add(
+          Issue(true, 'The lock code of the page “${r['title']} / ${s['title']}” must be 4 digits.', roomId: r['id'] as String?, subId: s['id'] as String?),
+        );
+    }
+  }
+  // The targets that cards open after a press.
+  final floorIds = {for (final f in jsonList(d['floors'])) f['id']};
+  final roomIds = {for (final r in jsonList(d['pages'])) r['id']};
+  final pageIds = {
+    for (final r in jsonList(d['pages']))
+      for (final s in subsOf(r)) s['id'],
+  };
   for (final r in jsonList(d['pages'])) {
     for (final s in subsOf(r)) {
       final all = <(Json, Json)>[];
@@ -259,6 +284,21 @@ List<Issue> computeIssues(Json d) {
         if (t == null) continue;
         final name = '“${(w['label'] ?? t.name)}”';
         final where = '${r['title']}: ';
+        final nav = jsonMap(w['nav']);
+        final navKind = (nav['kind'] ?? '').toString();
+        if (navKind.isNotEmpty) {
+          final found = navKind == 'floor' ? floorIds.contains(nav['id']) : (navKind == 'room' ? roomIds.contains(nav['id']) : pageIds.contains(nav['id']));
+          if (!found)
+            out.add(
+              Issue(
+                true,
+                '$where$name: the target $navKind does not exist. Please check.',
+                roomId: r['id'] as String?,
+                subId: s['id'] as String?,
+                widgetId: w['id'] as String?,
+              ),
+            );
+        }
         final rws = identical(box, s) ? pageRows(box, d) : rows(box);
         if (pi(w, 'y') + pi(w, 'h') > rws) {
           out.add(Issue(false, '$where$name is outside the screen.', roomId: r['id'], subId: s['id'], widgetId: w['id']));
