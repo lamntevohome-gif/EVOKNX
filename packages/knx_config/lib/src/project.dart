@@ -192,12 +192,12 @@ List<SlotDef> slotsFor(Json w) {
       return [
         ...base,
         if (f['tw'] == true) ...const [
-          SlotDef('ctWrite', 'Colour temperature', [7], required: true),
-          SlotDef('ctStatus', 'Colour temperature status', [7], recommended: true)
+          SlotDef('ctWrite', 'Color temperature', [7], required: true),
+          SlotDef('ctStatus', 'Color temperature status', [7], recommended: true)
         ],
         if (f['rgb'] == true) ...const [
-          SlotDef('rgbWrite', 'RGB colour', [232, 251], required: true),
-          SlotDef('rgbStatus', 'RGB colour status', [232, 251], recommended: true)
+          SlotDef('rgbWrite', 'RGB color', [232, 251], required: true),
+          SlotDef('rgbStatus', 'RGB color status', [232, 251], recommended: true)
         ],
       ];
     case 'ac':
@@ -310,7 +310,7 @@ Json newProject(String name) {
     'activeDev': 'mobile',
     'project': {'id': uid('p_'), 'name': name.trim().isEmpty ? 'New project' : name.trim(), 'revision': 0, 'updatedAt': null},
     'connections': [
-      {'id': 'main', 'name': 'Local', 'type': 'tunneling', 'host': '192.168.1.50', 'port': 3671, 'natMode': false}
+      {'id': 'main', 'name': 'Connection 1', 'type': 'tunneling', 'host': '192.168.1.50', 'port': 3671, 'natMode': false}
     ],
     'groupAddresses': <Json>[],
     'theme': {'mode': 'light', 'accent': '#1E7F57', 'colorOn': '#EE9B2A', 'colorOff': '#8A938F'},
@@ -351,7 +351,9 @@ Json migrate(Json o) {
   o['icons'] ??= <Json>[];
   final conns = jsonList(o['connections']);
   for (var i = 0; i < conns.length; i++) {
-    conns[i]['name'] ??= i == 0 ? 'Local' : 'Connection ${i + 1}';
+    // Older projects called the first connection "Trong nhà" (or "Local"): it is Connection 1.
+    final nm = conns[i]['name'];
+    if (nm == null || nm == 'Trong nhà' || nm == 'Local') conns[i]['name'] = 'Connection ${i + 1}';
     conns[i]['id'] ??= uid('conn_');
   }
   o['connections'] = conns;

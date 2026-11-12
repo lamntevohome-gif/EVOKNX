@@ -17,7 +17,7 @@ import 'project.dart';
 //   2 dimmable light                 3 cover
 //   4 sensor                         5 media player        6 climate
 // The first function of an entity uses that middle group, the next functions
-// add 10 each (a dimmable light: on/off in 2, brightness in 12, colour
+// add 10 each (a dimmable light: on/off in 2, brightness in 12, color
 // temperature in 22). Entity number n counts from 1 per room and kind:
 //   command  main/mid/n        status  main/mid/(n+100)
 // ======================================================================
@@ -43,7 +43,7 @@ class HaAttr {
 const List<HaAttr> kHaAttrs = [
   HaAttr('onoff', 'On/Off', '1.001'),
   HaAttr('brightness', 'Brightness', '5.001'),
-  HaAttr('colortemp', 'Colour temperature', '7.600'),
+  HaAttr('colortemp', 'Color temperature', '7.600'),
   HaAttr('position', 'Blind position', '5.001'),
   HaAttr('move', 'Blind up/down', '1.008', status: false),
   HaAttr('stop', 'Blind stop', '1.007', status: false),

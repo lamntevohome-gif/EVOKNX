@@ -266,7 +266,7 @@ Widget iconWidget(String? key, double size, Color color) {
 }
 
 String iconLabel(String? key) {
-  if (isNoIcon(key)) return 'Không có';
+  if (isNoIcon(key)) return 'None';
   if (kLegacyToMdi.containsKey(key)) return iconName(key);
   if (key != null && key.startsWith('mdi:')) return key.substring(4);
   return _custom[key]?.name ?? iconName(key);

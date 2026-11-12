@@ -20,7 +20,7 @@ String greeting(Json sp) {
 }
 
 /// The splash ("màn hình chào") designed in the Editor: logo, greeting and a
-/// line of text on a background colour. Used by the Editor preview and by
+/// line of text on a background color. Used by the Editor preview and by
 /// the App when it opens.
 class SplashView extends StatelessWidget {
   const SplashView({super.key, required this.splash, this.onTap, this.fadeIn = false});

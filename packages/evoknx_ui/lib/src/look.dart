@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 
 import 'tiles.dart';
 
-/// A raised ("nổi") look for the buttons and cards: a bevel made of the colour
+/// A raised ("nổi") look for the buttons and cards: a bevel made of the color
 /// itself (a soft light rim on top that fades out smoothly, a faint darker rim
 /// below) and, for [shadow], a small soft drop shadow. [lift] sets the strength
 /// (0 = flat); [border] replaces the default light edge; [glow] adds a halo.
@@ -77,7 +77,7 @@ BoxDecoration flatDecoration(AppPalette pal, Color fill, {BorderRadius? radius, 
   border: Border.all(color: glow != null ? fill : pal.tileEdge),
 );
 
-/// Small preview of a theme: its screen colour, a card and the accent dot.
+/// Small preview of a theme: its screen color, a card and the accent dot.
 class ThemeSwatch extends StatelessWidget {
   const ThemeSwatch(this.pal, {super.key, this.size = 30});
   final AppPalette pal;
@@ -128,7 +128,7 @@ class CardShadow extends StatelessWidget {
   final double radius;
   final AppPalette pal;
 
-  /// "On" colour of a lit card: adds a soft glow.
+  /// "On" color of a lit card: adds a soft glow.
   final Color? glow;
 
   @override

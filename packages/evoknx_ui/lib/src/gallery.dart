@@ -16,7 +16,7 @@ MemoryImage? _coverOf(String data) {
   return _covers['${data.length}:${data.hashCode}'] ??= MemoryImage(base64Decode(data.substring(i + 7)));
 }
 
-/// The room gallery: a grid of room cards (cover image or colour, icon, name).
+/// The room gallery: a grid of room cards (cover image or color, icon, name).
 /// Tapping a card opens the room. Used by the App and by the Editor preview.
 class RoomGallery extends StatelessWidget {
   const RoomGallery({super.key, required this.doc, required this.rooms, required this.pal, required this.onOpen, this.unlocked});
@@ -119,7 +119,7 @@ class _RoomCard extends StatelessWidget {
                   child: Container(
                     padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.35), shape: BoxShape.circle),
-                    child: const Icon(Icons.lock_outline_rounded, size: 16, color: Colors.white),
+                    child: const Icon(Icons.lock_outline, size: 16, color: Colors.white),
                   ),
                 ),
               Positioned(

@@ -235,7 +235,7 @@ Future<void> main() async {
   check((doc['groupAddresses'] as List).any((g) => g['address'] == '40/23/1') && (doc['groupAddresses'] as List).any((g) => g['address'] == '40/23/101'),
       'addresses: cover position = kind 3 + 20 (40/23/1 and 40/23/101)');
   addHaEntity(doc, light, ['colortemp'], roomId: room1['id'] as String);
-  check((doc['groupAddresses'] as List).any((g) => g['address'] == '40/22/1'), 'addresses: an entity keeps its number (colour temperature 40/22/1)');
+  check((doc['groupAddresses'] as List).any((g) => g['address'] == '40/22/1'), 'addresses: an entity keeps its number (color temperature 40/22/1)');
   final ac = ent('climate.ac', 'cool', {'friendly_name': 'Air conditioner'});
   addHaEntity(doc, ac, ['onoff', 'setpoint', 'current', 'mode'], roomId: room2['id'] as String);
   addHaEntity(doc, ent('sensor.t', '23.4', {'friendly_name': 'Temperature'}), ['sensor'], roomId: room2['id'] as String);

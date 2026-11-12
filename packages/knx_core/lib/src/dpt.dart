@@ -39,7 +39,7 @@ const List<DptInfo> kCommonDpts = [
   DptInfo('5.001', 'Percentage 0–100%', '%'),
   DptInfo('5.010', 'Integer 0–255'),
   DptInfo('7.001', 'Pulse counter'),
-  DptInfo('7.600', 'Colour temperature', 'K'),
+  DptInfo('7.600', 'Color temperature', 'K'),
   DptInfo('9.001', 'Temperature', '°C'),
   DptInfo('9.004', 'Illuminance', 'lx'),
   DptInfo('9.007', 'Humidity', '%'),
@@ -50,8 +50,8 @@ const List<DptInfo> kCommonDpts = [
   DptInfo('18.001', 'Scene control'),
   DptInfo('20.102', 'HVAC mode'),
   DptInfo('20.105', 'AC mode'),
-  DptInfo('232.600', 'RGB colour'),
-  DptInfo('251.600', 'RGBW colour'),
+  DptInfo('232.600', 'RGB color'),
+  DptInfo('251.600', 'RGBW color'),
 ];
 
 /// Datapoint types grouped by size, as in the ETS type list

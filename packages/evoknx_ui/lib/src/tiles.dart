@@ -10,8 +10,8 @@ import 'icons.dart';
 import 'look.dart';
 import 'model.dart';
 
-/// Colours of the simulated app screen (light/dark like the real app).
-/// The App themes, in three sets of three (colours from the design table):
+/// Colors of the simulated app screen (light/dark like the real app).
+/// The App themes, in three sets of three (colors from the design table):
 /// Sáng (L1–L3), Trung tính (G1–G3) and Tối (D1–D3).
 const List<(String, List<(String, String)>)> kAppThemeGroups = [
   ('Light', [('l1', 'Glacier Blue'), ('l2', 'Fresh Green'), ('l3', 'Sand Beige')]),
@@ -39,7 +39,7 @@ String themeKey(Object? mode) {
   return kAppThemes.any((t) => t.$1 == m) ? m as String : 'l1';
 }
 
-/// The colour a lit card (switch, dimmer, AC that is on) glows in, or null.
+/// The color a lit card (switch, dimmer, AC that is on) glows in, or null.
 /// The grid draws it in the shadow layer under the cards.
 Color? tileGlowColor(Json w, AppPalette pal, Map<String, dynamic> sim) {
   final type = w['type'];
@@ -56,21 +56,21 @@ Color? tileGlowColor(Json w, AppPalette pal, Map<String, dynamic> sim) {
 /// the Editor preview and the App looks the same.
 TextStyle evoLabelStyle(Json w, Color color) => TextStyle(fontSize: fs(w, 'labelSize'), fontWeight: FontWeight.w400, color: color, height: 1.2);
 
-/// Selection colour of the Editor (not part of the App's palette).
+/// Selection color of the Editor (not part of the App's palette).
 const Color kEditorSelection = Color(0xFF0D99FF);
 
 class AppPalette {
   final Color screen, tile, tileEdge, panel, ink, muted, line, lineStrong, accent, accentSoft, led, ledSoft, danger;
 
   /// Card background while on, and the floor / room buttons (idle, selected,
-  /// text on the selected one). Null = derived from the other colours.
+  /// text on the selected one). Null = derived from the other colors.
   final Color? tileOn, chip, chipOn, chipOnText;
   Color get chipFill => chip ?? panel;
   Color get chipSel => chipOn ?? ink;
   Color get onChipSel => chipOnText ?? screen;
 
-  /// Text colours used directly on the screen background (title, page name…),
-  /// which may differ when a custom background colour or image is used.
+  /// Text colors used directly on the screen background (title, page name…),
+  /// which may differ when a custom background color or image is used.
   final Color? onScreenInk, onScreenMuted;
 
   /// Card shape (Tổng quan → Kiểu thẻ): corner radius, border width, shadow.
@@ -87,7 +87,7 @@ class AppPalette {
   /// Card background and border strength (Tổng quan → Kiểu thẻ), 0…1.
   final double tileOpacity, edgeOpacity;
 
-  /// Border colour after the border-strength setting.
+  /// Border color after the border-strength setting.
   Color get edge => tileEdge.withValues(alpha: tileEdge.a * edgeOpacity);
 
   /// A card background after the background-opacity setting.
@@ -192,7 +192,7 @@ class AppPalette {
     lift: lift ?? this.lift,
   );
 
-  /// Palette for a card with a custom background: readable text on dark colours.
+  /// Palette for a card with a custom background: readable text on dark colors.
   AppPalette forCard(Color bg) {
     if (bg.computeLuminance() < 0.35) {
       return copyWith(
@@ -234,9 +234,9 @@ class AppPalette {
     return x > y ? x / y : y / x;
   }
 
-  /// Builds a theme from the seven colours of the design table:
+  /// Builds a theme from the seven colors of the design table:
   /// Nền chung, Card OFF, Card ON, Nút t/p OFF, Nút t/p Selected, Chữ chính,
-  /// Chữ phụ. [on] is the colour of an "on" light, icon and slider.
+  /// Chữ phụ. [on] is the color of an "on" light, icon and slider.
   static AppPalette _theme({
     required bool dark,
     bool gray = false,
@@ -257,9 +257,9 @@ class AppPalette {
     // lighter than a dark one.
     final t = dark ? mix(c(tile), Colors.white, 0.07) : mix(s, i, 0.12);
     // The card while on is clearly different from the idle one: a strong tint
-    // of the theme colour (grey themes: a lighter grey).
+    // of the theme color (grey themes: a lighter grey).
     final o = gray ? mix(c(tileOn), i, 0.25) : (dark ? mix(c(tileOn), sel, 0.35) : mix(s, sel, 0.50));
-    // The accent stays readable on the screen colour.
+    // The accent stays readable on the screen color.
     final accent = _contrast(sel, s) >= 3 ? sel : mix(sel, i, 0.55);
     final lit = on != null ? c(on) : sel;
     return AppPalette(
@@ -426,7 +426,7 @@ class TileView extends StatelessWidget {
   Widget _ibtn(String action, Object icon, double s, {Object? arg, bool expand = true, bool circle = false, Color? fill, Color? edge, Color? fg}) {
     final h = s + 12;
     final color = fg ?? pal.muted;
-    // A selected button (filled with a strong colour) also glows a little.
+    // A selected button (filled with a strong color) also glows a little.
     final selected = fill != null && fill != pal.panel;
     final inner = Container(
       width: circle ? h : null,
@@ -486,7 +486,7 @@ class TileView extends StatelessWidget {
     final colorOff = hexColor(style['colorOff']) ?? pal.muted;
     // The popups of an AC card (modes, fan) are not tinted.
     final lit = on && w['look'] != 'controls' && w['look'] != 'controlsSp';
-    // On: the card is tinted with the "on" colour (full and simple looks).
+    // On: the card is tinted with the "on" color (full and simple looks).
     // Value card, state style: a state marked as alarm tints the card red.
     final alarm = _stateRow()?['alarm'] == true;
     final bg = alarm
@@ -531,7 +531,7 @@ class TileView extends StatelessWidget {
       child: Stack(
         children: [
           Positioned.fill(child: self._content(type, on, colorOn, colorOff)),
-          if (flagged) Positioned(right: -2, bottom: -2, child: Icon(Icons.warning_amber_rounded, size: 15, color: pal.danger)),
+          if (flagged) Positioned(right: -2, bottom: -2, child: Icon(Icons.warning_amber, size: 15, color: pal.danger)),
         ],
       ),
     );
@@ -669,7 +669,7 @@ class TileView extends StatelessWidget {
   }
 
   /// Track of a slider (the part not reached yet): a visible tint of the text
-  /// colour over the card, on every theme.
+  /// color over the card, on every theme.
   Color get _track => Color.alphaBlend(pal.ink.withValues(alpha: 0.24), pal.tile == Colors.transparent ? pal.screen : pal.tile);
 
   Widget _bar(double v, Color c) => ClipRRect(
@@ -687,7 +687,7 @@ class TileView extends StatelessWidget {
   );
 
   /// Simple look: icon (and optional control) on top, name below, no state
-  /// text; on/off is shown by the card colour.
+  /// text; on/off is shown by the card color.
   Widget _simple(Color iconColor, {Widget? trailing}) => Row(
     children: [
       if (!isNoIcon(w['icon'] as String?)) ...[_icon(iconColor), const SizedBox(width: 10)],
@@ -807,7 +807,7 @@ class TileView extends StatelessWidget {
               children: [
                 iconWidget((row?['icon'] ?? w['icon'])?.toString(), fs(w, 'iconSize'), hexColor(row?['color']) ?? pal.muted),
                 const Spacer(),
-                if (row?['alarm'] == true) Icon(Icons.warning_amber_rounded, size: fs(w, 'iconSize') * 0.8, color: pal.danger),
+                if (row?['alarm'] == true) Icon(Icons.warning_amber, size: fs(w, 'iconSize') * 0.8, color: pal.danger),
               ],
             ),
             Column(
