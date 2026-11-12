@@ -5,6 +5,7 @@ import 'package:file_selector/file_selector.dart';
 
 import 'package:flutter/material.dart' hide Text;
 import 'package:knx_config/knx_config.dart';
+import 'package:knx_core/knx_core.dart' show dpt16Text;
 
 import '../../app/theme.dart';
 import '../../state/app_settings.dart';
@@ -899,6 +900,7 @@ class _WidgetPropsState extends State<_WidgetProps> {
                 onChanged: (v) => set('sendValue', v.trim(), coalesce: 'sv-$id'),
               ),
             ),
+            _TextSendInfo(d: d, w: w, raw: sceneSendValue(w)),
             Hint('Value sent to the write address when pressed, like a push button. For a KNX scene address (DPT 17.001), scene 1 = 0, scene 2 = 1…'),
             FieldLabel(
               'Display style',
@@ -1083,6 +1085,7 @@ class _WidgetPropsState extends State<_WidgetProps> {
                 onChanged: (v) => set('sendValue', v.trim(), coalesce: 'sv-$id'),
               ),
             ),
+            _TextSendInfo(d: d, w: w, raw: (w['sendValue'] ?? '1').toString()),
             FieldLabel(
               'Display style',
               Seg<String>(
@@ -2725,6 +2728,13 @@ class _NavSection extends StatelessWidget {
     }
     // A target that was deleted stays in the list so that it can be seen and changed.
     if (!items.any((x) => x.$1 == cur)) items.add((cur, 'Missing $kind (deleted)'));
+    final scripts = scriptsOf(d.doc);
+    final scriptCur = (w['script'] ?? '').toString();
+    final scriptItems = <(String, String)>[
+      ('', 'None'),
+      for (final sc in scripts) ('${sc['id']}', '${sc['title']}'),
+      if (scriptCur.isNotEmpty && scripts.every((sc) => sc['id'] != scriptCur)) (scriptCur, 'Missing script (deleted)'),
+    ];
     final delay = ((nav['delay'] as num?) ?? 0).toDouble();
     const delays = [0.0, 0.5, 1.0, 1.5, 2.0, 3.0, 4.0, 5.0, 7.0, 10.0];
     return _Section('After pressing', [
@@ -2759,7 +2769,45 @@ class _NavSection extends StatelessWidget {
             }),
           ),
         ),
+      FieldLabel(
+        'Run script',
+        EvoDropdown<String>(
+          value: scriptCur,
+          items: scriptItems,
+          onChanged: (v) => d.editWidget(id, (x) {
+            if (v.isEmpty) {
+              x.remove('script');
+            } else {
+              x['script'] = v;
+            }
+          }),
+        ),
+      ),
       const Hint('After the popup (if the card has one) and the delay, the App opens this floor, room or page. If it is locked, the App asks for its code.'),
     ]);
+  }
+}
+
+/// Under "Value sent": when the card writes to a text address (DPT 16) it shows what is really sent.
+class _TextSendInfo extends StatelessWidget {
+  const _TextSendInfo({required this.d, required this.w, required this.raw});
+  final Designer d;
+  final Json w;
+  final String raw;
+
+  @override
+  Widget build(BuildContext context) {
+    final ga = byId(jsonList(d.doc['groupAddresses']), jsonMap(w['bind'])['write'] as String?);
+    final dpt = (ga?['dpt'] ?? '').toString();
+    if (!dpt.startsWith('16')) return const SizedBox.shrink();
+    final sent = dpt16Text(raw, latin1: dpt.startsWith('16.001'));
+    final c = context.evo;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Text(
+        'Text address (DPT $dpt): sent as “$sent” · ${sent.length}/14 characters',
+        style: TextStyle(fontSize: 12.5, color: sent == raw ? c.muted : c.warn),
+      ),
+    );
   }
 }

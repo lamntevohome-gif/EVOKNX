@@ -16,6 +16,7 @@ import 'ha_page.dart';
 import 'import_dialog.dart';
 import 'new_project_dialog.dart';
 import 'send_to_app_dialog.dart';
+import 'scripts_page.dart';
 import 'structure_page.dart';
 import 'test_page.dart';
 
@@ -141,6 +142,7 @@ class _ShellState extends State<Shell> {
                       ConnectionsPage(project: p),
                       TestPage(project: p, bus: widget.bus),
                       HaPage(project: p, link: widget.ha),
+                      ScriptsPage(project: p, bus: widget.bus, link: widget.ha),
                     ],
                   ),
                 ),
@@ -238,6 +240,7 @@ class _ShellState extends State<Shell> {
             tab(1, 'Connections'),
             tab(2, 'Monitor'),
             tab(3, 'Extensions'),
+            tab(4, 'Scripts'),
           ];
           final right = <Widget>[
             IconButton(tooltip: tr('Undo (Ctrl+Z)'), onPressed: p.canUndo ? p.undo : null, icon: const Icon(Icons.undo)),

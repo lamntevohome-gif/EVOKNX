@@ -896,6 +896,15 @@ class _GridAreaState extends State<_GridArea> {
       return;
     }
     d.act(w, action == 'tap' ? (w['type'] == 'dimmer' ? 'toggle' : (w['type'] == 'ac' ? 'power' : 'tap')) : action, arg);
+    // A scene card or a push button can open another floor, room or page after it is pressed.
+    if (action == 'tap' && (w['type'] == 'scene' || w['type'] == 'button')) {
+      d.afterPress(w, (m) {
+        if (mounted) toast(context, m);
+      });
+      d.runScriptFor(w, (m) {
+        if (mounted) toast(context, m);
+      });
+    }
   }
 
   @override

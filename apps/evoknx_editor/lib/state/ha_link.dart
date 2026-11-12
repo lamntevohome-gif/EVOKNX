@@ -53,6 +53,20 @@ class HaLinkController extends ChangeNotifier {
     }
   }
 
+  /// Calls a Home Assistant service ("light.turn_on"); used to test a script. An error text, or null.
+  Future<String?> callService(String service, String entity, Map<String, dynamic> data) async {
+    final s = _s;
+    if (s == null || !connected) return 'Connect to Home Assistant first (tab Extensions).';
+    final i = service.indexOf('.');
+    if (i <= 0) return 'The service “$service” is not valid, use the form domain.service.';
+    try {
+      await s.callServiceRaw(service.substring(0, i), service.substring(i + 1), data, entity);
+      return null;
+    } on HaException catch (e) {
+      return e.message;
+    }
+  }
+
   /// Closes the connection (the list of entities stays).
   Future<void> disconnect() async {
     final s = _s;

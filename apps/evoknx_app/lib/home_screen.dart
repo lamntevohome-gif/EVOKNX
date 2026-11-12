@@ -242,6 +242,9 @@ class _HomeScreenState extends State<HomeScreen> {
   int _navSeq = 0;
   Future<void>? _popup;
 
+  /// Runs the scripts (a card of type scene or push button can start one).
+  late final ScriptRunner _scripts = ScriptRunner(() => doc, _AppScriptHost(this));
+
   /// After a scene card or a push button was pressed: the popup (if any) shows first, then the delay
   /// passes, then the card's target (floor, room or page) opens, unless the person went elsewhere meanwhile.
   Future<void> _afterTap(Json w) async {
@@ -255,10 +258,12 @@ class _HomeScreenState extends State<HomeScreen> {
     final ms = (((nav['delay'] as num?) ?? 0).toDouble().clamp(0, 10) * 1000).round();
     if (ms > 0) await Future<void>.delayed(Duration(milliseconds: ms));
     if (!mounted || seq != _navSeq) return;
-    _goTarget(kind, (nav['id'] ?? '').toString());
+    final err = _goTarget(kind, (nav['id'] ?? '').toString());
+    if (err != null) _toast(err);
   }
 
-  void _goTarget(String kind, String id) {
+  /// Opens a floor, a room or a page. An error text when it does not exist, or null.
+  String? _goTarget(String kind, String id) {
     Json? tf, tr;
     var pi = 0;
     if (kind == 'floor') {
@@ -279,8 +284,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (target != null) tf = floorsOf(doc).where((f) => f['id'] == target['floorId']).firstOrNull;
     final floor = tf;
     if (floor == null || (kind != 'floor' && target == null)) {
-      _toast('The $kind does not exist. Please check.');
-      return;
+      return 'The $kind does not exist. Please check.';
     }
     final fid = floor['id'] as String;
     setState(() {
@@ -317,6 +321,7 @@ class _HomeScreenState extends State<HomeScreen> {
       });
     }
     _readPage();
+    return null;
   }
 
   // ---------------------------------------------------------------- locks
@@ -906,9 +911,53 @@ class _HomeScreenState extends State<HomeScreen> {
                     ],
                   ),
           ),
+          _knxDot(),
           if (store.profiles.length > 1) _iconBtn(pal, Icons.home_work_outlined, () => _openProfiles(pal), 'Switch profile'),
           _iconBtn(pal, Icons.settings_outlined, _openSettings, 'Settings'),
         ],
+      ),
+    );
+  }
+
+  /// The light of the KNX link: green when connected, orange while connecting, red when the bus is not reachable.
+  /// Not shown when the project does not use KNX. A tap tells the state (and tries again when it is red).
+  Widget _knxDot() {
+    if (!_usesKnx) return const SizedBox.shrink();
+    final connecting = knx.state == KnxConnectionState.connecting || knx.state == KnxConnectionState.reconnecting || !_graceOver;
+    final Color c;
+    final String tip;
+    if (knx.connected) {
+      c = const Color(0xFF30D158);
+      tip = 'KNX connected';
+    } else if (connecting) {
+      c = const Color(0xFFFF9F0A);
+      tip = 'KNX connecting…';
+    } else {
+      c = const Color(0xFFFF453A);
+      tip = 'KNX not connected · tap to retry';
+    }
+    return Tooltip(
+      message: tip,
+      child: PressFade(
+        onTap: () {
+          if (!knx.connected && !connecting) _connect();
+          _toast(tip);
+        },
+        child: SizedBox(
+          width: 30,
+          height: 44,
+          child: Center(
+            child: Container(
+              width: 10,
+              height: 10,
+              decoration: BoxDecoration(
+                color: c,
+                shape: BoxShape.circle,
+                boxShadow: [BoxShadow(color: c.withValues(alpha: 0.55), blurRadius: 6)],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -1258,7 +1307,11 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
     engine.act(w, action, arg);
-    if (action == 'tap' && (type == 'scene' || type == 'button')) _afterTap(w);
+    if (action == 'tap' && (type == 'scene' || type == 'button')) {
+      _afterTap(w);
+      final sid = (w['script'] ?? '').toString();
+      if (sid.isNotEmpty) _scripts.run(sid);
+    }
   }
 }
 
@@ -1318,4 +1371,29 @@ PageBg? pageBackground(Json? sub, AppPalette pal) {
     tx.muted,
     blur,
   );
+}
+
+/// What a script uses in the App: the bus and Home Assistant through the cards' engine, the screen and the messages.
+class _AppScriptHost implements ScriptHost {
+  _AppScriptHost(this.s);
+  final _HomeScreenState s;
+
+  @override
+  Future<String?> write(Json ga, Object value) {
+    final w = s.engine.writer;
+    return w == null ? Future<String?>.value('Not connected.') : w(ga, value);
+  }
+
+  @override
+  Future<String?> callHa(String service, String entity, Json data) async {
+    final h = s.ha;
+    if (h == null) return 'Home Assistant is not enabled in the project.';
+    return h.callRaw(service, entity, data);
+  }
+
+  @override
+  String? goTo(String kind, String id) => s._goTarget(kind, id);
+
+  @override
+  void message(String text) => s._toast(text);
 }

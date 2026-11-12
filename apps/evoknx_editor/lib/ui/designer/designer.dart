@@ -68,6 +68,84 @@ class Designer extends ChangeNotifier {
     _n();
   }
 
+  // ---- after a press of a scene card or a push button: open a floor, a room or a page (Simulator and Live Mode)
+
+  int _navSeq = 0;
+
+  /// The popup (if the card has one) shows first, then the delay passes, then the target opens,
+  /// unless something else was selected in the meantime.
+  Future<void> afterPress(Json w, void Function(String message) onError) async {
+    final nav = jsonMap(w['nav']);
+    final kind = (nav['kind'] ?? '').toString();
+    if (kind.isEmpty) return;
+    final seq = ++_navSeq;
+    while (popupFor != null) {
+      await Future<void>.delayed(const Duration(milliseconds: 80));
+      if (seq != _navSeq) return;
+    }
+    final ms = (((nav['delay'] as num?) ?? 0).toDouble().clamp(0, 10) * 1000).round();
+    if (ms > 0) await Future<void>.delayed(Duration(milliseconds: ms));
+    if (seq != _navSeq) return;
+    final err = goTarget(kind, (nav['id'] ?? '').toString());
+    if (err != null) onError(err);
+  }
+
+  /// Opens a floor, a room or a page in the preview. An error text when it does not exist, or null.
+  String? goTarget(String kind, String id) {
+    if (kind == 'floor') {
+      if (floorsOf(doc).any((f) => f['id'] == id)) {
+        selectFloor(id);
+        return null;
+      }
+    } else if (kind == 'room') {
+      final r = byId(jsonList(doc['pages']), id);
+      final ss = r == null ? const <Json>[] : subsOf(r);
+      if (r != null && ss.isNotEmpty) {
+        selectSub(id, ss.first['id'] as String);
+        return null;
+      }
+    } else {
+      for (final r in jsonList(doc['pages'])) {
+        if (subsOf(r).any((x) => x['id'] == id)) {
+          selectSub(r['id'] as String, id);
+          return null;
+        }
+      }
+    }
+    return 'The $kind does not exist. Please check.';
+  }
+
+  // ---- scripts (Simulator and Live Mode)
+
+  ScriptRunner? _scripts;
+  void Function(String message)? _scriptMessage;
+
+  /// A scene card or a push button that runs a script.
+  void runScriptFor(Json w, void Function(String message) onMessage) {
+    final sid = (w['script'] ?? '').toString();
+    if (sid.isEmpty) return;
+    _scriptMessage = onMessage;
+    (_scripts ??= ScriptRunner(() => doc, _DesignerScriptHost(this))).run(sid);
+  }
+
+  Future<String?> _scriptWrite(Json ga, Object value) async {
+    final viaHa = isHaAddress(ga);
+    final isLive = live && (viaHa ? _ha?.connected == true : bus?.connected == true);
+    log.insert(0, LogEntry(ga['address'].toString(), 'script: $value', live: isLive));
+    if (log.length > 60) log.removeRange(60, log.length);
+    _n();
+    if (!isLive) return null;
+    return viaHa ? _ha!.write(ga, value) : bus!.write(ga, value);
+  }
+
+  Future<String?> _scriptHa(String service, String entity, Json data) async {
+    final isLive = live && _ha?.connected == true;
+    log.insert(0, LogEntry('HA', 'script: $service $entity', live: isLive));
+    if (log.length > 60) log.removeRange(60, log.length);
+    _n();
+    return isLive ? _ha!.callRaw(service, entity, data) : null;
+  }
+
   void hidePopup() {
     _popupTimer?.cancel();
     if (popupFor == null) return;
@@ -302,6 +380,7 @@ class Designer extends ChangeNotifier {
   }
 
   void selectFloor(String id) {
+    _navSeq++;
     treeSel.clear();
     view = 'floor';
     floorId = id;
@@ -318,6 +397,7 @@ class Designer extends ChangeNotifier {
   bool roomFocus = false;
 
   void selectRoom(String id) {
+    _navSeq++;
     treeSel.clear();
     roomFocus = true;
     view = 'room';
@@ -330,6 +410,7 @@ class Designer extends ChangeNotifier {
   }
 
   void selectSub(String roomId_, String id) {
+    _navSeq++;
     final r0 = byId(jsonList(doc['pages']), roomId_);
     if (r0 != null && room?['id'] == roomId_) {
       final ss = subsOf(r0);
@@ -944,6 +1025,14 @@ class Designer extends ChangeNotifier {
   Map<String, dynamic> st(String id) => sim.putIfAbsent(id, () => <String, dynamic>{});
 
   /// Records (and in Live mode sends) a command for slot [slot] of widget [w].
+  /// What a push button or a scene writes: the text of "Value sent" when its address is a text address
+  /// (DPT 16), otherwise a number.
+  Object sendValueOf(Json w, String raw, num fallback) {
+    final ga = byId(jsonList(doc['groupAddresses']), jsonMap(w['bind'])['write'] as String?);
+    if ((ga?['dpt'] ?? '').toString().startsWith('16')) return raw;
+    return num.tryParse(raw.replaceAll(',', '.')) ?? fallback;
+  }
+
   void send(Json w, String slot, Object value, String text) {
     final gid = jsonMap(w['bind'])[slot] as String?;
     final ga = byId(jsonList(doc['groupAddresses']), gid);
@@ -1013,11 +1102,11 @@ class Designer extends ChangeNotifier {
         break;
       case 'button':
         final v = (w['sendValue'] ?? '1').toString();
-        send(w, 'write', num.tryParse(v) ?? 1, v);
+        send(w, 'write', sendValueOf(w, v, 1), v);
         break;
       case 'scene':
         final v = sceneSendValue(w);
-        send(w, 'write', num.tryParse(v.replaceAll(',', '.')) ?? 0, v);
+        send(w, 'write', sendValueOf(w, v, 0), v);
         showPopup(w);
         break;
       case 'shutter':
@@ -1188,4 +1277,22 @@ class Designer extends ChangeNotifier {
     bus?.valueListeners.remove(_onBusValue);
     super.dispose();
   }
+}
+
+/// What a script uses in the Editor's preview: the log, the bus and Home Assistant in Live Mode, and the selection.
+class _DesignerScriptHost implements ScriptHost {
+  _DesignerScriptHost(this.d);
+  final Designer d;
+
+  @override
+  Future<String?> write(Json ga, Object value) => d._scriptWrite(ga, value);
+
+  @override
+  Future<String?> callHa(String service, String entity, Json data) => d._scriptHa(service, entity, data);
+
+  @override
+  String? goTo(String kind, String id) => d.goTarget(kind, id);
+
+  @override
+  void message(String text) => d._scriptMessage?.call(text);
 }
