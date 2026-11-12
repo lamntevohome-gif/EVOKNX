@@ -14,6 +14,7 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 import 'app_store.dart';
 import 'knx_link.dart';
 import 'popups.dart';
+import 'room_pages.dart';
 import 'settings_screen.dart';
 import 'web_card.dart';
 
