@@ -22,7 +22,7 @@ void showScenePopup(BuildContext context, Json w, AppPalette pal) {
     barrierDismissible: true,
     barrierLabel: 'Close',
     barrierColor: Colors.transparent,
-    transitionDuration: const Duration(milliseconds: 220),
+    transitionDuration: const Duration(milliseconds: 320),
     pageBuilder: (c, a, b) => GestureDetector(
       onTap: () => Navigator.of(c).maybePop(),
       child: BackdropFilter(

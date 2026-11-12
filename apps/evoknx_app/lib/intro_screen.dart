@@ -66,7 +66,7 @@ class _IntroScreenState extends State<IntroScreen> {
               }
             },
             child: AnimatedSwitcher(
-              duration: fast ? Duration.zero : const Duration(milliseconds: 250),
+              duration: fast ? Duration.zero : const Duration(milliseconds: 350),
               switchInCurve: Curves.easeOut,
               switchOutCurve: Curves.easeIn,
               layoutBuilder: (current, previous) => Stack(fit: StackFit.expand, children: [...previous, if (current != null) current]),

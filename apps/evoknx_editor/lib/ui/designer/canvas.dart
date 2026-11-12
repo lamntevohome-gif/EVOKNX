@@ -463,7 +463,7 @@ class _Screen extends StatelessWidget {
   Widget _gearIcon() => SizedBox(width: 32, height: 32, child: Icon(Icons.settings_outlined, size: 20, color: pal.ink));
 
   Widget _header(Json doc, Json room, Json? floor, bool multi, Json theme, {bool pill = true, VoidCallback? onBack}) {
-    final hide = theme['hideTitle'] == true && dev != 'tabletL';
+    final hide = theme['hideTitle'] == true && dev != 'tabletL' && theme['layout'] != 'modern';
     return Padding(
       padding: EdgeInsets.fromLTRB(18, dev == 'tabletL' ? 10 : 6, 14, 10),
       child: Row(
@@ -510,7 +510,7 @@ class _Screen extends StatelessWidget {
                       if (dev == 'mobile' && subsOf(room).length > 1)
                         Text(
                           '  (${max(0, subsOf(room).indexWhere((x) => x['id'] == d.sub?['id'])) + 1}/${subsOf(room).length})',
-                          style: TextStyle(fontSize: tfs(doc, 'crumb'), color: pal.sMuted, fontWeight: FontWeight.w500),
+                          style: TextStyle(fontSize: tfs(doc, 'pageTitle'), color: pal.sMuted, fontWeight: FontWeight.w500),
                         ),
                     ],
                   ),

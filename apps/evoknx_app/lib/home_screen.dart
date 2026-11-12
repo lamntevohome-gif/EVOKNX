@@ -126,7 +126,6 @@ class _HomeScreenState extends State<HomeScreen> {
       final i = subsOf(last).indexWhere((s) => s['id'] == store.lastSub);
       page = i < 0 ? 0 : i;
     }
-    _pages = PageController(initialPage: page);
     // Virtual addresses (main group 32) go to Home Assistant, the others to the KNX bus.
     final cfg = haSettings(doc), haGas = haAddresses(doc);
     final url = (cfg['url'] ?? '').toString().trim(), token = (cfg['token'] ?? '').toString().trim();
@@ -165,7 +164,6 @@ class _HomeScreenState extends State<HomeScreen> {
     knx.disconnect(notify: false);
     ha?.stop();
     _grace?.cancel();
-    _pages?.dispose();
     _floorScroll.dispose();
     super.dispose();
   }
@@ -226,8 +224,6 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() {
       roomId = id;
       page = 0;
-      _pages?.dispose();
-      _pages = PageController();
     });
     store.remember(roomId, sub?['id'] as String?);
     _readPage();
@@ -237,7 +233,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   /// A gentle fade between two screens (another floor, another room…).
   Widget _fade(Key key, Widget child) => AnimatedSwitcher(
-    duration: _noMotion ? Duration.zero : const Duration(milliseconds: 220),
+    duration: _noMotion ? Duration.zero : const Duration(milliseconds: 380),
     switchInCurve: Curves.easeOut,
     switchOutCurve: Curves.easeIn,
     layoutBuilder: (current, previous) => Stack(fit: StackFit.expand, children: [...previous, if (current != null) current]),
@@ -245,9 +241,8 @@ class _HomeScreenState extends State<HomeScreen> {
   );
 
   /// While pages are swiped, the page that leaves becomes a little transparent.
-  Widget _pageFade(int i, Widget child) {
-    final pc = _pages;
-    if (pc == null || _noMotion) return child;
+  Widget _pageFade(int i, PageController pc, Widget child) {
+    if (_noMotion) return child;
     return AnimatedBuilder(
       animation: pc,
       child: child,
@@ -263,6 +258,17 @@ class _HomeScreenState extends State<HomeScreen> {
   void _openRoom(String id) {
     setState(() => _gallery = false);
     if (id == roomId) {
+      // Entering a room always starts on its first page.
+      if (page != 0) {
+        setState(() => page = 0);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          final pc = _pages;
+          if (mounted && pc != null && pc.hasClients) {
+            pc.animateToPage(0, duration: _noMotion ? const Duration(milliseconds: 1) : const Duration(milliseconds: 250), curve: Curves.easeOutCubic);
+          }
+        });
+      }
+      store.remember(roomId, sub?['id'] as String?);
       _readPage();
     } else {
       _goRoom(id);
@@ -389,7 +395,7 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             Positioned.fill(
               child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 280),
+                duration: const Duration(milliseconds: 380),
                 child: bg == null
                     ? const SizedBox.expand(key: ValueKey('bg-none'))
                     : ClipRect(
@@ -439,16 +445,21 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                               ),
                             )
-                          : PageView.builder(
+                          : RoomPages(
                               key: ValueKey('pages-$roomId-$_dev'),
-                              controller: _pages,
-                              itemCount: subs.length,
-                              onPageChanged: (i) {
+                              initialPage: page,
+                              count: subs.length,
+                              onChanged: (i) {
                                 setState(() => page = i);
                                 store.remember(roomId, sub?['id'] as String?);
                                 _readPage();
                               },
-                              itemBuilder: (context, i) => _pageFade(i, Padding(padding: EdgeInsets.all(pal.safeMargin), child: _grid(subs[i], null, pal))),
+                              onController: (pc) => _pages = pc,
+                              onDetach: (pc) {
+                                if (identical(_pages, pc)) _pages = null;
+                              },
+                              itemBuilder: (context, i, pc) =>
+                                  _pageFade(i, pc, Padding(padding: EdgeInsets.all(pal.safeMargin), child: _grid(subs[i], null, pal))),
                             ),
                     ),
                   ),
@@ -483,8 +494,6 @@ class _HomeScreenState extends State<HomeScreen> {
         page = si < 0 ? 0 : si;
         _tab = tf['special'] == 'home' ? 0 : (tf['special'] == 'security' ? 2 : 1);
         _lvl = 2;
-        _pages?.dispose();
-        _pages = PageController(initialPage: page);
       } else {
         final f = _special('home');
         final rs = f == null ? const <Json>[] : roomsOf(doc, f['id'] as String);
@@ -492,8 +501,6 @@ class _HomeScreenState extends State<HomeScreen> {
           floorId = f!['id'] as String;
           roomId = rs.first['id'] as String;
           page = 0;
-          _pages?.dispose();
-          _pages = PageController();
         }
       }
     }
@@ -521,16 +528,20 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       );
     } else {
-      content = PageView.builder(
+      content = RoomPages(
         key: ValueKey('pages-$roomId-$_dev'),
-        controller: _pages,
-        itemCount: subs.length,
-        onPageChanged: (i) {
+        initialPage: page,
+        count: subs.length,
+        onChanged: (i) {
           setState(() => page = i);
           store.remember(roomId, sub?['id'] as String?);
           _readPage();
         },
-        itemBuilder: (context, i) => _pageFade(i, Padding(padding: EdgeInsets.all(pal.safeMargin), child: _grid(subs[i], null, pal))),
+        onController: (pc) => _pages = pc,
+        onDetach: (pc) {
+          if (identical(_pages, pc)) _pages = null;
+        },
+        itemBuilder: (context, i, pc) => _pageFade(i, pc, Padding(padding: EdgeInsets.all(pal.safeMargin), child: _grid(subs[i], null, pal))),
       );
     }
     return PopScope(
@@ -545,7 +556,7 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             Positioned.fill(
               child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 280),
+                duration: const Duration(milliseconds: 380),
                 child: bg == null
                     ? const SizedBox.expand(key: ValueKey('bg-none'))
                     : ClipRect(
@@ -659,7 +670,7 @@ class _HomeScreenState extends State<HomeScreen> {
   /// "Tầng 1 › Phòng 1" on one row (floor shown only when there are several),
   /// settings button on the right: as in the Editor preview.
   Widget _header(Json d, AppPalette pal, Json? floor, Json? r, bool multi, {VoidCallback? onBack}) {
-    final hide = jsonMap(d['theme'])['hideTitle'] == true && r != null;
+    final hide = jsonMap(d['theme'])['hideTitle'] == true && r != null && !_modernMode;
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 10, 12, 8),
       child: Row(
@@ -702,7 +713,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       if (_dev == 'mobile' && r != null && subsOf(r).length > 1)
                         Text(
                           '  (${page + 1}/${subsOf(r).length})',
-                          style: TextStyle(fontSize: tfs(d, 'crumb'), color: pal.sMuted, fontWeight: FontWeight.w500),
+                          style: TextStyle(fontSize: tfs(d, 'pageTitle'), color: pal.sMuted, fontWeight: FontWeight.w500),
                         ),
                     ],
                   ),

@@ -1649,6 +1649,19 @@ class _OverviewProps extends StatelessWidget {
       fn(t);
       doc['theme'] = t;
     }, coalesce: coalesce);
+    final modern = theme['layout'] == 'modern';
+    // A text size of the App (the Overview shows only the ones that the chosen layout uses).
+    Widget tfsRow(String key) {
+      final t = kTfs.firstWhere((x) => x.key == key);
+      return StepRow(
+        label: t.name,
+        value: tfs(d.doc, t.key).toInt(),
+        min: t.min,
+        max: t.max,
+        onChanged: (v) => editTheme((x) => x[t.key] = v, coalesce: 'tfs-${t.key}'),
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -1678,6 +1691,34 @@ class _OverviewProps extends StatelessWidget {
                 }
               });
             }),
+        ]),
+        _Section('Layout', [
+          FieldLabel(
+            'Layout',
+            Seg<String>(
+              items: const [('basic', 'Basic'), ('modern', 'Modern')],
+              value: theme['layout'] == 'modern' ? 'modern' : 'basic',
+              onChanged: (v) {
+                d.p.mutate((doc) {
+                  final t = jsonMap(doc['theme']);
+                  if (v == 'modern') {
+                    t['layout'] = 'modern';
+                    ensureModernPages(doc);
+                  } else {
+                    t.remove('layout');
+                  }
+                  doc['theme'] = t;
+                });
+                if (v == 'modern') d.selectSpecial('home');
+              },
+            ),
+          ),
+          const Padding(
+            padding: EdgeInsets.only(bottom: 8),
+            child: Hint(
+              'Basic: the floor bar and the room bar as before. Modern: the App has three sections, Home, Area and Security; Home and Security are two separate card pages (shown as two floors in the Structure column), and Area opens the floor gallery and then the room gallery.',
+            ),
+          ),
         ]),
         _SplashSettings(d: d),
         _Section('Card style (all cards)', [
@@ -1745,85 +1786,62 @@ class _OverviewProps extends StatelessWidget {
             max: 150,
             onChanged: (v) => editTheme((x) => x['tabletScale'] = v, coalesce: 'tscale'),
           ),
-          for (final t in kTfs)
-            StepRow(
-              label: t.name,
-              value: tfs(d.doc, t.key).toInt(),
-              min: t.min,
-              max: t.max,
-              onChanged: (v) => editTheme((x) => x[t.key] = v, coalesce: 'tfs-${t.key}'),
-            ),
           FieldLabel(
             'Default theme',
             EvoDropdown<String>(value: themeKey(theme['mode']), items: kAppThemes, onChanged: (v) => editTheme((x) => x['mode'] = v)),
           ),
-          FieldLabel(
-            'Layout',
-            Seg<String>(
-              items: const [('basic', 'Basic'), ('modern', 'Modern')],
-              value: theme['layout'] == 'modern' ? 'modern' : 'basic',
-              onChanged: (v) {
-                d.p.mutate((doc) {
-                  final t = jsonMap(doc['theme']);
-                  if (v == 'modern') {
-                    t['layout'] = 'modern';
-                    ensureModernPages(doc);
-                  } else {
-                    t.remove('layout');
-                  }
-                  doc['theme'] = t;
-                });
-                if (v == 'modern') d.selectSpecial('home');
-              },
-            ),
-          ),
-          const Padding(
-            padding: EdgeInsets.only(bottom: 8),
-            child: Hint(
-              'Basic: the floor bar and the room bar as before. Modern: the App has three sections, Home, Area and Security; Home and Security are two separate card pages (shown as two floors in the Structure column), and Area opens the floor gallery and then the room gallery.',
-            ),
-          ),
-          FieldLabel(
-            'Room picker style',
-            Seg<String>(
-              items: const [('bar', 'Room bar'), ('gallery', 'Room gallery')],
-              value: theme['roomPicker'] == 'gallery' ? 'gallery' : 'bar',
-              onChanged: (v) {
-                editTheme((x) {
-                  if (v == 'gallery') {
-                    x['roomPicker'] = 'gallery';
-                  } else {
-                    x.remove('roomPicker');
-                  }
-                });
-                if (v == 'gallery') d.gallery();
-              },
-            ),
-          ),
-          if (theme['roomPicker'] == 'gallery')
-            const Padding(
-              padding: EdgeInsets.only(bottom: 8),
-              child: Hint(
-                'Room gallery: the App opens with a grid of room cards (cover image, icon, name). Tap a room to enter it; the grid button at the top of the page returns. Choose the cover image in the settings of each room.',
-              ),
-            ),
-          CheckboxListTile(
-            value: theme['hideTitle'] == true,
-            onChanged: (v) => editTheme((x) => x['hideTitle'] = v ?? false),
-            dense: true,
-            contentPadding: EdgeInsets.zero,
-            controlAffinity: ListTileControlAffinity.leading,
-            title: const Text('Hide the room title (use the room bar as the title)'),
-          ),
+          tfsRow('titleSize'),
+          tfsRow('pageTitle'),
           CheckboxListTile(
             value: theme['pageArrows'] != false,
             onChanged: (v) => editTheme((x) => x['pageArrows'] = v ?? true),
             dense: true,
             contentPadding: EdgeInsets.zero,
             controlAffinity: ListTileControlAffinity.leading,
-            title: const Text('Show ‹ › buttons to switch pages in the room'),
+            title: const Text('Show ‹ › buttons to switch pages (tablets)'),
           ),
         ]),
+        if (modern)
+          _Section('Modern layout', [tfsRow('navBar'), tfsRow('galleryTitle')])
+        else
+          _Section('Basic layout', [
+            FieldLabel(
+              'Room picker style',
+              Seg<String>(
+                items: const [('bar', 'Room bar'), ('gallery', 'Room gallery')],
+                value: theme['roomPicker'] == 'gallery' ? 'gallery' : 'bar',
+                onChanged: (v) {
+                  editTheme((x) {
+                    if (v == 'gallery') {
+                      x['roomPicker'] = 'gallery';
+                    } else {
+                      x.remove('roomPicker');
+                    }
+                  });
+                  if (v == 'gallery') d.gallery();
+                },
+              ),
+            ),
+            if (theme['roomPicker'] == 'gallery')
+              const Padding(
+                padding: EdgeInsets.only(bottom: 8),
+                child: Hint(
+                  'Room gallery: the App opens with a grid of room cards (cover image, icon, name). Tap a room to enter it; the grid button at the top of the page returns. Choose the cover image in the settings of each room.',
+                ),
+              ),
+            if (theme['roomPicker'] == 'gallery') tfsRow('galleryTitle'),
+            tfsRow('roomBar'),
+            tfsRow('floorBar'),
+            tfsRow('crumb'),
+            CheckboxListTile(
+              value: theme['hideTitle'] == true,
+              onChanged: (v) => editTheme((x) => x['hideTitle'] = v ?? false),
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              controlAffinity: ListTileControlAffinity.leading,
+              title: const Text('Hide the room title (use the room bar as the title)'),
+            ),
+          ]),
       ],
     );
   }
