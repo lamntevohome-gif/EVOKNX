@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart' hide Text;
-import 'package:flutter/services.dart' show Clipboard, ClipboardData;
+import 'package:flutter/services.dart' show Clipboard, ClipboardData, HardwareKeyboard, KeyDownEvent, KeyEvent, LogicalKeyboardKey;
 import 'package:evoknx_ui/evoknx_ui.dart' show Text, floorsOf, roomsOf, subsOf;
 import 'package:knx_config/knx_config.dart';
 import 'package:knx_core/knx_core.dart' show dpt16Text;
@@ -30,10 +30,44 @@ class _ScriptsPageState extends State<ScriptsPage> implements ScriptHost {
   bool _live = false;
   final List<String> _log = [];
 
+  /// The step that Ctrl+C copies and after which Ctrl+V pastes (click the empty part of a step to select it).
+  int? _selStep;
+  final FocusNode _focus = FocusNode(debugLabel: 'scripts');
+
+  /// Ctrl+C copies the selected step (all the steps when none is selected), Ctrl+V pastes after the selected step
+  /// (at the end when none is selected). Inside a text field the keys keep their normal meaning.
+  KeyEventResult _onKey(FocusNode node, KeyEvent e) {
+    if (e is! KeyDownEvent) return KeyEventResult.ignored;
+    final k = HardwareKeyboard.instance;
+    if (!(k.isControlPressed || k.isMetaPressed) || k.isAltPressed) return KeyEventResult.ignored;
+    // In a text field Ctrl+C and Ctrl+V keep their normal meaning.
+    final focused = FocusManager.instance.primaryFocus?.context;
+    if (focused != null && (focused.widget is EditableText || focused.findAncestorWidgetOfExactType<EditableText>() != null)) return KeyEventResult.ignored;
+    final cur = _sel == null ? null : scriptsOf(p.doc).where((x) => x['id'] == _sel).firstOrNull;
+    if (cur == null) return KeyEventResult.ignored;
+    final steps = jsonList(cur['steps']);
+    if (e.logicalKey == LogicalKeyboardKey.keyC) {
+      final i = _selStep;
+      if (i != null && i < steps.length) {
+        _copySteps([steps[i]], 'Step copied.');
+      } else if (steps.isNotEmpty) {
+        _copySteps(steps, 'All steps copied.');
+      }
+      return KeyEventResult.handled;
+    }
+    if (e.logicalKey == LogicalKeyboardKey.keyV) {
+      final i = _selStep;
+      _pasteSteps(i != null && i < steps.length ? i + 1 : steps.length);
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
+
   late final ScriptRunner _runner = ScriptRunner(() => p.doc, this, onStep: (id, i, st) => _add('Step ${i + 1}: ${_what(st)}'));
 
   @override
   void dispose() {
+    _focus.dispose();
     _runner.stop();
     super.dispose();
   }
@@ -153,6 +187,7 @@ class _ScriptsPageState extends State<ScriptsPage> implements ScriptHost {
       added = take.length;
     });
     toast(context, added == 0 ? 'A script has at most $kScriptMaxSteps steps.' : (added == 1 ? 'Step pasted.' : '$added steps pasted.'));
+    if (added > 0) setState(() => _selStep = at);
   }
 
   void _newScript() => p.mutate((doc) {
@@ -194,30 +229,34 @@ class _ScriptsPageState extends State<ScriptsPage> implements ScriptHost {
         if (_sel != null && scripts.every((s) => s['id'] != _sel)) _sel = null;
         _sel ??= scripts.isEmpty ? null : scripts.first['id'] as String;
         final cur = _sel == null ? null : scripts.where((s) => s['id'] == _sel).firstOrNull;
-        return Container(
-          color: c.paper,
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Container(
-                width: 280,
-                decoration: BoxDecoration(
-                  color: c.panel,
-                  border: Border(right: BorderSide(color: c.line)),
+        return Focus(
+          focusNode: _focus,
+          onKeyEvent: _onKey,
+          child: Container(
+            color: c.paper,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Container(
+                  width: 280,
+                  decoration: BoxDecoration(
+                    color: c.panel,
+                    border: Border(right: BorderSide(color: c.line)),
+                  ),
+                  child: _list(context, scripts),
                 ),
-                child: _list(context, scripts),
-              ),
-              Expanded(
-                child: cur == null
-                    ? Center(
-                        child: Text(
-                          scripts.isEmpty ? 'No scripts yet. Click “Add script” to create one.' : 'Select a script.',
-                          style: TextStyle(color: c.muted),
-                        ),
-                      )
-                    : _editor(context, cur),
-              ),
-            ],
+                Expanded(
+                  child: cur == null
+                      ? Center(
+                          child: Text(
+                            scripts.isEmpty ? 'No scripts yet. Click “Add script” to create one.' : 'Select a script.',
+                            style: TextStyle(color: c.muted),
+                          ),
+                        )
+                      : GestureDetector(behavior: HitTestBehavior.translucent, onTap: _pageTap, child: _editor(context, cur)),
+                ),
+              ],
+            ),
           ),
         );
       },
@@ -247,7 +286,10 @@ class _ScriptsPageState extends State<ScriptsPage> implements ScriptHost {
               for (final s in scripts)
                 InkWell(
                   borderRadius: BorderRadius.circular(6),
-                  onTap: () => setState(() => _sel = s['id'] as String),
+                  onTap: () => setState(() {
+                    _sel = s['id'] as String;
+                    _selStep = null;
+                  }),
                   child: Container(
                     padding: const EdgeInsets.fromLTRB(10, 8, 4, 8),
                     decoration: BoxDecoration(color: s['id'] == _sel ? c.accent.withValues(alpha: 0.14) : null, borderRadius: BorderRadius.circular(6)),
@@ -667,8 +709,25 @@ class _ScriptsPageState extends State<ScriptsPage> implements ScriptHost {
     return out;
   }
 
-  Widget _stepCard(BuildContext context, int i, Json st) {
+  /// A tap on the empty part of the page takes the keyboard (for Ctrl+C and Ctrl+V) and unselects the step.
+  void _pageTap() {
+    _focus.requestFocus();
+    if (_selStep != null) setState(() => _selStep = null);
+  }
+
+  /// A step: a tap on its empty part selects it (frame) and takes the keyboard.
+  Widget _stepCard(BuildContext context, int i, Json st) => GestureDetector(
+    behavior: HitTestBehavior.translucent,
+    onTap: () {
+      _focus.requestFocus();
+      setState(() => _selStep = i);
+    },
+    child: _stepCardBody(context, i, st),
+  );
+
+  Widget _stepCardBody(BuildContext context, int i, Json st) {
     final c = context.evo;
+    final selected = _selStep == i;
     final type = (st['type'] ?? '').toString();
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -676,7 +735,7 @@ class _ScriptsPageState extends State<ScriptsPage> implements ScriptHost {
       decoration: BoxDecoration(
         color: c.panel,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: c.line),
+        border: Border.all(color: selected ? c.accent : c.line, width: selected ? 1.6 : 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

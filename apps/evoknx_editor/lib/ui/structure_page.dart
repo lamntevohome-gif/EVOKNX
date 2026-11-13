@@ -4,6 +4,7 @@ import 'package:knx_config/knx_config.dart';
 
 import '../app/theme.dart';
 import '../state/bus_controller.dart';
+import '../state/ha_link.dart';
 import '../state/card_library.dart';
 import '../state/project_controller.dart';
 import 'common.dart';
@@ -18,16 +19,17 @@ import 'designer/tree.dart';
 
 /// "Cấu trúc" workspace: structure tree, phone canvas and properties.
 class StructurePage extends StatefulWidget {
-  const StructurePage({super.key, required this.project, required this.bus});
+  const StructurePage({super.key, required this.project, required this.bus, this.link});
   final ProjectController project;
   final BusController bus;
+  final HaLinkController? link;
 
   @override
   State<StructurePage> createState() => _StructurePageState();
 }
 
 class _StructurePageState extends State<StructurePage> {
-  late final Designer d = Designer(widget.project, widget.bus)
+  late final Designer d = Designer(widget.project, widget.bus, widget.link)
     ..onMessage = (m) {
       if (mounted) toast(context, m);
     };

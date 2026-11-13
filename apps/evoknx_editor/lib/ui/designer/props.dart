@@ -954,6 +954,8 @@ class _WidgetPropsState extends State<_WidgetProps> {
           ]),
           _NavSection(d: d, w: w),
         ];
+      case 'media':
+        return [_MediaSection(d: d, w: w)];
       case 'camera':
         final cam = jsonMap(w['cam']);
         final rtsp = cam['protocol'] != 'http';
@@ -2781,5 +2783,51 @@ class _TextSendInfo extends StatelessWidget {
         style: TextStyle(fontSize: 12.5, color: sent == raw ? c.muted : c.warn),
       ),
     );
+  }
+}
+
+/// The settings of a media player card: which player of Home Assistant, and what the card shows.
+class _MediaSection extends StatelessWidget {
+  const _MediaSection({required this.d, required this.w});
+  final Designer d;
+  final Json w;
+
+  @override
+  Widget build(BuildContext context) {
+    final id = w['id'] as String;
+    final m = jsonMap(w['media']);
+    void set(String k, Object? v, {String? co}) => d.editWidget(id, (x) {
+      final o = jsonMap(x['media']);
+      o[k] = v;
+      x['media'] = o;
+    }, coalesce: co);
+    // The media players of Home Assistant, when the list was fetched in the Extensions tab.
+    final players = [
+      for (final e in d.link?.entities ?? const <HaEntity>[])
+        if (e.domain == 'media_player') (e.id, e.name == e.id ? '' : e.name),
+    ]..sort((a, b) => a.$1.compareTo(b.$1));
+    Widget check(String key, String label) => CheckboxListTile(
+      value: m[key] != false,
+      onChanged: (v) => set(key, v ?? true),
+      title: Text(label),
+      dense: true,
+      controlAffinity: ListTileControlAffinity.leading,
+      contentPadding: EdgeInsets.zero,
+    );
+    return _Section('Media player', [
+      FieldLabel(
+        'Media player',
+        SuggestField(
+          value: (m['entity'] ?? '').toString(),
+          hint: 'media_player.living_room',
+          options: players,
+          onChanged: (v) => set('entity', v.trim(), co: 'mp-$id'),
+        ),
+      ),
+      check('cover', 'Show the cover'),
+      check('progress', 'Show the progress of the track'),
+      check('controls', 'Show the buttons (previous, play, next)'),
+      check('volume', 'Show the volume'),
+    ]);
   }
 }

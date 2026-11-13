@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
+import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:knx_config/knx_config.dart';
 
 import '../../state/bus_controller.dart';
+import '../../state/ha_link.dart';
 import '../../state/card_library.dart';
 import '../../state/project_controller.dart';
 
@@ -32,11 +34,14 @@ class LogEntry {
 }
 
 class Designer extends ChangeNotifier {
-  Designer(this.p, [this.bus]) {
+  Designer(this.p, [this.bus, this.link]) {
     bus?.valueListeners.add(_onBusValue);
   }
   final ProjectController p;
   final BusController? bus;
+
+  /// The connection of the Extensions tab (the list of media players for a media player card).
+  final HaLinkController? link;
 
   // test mode
   bool test = false;
@@ -982,6 +987,11 @@ class Designer extends ChangeNotifier {
 
   /// Link to Home Assistant while testing live (null otherwise).
   HaBridge? _ha;
+
+  late final MediaHost _mediaHostObj = _DesignerMediaHost(this);
+
+  /// The media player cards show the real player in Live Mode (Home Assistant connected), an example otherwise.
+  MediaHost? get mediaHost => live && _ha?.connected == true ? _mediaHostObj : null;
   HaConnection? get haState => _ha?.state;
   bool get usesHa => haAddresses(doc).isNotEmpty;
 
@@ -992,7 +1002,7 @@ class Designer extends ChangeNotifier {
     if (v) {
       final cfg = haSettings(doc), gas = haAddresses(doc);
       final url = (cfg['url'] ?? '').toString().trim(), token = (cfg['token'] ?? '').toString().trim();
-      if (cfg['enabled'] == true && url.isNotEmpty && token.isNotEmpty && gas.isNotEmpty) {
+      if (cfg['enabled'] == true && url.isNotEmpty && token.isNotEmpty && haNeeded(doc)) {
         final b = HaBridge(url: url, token: token, addresses: gas);
         b.onValue = _onBusValue;
         b.onState = _n;
@@ -1299,4 +1309,28 @@ class _DesignerScriptHost implements ScriptHost {
 
   @override
   void message(String text) => d._scriptMessage?.call(text);
+}
+
+/// The connection to Home Assistant of Live Mode for the media player cards of the preview.
+class _DesignerMediaHost implements MediaHost {
+  _DesignerMediaHost(this.d);
+  final Designer d;
+
+  @override
+  HaEntity? entity(String id) => d._ha?.entity(id);
+
+  @override
+  Stream<HaEntity> get changes => d._ha?.entityChanges ?? Stream<HaEntity>.empty();
+
+  @override
+  bool get connected => d._ha?.connected ?? false;
+
+  @override
+  Future<String?> call(String service, String entity, Map<String, dynamic> data) async {
+    final h = d._ha;
+    return h == null ? 'Connect to Home Assistant first (Live Mode).' : h.callRaw(service, entity, data);
+  }
+
+  @override
+  Future<Uint8List?> thumbnail(String entity) async => d._ha?.thumbnail(entity);
 }

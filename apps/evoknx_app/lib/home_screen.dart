@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 import 'dart:convert';
 import 'dart:ui' show ImageFilter, TileMode;
 
@@ -135,7 +136,7 @@ class _HomeScreenState extends State<HomeScreen> {
     // Virtual addresses (main group 32) go to Home Assistant, the others to the KNX bus.
     final cfg = haSettings(doc), haGas = haAddresses(doc);
     final url = (cfg['url'] ?? '').toString().trim(), token = (cfg['token'] ?? '').toString().trim();
-    if (cfg['enabled'] == true && url.isNotEmpty && token.isNotEmpty && haGas.isNotEmpty) {
+    if (cfg['enabled'] == true && url.isNotEmpty && token.isNotEmpty && haNeeded(doc)) {
       final b = HaBridge(url: url, token: token, addresses: haGas);
       b.onValue = engine.onBusValue;
       b.onState = () {
@@ -243,6 +244,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   int _navSeq = 0;
   Future<void>? _popup;
+
+  /// What the media player cards use: the connection to Home Assistant.
+  late final MediaHost _mediaHost = _AppMediaHost(this);
 
   /// Runs the scripts (a card of type scene or push button can start one).
   late final ScriptRunner _scripts = ScriptRunner(() => doc, _AppScriptHost(this));
@@ -1305,6 +1309,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final id = w['id'] as String;
     final type = w['type'] as String? ?? '';
     if (type == 'webview') return WebCard(w: w, pal: pal);
+    if (type == 'media') return MediaCard(w: w, pal: pal, host: _mediaHost);
     final tile = TileView(w: w, pal: pal, gas: gas, sim: engine.st(id), act: (a, [x]) => _act(w, a, x));
     final tap = const ['switch', 'dimmer', 'ac', 'button', 'scene', 'link'].contains(type) || (type == 'camera' && jsonMap(w['cam'])['view'] == 'button');
     if (!tap) return tile;
@@ -1494,4 +1499,29 @@ class _BgFadeState extends State<_BgFade> with SingleTickerProviderStateMixin {
       ],
     ),
   );
+}
+
+/// The connection to Home Assistant for the media player cards.
+class _AppMediaHost implements MediaHost {
+  _AppMediaHost(this.s);
+  final _HomeScreenState s;
+
+  @override
+  HaEntity? entity(String id) => s.ha?.entity(id);
+
+  @override
+  Stream<HaEntity> get changes => s.ha?.entityChanges ?? Stream<HaEntity>.empty();
+
+  @override
+  bool get connected => s.ha?.connected ?? false;
+
+  @override
+  Future<String?> call(String service, String entity, Map<String, dynamic> data) async {
+    final h = s.ha;
+    if (h == null) return 'Home Assistant is not enabled in the project.';
+    return h.callRaw(service, entity, data);
+  }
+
+  @override
+  Future<Uint8List?> thumbnail(String entity) async => s.ha?.thumbnail(entity);
 }

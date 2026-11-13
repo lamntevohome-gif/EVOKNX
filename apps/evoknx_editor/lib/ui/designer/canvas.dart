@@ -945,6 +945,8 @@ class _GridAreaState extends State<_GridArea> {
           final selected = !test && d.isSelected(id);
           final Widget tile = w['type'] == 'group'
               ? _GroupFrame(d: d, w: w, pal: pal, issues: widget.issues, selected: selected)
+              : w['type'] == 'media'
+              ? MediaCard(w: w, pal: pal, host: d.mediaHost)
               : TileView(
                   w: w,
                   pal: pal,
