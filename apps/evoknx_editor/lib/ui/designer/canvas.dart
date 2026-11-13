@@ -393,7 +393,7 @@ class _Screen extends StatelessWidget {
               ),
             ),
             Expanded(
-              child: RoomGallery(doc: doc, rooms: roomsOf(doc, floor?['id'] as String?), pal: pal, onOpen: d.selectRoom, cardTitle: floor?['cardTitle']),
+              child: RoomGallery(doc: doc, rooms: roomsOf(doc, floor?['id'] as String?), pal: pal, onOpen: d.selectRoom),
             ),
           ] else if (room == null || sub == null)
             empty

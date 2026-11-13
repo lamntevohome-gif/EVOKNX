@@ -1591,29 +1591,6 @@ class _FloorProps extends StatelessWidget {
           'Floor cover image (16:9)',
           _RoomCover(value: (f['cover'] ?? '').toString(), onChanged: (v) => editFloor((x) => v == null ? x.remove('cover') : x['cover'] = v)),
         ),
-      if (f['special'] == null)
-        Builder(
-          builder: (context) {
-            final own = f['cardTitle'] is num;
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                StepRow(
-                  label: 'Room card title',
-                  value: ((f['cardTitle'] as num?)?.toInt() ?? tfs(d.doc, 'galleryTitle').toInt()).clamp(11, 28).toInt(),
-                  min: 11,
-                  max: 28,
-                  onChanged: (v) => editFloor((x) => x['cardTitle'] = v, coalesce: 'ct-$fid'),
-                ),
-                if (own)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: EvoButton(label: 'Use the default size', small: true, onPressed: () => editFloor((x) => x.remove('cardTitle'))),
-                  ),
-              ],
-            );
-          },
-        ),
       Wrap(
         spacing: 6,
         runSpacing: 6,
@@ -1792,7 +1769,7 @@ class _OverviewProps extends StatelessWidget {
           tfsRow('pageTitle'),
         ]),
         if (modern) ...[
-          _Section('Modern layout', [tfsRow('navBar'), tfsRow('areaTitle'), tfsRow('areaFloor'), tfsRow('galleryTitle')]),
+          _Section('Modern layout', [tfsRow('navBar'), tfsRow('areaTitle'), tfsRow('areaFloor'), tfsRow('galleryTitle'), tfsRow('galleryIcon')]),
           _PageBgSettings(holder: theme, edit: editTheme, field: 'bgArea', title: 'Area background'),
           _PageBgSettings(holder: theme, edit: editTheme, field: 'bgHome', title: 'Home background'),
           _PageBgSettings(holder: theme, edit: editTheme, field: 'bgSecurity', title: 'Security background'),
@@ -1822,7 +1799,7 @@ class _OverviewProps extends StatelessWidget {
                   'Room gallery: the App opens with a grid of room cards (cover image, icon, name). Tap a room to enter it; the grid button at the top of the page returns. Choose the cover image in the settings of each room.',
                 ),
               ),
-            if (theme['roomPicker'] == 'gallery') tfsRow('galleryTitle'),
+            if (theme['roomPicker'] == 'gallery') ...[tfsRow('galleryTitle'), tfsRow('galleryIcon')],
             tfsRow('roomBar'),
             tfsRow('floorBar'),
             tfsRow('crumb'),

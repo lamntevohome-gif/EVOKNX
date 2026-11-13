@@ -613,7 +613,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       blockedAbove != null
                           ? _lockedView(blockedAbove, pal)
                           : inGallery
-                          ? RoomGallery(doc: d, rooms: rooms, pal: pal, onOpen: _openRoom, unlocked: store.unlocked, cardTitle: floor?['cardTitle'])
+                          ? RoomGallery(doc: d, rooms: rooms, pal: pal, onOpen: _openRoom, unlocked: store.unlocked)
                           : r == null
                           ? Center(
                               child: Padding(
