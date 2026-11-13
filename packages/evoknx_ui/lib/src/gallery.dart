@@ -68,6 +68,140 @@ class RoomGallery extends StatelessWidget {
   }
 }
 
+/// The Area screen of the Modern layout: every floor with rooms is a heading (a padlock when it is locked)
+/// with its rooms under it, in two columns of 4:3 cards (more on a wide screen). A floor without rooms is left out.
+class AreaList extends StatefulWidget {
+  const AreaList({
+    super.key,
+    required this.doc,
+    required this.floors,
+    required this.pal,
+    required this.onOpenRoom,
+    this.unlocked,
+    this.scrollToFloor,
+    this.scrollSeq = 0,
+  });
+  final Json doc;
+  final List<Json> floors;
+  final AppPalette pal;
+  final void Function(String roomId) onOpenRoom;
+
+  /// Ids of the locks that are open.
+  final Set<String>? unlocked;
+
+  /// The floor to scroll to when the screen is built, and again whenever [scrollSeq] changes.
+  final String? scrollToFloor;
+  final int scrollSeq;
+
+  @override
+  State<AreaList> createState() => _AreaListState();
+}
+
+class _AreaListState extends State<AreaList> {
+  final Map<String, GlobalKey> _keys = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _scroll();
+  }
+
+  @override
+  void didUpdateWidget(AreaList old) {
+    super.didUpdateWidget(old);
+    if (old.scrollSeq != widget.scrollSeq) _scroll();
+  }
+
+  void _scroll() {
+    final id = widget.scrollToFloor;
+    if (id == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final ctx = _keys[id]?.currentContext;
+      if (ctx != null && ctx.mounted) {
+        Scrollable.ensureVisible(ctx, duration: const Duration(milliseconds: 350), curve: Curves.easeOutCubic, alignment: 0);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final pal = widget.pal;
+    final doc = widget.doc;
+    final groups = [
+      for (final f in widget.floors)
+        if (roomsOf(doc, f['id'] as String).isNotEmpty) (f, roomsOf(doc, f['id'] as String)),
+    ];
+    if (groups.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(30),
+          child: Text(
+            tr('There are no rooms yet.'),
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 14, color: pal.sMuted),
+          ),
+        ),
+      );
+    }
+    final fs = tfs(doc, 'galleryTitle');
+    return LayoutBuilder(
+      builder: (context, bc) {
+        final w = bc.maxWidth;
+        final cols = w >= 1000 ? 4 : (w >= 760 ? 3 : 2);
+        return SingleChildScrollView(
+          padding: EdgeInsets.all(pal.safeMargin),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (var g = 0; g < groups.length; g++) ...[
+                Padding(
+                  key: _keys.putIfAbsent(groups[g].$1['id'] as String, () => GlobalKey()),
+                  padding: EdgeInsets.only(top: g == 0 ? 0 : 20, bottom: 10, left: 2),
+                  child: Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          (groups[g].$1['title'] ?? '').toString(),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontSize: fs * 1.25, fontWeight: FontWeight.w700, color: pal.sInk),
+                        ),
+                      ),
+                      if (RegExp(r'^\d{4}$').hasMatch((groups[g].$1['lock'] ?? '').toString()) &&
+                          !(widget.unlocked?.contains(groups[g].$1['id']) ?? false)) ...[
+                        const SizedBox(width: 8),
+                        Icon(Icons.lock_outline, size: fs * 1.2, color: pal.sMuted),
+                      ],
+                    ],
+                  ),
+                ),
+                GridView.count(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  crossAxisCount: cols,
+                  mainAxisSpacing: 12,
+                  crossAxisSpacing: 12,
+                  childAspectRatio: 4 / 3,
+                  children: [
+                    for (final r in groups[g].$2)
+                      _RoomCard(
+                        doc: doc,
+                        room: r,
+                        pal: pal,
+                        locked: RegExp(r'^\d{4}$').hasMatch((r['lock'] ?? '').toString()) && !(widget.unlocked?.contains(r['id']) ?? false),
+                        onTap: () => widget.onOpenRoom(r['id'] as String),
+                      ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
 class _RoomCard extends StatelessWidget {
   const _RoomCard({required this.doc, required this.room, required this.pal, required this.onTap, this.locked = false, this.showIcon = true});
   final bool locked, showIcon;
