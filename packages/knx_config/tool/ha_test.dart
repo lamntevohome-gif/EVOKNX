@@ -91,6 +91,11 @@ class FakeHa {
       final id = m['id'];
       void ok([Object? result]) => ws.add(jsonEncode({'id': id, 'type': 'result', 'success': true, 'result': result}));
       switch (m['type']) {
+        case 'media_player_thumbnail':
+          ok({
+            'content_type': 'image/png',
+            'content': base64Encode([1, 2, 3, 4])
+          });
         case 'get_services':
           ok({
             'light': {
@@ -325,6 +330,44 @@ Future<void> main() async {
   check(haKind(tv) == 5 && haSuggest(tv).map((a) => a.key).join(',') == 'onoff,playpause,mstop,prev,next,volume,mute,playing',
       'media player: kind 5 and its functions');
   addHaEntity(doc, tv, ['onoff', 'playpause', 'volume', 'mute', 'playing'], roomId: room1['id'] as String);
+  // ---- the media player card
+  final mpm = HaMedia(HaEntity('media_player.sonos', 'playing', {
+    'media_title': 'Song',
+    'media_artist': 'Artist',
+    'media_album_name': 'Album',
+    'media_duration': 225,
+    'media_position': 80,
+    'media_position_updated_at': '2025-01-01T10:00:00+00:00',
+    'volume_level': 0.4,
+    'is_volume_muted': false,
+    'supported_features': 4 | 16 | 32,
+    'entity_picture': '/api/media_player_proxy/media_player.sonos?token=x&cache=1',
+  }));
+  check(mpm.title == 'Song' && mpm.subtitle == 'Artist · Album' && mpm.duration == 225 && mpm.volume == 0.4 && mpm.picture.contains('cache=1'),
+      'media: title, artist and album, duration, volume, cover');
+  check(mpm.position(DateTime.utc(2025, 1, 1, 10, 0, 3)) == 83, 'media: the position runs while playing');
+  check(mpm.position(DateTime.utc(2025, 1, 1, 10, 10)) == 225, 'media: the position stops at the end of the track');
+  final pausedM = HaMedia(HaEntity('media_player.sonos', 'paused', {'media_position': 80, 'media_position_updated_at': '2025-01-01T10:00:00+00:00'}));
+  check(pausedM.position(DateTime.utc(2025, 1, 1, 11)) == 80 && pausedM.paused && !pausedM.playing, 'media: a paused player keeps its position');
+  check(mpm.supports(HaMedia.featVolumeSet) && mpm.supports(HaMedia.featNext) && !mpm.supports(HaMedia.featSeek), 'media: features from supported_features');
+  check(pausedM.supports(HaMedia.featSeek) && HaMedia(HaEntity('media_player.x', 'unavailable', {})).available == false,
+      'media: a player that lists no features has them all; unavailable');
+  check(mediaTime(83) == '1:23' && mediaTime(3725) == '1:02:05' && mediaTime(null) == '–:––', 'media: time text');
+  final mdoc = newProject('x');
+  check(!haNeeded(mdoc), 'haNeeded: nothing needs Home Assistant');
+  (mdoc['pages'] as List).add({
+    'id': 'rm',
+    'title': 'Room',
+    'subpages': [
+      {
+        'id': 'sp',
+        'title': 'Page',
+        'widgets': [makeWidget('media', 0, 0)],
+      },
+    ],
+  });
+  check(haNeeded(mdoc) && makeWidget('media', 0, 0)['media']['entity'] == '', 'haNeeded: a media player card needs it');
+
   // ---- text commands: the text written to the address is the command
   final tvs = ent('media_player.avr', 'on', {
     'source_list': ['HDMI 1', 'HDMI 2'],
@@ -539,6 +582,8 @@ Future<void> main() async {
   final svc = await sess.getServices();
   check(svc['light']!.join(',') == 'turn_off,turn_on' && svc['remote']!.contains('send_command') && svc.length == 3,
       'services: domains with their services ($svc)');
+  final cover = await sess.getThumbnail('media_player.avr');
+  check(cover != null && cover.join(',') == '1,2,3,4', 'thumbnail: the cover image of a media player ($cover)');
   final info = await sess.getServiceInfo();
   final on = info['light']!['turn_on']!;
   check(

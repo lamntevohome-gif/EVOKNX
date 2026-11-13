@@ -76,6 +76,7 @@ const Map<String, WidgetTypeDef> kWidgetTypes = {
     SlotDef('modeSt', 'Mode status', [20, 5]),
   ]),
   'camera': WidgetTypeDef('camera', 'Camera', 'camera', 2, 2, []),
+  'media': WidgetTypeDef('media', 'Media player', 'music', 4, 2, []),
   'group': WidgetTypeDef('group', 'Grid frame', 'layout', 2, 2, []),
 };
 
@@ -288,6 +289,10 @@ Json makeWidget(String type, int x, int y, [int? w, int? h]) {
   }
   if (type == 'scene') {
     wd['popup'] = {'enabled': true, 'text': 'Scene {name} activated', 'blur': 8, 'size': 20, 'seconds': 2};
+  }
+  if (type == 'media') {
+    // The entity of Home Assistant that the card shows and controls; what is shown.
+    wd['media'] = {'entity': '', 'cover': true, 'progress': true, 'volume': true, 'controls': true};
   }
   if (type == 'camera') {
     wd['cam'] = {'protocol': 'rtsp', 'host': '', 'port': 554, 'path': '/Streaming/Channels/101', 'user': 'admin', 'pass': '', 'view': 'live'};

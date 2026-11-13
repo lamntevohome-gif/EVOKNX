@@ -199,6 +199,7 @@ List<String> fsKeysFor(String type) => switch (type) {
   'value' => const ['labelSize', 'iconSize', 'valueSize', 'stateSize'],
   'webview' => const ['labelSize', 'iconSize'],
   'camera' => const ['labelSize', 'iconSize'],
+  'media' => const ['labelSize'],
   'shutter' => const ['labelSize', 'iconSize', 'stateSize', 'btnIcon'],
   'ac' => const ['labelSize', 'iconSize', 'stateSize', 'acBtn', 'acMode'],
   _ => const ['labelSize', 'iconSize', 'stateSize'],
@@ -341,6 +342,9 @@ List<Issue> computeIssues(Json d) {
         }
         if (w['type'] == 'camera' && (jsonMap(w['cam'])['host'] ?? '').toString().trim().isEmpty) {
           out.add(Issue(true, '$where$name has no camera IP address yet.', roomId: r['id'], subId: s['id'], widgetId: w['id']));
+        }
+        if (w['type'] == 'media' && (jsonMap(w['media'])['entity'] ?? '').toString().trim().isEmpty) {
+          out.add(Issue(true, '$where$name has no media player chosen yet.', roomId: r['id'], subId: s['id'], widgetId: w['id']));
         }
         if ((w['type'] == 'link' || w['type'] == 'webview') && !RegExp(r'^https?://\S+').hasMatch((w['url'] ?? '').toString())) {
           out.add(Issue(true, '$where$name has no valid web address yet.', roomId: r['id'], subId: s['id'], widgetId: w['id']));

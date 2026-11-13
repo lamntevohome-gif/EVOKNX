@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'project.dart';
 
@@ -962,6 +963,17 @@ class HaSession {
     return [for (final x in (r as List? ?? const [])) HaEntity.fromJson(Map<String, dynamic>.from(x as Map))];
   }
 
+  /// The cover image of a media player (the one Home Assistant shows), or null when it has none.
+  Future<Uint8List?> getThumbnail(String entityId) async {
+    final r = await call({'type': 'media_player_thumbnail', 'entity_id': entityId}, timeout: const Duration(seconds: 15));
+    if (r is Map && r['content'] is String) {
+      try {
+        return base64Decode(r['content'] as String);
+      } catch (_) {}
+    }
+    return null;
+  }
+
   /// The services of Home Assistant: each domain with its services and their fields (for suggestions).
   Future<Map<String, Map<String, HaService>>> getServiceInfo() async {
     final r = await call({'type': 'get_services'}, timeout: const Duration(seconds: 20));
@@ -1062,6 +1074,25 @@ class HaBridge {
 
   bool get connected => state == HaConnection.connected;
 
+  /// The last known state of an entity (null when Home Assistant did not tell).
+  HaEntity? entity(String id) => _entities[id];
+
+  final StreamController<HaEntity> _changes = StreamController<HaEntity>.broadcast();
+
+  /// Every entity whose state changes (and all of them when the connection is made), for the cards that show one.
+  Stream<HaEntity> get entityChanges => _changes.stream;
+
+  /// The cover image of a media player, or null.
+  Future<Uint8List?> thumbnail(String entityId) async {
+    final s = _session;
+    if (s == null || !connected) return null;
+    try {
+      return await s.getThumbnail(entityId);
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<void> start() async {
     if (!_stopped) return;
     _stopped = false;
@@ -1085,6 +1116,7 @@ class HaBridge {
         for (final e in await s.getStates()) {
           _entities[e.id] = e;
           _push(e);
+          _changes.add(e);
         }
         wait = 1;
         _set(HaConnection.connected);
@@ -1106,6 +1138,7 @@ class HaBridge {
   void _changed(HaEntity e) {
     _entities[e.id] = e;
     _push(e);
+    _changes.add(e);
   }
 
   void _push(HaEntity e) {

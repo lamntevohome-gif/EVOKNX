@@ -4,6 +4,7 @@ library knx_config;
 export 'src/project.dart';
 export 'src/script.dart';
 export 'src/ha.dart';
+export 'src/media.dart';
 export 'src/lan_share.dart';
 export 'src/parts.dart';
 export 'src/ets_import.dart';
