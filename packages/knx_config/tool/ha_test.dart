@@ -127,6 +127,25 @@ class FakeHa {
                   },
                   'color_name': {
                     'selector': {'text': null}
+                  },
+                  'color_temp_kelvin': {
+                    'selector': {
+                      'color_temp': {'unit': 'kelvin', 'min': 2000, 'max': 6500}
+                    }
+                  },
+                  'rgb_color': {
+                    'selector': {'color_rgb': null},
+                    'example': [255, 100, 100]
+                  },
+                  'hs_color': {
+                    'description': 'Color in hue/sat format. A list of two integers. Hue is 0-360 and Sat is 0-100.',
+                    'selector': {'object': null},
+                    'example': [300, 70]
+                  },
+                  'white': {
+                    'selector': {
+                      'constant': {'value': true, 'label': 'Enabled'}
+                    }
                   }
                 }
               },
@@ -522,11 +541,22 @@ Future<void> main() async {
       'services: domains with their services ($svc)');
   final info = await sess.getServiceInfo();
   final on = info['light']!['turn_on']!;
-  check(on.description == 'Turn on a light.' && on.fields.map((f) => f.key).join(',') == 'brightness_pct,transition,flash,color_name',
+  check(
+      on.description == 'Turn on a light.' &&
+          on.fields.map((f) => f.key).join(',') == 'brightness_pct,transition,flash,color_name,color_temp_kelvin,rgb_color,hs_color,white',
       'service fields: a section is flattened (${on.fields.map((f) => f.key)})');
   final bp = on.fields.firstWhere((f) => f.key == 'brightness_pct');
   check(bp.type == 'number' && bp.sample == 47 && !bp.required && bp.description == 'Brightness in percent.', 'service fields: number with an example');
   check(bp.min == 0 && bp.max == 100 && bp.unit == '%', 'service fields: range and unit');
+  String specOf(String k) => on.fields.firstWhere((f) => f.key == k).spec;
+  check(bp.spec == '0–100 %' && specOf('transition') == '0–300', 'spec: a number shows its range and unit');
+  check(specOf('color_temp_kelvin') == '2000–6500 kelvin', 'spec: color temperature shows its range and unit (${specOf('color_temp_kelvin')})');
+  check(specOf('rgb_color') == 'R, G, B: 0–255' && specOf('hs_color') == 'e.g. [300,70]' && specOf('white') == 'fixed: true' && specOf('color_name') == 'text',
+      'spec: color formats, an example, a fixed value, text');
+  check(specOf('flash') == '' && on.fields.firstWhere((f) => f.key == 'hs_color').brief == 'Color in hue/sat format.',
+      'spec: a choice has none; the brief is the first sentence');
+  check(on.fields.firstWhere((f) => f.key == 'color_temp_kelvin').sample == 2000 && on.fields.firstWhere((f) => f.key == 'white').sample == true,
+      'service fields: color temperature starts at its minimum, a fixed value is its value');
   check(on.fields.firstWhere((f) => f.key == 'flash').options.map((o) => o.$1).join(',') == 'short,long', 'service fields: options of a select');
   check(on.fields.firstWhere((f) => f.key == 'transition').required && on.fields.firstWhere((f) => f.key == 'transition').sample == 0,
       'service fields: required, a number starts at its minimum');

@@ -155,7 +155,39 @@ class HaField {
 
   num? get min => selector['min'] is num ? selector['min'] as num : null;
   num? get max => selector['max'] is num ? selector['max'] as num : null;
-  String get unit => (selector['unit_of_measurement'] ?? '').toString();
+  String get unit => (selector['unit_of_measurement'] ?? selector['unit'] ?? '').toString();
+
+  static String _n(num v) => v == v.roundToDouble() ? v.toInt().toString() : v.toString();
+
+  /// What the value looks like, for the label of the field: its range and unit, the format of a color,
+  /// or an example. Empty when there is nothing to say (a choice, an on/off).
+  String get spec {
+    switch (type) {
+      case 'number':
+      case 'color_temp':
+        if (min == null && max == null) return unit;
+        return '${min == null ? '' : _n(min!)}–${max == null ? '' : _n(max!)}${unit.isEmpty ? '' : ' $unit'}';
+      case 'color_rgb':
+        return 'R, G, B: 0–255';
+      case 'constant':
+        return 'fixed: ${selector['value']}';
+      case 'text':
+        return 'text';
+      case 'select':
+      case 'boolean':
+        return '';
+    }
+    return example == null ? '' : 'e.g. ${jsonEncode(example)}';
+  }
+
+  /// The first sentence of the description, short.
+  String get brief {
+    final d = description.trim();
+    if (d.isEmpty) return '';
+    final dot = d.indexOf('. ');
+    final first = dot > 0 ? d.substring(0, dot + 1) : d;
+    return first.length > 110 ? '${first.substring(0, 107)}…' : first;
+  }
 
   /// The choices of a select: (value, label).
   List<(String, String)> get options {
@@ -183,6 +215,10 @@ class HaField {
       switch (type) {
         case 'number':
           sample = selData['min'] ?? 0;
+        case 'color_temp':
+          sample = selData['min'] ?? 2700;
+        case 'constant':
+          sample = selData['value'] ?? true;
         case 'boolean':
           sample = true;
         case 'select':
