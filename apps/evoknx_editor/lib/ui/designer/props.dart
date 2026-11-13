@@ -2800,8 +2800,14 @@ class _TextSendInfo extends StatelessWidget {
     final ga = byId(jsonList(d.doc['groupAddresses']), jsonMap(w['bind'])['write'] as String?);
     final dpt = (ga?['dpt'] ?? '').toString();
     if (!dpt.startsWith('16')) return const SizedBox.shrink();
-    final sent = dpt16Text(raw, latin1: dpt.startsWith('16.001'));
     final c = context.evo;
+    if (ga != null && isHaAddress(ga)) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: Text('Sent to Home Assistant as written: “$raw”', style: TextStyle(fontSize: 12.5, color: c.muted)),
+      );
+    }
+    final sent = dpt16Text(raw, latin1: dpt.startsWith('16.001'));
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Text(

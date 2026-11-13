@@ -535,6 +535,7 @@ class _HaPageState extends State<HaPage> {
       'cover',
       'climate',
       'media_player',
+      'remote',
       'sensor',
       'binary_sensor',
       'scene',

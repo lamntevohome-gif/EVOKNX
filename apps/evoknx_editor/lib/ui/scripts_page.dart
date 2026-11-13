@@ -59,8 +59,21 @@ class _ScriptsPageState extends State<ScriptsPage> implements ScriptHost {
   Future<String?> write(Json ga, Object value) async {
     _add('  Write ${ga['address']} = $value${_live ? '' : '  (simulated)'}');
     if (!_live) return null;
-    if (isHaAddress(ga)) return 'a virtual Home Assistant address is not sent from here.';
+    if (isHaAddress(ga)) return _writeHa(ga, value);
     return widget.bus.write(ga, value);
+  }
+
+  /// A virtual Home Assistant address: its function becomes the service call, as the App does.
+  Future<String?> _writeHa(Json ga, Object value) async {
+    final h = jsonMap(ga['ha']);
+    final id = (h['entity'] ?? '').toString();
+    if (!widget.link.connected) return 'Connect to Home Assistant first (tab Extensions).';
+    final e = widget.link.entities?.where((x) => x.id == id).firstOrNull;
+    if (e == null) return 'press “Get entities” in the tab Extensions so that “$id” is known.';
+    final call = haCommand(e, (h['attr'] ?? '').toString(), value);
+    if (call == null) return 'this function cannot be written.';
+    if (identical(call, HaCall.none)) return null;
+    return widget.link.callService('${call.domain}.${call.service}', id, call.data);
   }
 
   @override
@@ -329,6 +342,88 @@ class _ScriptsPageState extends State<ScriptsPage> implements ScriptHost {
     );
   }
 
+  /// The description of the chosen service, its fields (a click adds one to the data) and what is wrong in the data.
+  List<Widget> _dataHelp(BuildContext context, int i, Json st) {
+    final c = context.evo;
+    final service = (st['service'] ?? '').toString().trim();
+    final at = service.indexOf('.');
+    final info = at < 0 ? null : widget.link.serviceInfo?[service.substring(0, at)]?[service.substring(at + 1)];
+    if (info == null) return const [];
+    final (data, bad) = scriptData((st['data'] ?? '').toString());
+    // What Home Assistant takes besides the fields: the targets.
+    const targets = {'entity_id', 'device_id', 'area_id', 'floor_id', 'label_id'};
+    final keys = data?.keys.toSet() ?? <String>{};
+    final known = {for (final f in info.fields) f.key};
+    final unknown = info.fields.isEmpty
+        ? <String>[]
+        : [
+            for (final k in keys)
+              if (!known.contains(k) && !targets.contains(k)) k,
+          ];
+    final missing = [
+      for (final f in info.fields)
+        if (f.required && bad == null && !keys.contains(f.key)) f.key,
+    ];
+    return [
+      if (info.description.isNotEmpty)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 6),
+          child: Text(info.description, style: TextStyle(fontSize: 12.5, color: c.muted)),
+        ),
+      if (info.fields.isNotEmpty)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 6),
+          child: Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              for (final f in info.fields)
+                Tooltip(
+                  message: [if (f.name.isNotEmpty) f.name, if (f.description.isNotEmpty) f.description].join(' · '),
+                  child: EvoButton(
+                    label: '${f.key}${f.required ? ' *' : ''}',
+                    icon: keys.contains(f.key) ? Icons.check : Icons.add,
+                    small: true,
+                    onPressed: bad != null || keys.contains(f.key)
+                        ? null
+                        : () => _editStep(i, (x) {
+                            final (m, err) = scriptData((x['data'] ?? '').toString());
+                            if (err != null) return;
+                            m!.putIfAbsent(f.key, () => f.sample ?? '');
+                            x['data'] = jsonEncode(m);
+                          }),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      if (unknown.isNotEmpty) Text('Not a field of $service: ${unknown.join(', ')}', style: TextStyle(fontSize: 12.5, color: c.warn)),
+      if (missing.isNotEmpty) Text('Required: ${missing.join(', ')}', style: TextStyle(fontSize: 12.5, color: c.warn)),
+    ];
+  }
+
+  /// The services to suggest: all of them, or those of the domain of the chosen entity.
+  List<(String, String)> _serviceOptions(String entity) {
+    final all = widget.link.services;
+    if (all == null) return const [];
+    final dom = entity.contains('.') ? entity.split('.').first : '';
+    final keys = all.keys.where((d) => dom.isEmpty || d == dom || d == 'homeassistant' || !all.containsKey(dom)).toList()..sort();
+    return [
+      for (final d in keys)
+        for (final s in all[d]!) ('$d.$s', ''),
+    ];
+  }
+
+  /// The entities to suggest: all of them, or those of the domain of the chosen service.
+  List<(String, String)> _entityOptions(String service) {
+    final list = widget.link.entities;
+    if (list == null) return const [];
+    final dom = service.contains('.') ? service.split('.').first : '';
+    final inDom = list.where((e) => e.domain == dom).toList();
+    final use = (dom.isEmpty || dom == 'homeassistant' || inDom.isEmpty) ? list : inDom;
+    return [for (final e in (use.toList()..sort((a, b) => a.id.compareTo(b.id)))) (e.id, e.name == e.id ? '' : e.name)];
+  }
+
   List<(String, String)> _targets() {
     final doc = p.doc;
     final out = <(String, String)>[('', 'Not assigned')];
@@ -432,7 +527,9 @@ class _ScriptsPageState extends State<ScriptsPage> implements ScriptHost {
             ),
           ),
           Text(
-            dpt.startsWith('16')
+            ga != null && isHaAddress(ga)
+                ? 'Sent to Home Assistant as written: “$raw”'
+                : dpt.startsWith('16')
                 ? 'Text address (DPT $dpt): sent as “${dpt16Text(raw, latin1: dpt.startsWith('16.001'))}”'
                 : (ga == null ? 'Choose the address to write to.' : (dpt.isEmpty ? 'The address has no DPT yet.' : 'A number, encoded as DPT $dpt.')),
             style: TextStyle(fontSize: 12.5, color: c.muted),
@@ -442,17 +539,19 @@ class _ScriptsPageState extends State<ScriptsPage> implements ScriptHost {
         return [
           FieldLabel(
             'Service',
-            SyncedField(
+            SuggestField(
               value: (st['service'] ?? '').toString(),
               hint: 'light.turn_on',
+              options: _serviceOptions((st['entity'] ?? '').toString()),
               onChanged: (v) => _editStep(i, (x) => x['service'] = v.trim(), coalesce: 'scs-$id-$i'),
             ),
           ),
           FieldLabel(
             'Entity (optional)',
-            SyncedField(
+            SuggestField(
               value: (st['entity'] ?? '').toString(),
               hint: 'light.living_room',
+              options: _entityOptions((st['service'] ?? '').toString()),
               onChanged: (v) => _editStep(i, (x) => x['entity'] = v.trim(), coalesce: 'sce-$id-$i'),
             ),
           ),
@@ -465,6 +564,7 @@ class _ScriptsPageState extends State<ScriptsPage> implements ScriptHost {
             ),
           ),
           if (scriptData((st['data'] ?? '').toString()).$2 != null) Text('The data is not valid JSON.', style: TextStyle(fontSize: 12.5, color: c.warn)),
+          ..._dataHelp(context, i, st),
           Text(
             'To run a script or a scene of Home Assistant use script.turn_on or scene.turn_on with its entity.',
             style: TextStyle(fontSize: 12.5, color: c.muted),

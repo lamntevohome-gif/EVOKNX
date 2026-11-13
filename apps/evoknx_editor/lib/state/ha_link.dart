@@ -14,8 +14,14 @@ class HaLinkController extends ChangeNotifier {
   String? message;
   String? version;
 
-  /// The entities of the last "Lấy entity".
+  /// The entities of the last "Get entities".
   List<HaEntity>? entities;
+
+  /// The services of Home Assistant with their fields (domain → service), loaded when the connection is made.
+  Map<String, Map<String, HaService>>? serviceInfo;
+
+  /// The names of the services (domain → names).
+  Map<String, List<String>>? get services => serviceInfo == null ? null : {for (final e in serviceInfo!.entries) e.key: (e.value.keys.toList()..sort())};
 
   bool get connected => state == HaConnection.connected;
   bool get connecting => state == HaConnection.connecting;
@@ -48,6 +54,7 @@ class HaLinkController extends ChangeNotifier {
         }),
       );
       _set(HaConnection.connected);
+      unawaited(_loadServices(s));
     } on HaException catch (e) {
       _set(HaConnection.failed, e.message);
     }
@@ -65,6 +72,13 @@ class HaLinkController extends ChangeNotifier {
     } on HaException catch (e) {
       return e.message;
     }
+  }
+
+  Future<void> _loadServices(HaSession s) async {
+    try {
+      serviceInfo = await s.getServiceInfo();
+      notifyListeners();
+    } catch (_) {}
   }
 
   /// Closes the connection (the list of entities stays).

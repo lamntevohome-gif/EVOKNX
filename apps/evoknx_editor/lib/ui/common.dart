@@ -449,6 +449,111 @@ class _SyncedFieldState extends State<SyncedField> {
   }
 }
 
+/// A text field that suggests values while typing: a list under the field shows what contains the typed
+/// text (the value or its label); a click takes it, or just keep typing.
+class SuggestField extends StatefulWidget {
+  const SuggestField({super.key, required this.value, required this.onChanged, required this.options, this.hint});
+  final String value;
+  final ValueChanged<String> onChanged;
+
+  /// (value, label): the label is shown next to the value and is searched too.
+  final List<(String, String)> options;
+  final String? hint;
+
+  @override
+  State<SuggestField> createState() => _SuggestFieldState();
+}
+
+class _SuggestFieldState extends State<SuggestField> {
+  late final TextEditingController _c = TextEditingController(text: widget.value);
+  final FocusNode _f = FocusNode();
+
+  @override
+  void didUpdateWidget(SuggestField old) {
+    super.didUpdateWidget(old);
+    if (!_f.hasFocus && _c.text != widget.value) _c.text = widget.value;
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    _f.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.evo;
+    return RawAutocomplete<(String, String)>(
+      textEditingController: _c,
+      focusNode: _f,
+      displayStringForOption: (o) => o.$1,
+      optionsBuilder: (v) {
+        final q = v.text.trim().toLowerCase();
+        if (widget.options.isEmpty) return const Iterable<(String, String)>.empty();
+        return widget.options.where((o) => q.isEmpty || o.$1.toLowerCase().contains(q) || o.$2.toLowerCase().contains(q)).take(10);
+      },
+      onSelected: (o) => widget.onChanged(o.$1),
+      fieldViewBuilder: (context, controller, focus, onSubmit) => TextField(
+        controller: controller,
+        focusNode: focus,
+        onChanged: widget.onChanged,
+        style: TextStyle(fontSize: kUiText, color: c.ink),
+        decoration: InputDecoration(
+          hintText: trn(widget.hint),
+          filled: true,
+          fillColor: c.panel,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        ),
+      ),
+      optionsViewBuilder: (context, onSelected, options) => Align(
+        alignment: Alignment.topLeft,
+        child: Material(
+          elevation: 6,
+          color: c.paper,
+          borderRadius: BorderRadius.circular(6),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 280, maxWidth: 520),
+            child: ListView.builder(
+              padding: EdgeInsets.zero,
+              shrinkWrap: true,
+              itemCount: options.length,
+              itemBuilder: (context, i) {
+                final o = options.elementAt(i);
+                return InkWell(
+                  onTap: () => onSelected(o),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                    child: Row(
+                      children: [
+                        Text(
+                          o.$1,
+                          style: TextStyle(fontSize: kUiText, color: c.ink),
+                        ),
+                        if (o.$2.isNotEmpty) ...[
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              o.$2,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(fontSize: kUiText - 1, color: c.muted),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class StatusDot extends StatelessWidget {
   const StatusDot({super.key, required this.on, this.size = 9});
   final bool on;
