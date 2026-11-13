@@ -12,7 +12,6 @@ import '../state/project_controller.dart';
 import 'common.dart';
 import 'connections_page.dart';
 import 'editor_settings_dialog.dart';
-import 'ha_page.dart';
 import 'import_dialog.dart';
 import 'new_project_dialog.dart';
 import 'send_to_app_dialog.dart';
@@ -139,9 +138,8 @@ class _ShellState extends State<Shell> {
                     index: ws,
                     children: [
                       StructurePage(project: p, bus: widget.bus, link: widget.ha),
-                      ConnectionsPage(project: p),
+                      ConnectionsPage(project: p, link: widget.ha),
                       TestPage(project: p, bus: widget.bus),
-                      HaPage(project: p, link: widget.ha),
                       ScriptsPage(project: p, bus: widget.bus, link: widget.ha),
                     ],
                   ),
@@ -208,8 +206,7 @@ class _ShellState extends State<Shell> {
             tab(0, 'Structure'),
             tab(1, 'Connections'),
             tab(2, 'Monitor'),
-            tab(3, 'Extensions'),
-            tab(4, 'Scripts'),
+            tab(3, 'Scripts'),
           ];
           final right = <Widget>[
             Tooltip(

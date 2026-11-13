@@ -102,9 +102,9 @@ class _ScriptsPageState extends State<ScriptsPage> implements ScriptHost {
   Future<String?> _writeHa(Json ga, Object value) async {
     final h = jsonMap(ga['ha']);
     final id = (h['entity'] ?? '').toString();
-    if (!widget.link.connected) return 'Connect to Home Assistant first (tab Extensions).';
+    if (!widget.link.connected) return 'Connect to Home Assistant first (Connections tab).';
     final e = widget.link.entities?.where((x) => x.id == id).firstOrNull;
-    if (e == null) return 'click Update Entity in the tab Extensions so that “$id” is known.';
+    if (e == null) return 'click Update Entity in the Connections tab so that “$id” is known.';
     final call = haCommand(e, (h['attr'] ?? '').toString(), value);
     if (call == null) return 'this function cannot be written.';
     if (identical(call, HaCall.none)) return null;
@@ -358,7 +358,7 @@ class _ScriptsPageState extends State<ScriptsPage> implements ScriptHost {
         const SizedBox(height: 6),
         Text(
           _live
-              ? 'Live Mode: values are written to the bus (connect in the Monitor tab) and to Home Assistant (connect in the Extensions tab).'
+              ? 'Live Mode: values are written to the bus (connect in the Monitor tab) and to Home Assistant (connect in the Connections tab).'
               : 'Simulator: nothing is sent; the steps that would run are listed below.',
           style: TextStyle(fontSize: 12.5, color: c.muted),
         ),

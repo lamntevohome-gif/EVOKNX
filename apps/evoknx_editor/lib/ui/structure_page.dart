@@ -546,25 +546,47 @@ class _StructurePageState extends State<StructurePage> {
         for (final e in d.log)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 5),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SizedBox(
-                  width: 70,
-                  child: Text(
-                    e.address,
-                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: kUiText, color: e.missing ? c.danger : c.ink),
+            // A KNX address has a narrow column of its own; a longer name (an entity) takes the whole width.
+            child: e.address.length > 12
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              e.address,
+                              style: TextStyle(fontWeight: FontWeight.w600, fontSize: kUiText, color: e.missing ? c.danger : c.ink),
+                            ),
+                          ),
+                          if (e.live) Icon(Icons.bolt, size: 15, color: c.accent),
+                        ],
+                      ),
+                      Text(
+                        e.text,
+                        style: TextStyle(fontSize: kUiText, color: e.missing ? c.danger : c.muted),
+                      ),
+                    ],
+                  )
+                : Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SizedBox(
+                        width: 70,
+                        child: Text(
+                          e.address,
+                          style: TextStyle(fontWeight: FontWeight.w600, fontSize: kUiText, color: e.missing ? c.danger : c.ink),
+                        ),
+                      ),
+                      Expanded(
+                        child: Text(
+                          e.text,
+                          style: TextStyle(fontSize: kUiText, color: e.missing ? c.danger : c.ink),
+                        ),
+                      ),
+                      if (e.live) Icon(Icons.bolt, size: 15, color: c.accent),
+                    ],
                   ),
-                ),
-                Expanded(
-                  child: Text(
-                    e.text,
-                    style: TextStyle(fontSize: kUiText, color: e.missing ? c.danger : c.ink),
-                  ),
-                ),
-                if (e.live) Icon(Icons.bolt, size: 15, color: c.accent),
-              ],
-            ),
           ),
       ],
     );

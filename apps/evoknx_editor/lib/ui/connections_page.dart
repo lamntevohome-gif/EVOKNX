@@ -5,14 +5,17 @@ import 'package:knx_config/knx_config.dart';
 import 'package:knx_core/knx_core.dart';
 
 import '../app/theme.dart';
+import '../state/ha_link.dart';
 import '../state/project_controller.dart';
 import 'common.dart';
+import 'ha_connection.dart';
 import 'import_dialog.dart';
 
 /// Kết nối workspace: KNX connections (left) and group addresses (right).
 class ConnectionsPage extends StatelessWidget {
-  const ConnectionsPage({super.key, required this.project});
+  const ConnectionsPage({super.key, required this.project, required this.link});
   final ProjectController project;
+  final HaLinkController link;
 
   @override
   Widget build(BuildContext context) {
@@ -29,7 +32,7 @@ class ConnectionsPage extends StatelessWidget {
               color: c.panel,
               border: Border(right: BorderSide(color: c.line)),
             ),
-            child: _ConnectionList(project: project),
+            child: _ConnectionList(project: project, link: link),
           ),
           Expanded(child: GaTable(project: project)),
         ],
@@ -39,8 +42,9 @@ class ConnectionsPage extends StatelessWidget {
 }
 
 class _ConnectionList extends StatelessWidget {
-  const _ConnectionList({required this.project});
+  const _ConnectionList({required this.project, required this.link});
   final ProjectController project;
+  final HaLinkController link;
 
   void _edit(String id, void Function(Json c) fn, {String? field}) {
     project.mutate((d) {
@@ -66,20 +70,39 @@ class _ConnectionList extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       children: [
         SectionTitle(
-          'KNX connection',
-          trailing: EvoButton(
-            label: 'Add connection',
-            icon: Icons.add,
-            small: true,
-            onPressed: () => project.mutate(
-              (d) => (d['connections'] as List).add({
-                'id': uid('conn_'),
-                'name': 'Connection ${list.length + 1}',
-                'type': 'tunneling',
-                'host': '',
-                'port': 3671,
-                'natMode': true,
-              }),
+          'Connections',
+          trailing: Builder(
+            builder: (ctx) => EvoButton(
+              label: 'Add connection',
+              icon: Icons.add,
+              small: true,
+              onPressed: () async {
+                final box = ctx.findRenderObject() as RenderBox;
+                final at = box.localToGlobal(Offset(0, box.size.height));
+                final added = haAdded(project.doc);
+                final v = await showMenu<String>(
+                  context: ctx,
+                  position: RelativeRect.fromLTRB(at.dx, at.dy, at.dx + 1, at.dy + 1),
+                  items: [
+                    const PopupMenuItem(value: 'knx', child: Text('KNX connection')),
+                    PopupMenuItem(value: 'ha', enabled: !added, child: Text(added ? 'Home Assistant (already added)' : 'Home Assistant')),
+                  ],
+                );
+                if (v == 'knx') {
+                  project.mutate(
+                    (d) => (d['connections'] as List).add({
+                      'id': uid('conn_'),
+                      'name': 'Connection ${list.length + 1}',
+                      'type': 'tunneling',
+                      'host': '',
+                      'port': 3671,
+                      'natMode': true,
+                    }),
+                  );
+                } else if (v == 'ha') {
+                  project.mutate((d) => d['ha'] = {...haSettings(d), 'added': true, 'enabled': true});
+                }
+              },
             ),
           ),
         ),
@@ -181,6 +204,7 @@ class _ConnectionList extends StatelessWidget {
               ],
             ),
           ),
+        if (haAdded(project.doc)) HaConnectionCard(project: project, link: link),
       ],
     );
   }

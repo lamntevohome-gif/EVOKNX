@@ -385,9 +385,10 @@ class _WidgetPropsState extends State<_WidgetProps> {
         if (slotsFor(w).isNotEmpty)
           _Section('', [
             if (canEntity) _SourceSwitch(d: d, w: w),
-            if (haMode)
-              _EntityField(d: d, w: w)
-            else
+            if (haMode) ...[
+              _EntityField(d: d, w: w),
+              if (haDirect(w)) _CommandSection(d: d, w: w),
+            ] else
               for (final sl in slotsFor(w))
                 FieldLabel(
                   '${sl.label}${sl.required ? ' *' : ''}',
@@ -1087,14 +1088,16 @@ class _WidgetPropsState extends State<_WidgetProps> {
         final imgStyle = w['btnStyle'] == 'image';
         return [
           _Section('Push button', [
-            FieldLabel(
-              'Value sent',
-              SyncedField(
-                value: (w['sendValue'] ?? '1').toString(),
-                onChanged: (v) => set('sendValue', v.trim(), coalesce: 'sv-$id'),
+            if (!haDirect(w)) ...[
+              FieldLabel(
+                'Value sent',
+                SyncedField(
+                  value: (w['sendValue'] ?? '1').toString(),
+                  onChanged: (v) => set('sendValue', v.trim(), coalesce: 'sv-$id'),
+                ),
               ),
-            ),
-            _TextSendInfo(d: d, w: w, raw: (w['sendValue'] ?? '1').toString()),
+              _TextSendInfo(d: d, w: w, raw: (w['sendValue'] ?? '1').toString()),
+            ],
             FieldLabel(
               'Display style',
               Seg<String>(
@@ -2808,7 +2811,7 @@ class _MediaSection extends StatelessWidget {
       o[k] = v;
       x['media'] = o;
     }, coalesce: co);
-    // The media players of Home Assistant, when the list was fetched in the Extensions tab.
+    // The media players of Home Assistant, when the list was saved with Update Entity (Connections tab).
     final players = [
       for (final e in d.link?.entities ?? const <HaEntity>[])
         if (e.domain == 'media_player') (e.id, e.name == e.id ? '' : e.name),
@@ -2867,7 +2870,7 @@ class _SourceSwitch extends StatelessWidget {
 }
 
 /// The entity of Home Assistant that a card follows (the HA source), chosen like a KNX address: a list with a search
-/// box. The list is the one saved by "Update Entity" in the Extensions tab, so no connection is needed.
+/// box. The list is the one saved by "Update Entity" in the Connections tab, so no connection is needed.
 class _EntityField extends StatelessWidget {
   const _EntityField({required this.d, required this.w});
   final Designer d;
@@ -2906,8 +2909,78 @@ class _EntityField extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(bottom: 8),
             child: Text(
-              'No entities are saved yet. In the Extensions tab connect to Home Assistant and click Update Entity.',
+              'No entities are saved yet. In the Connections tab, add Home Assistant, connect and click Update Entity.',
               style: TextStyle(fontSize: 12.5, color: c.warn),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// The command that a push button sends to the media player or the remote that it follows, and its parameters. The
+/// commands are those that the entity supports (from the saved list of entities); a box can show all of them.
+class _CommandSection extends StatelessWidget {
+  const _CommandSection({required this.d, required this.w});
+  final Designer d;
+  final Json w;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.evo;
+    final id = w['id'] as String;
+    final entity = cardEntity(w);
+    final domain = entity.split('.').first;
+    final h = jsonMap(w['ha']);
+    final action = (h['action'] ?? '').toString();
+    final params = jsonMap(h['params']);
+    final saved = d.link?.entities?.where((e) => e.id == entity).firstOrNull;
+    final e = saved ?? HaEntity(entity, '', {});
+    final all = haShowAll(w);
+    final cmds = haCommandsFor(e, all: all);
+    final cur = haCommandByKey(domain, action);
+    final items = <(String, String)>[
+      ('', 'Not assigned'),
+      for (final x in cmds) (x.key, x.label),
+      if (cur != null && cmds.every((x) => x.key != cur.key)) (cur.key, cur.label),
+    ];
+    Widget param(HaParam p) {
+      final label = '${p.label}${p.required ? ' *' : ''}';
+      final v = (params[p.field] ?? '').toString();
+      void put(String t) => d.editButtonParam(id, p.field, t.trim());
+      if (p.kind == 'choice') {
+        final now = v.isNotEmpty ? v : (p.initial ?? p.options.first);
+        return FieldLabel(
+          label,
+          EvoDropdown<String>(value: p.options.contains(now) ? now : p.options.first, items: [for (final o in p.options) (o, o)], onChanged: put),
+        );
+      }
+      if (p.kind == 'number' || p.kind == 'int') {
+        return FieldLabel(label, SyncedField(value: v, hint: p.hint, number: true, onChanged: put));
+      }
+      return FieldLabel(label, SuggestField(value: v, hint: p.hint, options: [for (final s in haParamSuggestions(saved, p)) (s, '')], onChanged: put));
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        FieldLabel('Command *', GaPickerField(value: action, items: items, onChanged: (v) => d.pickButtonCommand(id, v))),
+        if (cur != null)
+          for (final p in cur.params) param(p),
+        CheckboxListTile(
+          value: all,
+          onChanged: (v) => d.showAllButtonCommands(id, v ?? false),
+          title: Text('Show all the commands', style: TextStyle(fontSize: 12.5, color: c.muted)),
+          dense: true,
+          controlAffinity: ListTileControlAffinity.leading,
+          contentPadding: EdgeInsets.zero,
+        ),
+        if (saved == null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Text(
+              'This entity is not in the saved list (Update Entity in the Connections tab): all commands are shown and no suggestions are given.',
+              style: TextStyle(fontSize: 12.5, color: c.muted),
             ),
           ),
       ],

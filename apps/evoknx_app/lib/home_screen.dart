@@ -147,6 +147,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     engine.writer = (ga, v) =>
         isHaAddress(ga) ? (ha?.write(ga, v) ?? Future<String?>.value('Home Assistant is not enabled in the project.')) : knx.write(ga, v);
+    engine.haCall = (service, entity, data) => ha?.callRaw(service, entity, data) ?? Future<String?>.value('Home Assistant is not enabled in the project.');
     engine.onMessage = _toast;
     engine.onScene = (w) {
       _popup = showScenePopup(context, w, store.palette);

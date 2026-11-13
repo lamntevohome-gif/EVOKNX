@@ -41,7 +41,7 @@ class Designer extends ChangeNotifier {
   final ProjectController p;
   final BusController? bus;
 
-  /// The connection of the Extensions tab (the list of media players for a media player card).
+  /// The connection of the Connections tab (the list of media players for a media player card).
   final HaLinkController? link;
 
   // test mode
@@ -137,7 +137,7 @@ class Designer extends ChangeNotifier {
   Future<String?> _scriptWrite(Json ga, Object value) async {
     final viaHa = isHaAddress(ga);
     final isLive = live && (viaHa ? _ha?.connected == true : bus?.connected == true);
-    log.insert(0, LogEntry(ga['address'].toString(), 'script: $value', live: isLive));
+    log.insert(0, LogEntry(gaLabel(ga), 'script: $value', live: isLive));
     if (log.length > 60) log.removeRange(60, log.length);
     _n();
     if (!isLive) return null;
@@ -1003,6 +1003,47 @@ class Designer extends ChangeNotifier {
   /// The addresses of the project and those of the cards that follow an entity.
   List<Json> get gasAll => [...jsonList(doc['groupAddresses']), ...cardEnt.gas];
 
+  /// A push button that follows a media player or a remote: the service call is logged and, in Live Mode, sent.
+  void _directButton(Json w) {
+    final call = haButtonCall(w);
+    final label = (w['label'] ?? '').toString();
+    if (call == null) {
+      log.insert(0, LogEntry('—', '$label: ${haButtonProblem(w) ?? 'choose the command.'}', missing: true));
+    } else {
+      final isLive = live && _ha?.connected == true;
+      log.insert(0, LogEntry('${call.entity} · ${call.service.split('.').last}', call.data.isEmpty ? 'sent' : call.data.toString(), live: isLive));
+      if (isLive) {
+        _ha!.callRaw(call.service, call.entity, call.data).then((err) {
+          if (err != null) onMessage?.call(err);
+        });
+      }
+    }
+    if (log.length > 60) log.removeRange(60, log.length);
+  }
+
+  void pickButtonCommand(String widgetId, String key) => p.mutate((doc) {
+    final w = allWidgets(doc).where((x) => x['id'] == widgetId).firstOrNull;
+    if (w != null) setButtonCommand(w, key);
+  });
+
+  void editButtonParam(String widgetId, String field, Object? value) => p.mutate((doc) {
+    final w = allWidgets(doc).where((x) => x['id'] == widgetId).firstOrNull;
+    if (w != null) setButtonParam(w, field, value);
+  }, coalesce: 'bp-$widgetId-$field');
+
+  void showAllButtonCommands(String widgetId, bool v) => p.mutate((doc) {
+    final w = allWidgets(doc).where((x) => x['id'] == widgetId).firstOrNull;
+    if (w != null) setButtonShowAll(w, v);
+  });
+
+  /// How the log names an address: the address itself, or for the one a card got from its entity the entity and the
+  /// role ("light.den_ban · command").
+  String gaLabel(Json ga) {
+    final h = ga['ha'];
+    if (h is Map && h['card'] == true) return '${h['entity']} · ${h['role'] == 'cmd' ? 'command' : 'status'}';
+    return ga['address'].toString();
+  }
+
   /// The card with the addresses that it gets from its entity (the card itself when it follows none).
   Json bound(Json w) {
     final b = cardEnt.binds[w['id']];
@@ -1114,7 +1155,7 @@ class Designer extends ChangeNotifier {
       // Virtual addresses (main group 32) go to Home Assistant, the others to the bus.
       final viaHa = isHaAddress(ga);
       final isLive = live && (viaHa ? _ha?.connected == true : bus?.connected == true);
-      log.insert(0, LogEntry(ga['address'].toString(), text, live: isLive));
+      log.insert(0, LogEntry(gaLabel(ga), text, live: isLive));
       if (isLive) {
         (viaHa ? _ha!.write(ga, value) : bus!.write(ga, value)).then((err) {
           if (err != null) onMessage?.call(err);
@@ -1171,6 +1212,10 @@ class Designer extends ChangeNotifier {
         }
         break;
       case 'button':
+        if (haDirect(w)) {
+          _directButton(w);
+          break;
+        }
         final v = (w['sendValue'] ?? '1').toString();
         send(w, 'write', sendValueOf(w, v, 1), v);
         break;
