@@ -37,7 +37,9 @@ class _HomeScreenState extends State<HomeScreen> {
   HaBridge? ha;
 
   /// "Thư viện phòng": the rooms are chosen from a gallery instead of the room bar.
-  bool get _galleryMode => !_modernMode && jsonMap(doc['theme'])['roomPicker'] == 'gallery';
+  /// The room gallery of the Basic layout is gone: the rooms are always chosen on the room bar (an old project that
+  /// asked for the gallery uses the bar).
+  bool get _galleryMode => false;
 
   /// True while the gallery (and not a room) is shown.
   bool _gallery = true;

@@ -171,7 +171,8 @@ class _Screen extends StatelessWidget {
     final floors = floorsOf(doc);
     final floor = d.floor;
     final theme = jsonMap(doc['theme']);
-    final galleryOn = theme['roomPicker'] == 'gallery' && dev != 'tabletL';
+    // The room gallery of the Basic layout is gone: the rooms are always chosen on the room bar.
+    const galleryOn = false;
     final now = TimeOfDay.now();
     final statusBar = SizedBox(
       height: 38,
@@ -446,8 +447,7 @@ class _Screen extends StatelessWidget {
       padding: EdgeInsets.fromLTRB(18, dev == 'tabletL' ? 10 : 6, 14, 10),
       child: Row(
         children: [
-          // In the gallery style a button returns to the gallery.
-          if (onBack != null || (theme['roomPicker'] == 'gallery' && theme['layout'] != 'modern' && dev != 'tabletL')) ...[
+          if (onBack != null) ...[
             Tooltip(
               message: tr(onBack != null ? 'Back' : 'Room gallery'),
               child: PressFade(

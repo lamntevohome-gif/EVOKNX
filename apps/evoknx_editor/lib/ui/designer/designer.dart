@@ -330,8 +330,8 @@ class Designer extends ChangeNotifier {
     return 'Deleted ${parts.isEmpty ? 'nothing' : parts.join(', ')}.${plan.notes.isEmpty ? '' : ' ${plan.notes.join(' ')}'}';
   }
 
-  /// "Thư viện phòng" is the room picker of the project (theme.roomPicker).
-  bool get galleryOn => jsonMap(doc['theme'])['roomPicker'] == 'gallery';
+  /// The room gallery of the Basic layout is gone: the rooms are always chosen on the room bar.
+  bool get galleryOn => false;
 
   /// The "Modern" layout (Home | Floor | Security) of the project.
   bool get modernOn => jsonMap(doc['theme'])['layout'] == 'modern';

@@ -1782,31 +1782,6 @@ class _OverviewProps extends StatelessWidget {
           _PageBgSettings(holder: theme, edit: editTheme, field: 'bgSecurity', title: 'Security background'),
         ] else
           _Section('Basic layout', [
-            FieldLabel(
-              'Room picker style',
-              Seg<String>(
-                items: const [('bar', 'Room bar'), ('gallery', 'Room gallery')],
-                value: theme['roomPicker'] == 'gallery' ? 'gallery' : 'bar',
-                onChanged: (v) {
-                  editTheme((x) {
-                    if (v == 'gallery') {
-                      x['roomPicker'] = 'gallery';
-                    } else {
-                      x.remove('roomPicker');
-                    }
-                  });
-                  if (v == 'gallery') d.gallery();
-                },
-              ),
-            ),
-            if (theme['roomPicker'] == 'gallery')
-              const Padding(
-                padding: EdgeInsets.only(bottom: 8),
-                child: Hint(
-                  'Room gallery: the App opens with a grid of room cards (cover image, icon, name). Tap a room to enter it; the grid button at the top of the page returns. Choose the cover image in the settings of each room.',
-                ),
-              ),
-            if (theme['roomPicker'] == 'gallery') ...[tfsRow('galleryTitle'), tfsRow('galleryIcon')],
             tfsRow('roomBar'),
             tfsRow('floorBar'),
             tfsRow('crumb'),
