@@ -103,7 +103,7 @@ class FakeHa {
                     'description': 'Brightness in percent.',
                     'required': false,
                     'selector': {
-                      'number': {'min': 0, 'max': 100}
+                      'number': {'min': 0, 'max': 100, 'unit_of_measurement': '%'}
                     },
                     'example': 47
                   },
@@ -526,6 +526,8 @@ Future<void> main() async {
       'service fields: a section is flattened (${on.fields.map((f) => f.key)})');
   final bp = on.fields.firstWhere((f) => f.key == 'brightness_pct');
   check(bp.type == 'number' && bp.sample == 47 && !bp.required && bp.description == 'Brightness in percent.', 'service fields: number with an example');
+  check(bp.min == 0 && bp.max == 100 && bp.unit == '%', 'service fields: range and unit');
+  check(on.fields.firstWhere((f) => f.key == 'flash').options.map((o) => o.$1).join(',') == 'short,long', 'service fields: options of a select');
   check(on.fields.firstWhere((f) => f.key == 'transition').required && on.fields.firstWhere((f) => f.key == 'transition').sample == 0,
       'service fields: required, a number starts at its minimum');
   check(on.fields.firstWhere((f) => f.key == 'flash').sample == 'short' && on.fields.firstWhere((f) => f.key == 'color_name').sample == '',

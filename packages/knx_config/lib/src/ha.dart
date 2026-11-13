@@ -139,7 +139,7 @@ HaAttr? haAttr(String key) {
 
 /// A field (a parameter) of a Home Assistant service, as Home Assistant describes it.
 class HaField {
-  HaField(this.key, {this.name = '', this.description = '', this.required = false, this.type = '', this.example, this.sample});
+  HaField(this.key, {this.name = '', this.description = '', this.required = false, this.type = '', this.example, this.sample, this.selector = const {}});
   final String key, name, description;
   final bool required;
 
@@ -149,6 +149,23 @@ class HaField {
 
   /// A value to start from when the field is added: the default, the example, or one that fits the type.
   final Object? sample;
+
+  /// What the selector says about the value (min, max, unit_of_measurement, options…).
+  final Map<String, dynamic> selector;
+
+  num? get min => selector['min'] is num ? selector['min'] as num : null;
+  num? get max => selector['max'] is num ? selector['max'] as num : null;
+  String get unit => (selector['unit_of_measurement'] ?? '').toString();
+
+  /// The choices of a select: (value, label).
+  List<(String, String)> get options {
+    final o = selector['options'];
+    if (o is! List) return const [];
+    return [
+      for (final x in o)
+        if (x is Map) ((x['value'] ?? '').toString(), (x['label'] ?? x['value'] ?? '').toString()) else (x.toString(), x.toString()),
+    ];
+  }
 
   /// Value of a field of Home Assistant's description (a section with more fields is flattened by the caller).
   factory HaField.fromJson(String key, Map<String, dynamic> m) {
@@ -185,6 +202,7 @@ class HaField {
       type: type,
       example: m['example'],
       sample: sample ?? '',
+      selector: selData,
     );
   }
 }
