@@ -104,7 +104,7 @@ class _ScriptsPageState extends State<ScriptsPage> implements ScriptHost {
     final id = (h['entity'] ?? '').toString();
     if (!widget.link.connected) return 'Connect to Home Assistant first (tab Extensions).';
     final e = widget.link.entities?.where((x) => x.id == id).firstOrNull;
-    if (e == null) return 'press “Get entities” in the tab Extensions so that “$id” is known.';
+    if (e == null) return 'click Update Entity in the tab Extensions so that “$id” is known.';
     final call = haCommand(e, (h['attr'] ?? '').toString(), value);
     if (call == null) return 'this function cannot be written.';
     if (identical(call, HaCall.none)) return null;

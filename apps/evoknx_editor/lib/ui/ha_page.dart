@@ -152,17 +152,23 @@ class _HaPageState extends State<HaPage> {
 
   // ------------------------------------------------------------ entities
 
-  /// The second button: asks Home Assistant for its entities and opens the list to add them.
+  /// "Update Entity": asks Home Assistant for all its entities and saves them on this computer.
+  Future<void> _update() async {
+    final list = await link.updateEntities();
+    if (!mounted) return;
+    toast(context, list == null ? (link.message ?? 'Could not update the entities.') : '${list.length} entities saved.');
+  }
+
+  /// "Create Virtual Address": opens the list of the saved entities to add them (no connection needed).
   Future<void> _pick() async {
-    if (!link.connected) return;
+    final list = link.entities;
+    if (list == null || list.isEmpty) {
+      toast(context, 'No entities are saved yet. Connect and click Update Entity first.');
+      return;
+    }
     if (haRooms(p.doc).isEmpty) {
       await _newRoom();
       if (haRooms(p.doc).isEmpty) return;
-    }
-    final list = await link.fetchEntities();
-    if (list == null) {
-      if (mounted && link.message != null) toast(context, link.message!);
-      return;
     }
     if (!mounted) return;
     await showDialog<void>(
@@ -230,7 +236,7 @@ class _HaPageState extends State<HaPage> {
           final t = ctl.text.trim().toLowerCase();
           final note = known.isEmpty || known.contains(t)
               ? null
-              : 'This ID was not found in the list of Home Assistant entities that was loaded (click "Get entities" to reload). You can still save.';
+              : 'This ID was not found in the list of Home Assistant entities that was loaded (click "Update Entity" to reload). You can still save.';
           return AlertDialog(
             title: const Text('Edit entity'),
             content: SizedBox(
@@ -367,7 +373,9 @@ class _HaPageState extends State<HaPage> {
                           onPressed: link.connecting ? null : _toggleConnection,
                         ),
                         const SizedBox(width: 8),
-                        EvoButton(label: 'Get entities', icon: Icons.download_outlined, onPressed: link.connected ? _pick : null),
+                        EvoButton(label: 'Update Entity', icon: Icons.sync, onPressed: link.connected ? _update : null),
+                        const SizedBox(width: 8),
+                        EvoButton(label: 'Create Virtual Address', icon: Icons.add_link, onPressed: (link.entities ?? const []).isEmpty ? null : _pick),
                       ],
                     ),
                     Padding(padding: const EdgeInsets.only(top: 12), child: _status(c)),

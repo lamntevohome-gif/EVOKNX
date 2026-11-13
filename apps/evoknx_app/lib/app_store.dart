@@ -161,7 +161,11 @@ class AppStore extends ChangeNotifier {
       final f = await _profileFile(id);
       if (!await f.exists()) return null;
       final o = jsonDecode(await f.readAsString());
-      return isProject(o) ? (o as Map).cast<String, dynamic>() : null;
+      if (!isProject(o)) return null;
+      final d = (o as Map).cast<String, dynamic>();
+      // The cards that follow an entity of Home Assistant get their addresses (not stored in the file).
+      applyCardEntities(d);
+      return d;
     } catch (_) {
       return null;
     }
@@ -255,6 +259,7 @@ class AppStore extends ChangeNotifier {
 
   void _activate(Profile pf, Json doc, {bool fresh = false}) {
     activeId = pf.id;
+    applyCardEntities(doc);
     config = doc;
     configVersion++;
     unlocked.clear();

@@ -36,6 +36,7 @@ class LogEntry {
 class Designer extends ChangeNotifier {
   Designer(this.p, [this.bus, this.link]) {
     bus?.valueListeners.add(_onBusValue);
+    p.addListener(_forgetCardEnt);
   }
   final ProjectController p;
   final BusController? bus;
@@ -990,6 +991,29 @@ class Designer extends ChangeNotifier {
 
   late final MediaHost _mediaHostObj = _DesignerMediaHost(this);
 
+  // ---- cards that follow an entity of Home Assistant
+
+  CardEntities? _ce;
+
+  void _forgetCardEnt() => _ce = null;
+
+  /// The addresses that the cards that follow an entity get (made here, not stored in the project).
+  CardEntities get cardEnt => _ce ??= cardEntities(doc);
+
+  /// The addresses of the project and those of the cards that follow an entity.
+  List<Json> get gasAll => [...jsonList(doc['groupAddresses']), ...cardEnt.gas];
+
+  /// The card with the addresses that it gets from its entity (the card itself when it follows none).
+  Json bound(Json w) {
+    final b = cardEnt.binds[w['id']];
+    return b == null
+        ? w
+        : {
+            ...w,
+            'bind': {...jsonMap(w['bind']), ...b},
+          };
+  }
+
   /// The source of the address fields of a card that can take an entity: 'knx' (its own addresses; the entity is
   /// forgotten) or 'ha' (an entity of Home Assistant, chosen next; the KNX addresses are forgotten). Nothing of the
   /// other side is kept.
@@ -998,39 +1022,41 @@ class Designer extends ChangeNotifier {
     if (w0 == null || cardIsHa(w0) == (source == 'ha')) return;
     p.mutate((doc) {
       final w = allWidgets(doc).where((x) => x['id'] == widgetId).firstOrNull;
-      if (w != null) switchCardSource(doc, w, source);
+      if (w != null) switchCardSource(w, source);
     });
   }
 
-  /// Makes a card follow an entity of Home Assistant (its addresses are added to the Extensions tab when they are
-  /// not there yet and the address fields of the card are filled); an empty text makes it forget the entity.
-  /// An error text, or null.
-  String? setCardEntity(String widgetId, String entity) {
-    String? err;
+  /// Makes a card follow an entity of Home Assistant directly (nothing is added to the project); an empty text makes
+  /// it forget the entity. An error text, or null.
+  String? chooseCardEntity(String widgetId, String entity) {
+    final w0 = allWidgets(p.doc).where((x) => x['id'] == widgetId).firstOrNull;
+    if (w0 == null) return null;
+    final empty = entity.trim().isEmpty;
+    final err = empty ? null : cardEntityProblem(w0, entity);
+    if (err != null) return err;
     p.mutate((doc) {
       final w = allWidgets(doc).where((x) => x['id'] == widgetId).firstOrNull;
       if (w == null) return;
-      if (entity.trim().isEmpty) {
-        unbindCardEntity(doc, w);
-        return;
+      if (empty) {
+        w.remove('ha');
+      } else {
+        setCardEntity(w, entity);
       }
-      final known = link?.entities?.where((e) => e.id == entity.trim()).firstOrNull;
-      err = bindCardEntity(doc, w, (room?['title'] ?? '').toString(), entity, known: known);
     });
-    return err;
+    return null;
   }
 
   /// The media player cards show the real player in Live Mode (Home Assistant connected), an example otherwise.
   MediaHost? get mediaHost => live && _ha?.connected == true ? _mediaHostObj : null;
   HaConnection? get haState => _ha?.state;
-  bool get usesHa => haAddresses(doc).isNotEmpty;
+  bool get usesHa => haAddresses({'groupAddresses': gasAll}).isNotEmpty;
 
   void setLive(bool v) {
     live = v;
     _ha?.stop();
     _ha = null;
     if (v) {
-      final cfg = haSettings(doc), gas = haAddresses(doc);
+      final cfg = haSettings(doc), gas = haAddresses({'groupAddresses': gasAll});
       final url = (cfg['url'] ?? '').toString().trim(), token = (cfg['token'] ?? '').toString().trim();
       if (cfg['enabled'] == true && url.isNotEmpty && token.isNotEmpty && haNeeded(doc)) {
         final b = HaBridge(url: url, token: token, addresses: gas);
@@ -1072,14 +1098,14 @@ class Designer extends ChangeNotifier {
   /// What a push button or a scene writes: the text of "Value sent" when its address is a text address
   /// (DPT 16), otherwise a number.
   Object sendValueOf(Json w, String raw, num fallback) {
-    final ga = byId(jsonList(doc['groupAddresses']), jsonMap(w['bind'])['write'] as String?);
+    final ga = byId(gasAll, jsonMap(bound(w)['bind'])['write'] as String?);
     if ((ga?['dpt'] ?? '').toString().startsWith('16')) return raw;
     return num.tryParse(raw.replaceAll(',', '.')) ?? fallback;
   }
 
   void send(Json w, String slot, Object value, String text) {
-    final gid = jsonMap(w['bind'])[slot] as String?;
-    final ga = byId(jsonList(doc['groupAddresses']), gid);
+    final gid = jsonMap(bound(w)['bind'])[slot] as String?;
+    final ga = byId(gasAll, gid);
     final label = (w['label'] ?? '').toString();
     if (ga == null) {
       final sl = slotsFor(w).where((s) => s.key == slot);
@@ -1242,7 +1268,7 @@ class Designer extends ChangeNotifier {
   void _onBusValue(String address, Object? value) {
     if (value == null) return;
     String? gid;
-    for (final g in jsonList(doc['groupAddresses'])) {
+    for (final g in gasAll) {
       if (g['address'] == address) gid = g['id'] as String?;
     }
     if (gid == null) return;
@@ -1256,7 +1282,7 @@ class Designer extends ChangeNotifier {
           if (w['type'] == 'group') ws.addAll(jsonList(w['widgets']));
         }
         for (final w in ws) {
-          jsonMap(w['bind']).forEach((k, id) {
+          jsonMap(bound(w)['bind']).forEach((k, id) {
             if (id != gid) return;
             hit = true;
             final s = st(w['id'] as String);
@@ -1319,6 +1345,7 @@ class Designer extends ChangeNotifier {
     _popupTimer?.cancel();
     _ha?.stop();
     bus?.valueListeners.remove(_onBusValue);
+    p.removeListener(_forgetCardEnt);
     super.dispose();
   }
 }

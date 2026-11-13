@@ -2839,7 +2839,7 @@ class _MediaSection extends StatelessWidget {
   }
 }
 
-/// The two buttons KNX and HA above the address fields of a card that can take an entity.
+/// The two separate buttons KNX and HA above the address fields of a card that can take an entity.
 class _SourceSwitch extends StatelessWidget {
   const _SourceSwitch({required this.d, required this.w});
   final Designer d;
@@ -2848,15 +2848,26 @@ class _SourceSwitch extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final id = w['id'] as String;
-    final ha = cardEntity(w).isNotEmpty || w['source'] == 'ha';
+    final ha = cardIsHa(w);
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
-      child: Seg<String>(items: const [('knx', 'KNX'), ('ha', 'HA')], value: ha ? 'ha' : 'knx', onChanged: (v) => d.setCardSource(id, v)),
+      child: Row(
+        children: [
+          Expanded(
+            child: EvoButton(label: 'KNX', primary: !ha, onPressed: () => d.setCardSource(id, 'knx')),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: EvoButton(label: 'HA', primary: ha, onPressed: () => d.setCardSource(id, 'ha')),
+          ),
+        ],
+      ),
     );
   }
 }
 
-/// The entity of Home Assistant that a card follows (the HA source): the card then uses the addresses of the entity.
+/// The entity of Home Assistant that a card follows (the HA source), chosen like a KNX address: a list with a search
+/// box. The list is the one saved by "Update Entity" in the Extensions tab, so no connection is needed.
 class _EntityField extends StatelessWidget {
   const _EntityField({required this.d, required this.w});
   final Designer d;
@@ -2868,41 +2879,35 @@ class _EntityField extends StatelessWidget {
     final id = w['id'] as String;
     final def = kCardEntity[(w['type'] ?? '').toString()]!;
     final entity = cardEntity(w);
-    final options = [
+    final list = [
       for (final e in d.link?.entities ?? const <HaEntity>[])
-        if (def.domains.contains(e.domain)) (e.id, e.name == e.id ? '' : e.name),
-    ]..sort((a, b) => a.$1.compareTo(b.$1));
-    final gas = jsonList(d.doc['groupAddresses']);
-    final bind = jsonMap(w['bind']);
-    final used = [
-      for (final e in def.slots.entries)
-        if (byId(gas, bind[e.key]?.toString()) != null) '${byId(gas, bind[e.key]?.toString())!['address']} (${e.value == 'cmd' ? 'command' : 'status'})',
+        if (def.domains.contains(e.domain)) e,
+    ]..sort((a, b) => a.id.compareTo(b.id));
+    final items = <(String, String)>[
+      ('', 'Not assigned'),
+      for (final e in list) (e.id, e.name == e.id ? e.id : '${e.id}   ${e.name}'),
+      if (entity.isNotEmpty && list.every((e) => e.id != entity)) (entity, entity),
     ];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         FieldLabel(
-          'Entity',
-          SuggestField(
+          'Entity *',
+          GaPickerField(
             value: entity,
-            hint: 'light.living_room',
-            options: options,
-            onChanged: (_) {},
-            onCommit: (v) {
-              if (v == entity) return;
-              final err = d.setCardEntity(id, v);
+            items: items,
+            onChanged: (v) {
+              final err = d.chooseCardEntity(id, v);
               if (err != null) toast(context, err);
             },
           ),
         ),
-        if (entity.isNotEmpty)
+        if (list.isEmpty)
           Padding(
             padding: const EdgeInsets.only(bottom: 8),
             child: Text(
-              used.isEmpty
-                  ? 'The card follows this entity; its addresses are in the Extensions tab.'
-                  : 'Addresses (made in the Extensions tab): ${used.join(' · ')}',
-              style: TextStyle(fontSize: 12.5, color: c.muted),
+              'No entities are saved yet. In the Extensions tab connect to Home Assistant and click Update Entity.',
+              style: TextStyle(fontSize: 12.5, color: c.warn),
             ),
           ),
       ],

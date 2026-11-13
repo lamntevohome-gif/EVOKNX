@@ -948,9 +948,9 @@ class _GridAreaState extends State<_GridArea> {
               : w['type'] == 'media'
               ? MediaCard(w: w, pal: pal, host: d.mediaHost)
               : TileView(
-                  w: w,
+                  w: d.bound(w),
                   pal: pal,
-                  gas: gas,
+                  gas: d.gasAll,
                   sim: d.sim[id] ?? const {},
                   selected: selected,
                   flagged: flagged,

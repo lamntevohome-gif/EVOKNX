@@ -1,12 +1,19 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:knx_config/knx_config.dart';
+import 'package:path_provider/path_provider.dart';
 
 /// The Editor's own connection to Home Assistant (tab "Mở rộng"): opened and
 /// closed by the user like the KNX bus, closed by itself when the Editor is
 /// closed. It is used to list the entities of Home Assistant.
 class HaLinkController extends ChangeNotifier {
+  HaLinkController() {
+    unawaited(_loadSaved());
+  }
+
   HaSession? _s;
   HaConnection state = HaConnection.disconnected;
 
@@ -14,8 +21,11 @@ class HaLinkController extends ChangeNotifier {
   String? message;
   String? version;
 
-  /// The entities of the last "Get entities".
+  /// The entities saved by "Update Entity" (kept on this computer, so they can be chosen without a connection).
   List<HaEntity>? entities;
+
+  /// When the entities were last updated.
+  DateTime? entitiesAt;
 
   /// The services of Home Assistant with their fields (domain → service), loaded when the connection is made.
   Map<String, Map<String, HaService>>? serviceInfo;
@@ -87,6 +97,50 @@ class HaLinkController extends ChangeNotifier {
     _s = null;
     if (s != null) await s.close();
     if (state != HaConnection.disconnected) _set(HaConnection.disconnected);
+  }
+
+  Future<File> _savedFile() async {
+    final d = await getApplicationSupportDirectory();
+    return File('${d.path}${Platform.pathSeparator}ha_entities.json');
+  }
+
+  Future<void> _loadSaved() async {
+    try {
+      final f = await _savedFile();
+      if (!await f.exists()) return;
+      final o = jsonDecode(await f.readAsString());
+      if (o is! Map || o['entities'] is! List) return;
+      entities = [
+        for (final e in o['entities'] as List)
+          if (e is Map) HaEntity.fromJson(Map<String, dynamic>.from(e)),
+      ];
+      entitiesAt = DateTime.tryParse('${o['savedAt']}');
+      notifyListeners();
+    } catch (_) {}
+  }
+
+  Future<void> _save(List<HaEntity> list) async {
+    try {
+      final f = await _savedFile();
+      await f.parent.create(recursive: true);
+      await f.writeAsString(
+        jsonEncode({
+          'savedAt': DateTime.now().toIso8601String(),
+          'entities': [for (final e in list) e.toJson()],
+        }),
+      );
+    } catch (_) {}
+  }
+
+  /// "Update Entity": asks Home Assistant for all its entities and saves them. Null (with [message]) on failure.
+  Future<List<HaEntity>?> updateEntities() async {
+    final list = await fetchEntities();
+    if (list != null) {
+      entitiesAt = DateTime.now();
+      await _save(list);
+      notifyListeners();
+    }
+    return list;
   }
 
   /// Asks Home Assistant for all its entities. Null (with [message]) on failure.
