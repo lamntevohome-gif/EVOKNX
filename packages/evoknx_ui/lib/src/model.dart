@@ -343,6 +343,11 @@ List<Issue> computeIssues(Json d) {
         if (w['type'] == 'camera' && (jsonMap(w['cam'])['host'] ?? '').toString().trim().isEmpty) {
           out.add(Issue(true, '$where$name has no camera IP address yet.', roomId: r['id'], subId: s['id'], widgetId: w['id']));
         }
+        if (cardEntity(w).isNotEmpty && jsonMap(d['ha'])['enabled'] != true) {
+          out.add(
+            Issue(false, '$where$name follows an entity but Home Assistant is not enabled in the project.', roomId: r['id'], subId: s['id'], widgetId: w['id']),
+          );
+        }
         if (w['type'] == 'media' && (jsonMap(w['media'])['entity'] ?? '').toString().trim().isEmpty) {
           out.add(Issue(true, '$where$name has no media player chosen yet.', roomId: r['id'], subId: s['id'], widgetId: w['id']));
         }

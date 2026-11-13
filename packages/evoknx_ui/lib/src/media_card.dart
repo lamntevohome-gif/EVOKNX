@@ -204,14 +204,21 @@ class _MediaCardState extends State<MediaCard> {
     final canSeek = !demo && m.supports(HaMedia.featSeek) && dur != null;
     final playing = m.playing;
 
-    Widget btn(IconData icon, VoidCallback? onTap, {double size = 26, bool main = false}) => InkResponse(
-      onTap: demo ? null : onTap,
-      radius: size,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-        child: Icon(icon, size: size, color: onTap == null && !demo ? pal.line : (main ? pal.accent : pal.ink)),
-      ),
-    );
+    // On a narrow card the buttons are smaller and closer, and the volume slider takes what is left.
+    final infoW = wide - (showCover ? cover + 12 : 0);
+    final compact = infoW < 300;
+    final pad = compact ? 3.0 : 6.0;
+    Widget btn(IconData icon, VoidCallback? onTap, {double? size, bool main = false}) {
+      final z = size ?? (compact ? 22.0 : 26.0);
+      return InkResponse(
+        onTap: demo ? null : onTap,
+        radius: z,
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: pad, vertical: 2),
+          child: Icon(icon, size: z, color: onTap == null && !demo ? pal.line : (main ? pal.accent : pal.ink)),
+        ),
+      );
+    }
 
     final title = Text(
       m.title.isNotEmpty ? m.title : (m.off ? 'Off' : (m.available ? 'Nothing playing' : 'Unavailable')),
@@ -277,33 +284,47 @@ class _MediaCardState extends State<MediaCard> {
             children: [
               if (showControls) ...[
                 if (m.supports(HaMedia.featPrevious)) btn(Icons.skip_previous, () => _call('media_previous_track', {})),
-                btn(playing ? Icons.pause_circle : Icons.play_circle, () => _call(playing ? 'media_pause' : 'media_play', {}), size: 34, main: true),
+                btn(
+                  playing ? Icons.pause_circle : Icons.play_circle,
+                  () => _call(playing ? 'media_pause' : 'media_play', {}),
+                  size: compact ? 30 : 34,
+                  main: true,
+                ),
                 if (m.supports(HaMedia.featNext)) btn(Icons.skip_next, () => _call('media_next_track', {})),
               ],
-              if (showVolume) ...[
-                const Spacer(),
-                btn(
-                  m.muted || (m.volume ?? 1) == 0 ? Icons.volume_off : Icons.volume_up,
-                  m.supports(HaMedia.featVolumeMute) ? () => _call('volume_mute', {'is_volume_muted': !m.muted}) : null,
-                  size: 20,
-                ),
-                SizedBox(
-                  width: 96,
-                  child: SliderTheme(
-                    data: thin,
-                    child: Slider(
-                      value: (_vol ?? m.volume ?? 0).clamp(0.0, 1.0).toDouble(),
-                      onChanged: demo ? null : (v) => setState(() => _vol = v),
-                      onChangeEnd: demo
-                          ? null
-                          : (v) {
-                              setState(() => _vol = null);
-                              _call('volume_set', {'volume_level': double.parse(v.toStringAsFixed(2))});
-                            },
+              if (showVolume)
+                Expanded(
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 170),
+                      child: Row(
+                        children: [
+                          btn(
+                            m.muted || (m.volume ?? 1) == 0 ? Icons.volume_off : Icons.volume_up,
+                            m.supports(HaMedia.featVolumeMute) ? () => _call('volume_mute', {'is_volume_muted': !m.muted}) : null,
+                            size: compact ? 18 : 20,
+                          ),
+                          Expanded(
+                            child: SliderTheme(
+                              data: thin,
+                              child: Slider(
+                                value: (_vol ?? m.volume ?? 0).clamp(0.0, 1.0).toDouble(),
+                                onChanged: demo ? null : (v) => setState(() => _vol = v),
+                                onChangeEnd: demo
+                                    ? null
+                                    : (v) {
+                                        setState(() => _vol = null);
+                                        _call('volume_set', {'volume_level': double.parse(v.toStringAsFixed(2))});
+                                      },
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ],
             ],
           ),
         ],
@@ -331,6 +352,6 @@ class _MediaCardState extends State<MediaCard> {
 
   Widget _noCover(double size) => ColoredBox(
     color: widget.pal.panel,
-    child: Center(child: iconWidget('music', size * 0.45, widget.pal.muted)),
+    child: Center(child: iconWidget('mdi:music', size * 0.45, widget.pal.muted)),
   );
 }

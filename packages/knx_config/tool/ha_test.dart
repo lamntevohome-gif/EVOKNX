@@ -41,6 +41,11 @@ class FakeHa {
         'sound_mode_list': ['Movie', 'Music']
       }
     },
+    'media_player.nows': {
+      'entity_id': 'media_player.nows',
+      'state': 'playing',
+      'attributes': {'friendly_name': 'No thumbnail command', 'entity_picture': '/api/media_player_proxy/media_player.nows?token=x&cache=1'}
+    },
     'cover.rem1': {
       'entity_id': 'cover.rem1',
       'state': 'open',
@@ -66,7 +71,21 @@ class FakeHa {
   Future<void> start() async {
     server = await HttpServer.bind('127.0.0.1', 0);
     server.listen((req) async {
-      if (req.uri.path == '/api/websocket') _serve(await WebSocketTransformer.upgrade(req));
+      if (req.uri.path == '/api/websocket') {
+        _serve(await WebSocketTransformer.upgrade(req));
+      } else if (req.uri.path.startsWith('/api/media_player_proxy/')) {
+        // The picture of a player: with the login of Home Assistant, or with the token of the address.
+        final good = req.headers.value('authorization') == 'Bearer $token' || req.uri.queryParameters['token'] == 'x';
+        if (good) {
+          req.response.add([9, 8, 7]);
+        } else {
+          req.response.statusCode = 401;
+        }
+        await req.response.close();
+      } else {
+        req.response.statusCode = 404;
+        await req.response.close();
+      }
     });
   }
 
@@ -92,6 +111,15 @@ class FakeHa {
       void ok([Object? result]) => ws.add(jsonEncode({'id': id, 'type': 'result', 'success': true, 'result': result}));
       switch (m['type']) {
         case 'media_player_thumbnail':
+          if (m['entity_id'] == 'media_player.nows' || !(m['entity_id'] as String).startsWith('media_player.')) {
+            ws.add(jsonEncode({
+              'id': id,
+              'type': 'result',
+              'success': false,
+              'error': {'code': 'unknown_command', 'message': 'Unknown command.'}
+            }));
+            break;
+          }
           ok({
             'content_type': 'image/png',
             'content': base64Encode([1, 2, 3, 4])
@@ -330,6 +358,53 @@ Future<void> main() async {
   check(haKind(tv) == 5 && haSuggest(tv).map((a) => a.key).join(',') == 'onoff,playpause,mstop,prev,next,volume,mute,playing',
       'media player: kind 5 and its functions');
   addHaEntity(doc, tv, ['onoff', 'playpause', 'volume', 'mute', 'playing'], roomId: room1['id'] as String);
+  // ---- a card takes an entity of Home Assistant
+  final cdoc = newProject('c');
+  final cw = makeWidget('switch', 0, 0);
+  check(bindCardEntity(cdoc, cw, 'Living', 'light.den1') == null, 'card entity: a switch takes a light');
+  final cb = jsonMap(cw['bind']);
+  final cgas = jsonList(cdoc['groupAddresses']);
+  check(cb['write'] != null && cb['status'] != null && cgas.length == 2 && cgas.every((g) => g['ha'] is Map),
+      'card entity: a command and a status address are made and bound');
+  check(haRooms(cdoc).length == 1 && haRooms(cdoc).first['name'] == 'Living' && cardEntity(cw) == 'light.den1',
+      'card entity: the room of Extensions is made, the card keeps the entity');
+  final cw2 = makeWidget('switch', 0, 0);
+  check(
+      bindCardEntity(cdoc, cw2, 'Other', 'light.den1') == null &&
+          jsonList(cdoc['groupAddresses']).length == 2 &&
+          jsonMap(cw2['bind'])['write'] == cb['write'] &&
+          haRooms(cdoc).length == 1,
+      'card entity: a second card reuses the addresses and the room of the entity');
+  check(bindCardEntity(cdoc, makeWidget('switch', 0, 0), 'x', 'sensor.t') != null && bindCardEntity(cdoc, makeWidget('switch', 0, 0), 'x', 'oops') != null,
+      'card entity: a sensor does not fit a switch; a wrong name is refused');
+  final cv = makeWidget('value', 0, 0);
+  check(bindCardEntity(cdoc, cv, 'Living', 'sensor.temp') == null && jsonMap(cv['bind'])['status'] != null, 'card entity: a value card takes a sensor');
+  final cs = makeWidget('scene', 0, 0);
+  check(bindCardEntity(cdoc, cs, 'Living', 'scene.movie') == null && jsonMap(cs['bind'])['write'] != null && jsonMap(cs['bind'])['status'] == null,
+      'card entity: a scene card takes a scene (command only)');
+  check(
+      bindCardEntity(cdoc, cw, 'Living', 'script.night') == null &&
+          jsonMap(cw['bind'])['write'] != null &&
+          jsonMap(cw['bind'])['status'] == null &&
+          cardEntity(cw) == 'script.night',
+      'card entity: another entity replaces the old one (a script has no status)');
+  final sw = makeWidget('switch', 0, 0);
+  sw['bind'] = {'write': 'ga_x', 'status': 'ga_y'};
+  check(switchCardSource(cdoc, sw, 'ha') && jsonMap(sw['bind']).isEmpty && cardIsHa(sw) && sw['source'] == 'ha',
+      'card source: HA forgets the KNX addresses at once');
+  check(!switchCardSource(cdoc, sw, 'ha'), 'card source: nothing changes when the source is the same');
+  check(
+      bindCardEntity(cdoc, sw, 'Living', 'light.den1') == null &&
+          switchCardSource(cdoc, sw, 'knx') &&
+          cardEntity(sw).isEmpty &&
+          jsonMap(sw['bind']).isEmpty &&
+          sw['source'] == null &&
+          !cardIsHa(sw),
+      'card source: KNX forgets the entity and its addresses');
+  unbindCardEntity(cdoc, cw);
+  check(cw['ha'] == null && jsonMap(cw['bind']).isEmpty && jsonList(cdoc['groupAddresses']).length >= 5,
+      'card entity: forgetting the entity empties the fields and keeps the addresses');
+
   // ---- the media player card
   final mpm = HaMedia(HaEntity('media_player.sonos', 'playing', {
     'media_title': 'Song',
@@ -576,7 +651,7 @@ Future<void> main() async {
     check(e.message.contains('token'), 'connect: wrong token is refused (${e.message})');
   }
   final r = await haFetchEntities(url, 'tok');
-  check(r.version == '2025.1.0' && r.entities.length == 6, 'connect: version and ${r.entities.length} entities');
+  check(r.version == '2025.1.0' && r.entities.length == 7, 'connect: version and ${r.entities.length} entities');
   // The services (for the suggestions of a script)
   final sess = await HaSession.open(url, 'tok');
   final svc = await sess.getServices();
@@ -643,6 +718,11 @@ Future<void> main() async {
   check(await bridge.write(ga(addr('media_player.avr', 'srctext', 'cmd')), 'HDMI 2') == null, 'bridge: write a text source');
   check(
       ha.calls.last['service'] == 'select_source' && (ha.calls.last['service_data'] as Map)['source'] == 'HDMI 2', 'bridge: sent select_source with the text');
+  final cv1 = await bridge.thumbnail('media_player.avr');
+  check(cv1 != null && cv1.join(',') == '1,2,3,4', 'bridge: the cover comes by WebSocket ($cv1)');
+  final cv2 = await bridge.thumbnail('media_player.nows');
+  check(cv2 != null && cv2.join(',') == '9,8,7', 'bridge: the cover comes over HTTP when the WebSocket command fails ($cv2)');
+  check(await bridge.thumbnail('light.den1') == null, 'bridge: no cover for an entity without a picture');
   check(await bridge.write(ga(addr('light.den1', 'brightness', 'cmd')), 40) == null, 'bridge: write brightness 40');
   check(await waitFor(() => got[addr('light.den1', 'brightness', 'status')] == 40), 'bridge: brightness status 40 %');
   check(await bridge.write(ga(addr('cover.rem1', 'position', 'cmd')), 30) == null, 'bridge: write cover position 30 %');

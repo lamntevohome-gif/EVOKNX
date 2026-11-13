@@ -1082,15 +1082,28 @@ class HaBridge {
   /// Every entity whose state changes (and all of them when the connection is made), for the cards that show one.
   Stream<HaEntity> get entityChanges => _changes.stream;
 
-  /// The cover image of a media player, or null.
+  /// The cover image of a media player, or null. First the WebSocket command of Home Assistant; when the version of
+  /// Home Assistant does not have it (or it gives nothing) the picture of the entity is fetched over HTTP.
   Future<Uint8List?> thumbnail(String entityId) async {
     final s = _session;
     if (s == null || !connected) return null;
     try {
-      return await s.getThumbnail(entityId);
-    } catch (_) {
-      return null;
+      final b = await s.getThumbnail(entityId);
+      if (b != null && b.isNotEmpty) return b;
+    } catch (_) {}
+    final e = _entities[entityId];
+    if (e == null) return null;
+    final base = haHttpUri(url, '/');
+    for (final k in const ['entity_picture_local', 'entity_picture']) {
+      final pic = (e.attributes[k] ?? '').toString().trim();
+      if (pic.isEmpty) continue;
+      final u = pic.startsWith('http') ? Uri.tryParse(pic) : haHttpUri(url, pic);
+      if (u == null) continue;
+      // The token of Home Assistant only goes to Home Assistant.
+      final b = await haFetchImage(u, token: u.host == base.host && u.port == base.port ? token : null);
+      if (b != null) return b;
     }
+    return null;
   }
 
   Future<void> start() async {
@@ -1192,5 +1205,36 @@ class HaBridge {
     _session = null;
     await s?.close();
     _set(HaConnection.disconnected);
+  }
+}
+
+/// An address of Home Assistant over HTTP (for example "/api/media_player_proxy/…"), made from the address that is
+/// set in the project.
+Uri haHttpUri(String url, String path) {
+  final ws = Uri.parse(haWebSocketUrl(url));
+  return Uri(scheme: ws.scheme == 'wss' ? 'https' : 'http', host: ws.host, port: ws.hasPort ? ws.port : null).resolve(path);
+}
+
+/// Downloads an image (at most 6 MB). With a [token] it is sent as the login of Home Assistant. Null when it fails.
+Future<Uint8List?> haFetchImage(Uri uri, {String? token}) async {
+  final client = HttpClient()
+    ..connectionTimeout = const Duration(seconds: 8)
+    ..badCertificateCallback = (_, __, ___) => true;
+  try {
+    final req = await client.getUrl(uri).timeout(const Duration(seconds: 10));
+    if (token != null) req.headers.set('Authorization', 'Bearer $token');
+    final res = await req.close().timeout(const Duration(seconds: 10));
+    if (res.statusCode != 200) return null;
+    final out = BytesBuilder(copy: false);
+    await for (final chunk in res.timeout(const Duration(seconds: 15))) {
+      out.add(chunk);
+      if (out.length > 6 * 1024 * 1024) return null;
+    }
+    final b = out.takeBytes();
+    return b.isEmpty ? null : b;
+  } catch (_) {
+    return null;
+  } finally {
+    client.close(force: true);
   }
 }

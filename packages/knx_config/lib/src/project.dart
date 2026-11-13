@@ -76,7 +76,7 @@ const Map<String, WidgetTypeDef> kWidgetTypes = {
     SlotDef('modeSt', 'Mode status', [20, 5]),
   ]),
   'camera': WidgetTypeDef('camera', 'Camera', 'camera', 2, 2, []),
-  'media': WidgetTypeDef('media', 'Media player', 'music', 4, 2, []),
+  'media': WidgetTypeDef('media', 'Media player', 'mdi:music', 4, 2, []),
   'group': WidgetTypeDef('group', 'Grid frame', 'layout', 2, 2, []),
 };
 
