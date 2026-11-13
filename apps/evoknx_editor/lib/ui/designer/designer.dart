@@ -990,6 +990,36 @@ class Designer extends ChangeNotifier {
 
   late final MediaHost _mediaHostObj = _DesignerMediaHost(this);
 
+  /// The source of the address fields of a card that can take an entity: 'knx' (its own addresses; the entity is
+  /// forgotten) or 'ha' (an entity of Home Assistant, chosen next; the KNX addresses are forgotten). Nothing of the
+  /// other side is kept.
+  void setCardSource(String widgetId, String source) {
+    final w0 = allWidgets(p.doc).where((x) => x['id'] == widgetId).firstOrNull;
+    if (w0 == null || cardIsHa(w0) == (source == 'ha')) return;
+    p.mutate((doc) {
+      final w = allWidgets(doc).where((x) => x['id'] == widgetId).firstOrNull;
+      if (w != null) switchCardSource(doc, w, source);
+    });
+  }
+
+  /// Makes a card follow an entity of Home Assistant (its addresses are added to the Extensions tab when they are
+  /// not there yet and the address fields of the card are filled); an empty text makes it forget the entity.
+  /// An error text, or null.
+  String? setCardEntity(String widgetId, String entity) {
+    String? err;
+    p.mutate((doc) {
+      final w = allWidgets(doc).where((x) => x['id'] == widgetId).firstOrNull;
+      if (w == null) return;
+      if (entity.trim().isEmpty) {
+        unbindCardEntity(doc, w);
+        return;
+      }
+      final known = link?.entities?.where((e) => e.id == entity.trim()).firstOrNull;
+      err = bindCardEntity(doc, w, (room?['title'] ?? '').toString(), entity, known: known);
+    });
+    return err;
+  }
+
   /// The media player cards show the real player in Live Mode (Home Assistant connected), an example otherwise.
   MediaHost? get mediaHost => live && _ha?.connected == true ? _mediaHostObj : null;
   HaConnection? get haState => _ha?.state;

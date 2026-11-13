@@ -263,6 +263,9 @@ class _WidgetPropsState extends State<_WidgetProps> {
     final maxCols = box == null ? 4 : cols(box);
     final inGroup = box != null && box['type'] == 'group';
     final maxH = type == 'group' || type == 'webview' ? (box == null ? 12 : rows(box)) : min(6, box == null ? 12 : rows(box));
+    final canEntity = kCardEntity.containsKey(type);
+    // A card that takes an entity has two sources for its address fields: KNX (its own addresses) or HA (an entity).
+    final haMode = canEntity && (cardEntity(w).isNotEmpty || w['source'] == 'ha');
     final text = jsonMap(w['text']);
     final gas = jsonList(d.doc['groupAddresses']);
     final bind = jsonMap(w['bind']);
@@ -381,30 +384,34 @@ class _WidgetPropsState extends State<_WidgetProps> {
         ]),
         if (slotsFor(w).isNotEmpty)
           _Section('', [
-            for (final sl in slotsFor(w))
-              FieldLabel(
-                '${sl.label}${sl.required ? ' *' : ''}',
-                GaPickerField(
-                  value: (bind[sl.key] ?? '').toString(),
-                  items: [
-                    ('', 'Not assigned'),
-                    for (final g
-                        in (gas.where((g) => slotAccepts(sl, g) || g['id'] == bind[sl.key]).toList()
-                          ..sort((a, b) => gaSortKey(a['address'].toString()).compareTo(gaSortKey(b['address'].toString())))))
-                      (g['id'].toString(), '${g['address']}   ${g['name']}'),
-                    if (bind[sl.key] != null && byId(gas, bind[sl.key] as String) == null) (bind[sl.key].toString(), 'The address was deleted'),
-                  ],
-                  onChanged: (v) => d.editWidget(id, (o) {
-                    final b = jsonMap(o['bind']);
-                    if (v.isEmpty) {
-                      b.remove(sl.key);
-                    } else {
-                      b[sl.key] = v;
-                    }
-                    o['bind'] = b;
-                  }),
+            if (canEntity) _SourceSwitch(d: d, w: w),
+            if (haMode)
+              _EntityField(d: d, w: w)
+            else
+              for (final sl in slotsFor(w))
+                FieldLabel(
+                  '${sl.label}${sl.required ? ' *' : ''}',
+                  GaPickerField(
+                    value: (bind[sl.key] ?? '').toString(),
+                    items: [
+                      ('', 'Not assigned'),
+                      for (final g
+                          in (gas.where((g) => slotAccepts(sl, g) || g['id'] == bind[sl.key]).toList()
+                            ..sort((a, b) => gaSortKey(a['address'].toString()).compareTo(gaSortKey(b['address'].toString())))))
+                        (g['id'].toString(), '${g['address']}   ${g['name']}'),
+                      if (bind[sl.key] != null && byId(gas, bind[sl.key] as String) == null) (bind[sl.key].toString(), 'The address was deleted'),
+                    ],
+                    onChanged: (v) => d.editWidget(id, (o) {
+                      final b = jsonMap(o['bind']);
+                      if (v.isEmpty) {
+                        b.remove(sl.key);
+                      } else {
+                        b[sl.key] = v;
+                      }
+                      o['bind'] = b;
+                    }),
+                  ),
                 ),
-              ),
           ]),
       ],
     );
@@ -2829,5 +2836,76 @@ class _MediaSection extends StatelessWidget {
       check('controls', 'Show the buttons (previous, play, next)'),
       check('volume', 'Show the volume'),
     ]);
+  }
+}
+
+/// The two buttons KNX and HA above the address fields of a card that can take an entity.
+class _SourceSwitch extends StatelessWidget {
+  const _SourceSwitch({required this.d, required this.w});
+  final Designer d;
+  final Json w;
+
+  @override
+  Widget build(BuildContext context) {
+    final id = w['id'] as String;
+    final ha = cardEntity(w).isNotEmpty || w['source'] == 'ha';
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Seg<String>(items: const [('knx', 'KNX'), ('ha', 'HA')], value: ha ? 'ha' : 'knx', onChanged: (v) => d.setCardSource(id, v)),
+    );
+  }
+}
+
+/// The entity of Home Assistant that a card follows (the HA source): the card then uses the addresses of the entity.
+class _EntityField extends StatelessWidget {
+  const _EntityField({required this.d, required this.w});
+  final Designer d;
+  final Json w;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.evo;
+    final id = w['id'] as String;
+    final def = kCardEntity[(w['type'] ?? '').toString()]!;
+    final entity = cardEntity(w);
+    final options = [
+      for (final e in d.link?.entities ?? const <HaEntity>[])
+        if (def.domains.contains(e.domain)) (e.id, e.name == e.id ? '' : e.name),
+    ]..sort((a, b) => a.$1.compareTo(b.$1));
+    final gas = jsonList(d.doc['groupAddresses']);
+    final bind = jsonMap(w['bind']);
+    final used = [
+      for (final e in def.slots.entries)
+        if (byId(gas, bind[e.key]?.toString()) != null) '${byId(gas, bind[e.key]?.toString())!['address']} (${e.value == 'cmd' ? 'command' : 'status'})',
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        FieldLabel(
+          'Entity',
+          SuggestField(
+            value: entity,
+            hint: 'light.living_room',
+            options: options,
+            onChanged: (_) {},
+            onCommit: (v) {
+              if (v == entity) return;
+              final err = d.setCardEntity(id, v);
+              if (err != null) toast(context, err);
+            },
+          ),
+        ),
+        if (entity.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Text(
+              used.isEmpty
+                  ? 'The card follows this entity; its addresses are in the Extensions tab.'
+                  : 'Addresses (made in the Extensions tab): ${used.join(' · ')}',
+              style: TextStyle(fontSize: 12.5, color: c.muted),
+            ),
+          ),
+      ],
+    );
   }
 }

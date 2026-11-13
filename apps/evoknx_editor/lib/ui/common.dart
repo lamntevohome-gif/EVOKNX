@@ -452,9 +452,12 @@ class _SyncedFieldState extends State<SyncedField> {
 /// A text field that suggests values while typing: a list under the field shows what contains the typed
 /// text (the value or its label); a click takes it, or just keep typing.
 class SuggestField extends StatefulWidget {
-  const SuggestField({super.key, required this.value, required this.onChanged, required this.options, this.hint});
+  const SuggestField({super.key, required this.value, required this.onChanged, required this.options, this.hint, this.onCommit});
   final String value;
   final ValueChanged<String> onChanged;
+
+  /// Called when a value is chosen: a suggestion was clicked, Enter was pressed or the field was left.
+  final ValueChanged<String>? onCommit;
 
   /// (value, label): the label is shown next to the value and is searched too.
   final List<(String, String)> options;
@@ -467,6 +470,14 @@ class SuggestField extends StatefulWidget {
 class _SuggestFieldState extends State<SuggestField> {
   late final TextEditingController _c = TextEditingController(text: widget.value);
   final FocusNode _f = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    _f.addListener(() {
+      if (!_f.hasFocus && _c.text.trim() != widget.value.trim()) widget.onCommit?.call(_c.text.trim());
+    });
+  }
 
   @override
   void didUpdateWidget(SuggestField old) {
@@ -493,11 +504,15 @@ class _SuggestFieldState extends State<SuggestField> {
         if (widget.options.isEmpty) return const Iterable<(String, String)>.empty();
         return widget.options.where((o) => q.isEmpty || o.$1.toLowerCase().contains(q) || o.$2.toLowerCase().contains(q)).take(10);
       },
-      onSelected: (o) => widget.onChanged(o.$1),
+      onSelected: (o) {
+        widget.onChanged(o.$1);
+        widget.onCommit?.call(o.$1);
+      },
       fieldViewBuilder: (context, controller, focus, onSubmit) => TextField(
         controller: controller,
         focusNode: focus,
         onChanged: widget.onChanged,
+        onSubmitted: (v) => widget.onCommit?.call(v.trim()),
         style: TextStyle(fontSize: kUiText, color: c.ink),
         decoration: InputDecoration(
           hintText: trn(widget.hint),
