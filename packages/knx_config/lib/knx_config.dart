@@ -5,6 +5,7 @@ export 'src/project.dart';
 export 'src/script.dart';
 export 'src/card_entity.dart';
 export 'src/ha.dart';
+export 'src/ha_commands.dart';
 export 'src/media.dart';
 export 'src/lan_share.dart';
 export 'src/parts.dart';

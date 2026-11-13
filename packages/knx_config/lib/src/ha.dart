@@ -290,6 +290,7 @@ class HaEntity {
     'hvac_modes',
     'source_list',
     'sound_mode_list',
+    'activity_list',
     'supported_features',
     'device_class',
     'unit_of_measurement',
@@ -715,6 +716,12 @@ List<Json> haAddresses(Json doc) => [
 
 /// Connection settings of the project: {enabled, url, token}.
 Json haSettings(Json doc) => jsonMap(doc['ha']);
+
+/// Whether the project has a Home Assistant connection (added with "Add connection", or set up in an older version).
+bool haAdded(Json doc) {
+  final h = haSettings(doc);
+  return h['added'] == true || h['enabled'] == true || (h['url'] ?? '').toString().trim().isNotEmpty || (h['token'] ?? '').toString().trim().isNotEmpty;
+}
 
 // ======================================================================
 // Values between the cards (KNX-style values) and HA

@@ -401,12 +401,140 @@ Future<void> main() async {
   check(jsonList(cdoc['groupAddresses']).length == 4 && jsonMap(cw['bind'])['write'] != null && isHaAddress(jsonList(cdoc['groupAddresses']).first),
       'card entity: applying twice gives the same result');
   check(haAddresses(cdoc).length == 4, 'card entity: the bridge gets the addresses of the cards');
+  // dimmer, blind and air conditioner
+  final fdocW = newProject('f');
+  final dmW = makeWidget('dimmer', 0, 0),
+      dm2W = makeWidget('dimmer', 0, 0),
+      shW = makeWidget('shutter', 0, 0),
+      sh2W = makeWidget('shutter', 0, 0),
+      acW = makeWidget('ac', 0, 0);
+  dm2W['features'] = {'tw': true};
+  sh2W['showStop'] = false;
+  check(
+      setCardEntity(dmW, 'light.lamp') == null &&
+          setCardEntity(dm2W, 'light.lamp') == null &&
+          setCardEntity(shW, 'cover.blind') == null &&
+          setCardEntity(sh2W, 'cover.blind') == null &&
+          setCardEntity(acW, 'climate.ac') == null,
+      'card entity: a dimmer takes a light, a blind a cover, an air conditioner a climate');
+  check(setCardEntity(makeWidget('dimmer', 0, 0), 'cover.blind') != null && setCardEntity(makeWidget('ac', 0, 0), 'light.lamp') != null,
+      'card entity: the wrong kind of entity is refused');
+  (((fdocW['pages'] as List)
+    ..add({
+      'id': 'rf',
+      'title': 'F',
+      'subpages': [
+        {
+          'id': 'sf',
+          'title': 'P',
+          'widgets': [dmW, dm2W, shW, sh2W, acW]
+        }
+      ]
+    })));
+  final feW = cardEntities(fdocW);
+  check(feW.binds[dmW['id']]!.keys.join(',') == 'write,value,status', 'dimmer: on/off, brightness and its status (${feW.binds[dmW['id']]!.keys})');
+  check(feW.binds[dm2W['id']]!.keys.join(',') == 'write,value,status,ctWrite,ctStatus' && feW.binds[dm2W['id']]!['write'] == feW.binds[dmW['id']]!['write'],
+      'dimmer: with color temperature two more fields; the addresses are shared');
+  check(feW.binds[shW['id']]!.keys.join(',') == 'upDown,stop,position,status' && feW.binds[sh2W['id']]!.keys.join(',') == 'upDown,position,status',
+      'blind: up/down, stop, position and status (stop only when the card shows it)');
+  check(feW.binds[acW['id']]!.keys.join(',') == 'power,powerSt,setpoint,setpointSt,current,mode,modeSt',
+      'air conditioner: power, setpoint, room temperature and mode with their statuses');
+  final usedW = {for (final g in feW.gas) g['ha']['attr'] + '/' + g['ha']['role']};
+  check(
+      usedW.containsAll(
+          ['brightness/cmd', 'brightness/status', 'colortemp/cmd', 'move/cmd', 'stop/cmd', 'position/status', 'setpoint/cmd', 'current/status', 'mode/status']),
+      'card entity: the addresses follow the right functions ($usedW)');
+  check(feW.gas.every((g) => haAttr(g['ha']['attr']) != null && g['dpt'] == haAttr(g['ha']['attr'])!.dpt),
+      'card entity: each address has the DPT of its function');
   final sw = makeWidget('switch', 0, 0);
   sw['bind'] = {'write': 'ga_x', 'status': 'ga_y'};
   check(switchCardSource(sw, 'ha') && jsonMap(sw['bind']).isEmpty && cardIsHa(sw) && sw['source'] == 'ha', 'card source: HA forgets the KNX addresses at once');
   check(!switchCardSource(sw, 'ha'), 'card source: nothing changes when the source is the same');
   setCardEntity(sw, 'light.den1');
   check(switchCardSource(sw, 'knx') && cardEntity(sw).isEmpty && sw['source'] == null && !cardIsHa(sw), 'card source: KNX forgets the entity');
+
+  // ---- push button commands for a media player and a remote
+  final btSonos = HaEntity('media_player.sonos', 'playing', {
+    'supported_features': 4 | 16 | 32 | 1 | 2048,
+    'source_list': ['TV', 'Line In']
+  });
+  final btKeys = haCommandsFor(btSonos).map((c) => c.key).toList();
+  check(
+    btKeys.contains('volume_set') &&
+        btKeys.contains('next') &&
+        btKeys.contains('select_source') &&
+        btKeys.contains('pause') &&
+        !btKeys.contains('seek') &&
+        !btKeys.contains('play_media') &&
+        !btKeys.contains('select_sound_mode'),
+    'commands: only those that the player supports ($btKeys)',
+  );
+  check(
+      haCommandsFor(btSonos, all: true).length == kMediaCommands.length && haCommandsFor(HaEntity('media_player.x', 'on', {})).length == kMediaCommands.length,
+      'commands: all of them when the features are not listed or "all" is on');
+  final btVol = haCommandByKey('media_player', 'volume_set')!;
+  check(
+    haCommandData(btVol, {'volume_level': '35'}).$1!['volume_level'] == 0.35 &&
+        haCommandData(btVol, {}).$2 != null &&
+        haCommandData(btVol, {'volume_level': '150'}).$2 != null &&
+        haCommandData(btVol, {'volume_level': 'abc'}).$2 != null,
+    'commands: the volume in % becomes 0–1; a missing, wrong or out of range value is refused',
+  );
+  check(haCommandData(haCommandByKey('media_player', 'select_source')!, {'source': ' HDMI 2 '}).$1!['source'] == 'HDMI 2',
+      'commands: the text is sent as it is (trimmed)');
+  final btPm = haCommandData(haCommandByKey('media_player', 'play_media')!, {'media_content_id': 'x://y'}).$1!;
+  check(btPm['media_content_id'] == 'x://y' && btPm['media_content_type'] == 'music', 'commands: a choice with an initial value');
+  check(
+      haCommandData(haCommandByKey('media_player', 'mute')!, {}).$1!['is_volume_muted'] == true &&
+          haCommandData(haCommandByKey('media_player', 'unmute')!, {}).$1!['is_volume_muted'] == false,
+      'commands: mute and unmute');
+  check(haParamSuggestions(btSonos, haCommandByKey('media_player', 'select_source')!.params.first).join(',') == 'TV,Line In',
+      'commands: the sources of the player are suggested');
+  final btSend = haCommandData(haCommandByKey('remote', 'send_command')!, {'command': 'DPAD_UP', 'num_repeats': '3', 'hold_secs': '0,5', 'device': ''}).$1!;
+  check(
+      btSend['command'] == 'DPAD_UP' &&
+          btSend['num_repeats'] == 3 &&
+          btSend['hold_secs'] == 0.5 &&
+          !btSend.containsKey('device') &&
+          !btSend.containsKey('delay_secs'),
+      'remote: command, repeats and hold time; empty fields are left out');
+  check(
+    haCommandsFor(HaEntity('remote.a', 'on', {
+          'activity_list': ['TV']
+        })).any((c) => c.key == 'start_activity') &&
+        !haCommandsFor(HaEntity('remote.b', 'on', {'supported_features': 0})).any((c) => c.key == 'start_activity'),
+    'remote: activities only when the remote has them',
+  );
+  final btn = makeWidget('button', 0, 0);
+  check(setCardEntity(btn, 'media_player.sonos') == null && haDirect(btn) && haButtonProblem(btn) == 'choose the command.',
+      'button: a media player is taken; the command must be chosen');
+  setButtonCommand(btn, 'select_source');
+  check(haButtonProblem(btn)!.startsWith('fill in') && haButtonCall(btn) == null, 'button: a missing parameter is reported');
+  setButtonParam(btn, 'source', 'TV');
+  final btCall = haButtonCall(btn)!;
+  check(
+      btCall.service == 'media_player.select_source' && btCall.entity == 'media_player.sonos' && btCall.data['source'] == 'TV' && haButtonProblem(btn) == null,
+      'button: the service call');
+  final btDoc = newProject('b');
+  (((btDoc['pages'] as List)
+    ..add({
+      'id': 'rb',
+      'title': 'R',
+      'subpages': [
+        {
+          'id': 'sb',
+          'title': 'P',
+          'widgets': [btn]
+        }
+      ]
+    })));
+  check(cardEntities(btDoc).gas.isEmpty && cardEntities(btDoc).binds.isEmpty, 'button: a direct button makes no address');
+  setCardEntity(btn, 'remote.tv');
+  check(haDirect(btn) && jsonMap(btn['ha'])['action'] == null, 'button: another entity forgets the command');
+  setCardEntity(btn, 'light.lamp');
+  check(!haDirect(btn), 'button: a light is not a direct button (it uses an address)');
+  final btScene = makeWidget('scene', 0, 0);
+  check(setCardEntity(btScene, 'media_player.sonos') != null, 'scene card: a media player is refused');
 
   // ---- the media player card
   final mpm = HaMedia(HaEntity('media_player.sonos', 'playing', {
@@ -433,6 +561,19 @@ Future<void> main() async {
   check(mediaTime(83) == '1:23' && mediaTime(3725) == '1:02:05' && mediaTime(null) == '–:––', 'media: time text');
   final mdoc = newProject('x');
   check(!haNeeded(mdoc), 'haNeeded: nothing needs Home Assistant');
+  check(
+      !haAdded(mdoc) &&
+          haAdded({
+            'ha': {'added': true}
+          }) &&
+          haAdded({
+            'ha': {'url': '10.0.0.1:8123'}
+          }) &&
+          haAdded({
+            'ha': {'enabled': true}
+          }) &&
+          !haAdded({'ha': {}}),
+      'haAdded: a connection was added, or set up before');
   (mdoc['pages'] as List).add({
     'id': 'rm',
     'title': 'Room',

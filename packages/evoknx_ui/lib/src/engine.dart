@@ -26,6 +26,9 @@ class CardEngine extends ChangeNotifier {
   /// Short messages for the user (missing address, write error…).
   void Function(String message)? onMessage;
 
+  /// Calls a service of Home Assistant (a push button that follows a media player or a remote). An error text, or null.
+  Future<String?> Function(String service, String entity, Map<String, dynamic> data)? haCall;
+
   /// A scene card was pressed (to show its popup).
   void Function(Json card)? onScene;
 
@@ -105,6 +108,17 @@ class CardEngine extends ChangeNotifier {
         }
         break;
       case 'button':
+        if (haDirect(w)) {
+          final call = haButtonCall(w);
+          if (call == null) {
+            onMessage?.call('${w['label'] ?? ''}: ${haButtonProblem(w) ?? 'choose the command.'}');
+            break;
+          }
+          (haCall?.call(call.service, call.entity, call.data) ?? Future<String?>.value('Home Assistant is not enabled in the project.')).then((err) {
+            if (err != null) onMessage?.call(err);
+          });
+          break;
+        }
         if (gaOf(w, 'write') != null || !runsScript(w)) send(w, 'write', sendValueOf(w, (w['sendValue'] ?? '1').toString(), 1));
         break;
       case 'scene':

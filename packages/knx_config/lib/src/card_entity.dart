@@ -1,28 +1,67 @@
 import 'ha.dart';
 import 'project.dart';
 
-/// What a card takes from an entity of Home Assistant: the domains it accepts, the function of the entity it follows
-/// and which address field of the card each address of the function goes to ("cmd" = the command address, "status" =
-/// the status one).
-class CardEntityDef {
-  const CardEntityDef(this.domains, this.attr, this.slots);
-  final List<String> domains;
-  final String attr;
-  final Map<String, String> slots;
+/// One address field of a card and the function of the entity that it follows (the function and "cmd" for its command
+/// address or "status" for its status address).
+class CardSlot {
+  const CardSlot(this.attr, this.role);
+  final String attr, role;
 }
 
-/// The cards that can take an entity (more are added later).
+const _onoffCmd = CardSlot('onoff', 'cmd'), _onoffSt = CardSlot('onoff', 'status');
+
+/// What a card takes from an entity of Home Assistant: the domains it accepts and what each address field of the card
+/// follows.
+class CardEntityDef {
+  const CardEntityDef(this.domains, this.slots);
+  final List<String> domains;
+  final Map<String, CardSlot> slots;
+}
+
+/// The cards that can take an entity. A field that the card does not show (a card setting turns it off) is not used.
 const Map<String, CardEntityDef> kCardEntity = {
-  'switch': CardEntityDef(['light', 'switch', 'fan', 'input_boolean', 'automation', 'script', 'scene'], 'onoff', {'write': 'cmd', 'status': 'status'}),
-  'button': CardEntityDef(['scene', 'script', 'automation', 'light', 'switch', 'fan', 'input_boolean'], 'onoff', {'write': 'cmd'}),
-  'scene': CardEntityDef(['scene', 'script', 'automation'], 'onoff', {'write': 'cmd'}),
-  'value': CardEntityDef(['sensor'], 'sensor', {'status': 'status'}),
+  'switch': CardEntityDef(['light', 'switch', 'fan', 'input_boolean', 'automation', 'script', 'scene'], {'write': _onoffCmd, 'status': _onoffSt}),
+  'button': CardEntityDef(['scene', 'script', 'automation', 'light', 'switch', 'fan', 'input_boolean', 'media_player', 'remote'], {'write': _onoffCmd}),
+  'scene': CardEntityDef(['scene', 'script', 'automation'], {'write': _onoffCmd}),
+  'value': CardEntityDef(['sensor'], {'status': CardSlot('sensor', 'status')}),
+  'dimmer': CardEntityDef([
+    'light'
+  ], {
+    'write': _onoffCmd,
+    'value': CardSlot('brightness', 'cmd'),
+    'status': CardSlot('brightness', 'status'),
+    'ctWrite': CardSlot('colortemp', 'cmd'),
+    'ctStatus': CardSlot('colortemp', 'status'),
+  }),
+  'shutter': CardEntityDef([
+    'cover'
+  ], {
+    'upDown': CardSlot('move', 'cmd'),
+    'stop': CardSlot('stop', 'cmd'),
+    'position': CardSlot('position', 'cmd'),
+    'status': CardSlot('position', 'status'),
+  }),
+  'ac': CardEntityDef([
+    'climate'
+  ], {
+    'power': _onoffCmd,
+    'powerSt': _onoffSt,
+    'setpoint': CardSlot('setpoint', 'cmd'),
+    'setpointSt': CardSlot('setpoint', 'status'),
+    'current': CardSlot('current', 'status'),
+    'mode': CardSlot('mode', 'cmd'),
+    'modeSt': CardSlot('mode', 'status'),
+  }),
 };
 
 final _entityId = RegExp(r'^[a-z0-9_]+\.[a-z0-9_]+$');
 
 /// The entity a card follows ('' = none).
 String cardEntity(Json w) => w['ha'] is Map ? ((w['ha'] as Map)['entity'] ?? '').toString() : '';
+
+/// A push button that follows a media player or a remote: it calls a service of Home Assistant directly (a command and its
+/// parameters), it has no address.
+bool haDirect(Json w) => w['type'] == 'button' && const ['media_player', 'remote'].contains(cardEntity(w).split('.').first);
 
 /// Whether a card takes its address fields from Home Assistant (an entity is chosen, or the HA button was pressed).
 bool cardIsHa(Json w) => cardEntity(w).isNotEmpty || w['source'] == 'ha';
@@ -44,13 +83,9 @@ String? cardEntityProblem(Json w, String entityId) {
 String? setCardEntity(Json w, String entityId) {
   final err = cardEntityProblem(w, entityId);
   if (err != null) return err;
-  final def = kCardEntity[(w['type'] ?? '').toString()]!;
-  final bind = jsonMap(w['bind']);
-  for (final k in def.slots.keys) {
-    bind.remove(k);
-  }
-  w['bind'] = bind;
-  w['ha'] = {'entity': entityId.trim()};
+  // The KNX addresses of the card are forgotten.
+  w['bind'] = <String, dynamic>{};
+  w['ha'] = <String, dynamic>{'entity': entityId.trim()};
   w['source'] = 'ha';
   return null;
 }
@@ -61,11 +96,7 @@ bool switchCardSource(Json w, String source) {
   final def = kCardEntity[(w['type'] ?? '').toString()];
   if (def == null || cardIsHa(w) == (source == 'ha')) return false;
   if (source == 'ha') {
-    final bind = jsonMap(w['bind']);
-    for (final k in def.slots.keys) {
-      bind.remove(k);
-    }
-    w['bind'] = bind;
+    w['bind'] = <String, dynamic>{};
     w['source'] = 'ha';
   } else {
     w.remove('ha');
@@ -75,7 +106,7 @@ bool switchCardSource(Json w, String source) {
 }
 
 /// The addresses that the cards get from the entities they follow, made when the project is shown or run (they are
-/// not stored in the project and are not in the Extensions tab).
+/// not stored in the project and are not shown in the Editor).
 class CardEntities {
   CardEntities(this.gas, this.binds);
 
@@ -93,25 +124,28 @@ CardEntities cardEntities(Json doc) {
   for (final w in allWidgets(doc)) {
     final id = cardEntity(w);
     final def = kCardEntity[(w['type'] ?? '').toString()];
-    if (id.isEmpty || def == null || cardEntityProblem(w, id) != null) continue;
-    final attr = haAttr(def.attr)!;
+    if (id.isEmpty || def == null || haDirect(w) || cardEntityProblem(w, id) != null) continue;
+    final shown = {for (final sl in slotsFor(w)) sl.key};
     final mine = <String, dynamic>{};
-    for (final s in def.slots.entries) {
-      final key = '$id|${def.attr}|${s.value}';
+    for (final f in def.slots.entries) {
+      if (!shown.contains(f.key)) continue;
+      final attr = haAttr(f.value.attr);
+      if (attr == null) continue;
+      final key = '$id|${f.value.attr}|${f.value.role}';
       var ga = byKey[key];
       if (ga == null) {
-        // An address of a reserved main group (1000), so that it never meets a real or an Extensions address.
+        // An address of a reserved main group (1000), so that it never meets a real or an older virtual address.
         final i = gas.length;
         ga = byKey[key] = {
-          'id': 'hac_$id|${def.attr}|${s.value}',
+          'id': 'hac_$key',
           'address': '1000/${i ~/ 250}/${i % 250 + 1}',
-          'name': '$id (${s.value == 'cmd' ? 'command' : 'status'})',
+          'name': '$id (${f.value.role == 'cmd' ? 'command' : 'status'})',
           'dpt': attr.dpt,
-          'ha': {'entity': id, 'attr': def.attr, 'role': s.value == 'cmd' ? 'cmd' : 'status', 'card': true},
+          'ha': {'entity': id, 'attr': f.value.attr, 'role': f.value.role, 'card': true},
         };
         gas.add(ga);
       }
-      mine[s.key] = ga['id'];
+      mine[f.key] = ga['id'];
     }
     binds[w['id'].toString()] = mine;
   }

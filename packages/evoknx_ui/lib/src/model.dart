@@ -327,6 +327,10 @@ List<Issue> computeIssues(Json d) {
         if (cardIsHa(w) && cardEntity(w).isEmpty) {
           out.add(Issue(true, '$where$name: choose the entity of Home Assistant (or press KNX).', roomId: r['id'], subId: s['id'], widgetId: w['id']));
         }
+        if (haDirect(w)) {
+          final pr = haButtonProblem(w);
+          if (pr != null) out.add(Issue(true, '$where$name: $pr', roomId: r['id'], subId: s['id'], widgetId: w['id']));
+        }
         for (final sl in cardIsHa(w) ? const <SlotDef>[] : slotsFor(w)) {
           final id = b[sl.key] as String?;
           if (id == null) {
