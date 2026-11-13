@@ -219,6 +219,8 @@ const kTfs = [
   TfsDef('floorBar', 'Floor bar', 15, 10, 24),
   TfsDef('crumb', 'Floor line (Floor 1 ›)', 13, 10, 20),
   TfsDef('navBar', 'Navigation bar icon size', 12, 10, 20),
+  TfsDef('areaTitle', 'Area title', 23, 16, 36),
+  TfsDef('areaFloor', 'Floor name (Area)', 19, 12, 32),
   TfsDef('galleryTitle', 'Gallery card title', 15, 11, 28),
 ];
 
