@@ -358,52 +358,55 @@ Future<void> main() async {
   check(haKind(tv) == 5 && haSuggest(tv).map((a) => a.key).join(',') == 'onoff,playpause,mstop,prev,next,volume,mute,playing',
       'media player: kind 5 and its functions');
   addHaEntity(doc, tv, ['onoff', 'playpause', 'volume', 'mute', 'playing'], roomId: room1['id'] as String);
-  // ---- a card takes an entity of Home Assistant
+  // ---- a card follows an entity of Home Assistant (nothing is added to the project)
   final cdoc = newProject('c');
   final cw = makeWidget('switch', 0, 0);
-  check(bindCardEntity(cdoc, cw, 'Living', 'light.den1') == null, 'card entity: a switch takes a light');
-  final cb = jsonMap(cw['bind']);
-  final cgas = jsonList(cdoc['groupAddresses']);
-  check(cb['write'] != null && cb['status'] != null && cgas.length == 2 && cgas.every((g) => g['ha'] is Map),
-      'card entity: a command and a status address are made and bound');
-  check(haRooms(cdoc).length == 1 && haRooms(cdoc).first['name'] == 'Living' && cardEntity(cw) == 'light.den1',
-      'card entity: the room of Extensions is made, the card keeps the entity');
-  final cw2 = makeWidget('switch', 0, 0);
-  check(
-      bindCardEntity(cdoc, cw2, 'Other', 'light.den1') == null &&
-          jsonList(cdoc['groupAddresses']).length == 2 &&
-          jsonMap(cw2['bind'])['write'] == cb['write'] &&
-          haRooms(cdoc).length == 1,
-      'card entity: a second card reuses the addresses and the room of the entity');
-  check(bindCardEntity(cdoc, makeWidget('switch', 0, 0), 'x', 'sensor.t') != null && bindCardEntity(cdoc, makeWidget('switch', 0, 0), 'x', 'oops') != null,
+  cw['bind'] = {'write': 'ga_x', 'status': 'ga_y'};
+  check(setCardEntity(cw, 'light.den1') == null && cardEntity(cw) == 'light.den1' && cw['source'] == 'ha' && jsonMap(cw['bind']).isEmpty,
+      'card entity: a switch takes a light and forgets its KNX addresses');
+  check(jsonList(cdoc['groupAddresses']).isEmpty && haRooms(cdoc).isEmpty, 'card entity: nothing is added to the project or the Extensions tab');
+  check(setCardEntity(makeWidget('switch', 0, 0), 'sensor.t') != null && setCardEntity(makeWidget('switch', 0, 0), 'oops') != null,
       'card entity: a sensor does not fit a switch; a wrong name is refused');
   final cv = makeWidget('value', 0, 0);
-  check(bindCardEntity(cdoc, cv, 'Living', 'sensor.temp') == null && jsonMap(cv['bind'])['status'] != null, 'card entity: a value card takes a sensor');
+  check(setCardEntity(cv, 'sensor.temp') == null, 'card entity: a value card takes a sensor');
   final cs = makeWidget('scene', 0, 0);
-  check(bindCardEntity(cdoc, cs, 'Living', 'scene.movie') == null && jsonMap(cs['bind'])['write'] != null && jsonMap(cs['bind'])['status'] == null,
-      'card entity: a scene card takes a scene (command only)');
+  check(setCardEntity(cs, 'scene.movie') == null, 'card entity: a scene card takes a scene');
+  final cw2 = makeWidget('switch', 0, 0);
+  setCardEntity(cw2, 'light.den1');
+  (((cdoc['pages'] as List)
+    ..add({
+      'id': 'rc',
+      'title': 'R',
+      'subpages': [
+        {
+          'id': 'sc',
+          'title': 'P',
+          'widgets': [cw, cw2, cv, cs]
+        }
+      ]
+    })));
+  final ce = cardEntities(cdoc);
+  check(ce.binds[cw['id']]!['write'] != null && ce.binds[cw['id']]!['status'] != null && ce.binds[cw['id']]!['write'] == ce.binds[cw2['id']]!['write'],
+      'card entity: two cards that follow one entity share its addresses');
   check(
-      bindCardEntity(cdoc, cw, 'Living', 'script.night') == null &&
-          jsonMap(cw['bind'])['write'] != null &&
-          jsonMap(cw['bind'])['status'] == null &&
-          cardEntity(cw) == 'script.night',
-      'card entity: another entity replaces the old one (a script has no status)');
+      ce.binds[cs['id']]!.length == 1 &&
+          ce.binds[cv['id']]!.keys.single == 'status' &&
+          ce.gas.length == 4 &&
+          ce.gas.every((g) => g['ha'] is Map && g['ha']['card'] == true),
+      'card entity: a scene has a command address, a value a status address; four addresses in all');
+  check(ce.gas.map((g) => g['address']).toSet().length == 4 && ce.gas.every((g) => g['address'].toString().startsWith('1000/')),
+      'card entity: the addresses are different and in the reserved main group');
+  applyCardEntities(cdoc);
+  applyCardEntities(cdoc);
+  check(jsonList(cdoc['groupAddresses']).length == 4 && jsonMap(cw['bind'])['write'] != null && isHaAddress(jsonList(cdoc['groupAddresses']).first),
+      'card entity: applying twice gives the same result');
+  check(haAddresses(cdoc).length == 4, 'card entity: the bridge gets the addresses of the cards');
   final sw = makeWidget('switch', 0, 0);
   sw['bind'] = {'write': 'ga_x', 'status': 'ga_y'};
-  check(switchCardSource(cdoc, sw, 'ha') && jsonMap(sw['bind']).isEmpty && cardIsHa(sw) && sw['source'] == 'ha',
-      'card source: HA forgets the KNX addresses at once');
-  check(!switchCardSource(cdoc, sw, 'ha'), 'card source: nothing changes when the source is the same');
-  check(
-      bindCardEntity(cdoc, sw, 'Living', 'light.den1') == null &&
-          switchCardSource(cdoc, sw, 'knx') &&
-          cardEntity(sw).isEmpty &&
-          jsonMap(sw['bind']).isEmpty &&
-          sw['source'] == null &&
-          !cardIsHa(sw),
-      'card source: KNX forgets the entity and its addresses');
-  unbindCardEntity(cdoc, cw);
-  check(cw['ha'] == null && jsonMap(cw['bind']).isEmpty && jsonList(cdoc['groupAddresses']).length >= 5,
-      'card entity: forgetting the entity empties the fields and keeps the addresses');
+  check(switchCardSource(sw, 'ha') && jsonMap(sw['bind']).isEmpty && cardIsHa(sw) && sw['source'] == 'ha', 'card source: HA forgets the KNX addresses at once');
+  check(!switchCardSource(sw, 'ha'), 'card source: nothing changes when the source is the same');
+  setCardEntity(sw, 'light.den1');
+  check(switchCardSource(sw, 'knx') && cardEntity(sw).isEmpty && sw['source'] == null && !cardIsHa(sw), 'card source: KNX forgets the entity');
 
   // ---- the media player card
   final mpm = HaMedia(HaEntity('media_player.sonos', 'playing', {

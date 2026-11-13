@@ -323,7 +323,11 @@ List<Issue> computeIssues(Json d) {
           out.add(Issue(false, '$where$name is outside the screen.', roomId: r['id'], subId: s['id'], widgetId: w['id']));
         }
         final b = jsonMap(w['bind']);
-        for (final sl in slotsFor(w)) {
+        // A card that follows an entity of Home Assistant gets its addresses from the entity.
+        if (cardIsHa(w) && cardEntity(w).isEmpty) {
+          out.add(Issue(true, '$where$name: choose the entity of Home Assistant (or press KNX).', roomId: r['id'], subId: s['id'], widgetId: w['id']));
+        }
+        for (final sl in cardIsHa(w) ? const <SlotDef>[] : slotsFor(w)) {
           final id = b[sl.key] as String?;
           if (id == null) {
             if (sl.required) out.add(Issue(true, '$where$name is missing ${sl.label.toLowerCase()}.', roomId: r['id'], subId: s['id'], widgetId: w['id']));

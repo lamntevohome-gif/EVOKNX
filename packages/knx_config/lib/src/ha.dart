@@ -282,6 +282,28 @@ class HaEntity {
   factory HaEntity.fromJson(Map<String, dynamic> m) =>
       HaEntity((m['entity_id'] ?? '').toString(), (m['state'] ?? '').toString(), Map<String, dynamic>.from((m['attributes'] as Map?) ?? const {}));
 
+  /// The attributes that are saved with the entities (what is needed to choose an entity and to suggest its functions).
+  static const keptAttributes = [
+    'friendly_name',
+    'supported_color_modes',
+    'brightness',
+    'hvac_modes',
+    'source_list',
+    'sound_mode_list',
+    'supported_features',
+    'device_class',
+    'unit_of_measurement',
+  ];
+
+  Map<String, dynamic> toJson() => {
+        'entity_id': id,
+        'state': state,
+        'attributes': {
+          for (final k in keptAttributes)
+            if (attributes.containsKey(k)) k: attributes[k],
+        },
+      };
+
   List<String> get hvacModes => [for (final x in (attributes['hvac_modes'] as List? ?? const [])) x.toString()];
 }
 

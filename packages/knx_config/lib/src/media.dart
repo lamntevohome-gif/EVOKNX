@@ -1,3 +1,4 @@
+import 'card_entity.dart';
 import 'ha.dart';
 import 'project.dart';
 
@@ -79,5 +80,5 @@ bool haNeeded(Json doc) {
   for (final s in jsonList(doc['scripts'])) {
     if (jsonList(s['steps']).any((st) => st['type'] == 'ha')) return true;
   }
-  return allWidgets(doc).any((w) => w['type'] == 'media');
+  return allWidgets(doc).any((w) => w['type'] == 'media' || cardEntity(w).isNotEmpty);
 }
