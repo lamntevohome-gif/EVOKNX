@@ -622,26 +622,34 @@ class _ScriptsPageState extends State<ScriptsPage> implements ScriptHost {
     );
   }
 
-  /// The services to suggest: all of them, or those of the domain of the chosen entity.
+  /// The services to suggest: all of them, the ones of the domain of the chosen entity first
+  /// (nothing is hidden, so any service can be chosen whatever the entity).
   List<(String, String)> _serviceOptions(String entity) {
     final all = widget.link.services;
     if (all == null) return const [];
     final dom = entity.contains('.') ? entity.split('.').first : '';
-    final keys = all.keys.where((d) => dom.isEmpty || d == dom || d == 'homeassistant' || !all.containsKey(dom)).toList()..sort();
+    final keys = all.keys.toList()
+      ..sort((a, b) {
+        if (dom.isNotEmpty && (a == dom) != (b == dom)) return a == dom ? -1 : 1;
+        return a.compareTo(b);
+      });
     return [
       for (final d in keys)
         for (final s in all[d]!) ('$d.$s', ''),
     ];
   }
 
-  /// The entities to suggest: all of them, or those of the domain of the chosen service.
+  /// The entities to suggest: all of them, the ones of the domain of the chosen service first.
   List<(String, String)> _entityOptions(String service) {
     final list = widget.link.entities;
     if (list == null) return const [];
     final dom = service.contains('.') ? service.split('.').first : '';
-    final inDom = list.where((e) => e.domain == dom).toList();
-    final use = (dom.isEmpty || dom == 'homeassistant' || inDom.isEmpty) ? list : inDom;
-    return [for (final e in (use.toList()..sort((a, b) => a.id.compareTo(b.id)))) (e.id, e.name == e.id ? '' : e.name)];
+    final sorted = list.toList()
+      ..sort((a, b) {
+        if (dom.isNotEmpty && (a.domain == dom) != (b.domain == dom)) return a.domain == dom ? -1 : 1;
+        return a.id.compareTo(b.id);
+      });
+    return [for (final e in sorted) (e.id, e.name == e.id ? '' : e.name)];
   }
 
   List<(String, String)> _targets() {

@@ -613,7 +613,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       blockedAbove != null
                           ? _lockedView(blockedAbove, pal)
                           : inGallery
-                          ? RoomGallery(doc: d, rooms: rooms, pal: pal, onOpen: _openRoom, unlocked: store.unlocked)
+                          ? RoomGallery(doc: d, rooms: rooms, pal: pal, onOpen: _openRoom, unlocked: store.unlocked, cardTitle: floor?['cardTitle'])
                           : r == null
                           ? Center(
                               child: Padding(
@@ -709,7 +709,11 @@ class _HomeScreenState extends State<HomeScreen> {
     final d = doc;
     final onPage = _tab != 1 || _lvl == 2;
     final s = onPage ? sub : null;
-    final bg = pageBackground(s, pal0);
+    // The Area screen, Home and Security can have a background of their own (a page's own one wins).
+    final theme = jsonMap(d['theme']);
+    final special = floorsOf(d).where((f) => f['id'] == floorId).firstOrNull?['special'];
+    final screenBg = !onPage ? theme['bgArea'] : (special == 'home' ? theme['bgHome'] : (special == 'security' ? theme['bgSecurity'] : null));
+    final bg = pageBackground(s, pal0, fallback: screenBg is Map ? jsonMap(screenBg) : null);
     final pal = pal0.copyWith(onScreenInk: bg?.ink, onScreenMuted: bg?.muted);
     final r = room;
     final subs = r == null ? const <Json>[] : subsOf(r);
@@ -789,7 +793,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   _banner(pal),
-                  _header(d, pal, headFloor, onPage ? r : null, false, onBack: onBack),
+                  _header(d, pal, headFloor, onPage ? r : null, _tab == 1 && normal.length > 1, onBack: onBack, sizeKey: onPage ? 'titleSize' : 'areaTitle'),
                   if (onPage && r != null && subs.length > 1 && _dev != 'mobile') _pageNav(subs, pal),
                   Expanded(child: _fade(ValueKey('m$_tab-$_lvl-$floorId-$roomId-${blockedAbove?['id']}'), content)),
                   _modernBar(pal),
@@ -883,7 +887,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   /// "Tầng 1 › Phòng 1" on one row (floor shown only when there are several),
   /// settings button on the right: as in the Editor preview.
-  Widget _header(Json d, AppPalette pal, Json? floor, Json? r, bool multi, {VoidCallback? onBack}) {
+  Widget _header(Json d, AppPalette pal, Json? floor, Json? r, bool multi, {VoidCallback? onBack, String sizeKey = 'titleSize'}) {
     final hide = jsonMap(d['theme'])['hideTitle'] == true && r != null && !_modernMode;
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 10, 12, 8),
@@ -920,7 +924,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           (r?['title'] ?? floor?['title'] ?? '').toString(),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontSize: tfs(d, 'titleSize'), fontWeight: FontWeight.w600, color: pal.sInk),
+                          style: TextStyle(fontSize: tfs(d, sizeKey), fontWeight: FontWeight.w600, color: pal.sInk),
                         ),
                       ),
                       // A phone shows the page after the room name: "Living room (1/3)".
@@ -1045,7 +1049,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _pageNav(List<Json> subs, AppPalette pal) {
     final f = tfs(doc, 'pageTitle');
     // A phone changes page by swiping: no arrow buttons there.
-    final arrows = jsonMap(doc['theme'])['pageArrows'] != false && _dev != 'mobile';
+    final arrows = _dev != 'mobile';
     final title = (sub?['title'] ?? '').toString();
     void go(int to) {
       final pc = _pages;
@@ -1345,10 +1349,15 @@ final Map<String, MemoryImage> _images = {};
 
 /// Background of a page (color or image with brightness, opacity, blur),
 /// as designed in the Editor. Null = the theme background.
-PageBg? pageBackground(Json? sub, AppPalette pal) {
-  final b = jsonMap(sub?['bg']);
-  final mode = (b['mode'] ?? 'default').toString();
-  if (mode != 'color' && mode != 'image') return null;
+PageBg? pageBackground(Json? sub, AppPalette pal, {Json? fallback}) {
+  // The page's own background, else the one of the screen it is on (Area, Home or Security).
+  var b = jsonMap(sub?['bg']);
+  var mode = (b['mode'] ?? 'default').toString();
+  if (mode != 'color' && mode != 'image') {
+    b = jsonMap(fallback);
+    mode = (b['mode'] ?? 'default').toString();
+    if (mode != 'color' && mode != 'image') return null;
+  }
   final legacyDim = (b['dim'] as num?)?.toDouble();
   final br = ((b['bright'] as num?)?.toDouble() ?? (legacyDim != null ? 100 - legacyDim : 100)).clamp(20, 150).toDouble();
   final op = (((b['opacity'] as num?) ?? 100).toDouble().clamp(0, 100)) / 100;

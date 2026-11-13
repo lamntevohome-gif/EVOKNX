@@ -1554,7 +1554,7 @@ class _RoomProps extends StatelessWidget {
                   )
                 : null,
           ),
-        if (!d.roomFocus && s != null) _PageBgSettings(d: d, s: s),
+        if (!d.roomFocus && s != null) _PageBgSettings(holder: s, edit: d.editSub),
         Hint(
           'Drag a component from the toolbar into an empty cell, or click an empty cell and then a component. Click a component to edit its name, size and group addresses.',
         ),
@@ -1590,6 +1590,29 @@ class _FloorProps extends StatelessWidget {
         FieldLabel(
           'Floor cover image (16:9)',
           _RoomCover(value: (f['cover'] ?? '').toString(), onChanged: (v) => editFloor((x) => v == null ? x.remove('cover') : x['cover'] = v)),
+        ),
+      if (f['special'] == null)
+        Builder(
+          builder: (context) {
+            final own = f['cardTitle'] is num;
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                StepRow(
+                  label: 'Room card title',
+                  value: ((f['cardTitle'] as num?)?.toInt() ?? tfs(d.doc, 'galleryTitle').toInt()).clamp(11, 28).toInt(),
+                  min: 11,
+                  max: 28,
+                  onChanged: (v) => editFloor((x) => x['cardTitle'] = v, coalesce: 'ct-$fid'),
+                ),
+                if (own)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: EvoButton(label: 'Use the default size', small: true, onPressed: () => editFloor((x) => x.remove('cardTitle'))),
+                  ),
+              ],
+            );
+          },
         ),
       Wrap(
         spacing: 6,
@@ -1767,18 +1790,13 @@ class _OverviewProps extends StatelessWidget {
           ),
           tfsRow('titleSize'),
           tfsRow('pageTitle'),
-          CheckboxListTile(
-            value: theme['pageArrows'] != false,
-            onChanged: (v) => editTheme((x) => x['pageArrows'] = v ?? true),
-            dense: true,
-            contentPadding: EdgeInsets.zero,
-            controlAffinity: ListTileControlAffinity.leading,
-            title: const Text('Show ‹ › buttons to switch pages (tablets)'),
-          ),
         ]),
-        if (modern)
-          _Section('Modern layout', [tfsRow('navBar'), tfsRow('galleryTitle')])
-        else
+        if (modern) ...[
+          _Section('Modern layout', [tfsRow('navBar'), tfsRow('areaTitle'), tfsRow('areaFloor'), tfsRow('galleryTitle')]),
+          _PageBgSettings(holder: theme, edit: editTheme, field: 'bgArea', title: 'Area background'),
+          _PageBgSettings(holder: theme, edit: editTheme, field: 'bgHome', title: 'Home background'),
+          _PageBgSettings(holder: theme, edit: editTheme, field: 'bgSecurity', title: 'Security background'),
+        ] else
           _Section('Basic layout', [
             FieldLabel(
               'Room picker style',
@@ -2300,15 +2318,16 @@ class _SecretFieldState extends State<_SecretField> {
   );
 }
 
-/// Background of one page: follows the overview, a color (with opacity) or
-/// an image (with darkening and opacity).
+/// A background (follows the overview, a color with opacity, or an image with darkening and opacity), kept in the
+/// field [field] of [holder]: a page ("bg") or the theme ("bgArea", "bgHome", "bgSecurity").
 class _PageBgSettings extends StatelessWidget {
-  const _PageBgSettings({required this.d, required this.s});
-  final Designer d;
-  final Json s;
+  const _PageBgSettings({required this.holder, required this.edit, this.field = 'bg', this.title = 'Background of this page'});
+  final Json holder;
+  final void Function(void Function(Json x) fn, {String? coalesce}) edit;
+  final String field, title;
 
-  void _set(Map<String, Object?> kv, {String? co}) => d.editSub((x) {
-    final b = jsonMap(x['bg']);
+  void _set(Map<String, Object?> kv, {String? co}) => edit((x) {
+    final b = jsonMap(x[field]);
     kv.forEach((k, v) {
       if (v == null) {
         b.remove(k);
@@ -2317,9 +2336,9 @@ class _PageBgSettings extends StatelessWidget {
       }
     });
     if (b['mode'] == null || b['mode'] == 'default') {
-      x.remove('bg');
+      x.remove(field);
     } else {
-      x['bg'] = b;
+      x[field] = b;
     }
   }, coalesce: co);
 
@@ -2355,13 +2374,13 @@ class _PageBgSettings extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.evo;
-    final b = jsonMap(s['bg']);
+    final b = jsonMap(holder[field]);
     final mode = (b['mode'] ?? 'default').toString();
     final img = (b['image'] ?? '').toString();
     final i = img.indexOf('base64,');
     final legacyDim = (b['dim'] as num?)?.toInt();
     final bright = ((b['bright'] as num?) ?? (legacyDim != null ? 100 - legacyDim : 100)).toInt().clamp(20, 150).toInt();
-    return _Section('Background of this page', [
+    return _Section(title, [
       Seg<String>(
         items: const [('default', 'Default'), ('color', 'Color'), ('image', 'Image')],
         value: mode,

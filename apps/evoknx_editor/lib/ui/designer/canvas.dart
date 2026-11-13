@@ -36,7 +36,16 @@ class DesignCanvas extends StatelessWidget {
     final bg = screenBackground(doc, base);
     final th = jsonMap(doc['theme']);
     // The open page may have its own background over the common one.
-    final pageBg = d.view == 'room' ? pageBackground(d.sub, bg, th) : null;
+    // In the Modern layout the Area screen, Home and Security can have a background of their own.
+    final modernBg = th['layout'] == 'modern' && dev != 'tabletL';
+    final special = d.floor?['special'];
+    ScreenBg? pageBg;
+    if (d.view == 'room') {
+      final fb = !modernBg ? null : (special == 'home' ? th['bgHome'] : (special == 'security' ? th['bgSecurity'] : null));
+      pageBg = pageBackground(d.sub, bg, th, fallback: fb is Map ? jsonMap(fb) : null, keyId: '$special');
+    } else if (modernBg && (d.view == 'floors' || (d.view == 'floor' && special == null)) && th['bgArea'] is Map) {
+      pageBg = pageBackground(null, bg, th, fallback: jsonMap(th['bgArea']), keyId: 'area');
+    }
     final pal = base.copyWith(
       onScreenInk: (pageBg ?? bg).ink,
       onScreenMuted: (pageBg ?? bg).muted,
@@ -292,7 +301,7 @@ class _Screen extends StatelessWidget {
           t,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: TextStyle(fontSize: tfs(doc, 'titleSize'), fontWeight: FontWeight.w600, color: pal.sInk),
+          style: TextStyle(fontSize: tfs(doc, 'areaTitle'), fontWeight: FontWeight.w600, color: pal.sInk),
         ),
       );
       final tab = !inFloors && special == 'home' ? 0 : (!inFloors && special == 'security' ? 2 : 1);
@@ -344,7 +353,7 @@ class _Screen extends StatelessWidget {
             ] else if (room == null || sub == null)
               empty
             else ...[
-              _header(doc, room, floor, false, theme, onBack: special == null ? d.floorsGallery : null),
+              _header(doc, room, floor, special == null && normal.length > 1, theme, onBack: special == null ? d.floorsGallery : null),
               if (tablet) _pageTabs(room, sub),
               grid(room, sub),
             ],
@@ -384,7 +393,7 @@ class _Screen extends StatelessWidget {
               ),
             ),
             Expanded(
-              child: RoomGallery(doc: doc, rooms: roomsOf(doc, floor?['id'] as String?), pal: pal, onOpen: d.selectRoom),
+              child: RoomGallery(doc: doc, rooms: roomsOf(doc, floor?['id'] as String?), pal: pal, onOpen: d.selectRoom, cardTitle: floor?['cardTitle']),
             ),
           ] else if (room == null || sub == null)
             empty
@@ -1535,10 +1544,15 @@ final Map<String, MemoryImage> _pageImages = {};
 
 /// Background of one page (sub-page), drawn over the common background:
 /// a color or an image, each with its own opacity. Null = none.
-ScreenBg? pageBackground(Json? sub, ScreenBg screen, Json theme) {
-  final b = jsonMap(sub?['bg']);
-  final mode = (b['mode'] ?? 'default').toString();
-  if (mode != 'color' && mode != 'image') return null;
+ScreenBg? pageBackground(Json? sub, ScreenBg screen, Json theme, {Json? fallback, String keyId = ''}) {
+  // The page's own background, else the one of the screen it is on (Area, Home or Security).
+  var b = jsonMap(sub?['bg']);
+  var mode = (b['mode'] ?? 'default').toString();
+  if (mode != 'color' && mode != 'image') {
+    b = jsonMap(fallback);
+    mode = (b['mode'] ?? 'default').toString();
+    if (mode != 'color' && mode != 'image') return null;
+  }
   // One brightness control: 100 = original, below darkens, above lightens.
   // (Older pages stored "dim" instead.)
   final legacyDim = (b['dim'] as num?)?.toDouble();
@@ -1555,7 +1569,7 @@ ScreenBg? pageBackground(Json? sub, ScreenBg screen, Json theme) {
   if (mode == 'color') {
     final c = shade(hexColor(b['color']) ?? under).withValues(alpha: op);
     final tx = text(Color.alphaBlend(c, under).computeLuminance() < 0.35);
-    return ScreenBg(BoxDecoration(color: c), tx.ink, tx.muted, key: 'c|${sub?['id']}');
+    return ScreenBg(BoxDecoration(color: c), tx.ink, tx.muted, key: 'c|${sub?['id'] ?? keyId}');
   }
   final data = (b['image'] ?? '').toString();
   final i = data.indexOf('base64,');
@@ -1580,7 +1594,7 @@ ScreenBg? pageBackground(Json? sub, ScreenBg screen, Json theme) {
     tx.ink,
     tx.muted,
     blur: blur,
-    key: 'i|${sub?['id']}|${data.length}',
+    key: 'i|${sub?['id'] ?? keyId}|${data.length}',
   );
 }
 
