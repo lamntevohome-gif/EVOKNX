@@ -342,64 +342,196 @@ class _ScriptsPageState extends State<ScriptsPage> implements ScriptHost {
     );
   }
 
-  /// The description of the chosen service, its fields (a click adds one to the data) and what is wrong in the data.
-  List<Widget> _dataHelp(BuildContext context, int i, Json st) {
+  void _setData(int i, String key, Object? v, {bool typing = false}) => _editStep(i, (x) {
+    final (m, err) = scriptData((x['data'] ?? '').toString());
+    if (err != null) return;
+    m![key] = v;
+    x['data'] = jsonEncode(m);
+  }, coalesce: typing ? 'scf-${_sel ?? ''}-$i-$key' : null);
+
+  void _removeData(int i, String key) => _editStep(i, (x) {
+    final (m, err) = scriptData((x['data'] ?? '').toString());
+    if (err != null) return;
+    m!.remove(key);
+    x['data'] = m.isEmpty ? '' : jsonEncode(m);
+  });
+
+  static String _numText(Object? v) => v is num ? (v == v.roundToDouble() ? v.toInt().toString() : v.toString()) : (v ?? '').toString();
+
+  /// The data of a service as rows: one per field, with its range and a box for the value. A click on a field
+  /// below adds it. Without the description of the service (not connected) the data is a JSON text.
+  List<Widget> _dataEditor(BuildContext context, int i, Json st) {
     final c = context.evo;
+    final id = _sel ?? '';
     final service = (st['service'] ?? '').toString().trim();
     final at = service.indexOf('.');
     final info = at < 0 ? null : widget.link.serviceInfo?[service.substring(0, at)]?[service.substring(at + 1)];
-    if (info == null) return const [];
-    final (data, bad) = scriptData((st['data'] ?? '').toString());
-    // What Home Assistant takes besides the fields: the targets.
+    final text = (st['data'] ?? '').toString();
+    final (data, bad) = scriptData(text);
+    final raw = info == null || st['raw'] == true || bad != null;
+    final toggle = info == null
+        ? const <Widget>[]
+        : [
+            Align(
+              alignment: Alignment.centerRight,
+              child: EvoButton(
+                label: raw ? 'Fields' : 'Edit as JSON',
+                small: true,
+                onPressed: bad != null && raw ? null : () => _editStep(i, (x) => raw ? x.remove('raw') : x['raw'] = true),
+              ),
+            ),
+          ];
+    if (raw) {
+      return [
+        FieldLabel(
+          'Data (JSON, optional)',
+          SyncedField(
+            value: text,
+            hint: '{"brightness_pct": 40}',
+            onChanged: (v) => _editStep(i, (x) => x['data'] = v, coalesce: 'scd-$id-$i'),
+          ),
+        ),
+        if (bad != null) Text('The data is not valid JSON.', style: TextStyle(fontSize: 12.5, color: c.warn)),
+        ...toggle,
+      ];
+    }
+    final svc = info!;
+    final byKey = {for (final f in svc.fields) f.key: f};
+    final map = data ?? <String, dynamic>{};
     const targets = {'entity_id', 'device_id', 'area_id', 'floor_id', 'label_id'};
-    final keys = data?.keys.toSet() ?? <String>{};
-    final known = {for (final f in info.fields) f.key};
-    final unknown = info.fields.isEmpty
+    final unknown = svc.fields.isEmpty
         ? <String>[]
         : [
-            for (final k in keys)
-              if (!known.contains(k) && !targets.contains(k)) k,
+            for (final k in map.keys)
+              if (!byKey.containsKey(k) && !targets.contains(k)) k,
           ];
     final missing = [
-      for (final f in info.fields)
-        if (f.required && bad == null && !keys.contains(f.key)) f.key,
+      for (final f in svc.fields)
+        if (f.required && !map.containsKey(f.key)) f.key,
     ];
     return [
-      if (info.description.isNotEmpty)
+      Text('Data', style: TextStyle(fontSize: 12.5, color: c.muted)),
+      const SizedBox(height: 4),
+      if (svc.description.isNotEmpty)
         Padding(
           padding: const EdgeInsets.only(bottom: 6),
-          child: Text(info.description, style: TextStyle(fontSize: 12.5, color: c.muted)),
+          child: Text(svc.description, style: TextStyle(fontSize: 12.5, color: c.muted)),
         ),
-      if (info.fields.isNotEmpty)
+      for (final k in map.keys) _dataRow(context, i, k, map[k], byKey[k]),
+      if (map.isEmpty)
         Padding(
           padding: const EdgeInsets.only(bottom: 6),
+          child: Text('No data: choose a field below to add it.', style: TextStyle(fontSize: 12.5, color: c.muted)),
+        ),
+      if (svc.fields.any((f) => !map.containsKey(f.key)))
+        Padding(
+          padding: const EdgeInsets.only(top: 4, bottom: 6),
           child: Wrap(
             spacing: 6,
             runSpacing: 6,
             children: [
-              for (final f in info.fields)
-                Tooltip(
-                  message: [if (f.name.isNotEmpty) f.name, if (f.description.isNotEmpty) f.description].join(' · '),
-                  child: EvoButton(
-                    label: '${f.key}${f.required ? ' *' : ''}',
-                    icon: keys.contains(f.key) ? Icons.check : Icons.add,
-                    small: true,
-                    onPressed: bad != null || keys.contains(f.key)
-                        ? null
-                        : () => _editStep(i, (x) {
-                            final (m, err) = scriptData((x['data'] ?? '').toString());
-                            if (err != null) return;
-                            m!.putIfAbsent(f.key, () => f.sample ?? '');
-                            x['data'] = jsonEncode(m);
-                          }),
+              for (final f in svc.fields)
+                if (!map.containsKey(f.key))
+                  Tooltip(
+                    message: [if (f.name.isNotEmpty) f.name, if (f.description.isNotEmpty) f.description].join(' · '),
+                    child: EvoButton(
+                      label: '${f.key}${f.required ? ' *' : ''}',
+                      icon: Icons.add,
+                      small: true,
+                      onPressed: () => _setData(i, f.key, f.sample ?? ''),
+                    ),
                   ),
-                ),
             ],
           ),
         ),
       if (unknown.isNotEmpty) Text('Not a field of $service: ${unknown.join(', ')}', style: TextStyle(fontSize: 12.5, color: c.warn)),
       if (missing.isNotEmpty) Text('Required: ${missing.join(', ')}', style: TextStyle(fontSize: 12.5, color: c.warn)),
+      ...toggle,
     ];
+  }
+
+  /// One field of the data: its name (with the range), a box for the value of the right kind, and a button to remove it.
+  Widget _dataRow(BuildContext context, int i, String key, Object? value, HaField? f) {
+    final c = context.evo;
+    final type = f?.type ?? '';
+    var label = key;
+    if (f != null && type == 'number' && (f.min != null || f.max != null)) {
+      label += ' (${f.min == null ? '' : _numText(f.min)}–${f.max == null ? '' : _numText(f.max)}${f.unit.isEmpty ? '' : ' ${f.unit}'})';
+    } else if (f != null && f.unit.isNotEmpty) {
+      label += ' (${f.unit})';
+    }
+    if (f?.required == true) label += ' *';
+    final Widget input;
+    if (type == 'number') {
+      input = SyncedField(
+        value: _numText(value),
+        number: true,
+        onChanged: (v) {
+          final n = num.tryParse(v.trim().replaceAll(',', '.'));
+          _setData(i, key, n == null ? v : (n == n.roundToDouble() && !v.contains('.') && !v.contains(',') ? n.toInt() : n), typing: true);
+        },
+      );
+    } else if (type == 'boolean') {
+      input = Align(
+        alignment: Alignment.centerLeft,
+        child: SizedBox(
+          width: 160,
+          child: EvoDropdown<bool>(value: value == true, items: const [(true, 'true'), (false, 'false')], onChanged: (v) => _setData(i, key, v)),
+        ),
+      );
+    } else if (type == 'select' && f != null && f.options.isNotEmpty) {
+      final opts = [...f.options];
+      final cur = (value ?? '').toString();
+      if (!opts.any((o) => o.$1 == cur)) opts.add((cur, cur));
+      input = Align(
+        alignment: Alignment.centerLeft,
+        child: SizedBox(
+          width: 260,
+          child: EvoDropdown<String>(value: cur, items: opts, onChanged: (v) => _setData(i, key, v)),
+        ),
+      );
+    } else if (value is String || value == null) {
+      input = SyncedField(value: (value ?? '').toString(), onChanged: (v) => _setData(i, key, v, typing: true));
+    } else {
+      // A list or another JSON value: written as JSON.
+      input = SyncedField(
+        value: jsonEncode(value),
+        onChanged: (v) {
+          Object? parsed;
+          try {
+            parsed = jsonDecode(v);
+          } catch (_) {
+            parsed = v;
+          }
+          _setData(i, key, parsed, typing: true);
+        },
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 250,
+            child: Tooltip(
+              message: [if (f != null && f.name.isNotEmpty) f.name, if (f != null && f.description.isNotEmpty) f.description].join(' · '),
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 13, color: c.ink),
+              ),
+            ),
+          ),
+          Expanded(child: input),
+          IconButton(
+            tooltip: 'Remove field',
+            icon: Icon(Icons.close, size: 16, color: c.muted),
+            onPressed: () => _removeData(i, key),
+          ),
+        ],
+      ),
+    );
   }
 
   /// The services to suggest: all of them, or those of the domain of the chosen entity.
@@ -555,16 +687,7 @@ class _ScriptsPageState extends State<ScriptsPage> implements ScriptHost {
               onChanged: (v) => _editStep(i, (x) => x['entity'] = v.trim(), coalesce: 'sce-$id-$i'),
             ),
           ),
-          FieldLabel(
-            'Data (JSON, optional)',
-            SyncedField(
-              value: (st['data'] ?? '').toString(),
-              hint: '{"brightness_pct": 40}',
-              onChanged: (v) => _editStep(i, (x) => x['data'] = v, coalesce: 'scd-$id-$i'),
-            ),
-          ),
-          if (scriptData((st['data'] ?? '').toString()).$2 != null) Text('The data is not valid JSON.', style: TextStyle(fontSize: 12.5, color: c.warn)),
-          ..._dataHelp(context, i, st),
+          ..._dataEditor(context, i, st),
           Text(
             'To run a script or a scene of Home Assistant use script.turn_on or scene.turn_on with its entity.',
             style: TextStyle(fontSize: 12.5, color: c.muted),
