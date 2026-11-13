@@ -60,6 +60,12 @@ const List<HaAttr> kHaAttrs = [
   HaAttr('volume', 'Volume', '5.001'),
   HaAttr('mute', 'Mute', '1.001'),
   HaAttr('playing', 'Playing', '1.001', cmd: false),
+  // Text commands: the text written to the address is the command (a text address, DPT 16). They are sent to
+  // Home Assistant as written, so they are not limited to the 14 characters of the bus.
+  HaAttr('cmdtext', 'Send command (text)', '16.000', status: false),
+  HaAttr('srctext', 'Select source / HDMI (text)', '16.000', status: false),
+  HaAttr('soundtext', 'Select sound mode (text)', '16.000', status: false),
+  HaAttr('acttext', 'Start activity (text)', '16.000', status: false),
 ];
 
 /// Functions of each kind of entity, in the order that gives their middle group
@@ -70,11 +76,21 @@ const Map<int, List<String>> kHaFunctions = {
   2: ['onoff', 'brightness', 'colortemp'],
   3: ['move', 'stop', 'position'],
   4: ['sensor'],
-  5: ['onoff', 'playpause', 'mstop', 'prev', 'next', 'volume', 'mute', 'playing'],
+  5: ['onoff', 'playpause', 'mstop', 'prev', 'next', 'volume', 'mute', 'playing', 'srctext', 'soundtext'],
   6: ['onoff', 'setpoint', 'current', 'mode'],
+  7: ['onoff', 'cmdtext', 'acttext'],
 };
 
-const List<String> kHaKindNames = ['Scenes, scripts, automations', 'Switches, lights', 'Dimmer', 'Blind', 'Sensor', 'Media player', 'Air conditioner'];
+const List<String> kHaKindNames = [
+  'Scenes, scripts, automations',
+  'Switches, lights',
+  'Dimmer',
+  'Blind',
+  'Sensor',
+  'Media player',
+  'Air conditioner',
+  'Remote'
+];
 
 bool _lightDims(HaEntity e) {
   final modes = [for (final x in (e.attributes['supported_color_modes'] as List? ?? const [])) x.toString()];
@@ -99,6 +115,8 @@ int haKind(HaEntity e) {
       return 5;
     case 'climate':
       return 6;
+    case 'remote':
+      return 7;
   }
   return 1;
 }
@@ -117,6 +135,84 @@ HaAttr? haAttr(String key) {
     if (a.key == key) return a;
   }
   return null;
+}
+
+/// A field (a parameter) of a Home Assistant service, as Home Assistant describes it.
+class HaField {
+  HaField(this.key, {this.name = '', this.description = '', this.required = false, this.type = '', this.example, this.sample});
+  final String key, name, description;
+  final bool required;
+
+  /// The kind of value: number, boolean, text, select, color_rgb… (from the selector), or ''.
+  final String type;
+  final Object? example;
+
+  /// A value to start from when the field is added: the default, the example, or one that fits the type.
+  final Object? sample;
+
+  /// Value of a field of Home Assistant's description (a section with more fields is flattened by the caller).
+  factory HaField.fromJson(String key, Map<String, dynamic> m) {
+    final sel = m['selector'];
+    var type = '';
+    Map<String, dynamic> selData = const {};
+    if (sel is Map && sel.isNotEmpty) {
+      type = sel.keys.first.toString();
+      final d = sel.values.first;
+      if (d is Map) selData = Map<String, dynamic>.from(d);
+    }
+    Object? sample = m['default'];
+    sample ??= m['example'] is num || m['example'] is bool || m['example'] is String ? m['example'] : null;
+    if (sample == null) {
+      switch (type) {
+        case 'number':
+          sample = selData['min'] ?? 0;
+        case 'boolean':
+          sample = true;
+        case 'select':
+          final o = selData['options'];
+          if (o is List && o.isNotEmpty) sample = o.first is Map ? (o.first as Map)['value'] : o.first;
+        case 'color_rgb':
+          sample = [255, 255, 255];
+        case 'text':
+          sample = '';
+      }
+    }
+    return HaField(
+      key,
+      name: (m['name'] ?? '').toString(),
+      description: (m['description'] ?? '').toString(),
+      required: m['required'] == true,
+      type: type,
+      example: m['example'],
+      sample: sample ?? '',
+    );
+  }
+}
+
+/// A service of Home Assistant with its fields.
+class HaService {
+  HaService(this.key, {this.name = '', this.description = '', this.fields = const []});
+  final String key, name, description;
+  final List<HaField> fields;
+
+  factory HaService.fromJson(String key, Map<String, dynamic> m) {
+    final out = <HaField>[];
+    void read(Object? fields) {
+      if (fields is! Map) return;
+      fields.forEach((k, v) {
+        if (v is! Map) return;
+        // A section groups more fields.
+        if (v['fields'] is Map) {
+          read(v['fields']);
+        } else {
+          out.add(HaField.fromJson(k.toString(), Map<String, dynamic>.from(v)));
+        }
+      });
+    }
+
+    read(m['fields']);
+    return HaService(key, name: (m['name'] ?? '').toString(), description: (m['description'] ?? '').toString(), fields: out);
+  }
 }
 
 /// An entity as listed by HA.
@@ -160,7 +256,22 @@ List<HaAttr> haSuggest(HaEntity e) {
       // 1 bit, like a light: 1 starts it (a script: 0 stops it).
       return pick(['onoff']);
     case 'media_player':
-      return pick(['onoff', 'playpause', 'mstop', 'prev', 'next', 'volume', 'mute', 'playing']);
+      // Sources and sound modes only when the player has a list of them.
+      bool has(String k) => (e.attributes[k] as List? ?? const []).isNotEmpty;
+      return pick([
+        'onoff',
+        'playpause',
+        'mstop',
+        'prev',
+        'next',
+        'volume',
+        'mute',
+        'playing',
+        if (has('source_list')) 'srctext',
+        if (has('sound_mode_list')) 'soundtext'
+      ]);
+    case 'remote':
+      return pick(['onoff', 'cmdtext', 'acttext']);
   }
   return const [];
 }
@@ -556,7 +667,8 @@ HaCall? haCommand(HaEntity e, String attr, Object value) {
       if (d == 'scene') return on ? const HaCall('scene', 'turn_on') : HaCall.none;
       if (d == 'automation') return on ? const HaCall('automation', 'trigger') : HaCall.none;
       if (d == 'script') return HaCall('script', on ? 'turn_on' : 'turn_off');
-      final dom = const ['light', 'switch', 'fan', 'input_boolean', 'climate', 'automation', 'cover', 'media_player'].contains(d) ? d : 'homeassistant';
+      final dom =
+          const ['light', 'switch', 'fan', 'input_boolean', 'climate', 'automation', 'cover', 'media_player', 'remote'].contains(d) ? d : 'homeassistant';
       if (dom == 'cover') return HaCall('cover', on ? 'open_cover' : 'close_cover');
       return HaCall(dom, on ? 'turn_on' : 'turn_off');
     case 'brightness':
@@ -598,6 +710,19 @@ HaCall? haCommand(HaEntity e, String attr, Object value) {
       return HaCall('media_player', 'volume_set', {'volume_level': ((n ?? 0).clamp(0, 100)) / 100});
     case 'mute':
       return HaCall('media_player', 'volume_mute', {'is_volume_muted': (n ?? 0) != 0});
+    // The text is the command; an empty text does nothing.
+    case 'cmdtext':
+      final t = value.toString().trim();
+      return t.isEmpty ? HaCall.none : HaCall('remote', 'send_command', {'command': t});
+    case 'srctext':
+      final t = value.toString().trim();
+      return t.isEmpty ? HaCall.none : HaCall('media_player', 'select_source', {'source': t});
+    case 'soundtext':
+      final t = value.toString().trim();
+      return t.isEmpty ? HaCall.none : HaCall('media_player', 'select_sound_mode', {'sound_mode': t});
+    case 'acttext':
+      final t = value.toString().trim();
+      return t.isEmpty ? HaCall.none : HaCall('remote', 'turn_on', {'activity': t});
   }
   return null;
 }
@@ -781,6 +906,30 @@ class HaSession {
   Future<List<HaEntity>> getStates() async {
     final r = await call({'type': 'get_states'}, timeout: const Duration(seconds: 20));
     return [for (final x in (r as List? ?? const [])) HaEntity.fromJson(Map<String, dynamic>.from(x as Map))];
+  }
+
+  /// The services of Home Assistant: each domain with its services and their fields (for suggestions).
+  Future<Map<String, Map<String, HaService>>> getServiceInfo() async {
+    final r = await call({'type': 'get_services'}, timeout: const Duration(seconds: 20));
+    final out = <String, Map<String, HaService>>{};
+    if (r is Map) {
+      r.forEach((d, v) {
+        if (v is! Map) return;
+        out[d.toString()] = {
+          for (final e in v.entries)
+            e.key.toString(): HaService.fromJson(e.key.toString(), e.value is Map ? Map<String, dynamic>.from(e.value as Map) : const {}),
+        };
+      });
+    }
+    return out;
+  }
+
+  /// The services of Home Assistant: each domain with the names of its services.
+  Future<Map<String, List<String>>> getServices() async {
+    final info = await getServiceInfo();
+    return {
+      for (final e in info.entries) e.key: (e.value.keys.toList()..sort()),
+    };
   }
 
   /// Subscribes to state changes of all entities.

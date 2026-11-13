@@ -21,7 +21,7 @@ const kScriptMaxWait = 60.0;
 const kScriptMaxTotalWait = 300.0;
 
 /// The kinds of step, with the name shown in the Editor.
-const kScriptStepTypes = [('write', 'Write'), ('ha', 'Home Assistant'), ('wait', 'Wait'), ('goto', 'Go to'), ('message', 'Show message')];
+const kScriptStepTypes = [('write', 'Write address'), ('ha', 'HA Service'), ('wait', 'Wait'), ('goto', 'Go to'), ('message', 'Show message')];
 
 List<Json> scriptsOf(Json doc) => jsonList(doc['scripts']);
 

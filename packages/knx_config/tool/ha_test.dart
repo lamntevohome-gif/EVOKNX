@@ -27,6 +27,20 @@ class FakeHa {
         'supported_color_modes': ['brightness']
       }
     },
+    'remote.tv': {
+      'entity_id': 'remote.tv',
+      'state': 'on',
+      'attributes': {'friendly_name': 'TV remote'}
+    },
+    'media_player.avr': {
+      'entity_id': 'media_player.avr',
+      'state': 'on',
+      'attributes': {
+        'friendly_name': 'AV receiver',
+        'source_list': ['HDMI 1', 'HDMI 2'],
+        'sound_mode_list': ['Movie', 'Music']
+      }
+    },
     'cover.rem1': {
       'entity_id': 'cover.rem1',
       'state': 'open',
@@ -77,6 +91,50 @@ class FakeHa {
       final id = m['id'];
       void ok([Object? result]) => ws.add(jsonEncode({'id': id, 'type': 'result', 'success': true, 'result': result}));
       switch (m['type']) {
+        case 'get_services':
+          ok({
+            'light': {
+              'turn_on': {
+                'name': 'Turn on',
+                'description': 'Turn on a light.',
+                'fields': {
+                  'brightness_pct': {
+                    'name': 'Brightness',
+                    'description': 'Brightness in percent.',
+                    'required': false,
+                    'selector': {
+                      'number': {'min': 0, 'max': 100}
+                    },
+                    'example': 47
+                  },
+                  'advanced_fields': {
+                    'collapsed': true,
+                    'fields': {
+                      'transition': {
+                        'selector': {
+                          'number': {'min': 0, 'max': 300}
+                        },
+                        'required': true
+                      }
+                    }
+                  },
+                  'flash': {
+                    'selector': {
+                      'select': {
+                        'options': ['short', 'long']
+                      }
+                    }
+                  },
+                  'color_name': {
+                    'selector': {'text': null}
+                  }
+                }
+              },
+              'turn_off': {}
+            },
+            'remote': {'send_command': {}},
+            'media_player': {'select_source': {}, 'volume_set': {}},
+          });
         case 'get_states':
           ok(states.values.toList());
         case 'subscribe_events':
@@ -248,6 +306,27 @@ Future<void> main() async {
   check(haKind(tv) == 5 && haSuggest(tv).map((a) => a.key).join(',') == 'onoff,playpause,mstop,prev,next,volume,mute,playing',
       'media player: kind 5 and its functions');
   addHaEntity(doc, tv, ['onoff', 'playpause', 'volume', 'mute', 'playing'], roomId: room1['id'] as String);
+  // ---- text commands: the text written to the address is the command
+  final tvs = ent('media_player.avr', 'on', {
+    'source_list': ['HDMI 1', 'HDMI 2'],
+    'sound_mode_list': ['Movie']
+  });
+  check(haSuggest(tvs).map((a) => a.key).join(',') == 'onoff,playpause,mstop,prev,next,volume,mute,playing,srctext,soundtext',
+      'media player with sources: the text source and sound mode are offered');
+  final rem = ent('remote.tv', 'on', {'friendly_name': 'TV remote'});
+  check(haKind(rem) == 7 && haSuggest(rem).map((a) => a.key).join(',') == 'onoff,cmdtext,acttext', 'remote: kind 7 and its functions');
+  final cmd = haCommand(rem, 'cmdtext', 'DPAD_UP')!;
+  check(cmd.domain == 'remote' && cmd.service == 'send_command' && cmd.data['command'] == 'DPAD_UP', 'send command: the text is the command');
+  check(haCommand(tvs, 'srctext', ' HDMI 2 ')!.data['source'] == 'HDMI 2' && haCommand(tvs, 'soundtext', 'Movie')!.service == 'select_sound_mode',
+      'source and sound mode: the text');
+  check(haCommand(rem, 'acttext', 'Watch TV')!.data['activity'] == 'Watch TV' && identical(haCommand(rem, 'cmdtext', '  '), HaCall.none),
+      'activity; an empty text does nothing');
+  check(haCommand(rem, 'onoff', true)!.domain == 'remote' && haCommand(rem, 'onoff', false)!.service == 'turn_off', 'remote on/off');
+  check(haAttr('cmdtext')!.dpt == '16.000' && !haAttr('cmdtext')!.status, 'text commands are text addresses without a status');
+  addHaEntity(doc, rem, ['onoff', 'cmdtext'], roomId: room1['id'] as String);
+  addHaEntity(doc, tvs, ['srctext', 'soundtext'], roomId: room1['id'] as String);
+  final textAddr = (doc['groupAddresses'] as List).map((g) => g['address']).toSet();
+  check(textAddr.containsAll(['40/7/1', '40/17/1', '40/85/2', '40/95/2']), 'addresses: remote 40/7/1 and 40/17/1, source 40/85/2 and sound mode 40/95/2');
   final all = (doc['groupAddresses'] as List).map((g) => g['address']).toSet();
   check(
     all.containsAll(['40/2/2', '40/1/1', '40/3/2', '40/13/2', '40/5/1', '40/15/1', '40/55/1', '40/55/101', '40/65/1', '40/65/101', '40/75/101']),
@@ -435,7 +514,23 @@ Future<void> main() async {
     check(e.message.contains('token'), 'connect: wrong token is refused (${e.message})');
   }
   final r = await haFetchEntities(url, 'tok');
-  check(r.version == '2025.1.0' && r.entities.length == 4, 'connect: version and ${r.entities.length} entities');
+  check(r.version == '2025.1.0' && r.entities.length == 6, 'connect: version and ${r.entities.length} entities');
+  // The services (for the suggestions of a script)
+  final sess = await HaSession.open(url, 'tok');
+  final svc = await sess.getServices();
+  check(svc['light']!.join(',') == 'turn_off,turn_on' && svc['remote']!.contains('send_command') && svc.length == 3,
+      'services: domains with their services ($svc)');
+  final info = await sess.getServiceInfo();
+  final on = info['light']!['turn_on']!;
+  check(on.description == 'Turn on a light.' && on.fields.map((f) => f.key).join(',') == 'brightness_pct,transition,flash,color_name',
+      'service fields: a section is flattened (${on.fields.map((f) => f.key)})');
+  final bp = on.fields.firstWhere((f) => f.key == 'brightness_pct');
+  check(bp.type == 'number' && bp.sample == 47 && !bp.required && bp.description == 'Brightness in percent.', 'service fields: number with an example');
+  check(on.fields.firstWhere((f) => f.key == 'transition').required && on.fields.firstWhere((f) => f.key == 'transition').sample == 0,
+      'service fields: required, a number starts at its minimum');
+  check(on.fields.firstWhere((f) => f.key == 'flash').sample == 'short' && on.fields.firstWhere((f) => f.key == 'color_name').sample == '',
+      'service fields: a select starts at its first option, a text is empty');
+  await sess.close();
   try {
     await haFetchEntities('127.0.0.1:1', 'tok');
     check(false, 'connect: nothing listening');
@@ -461,6 +556,16 @@ Future<void> main() async {
   check(await waitFor(() => got[addr('light.den1', 'onoff', 'status')] == false), 'bridge: status follows (off)');
   check(ha.calls.last['domain'] == 'light' && ha.calls.last['service'] == 'turn_off' && (ha.calls.last['target'] as Map)['entity_id'] == 'light.den1',
       'bridge: sent light.turn_off to light.den1');
+  check(await bridge.write(ga(addr('remote.tv', 'cmdtext', 'cmd')), 'DPAD_UP') == null, 'bridge: write a text command');
+  check(
+      ha.calls.last['domain'] == 'remote' &&
+          ha.calls.last['service'] == 'send_command' &&
+          (ha.calls.last['service_data'] as Map)['command'] == 'DPAD_UP' &&
+          (ha.calls.last['target'] as Map)['entity_id'] == 'remote.tv',
+      'bridge: sent remote.send_command with the text to remote.tv');
+  check(await bridge.write(ga(addr('media_player.avr', 'srctext', 'cmd')), 'HDMI 2') == null, 'bridge: write a text source');
+  check(
+      ha.calls.last['service'] == 'select_source' && (ha.calls.last['service_data'] as Map)['source'] == 'HDMI 2', 'bridge: sent select_source with the text');
   check(await bridge.write(ga(addr('light.den1', 'brightness', 'cmd')), 40) == null, 'bridge: write brightness 40');
   check(await waitFor(() => got[addr('light.den1', 'brightness', 'status')] == 40), 'bridge: brightness status 40 %');
   check(await bridge.write(ga(addr('cover.rem1', 'position', 'cmd')), 30) == null, 'bridge: write cover position 30 %');
