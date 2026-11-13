@@ -708,7 +708,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (blockedAbove != null) {
       content = _lockedView(blockedAbove, pal);
     } else if (_tab == 1 && _lvl == 0) {
-      content = RoomGallery(doc: d, rooms: normal, pal: pal, onOpen: _openFloor, unlocked: store.unlocked);
+      content = RoomGallery(doc: d, rooms: normal, pal: pal, onOpen: _openFloor, unlocked: store.unlocked, showIcons: false);
     } else if (_tab == 1 && _lvl == 1) {
       content = RoomGallery(doc: d, rooms: roomsOf(d, floorId), pal: pal, onOpen: _openRoomModern, unlocked: store.unlocked);
     } else if (r == null) {
@@ -1151,10 +1151,6 @@ class _HomeScreenState extends State<HomeScreen> {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            if (fl['showIcon'] != false && !isNoIcon(fl['icon'] as String?)) ...[
-                              iconWidget(fl['icon'] as String? ?? 'stairs', f * 1.25, fl['id'] == floorId ? pal.onChipSel : pal.muted),
-                              SizedBox(width: f * 0.45),
-                            ],
                             Flexible(
                               child: Text(
                                 (fl['title'] ?? '').toString(),

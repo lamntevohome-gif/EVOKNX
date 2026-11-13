@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart' hide Text;
+import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:evoknx_ui/evoknx_ui.dart' show Text, floorsOf, roomsOf, subsOf;
 import 'package:knx_config/knx_config.dart';
 import 'package:knx_core/knx_core.dart' show dpt16Text;
@@ -117,6 +118,42 @@ class _ScriptsPageState extends State<ScriptsPage> implements ScriptHost {
     steps.add(makeStep(type));
     s['steps'] = steps;
   });
+
+  /// Steps travel as text on the clipboard, so they can be pasted into another script or another project.
+  static const _clipKey = 'evoknx-script-steps';
+
+  Future<void> _copySteps(List<Json> steps, String done) async {
+    await Clipboard.setData(ClipboardData(text: jsonEncode({'evoknx': _clipKey, 'steps': steps})));
+    if (mounted) toast(context, done);
+  }
+
+  /// Pastes the steps of the clipboard at position [at] (a copy of each, the addresses and targets as they were).
+  Future<void> _pasteSteps(int at) async {
+    final data = await Clipboard.getData(Clipboard.kTextPlain);
+    final list = <Json>[];
+    try {
+      final m = jsonDecode(data?.text ?? '');
+      if (m is Map && m['evoknx'] == _clipKey && m['steps'] is List) {
+        for (final s in m['steps'] as List) {
+          if (s is Map && kScriptStepTypes.any((t) => t.$1 == s['type'])) list.add((jsonDecode(jsonEncode(s)) as Map).cast<String, dynamic>());
+        }
+      }
+    } catch (_) {}
+    if (!mounted) return;
+    if (list.isEmpty) {
+      toast(context, 'The clipboard has no script steps. Copy a step first.');
+      return;
+    }
+    var added = 0;
+    _edit((s) {
+      final steps = jsonList(s['steps']);
+      final take = list.take((kScriptMaxSteps - steps.length).clamp(0, kScriptMaxSteps)).toList();
+      steps.insertAll(at.clamp(0, steps.length), take);
+      s['steps'] = steps;
+      added = take.length;
+    });
+    toast(context, added == 0 ? 'A script has at most $kScriptMaxSteps steps.' : (added == 1 ? 'Step pasted.' : '$added steps pasted.'));
+  }
 
   void _newScript() => p.mutate((doc) {
     final l = scriptsOf(doc);
@@ -308,6 +345,13 @@ class _ScriptsPageState extends State<ScriptsPage> implements ScriptHost {
           children: [
             for (final t in kScriptStepTypes)
               EvoButton(label: t.$2, icon: Icons.add, small: true, onPressed: steps.length >= kScriptMaxSteps ? null : () => _addStep(t.$1)),
+            EvoButton(label: 'Paste', icon: Icons.content_paste_go_outlined, small: true, onPressed: () => _pasteSteps(steps.length)),
+            EvoButton(
+              label: 'Copy all steps',
+              icon: Icons.copy_outlined,
+              small: true,
+              onPressed: steps.isEmpty ? null : () => _copySteps(steps, 'All steps copied.'),
+            ),
           ],
         ),
         const SizedBox(height: 4),
@@ -357,6 +401,37 @@ class _ScriptsPageState extends State<ScriptsPage> implements ScriptHost {
   });
 
   static String _numText(Object? v) => v is num ? (v == v.roundToDouble() ? v.toInt().toString() : v.toString()) : (v ?? '').toString();
+
+  HaService? _svc(String service) {
+    final at = service.indexOf('.');
+    return at < 0 ? null : widget.link.serviceInfo?[service.substring(0, at)]?[service.substring(at + 1)];
+  }
+
+  /// A different service (one that Home Assistant knows) starts with no entity and no data, only its
+  /// required fields, so nothing of the old service is left. Typing the same service again changes nothing.
+  void _changeService(int i, String v) {
+    final nv = v.trim();
+    final info = _svc(nv);
+    _editStep(i, (x) {
+      final old = (x['service'] ?? '').toString();
+      final prev = (x['svcKey'] ?? (_svc(old) != null ? old : null))?.toString();
+      x['service'] = nv;
+      if (info == null) return;
+      if (prev != null && prev != nv) {
+        x['entity'] = '';
+        x['data'] = '';
+        x.remove('raw');
+      }
+      x['svcKey'] = nv;
+      if ((x['data'] ?? '').toString().trim().isEmpty) {
+        final req = <String, dynamic>{
+          for (final f in info.fields)
+            if (f.required) f.key: f.sample ?? '',
+        };
+        if (req.isNotEmpty) x['data'] = jsonEncode(req);
+      }
+    }, coalesce: 'scs-${_sel ?? ''}-$i');
+  }
 
   /// The data of a service as rows: one per field, with its range and a box for the value. A click on a field
   /// below adds it. Without the description of the service (not connected) the data is a JSON text.
@@ -623,6 +698,16 @@ class _ScriptsPageState extends State<ScriptsPage> implements ScriptHost {
               ),
               const Spacer(),
               IconButton(
+                tooltip: 'Copy step',
+                icon: Icon(Icons.copy_outlined, size: 17, color: c.muted),
+                onPressed: () => _copySteps([st], 'Step copied.'),
+              ),
+              IconButton(
+                tooltip: 'Paste below',
+                icon: Icon(Icons.content_paste_go_outlined, size: 18, color: c.muted),
+                onPressed: () => _pasteSteps(i + 1),
+              ),
+              IconButton(
                 tooltip: 'Delete step',
                 icon: Icon(Icons.close, size: 18, color: c.muted),
                 onPressed: () => _edit((x) {
@@ -688,7 +773,7 @@ class _ScriptsPageState extends State<ScriptsPage> implements ScriptHost {
               value: (st['service'] ?? '').toString(),
               hint: 'light.turn_on',
               options: _serviceOptions((st['entity'] ?? '').toString()),
-              onChanged: (v) => _editStep(i, (x) => x['service'] = v.trim(), coalesce: 'scs-$id-$i'),
+              onChanged: (v) => _changeService(i, v),
             ),
           ),
           FieldLabel(

@@ -1591,18 +1591,6 @@ class _FloorProps extends StatelessWidget {
           'Floor cover image (16:9)',
           _RoomCover(value: (f['cover'] ?? '').toString(), onChanged: (v) => editFloor((x) => v == null ? x.remove('cover') : x['cover'] = v)),
         ),
-      FieldLabel(
-        'Floor icon',
-        IconField(d: d, value: (f['icon'] ?? 'stairs').toString(), scope: IconScope.floor, onChanged: (v) => editFloor((x) => x['icon'] = v)),
-      ),
-      CheckboxListTile(
-        value: f['showIcon'] != false,
-        onChanged: (v) => editFloor((x) => x['showIcon'] = v ?? true),
-        dense: true,
-        contentPadding: EdgeInsets.zero,
-        controlAffinity: ListTileControlAffinity.leading,
-        title: const Text('Show/hide icon'),
-      ),
       Wrap(
         spacing: 6,
         runSpacing: 6,

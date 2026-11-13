@@ -164,8 +164,8 @@ class _ShellState extends State<Shell> {
     return p.lastSaveWasAuto ? 'Auto-saved at $hm' : 'Saved at $hm';
   }
 
-  /// Top bar: app menu and workspaces on the left, project name and save
-  /// state in the middle, undo/redo and the one primary action on the right.
+  /// Top bar: app menu and workspaces on the left, the save state and undo/redo on the right
+  /// (the name of the project is above the structure tree).
   Widget _topBar(BuildContext context) =>
       // Always dark, like the toolbar of design tools.
       Theme(
@@ -200,39 +200,8 @@ class _ShellState extends State<Shell> {
         color: _kBar,
         border: Border(bottom: BorderSide(color: Color(0xFF2A2A2A))),
       ),
-      child: LayoutBuilder(
-        builder: (context, bc) {
-          // The name is centred on the whole bar; on a narrow window (where it
-          // would run into the buttons) it sits between them instead.
-          final wide = bc.maxWidth >= 1300;
-          final name = Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Flexible(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 260, minWidth: 120),
-                  child: Tooltip(
-                    message: tr('Click to rename the project'),
-                    child: SyncedField(
-                      value: p.projectName,
-                      bold: true,
-                      borderless: true,
-                      center: true,
-                      onChanged: (v) => p.mutate((d) => (d['project'] as Map)['name'] = v, coalesce: 'pname'),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 6),
-              Tooltip(
-                message: p.path ?? tr('The project has not been saved as a file'),
-                child: Text(
-                  _status(),
-                  style: TextStyle(fontSize: kUiText, color: p.dirty ? c.warn : c.muted),
-                ),
-              ),
-            ],
-          );
+      child: Builder(
+        builder: (context) {
           final left = <Widget>[
             _appMenu(context),
             Container(width: 1, height: 20, margin: const EdgeInsets.symmetric(horizontal: 8), color: c.line),
@@ -243,29 +212,18 @@ class _ShellState extends State<Shell> {
             tab(4, 'Scripts'),
           ];
           final right = <Widget>[
+            Tooltip(
+              message: p.path ?? tr('The project has not been saved as a file'),
+              child: Text(
+                _status(),
+                style: TextStyle(fontSize: kUiText, color: p.dirty ? c.warn : c.muted),
+              ),
+            ),
+            const SizedBox(width: 10),
             IconButton(tooltip: tr('Undo (Ctrl+Z)'), onPressed: p.canUndo ? p.undo : null, icon: const Icon(Icons.undo)),
             IconButton(tooltip: tr('Redo (Ctrl+Y)'), onPressed: p.canRedo ? p.redo : null, icon: const Icon(Icons.redo)),
           ];
-          if (!wide) {
-            return Row(
-              children: [
-                ...left,
-                Expanded(child: Center(child: name)),
-                ...right,
-              ],
-            );
-          }
-          return Stack(
-            alignment: Alignment.center,
-            children: [
-              Row(children: [...left, const Spacer(), ...right]),
-              // Keep clear of the left and right tools on either side.
-              ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: bc.maxWidth - 2 * 460),
-                child: name,
-              ),
-            ],
-          );
+          return Row(children: [...left, const Spacer(), ...right]);
         },
       ),
     );

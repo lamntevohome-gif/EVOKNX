@@ -184,6 +184,19 @@ class StructureTree extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.symmetric(vertical: 6),
       children: [
+        // The name of the project (click it to rename).
+        Padding(
+          padding: const EdgeInsets.fromLTRB(10, 2, 10, 6),
+          child: Tooltip(
+            message: tr('Click to rename the project'),
+            child: SyncedField(
+              value: d.p.projectName,
+              bold: true,
+              borderless: true,
+              onChanged: (v) => d.p.mutate((doc) => (doc['project'] as Map)['name'] = v, coalesce: 'pname'),
+            ),
+          ),
+        ),
         row(
           leading: Icon(Icons.tune, size: 14, color: c.muted),
           text: 'Overview',
@@ -197,7 +210,7 @@ class StructureTree extends StatelessWidget {
         const SizedBox(height: 6),
         for (final f in floorsOf(doc)) ...[
           row(
-            leading: iconWidget(f['icon'] as String? ?? 'stairs', 14, c.muted),
+            leading: const SizedBox.shrink(),
             text: (f['title'] ?? '').toString(),
             trailing: '${roomsOf(doc, f['id'] as String?).length}',
             on: d.view == 'floor' && d.floor?['id'] == f['id'],

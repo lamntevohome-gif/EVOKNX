@@ -332,7 +332,7 @@ class _Screen extends StatelessWidget {
             if (inFloors) ...[
               title('Area'),
               Expanded(
-                child: RoomGallery(doc: doc, rooms: normal, pal: pal, onOpen: d.selectFloor),
+                child: RoomGallery(doc: doc, rooms: normal, pal: pal, onOpen: d.selectFloor, showIcons: false),
               ),
             ] else if (inRooms) ...[
               Padding(
@@ -565,10 +565,6 @@ class _Screen extends StatelessWidget {
                       padding: const EdgeInsets.fromLTRB(8, 10, 8, 4),
                       child: Row(
                         children: [
-                          if (f['showIcon'] != false && !isNoIcon(f['icon'] as String?)) ...[
-                            iconWidget(f['icon'] as String? ?? 'stairs', 14, pal.muted),
-                            const SizedBox(width: 6),
-                          ],
                           Text(
                             (f['title'] ?? '').toString(),
                             style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: pal.muted),
@@ -751,10 +747,6 @@ class _Screen extends StatelessWidget {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            if (fl['showIcon'] != false && !isNoIcon(fl['icon'] as String?)) ...[
-                              iconWidget(fl['icon'] as String? ?? 'stairs', f * 1.25, fl['id'] == floor?['id'] ? pal.onChipSel : pal.muted),
-                              SizedBox(width: f * 0.45),
-                            ],
                             Flexible(
                               child: Text(
                                 (fl['title'] ?? '').toString(),
