@@ -222,6 +222,7 @@ const kTfs = [
   TfsDef('areaTitle', 'Area title', 23, 16, 36),
   TfsDef('areaFloor', 'Floor name (Area)', 19, 12, 32),
   TfsDef('galleryTitle', 'Gallery card title', 15, 11, 28),
+  TfsDef('galleryIcon', 'Gallery card icon', 25, 14, 48),
 ];
 
 double tfs(Json doc, String key) {

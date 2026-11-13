@@ -16,25 +16,11 @@ MemoryImage? _coverOf(String data) {
   return _covers['${data.length}:${data.hashCode}'] ??= MemoryImage(base64Decode(data.substring(i + 7)));
 }
 
-/// The size of the text on the cards of a floor, when the floor has its own (11 to 28), scaled like the other sizes.
-double? cardTitleSize(Object? v) => v is num ? v.toInt().clamp(11, 28).toDouble() * EvoScale.k : null;
-
 /// The room gallery: a grid of room cards (cover image or color, icon, name).
 /// Tapping a card opens the room. Used by the App and by the Editor preview.
 class RoomGallery extends StatelessWidget {
-  const RoomGallery({
-    super.key,
-    required this.doc,
-    required this.rooms,
-    required this.pal,
-    required this.onOpen,
-    this.unlocked,
-    this.showIcons = true,
-    this.cardTitle,
-  });
+  const RoomGallery({super.key, required this.doc, required this.rooms, required this.pal, required this.onOpen, this.unlocked, this.showIcons = true});
 
-  /// The size of the text on the cards chosen for the floor (11 to 28), or null.
-  final Object? cardTitle;
   final Json doc;
   final List<Json> rooms;
   final AppPalette pal;
@@ -74,7 +60,6 @@ class RoomGallery extends StatelessWidget {
             room: rooms[i],
             pal: pal,
             showIcon: showIcons,
-            titleSize: cardTitleSize(cardTitle),
             locked: RegExp(r'^\d{4}$').hasMatch((rooms[i]['lock'] ?? '').toString()) && !(unlocked?.contains(rooms[i]['id']) ?? false),
             onTap: () => onOpen(rooms[i]['id'] as String),
           ),
@@ -205,7 +190,6 @@ class _AreaListState extends State<AreaList> {
                         doc: doc,
                         room: r,
                         pal: pal,
-                        titleSize: cardTitleSize(groups[g].$1['cardTitle']),
                         locked: RegExp(r'^\d{4}$').hasMatch((r['lock'] ?? '').toString()) && !(widget.unlocked?.contains(r['id']) ?? false),
                         onTap: () => widget.onOpenRoom(r['id'] as String),
                       ),
@@ -221,10 +205,7 @@ class _AreaListState extends State<AreaList> {
 }
 
 class _RoomCard extends StatelessWidget {
-  const _RoomCard({required this.doc, required this.room, required this.pal, required this.onTap, this.locked = false, this.showIcon = true, this.titleSize});
-
-  /// The size of the text on the card (the one of its floor); null = the common size of the Overview.
-  final double? titleSize;
+  const _RoomCard({required this.doc, required this.room, required this.pal, required this.onTap, this.locked = false, this.showIcon = true});
   final bool locked, showIcon;
   final Json doc, room;
   final AppPalette pal;
@@ -235,7 +216,7 @@ class _RoomCard extends StatelessWidget {
     final radius = BorderRadius.circular(pal.radius + 4);
     final cover = (room['cover'] ?? '').toString();
     final img = cover.isEmpty ? null : _coverOf(cover);
-    final f = titleSize ?? tfs(doc, 'galleryTitle');
+    final f = tfs(doc, 'galleryTitle');
     final fg = img != null ? Colors.white : pal.ink;
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -270,7 +251,7 @@ class _RoomCard extends StatelessWidget {
                     ),
                   ),
                 ),
-              if (showIcon) Positioned(left: 12, top: 12, child: iconWidget(room['icon'] as String?, f * 1.65, fg)),
+              if (showIcon) Positioned(left: 12, top: 12, child: iconWidget(room['icon'] as String?, tfs(doc, 'galleryIcon'), fg)),
               if (locked)
                 Positioned(
                   right: 10,
