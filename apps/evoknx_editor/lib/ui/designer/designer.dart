@@ -379,8 +379,12 @@ class Designer extends ChangeNotifier {
     _n();
   }
 
+  /// Counts the requests to show a floor on the Area screen of the preview (it scrolls to it).
+  int areaSeq = 0;
+
   void selectFloor(String id) {
     _navSeq++;
+    areaSeq++;
     treeSel.clear();
     view = 'floor';
     floorId = id;

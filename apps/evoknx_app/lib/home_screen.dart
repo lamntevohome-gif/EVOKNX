@@ -66,11 +66,11 @@ class _HomeScreenState extends State<HomeScreen> {
   void _modernTab(int t) {
     _navSeq++;
     if (t == 1) {
-      final fs = normalFloorsOf(doc);
+      // The Area screen: all the floors with their rooms.
       setState(() {
         _tab = 1;
-        if (fs.length == 1) floorId = fs.first['id'] as String;
-        _lvl = fs.length > 1 ? 0 : 1;
+        _lvl = 0;
+        _areaFloor = null;
       });
       return;
     }
@@ -78,14 +78,18 @@ class _HomeScreenState extends State<HomeScreen> {
     _openSpecial(t == 0 ? 'home' : 'security');
   }
 
-  void _openFloor(String id) => setState(() {
-    floorId = id;
-    _lvl = 1;
-  });
+  /// A floor to scroll to on the Area screen, and a counter that tells a new request.
+  String? _areaFloor;
+  int _areaSeq = 0;
 
   void _openRoomModern(String id) {
     _navSeq++;
-    setState(() => _lvl = 2);
+    final r = roomsOf(doc).where((x) => x['id'] == id).firstOrNull;
+    setState(() {
+      _lvl = 2;
+      _areaFloor = null;
+      if (r != null) floorId = r['floorId'] as String;
+    });
     _openRoom(id);
   }
 
@@ -93,10 +97,6 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _modernBack() {
     if (_tab == 1) {
       if (_lvl == 2) {
-        setState(() => _lvl = 1);
-        return true;
-      }
-      if (_lvl == 1 && normalFloorsOf(doc).length > 1) {
         setState(() => _lvl = 0);
         return true;
       }
@@ -293,8 +293,21 @@ class _HomeScreenState extends State<HomeScreen> {
         // A floor: its rooms.
         final rs = roomsOf(doc, fid);
         if (_modernMode) {
-          _tab = 1;
-          _lvl = 1;
+          if (floor['special'] != null) {
+            // Home or Security: its first room.
+            if (rs.isNotEmpty) {
+              roomId = rs.first['id'] as String;
+              page = 0;
+            }
+            _tab = floor['special'] == 'home' ? 0 : 2;
+            _lvl = 2;
+          } else {
+            // The Area screen, scrolled to the heading of that floor.
+            _tab = 1;
+            _lvl = 0;
+            _areaFloor = fid;
+            _areaSeq++;
+          }
         } else if (_galleryMode) {
           _gallery = true;
         } else if (rs.isNotEmpty) {
@@ -702,15 +715,23 @@ class _HomeScreenState extends State<HomeScreen> {
     final subs = r == null ? const <Json>[] : subsOf(r);
     final floor = floorsOf(d).where((f) => f['id'] == floorId).firstOrNull;
     final normal = normalFloorsOf(d);
-    final VoidCallback? onBack = _tab == 1 && (_lvl == 2 || (_lvl == 1 && normal.length > 1)) ? () => _modernBack() : null;
+    final VoidCallback? onBack = _tab == 1 && _lvl == 2 ? () => _modernBack() : null;
     final Json? headFloor = _tab == 1 && _lvl == 0 ? <String, dynamic>{'title': 'Area'} : floor;
     final Widget content;
     if (blockedAbove != null) {
       content = _lockedView(blockedAbove, pal);
     } else if (_tab == 1 && _lvl == 0) {
-      content = RoomGallery(doc: d, rooms: normal, pal: pal, onOpen: _openFloor, unlocked: store.unlocked, showIcons: false);
-    } else if (_tab == 1 && _lvl == 1) {
-      content = RoomGallery(doc: d, rooms: roomsOf(d, floorId), pal: pal, onOpen: _openRoomModern, unlocked: store.unlocked);
+      content = AreaList(
+        doc: d,
+        floors: normal,
+        pal: pal,
+        onOpenRoom: _openRoomModern,
+        unlocked: store.unlocked,
+        scrollToFloor: _areaFloor,
+        scrollSeq: _areaSeq,
+      );
+      // The request to scroll is done once.
+      if (_areaFloor != null) WidgetsBinding.instance.addPostFrameCallback((_) => _areaFloor = null);
     } else if (r == null) {
       content = Center(
         child: Text(

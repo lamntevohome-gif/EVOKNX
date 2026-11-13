@@ -329,47 +329,22 @@ class _Screen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             statusBar,
-            if (inFloors) ...[
+            if (inFloors || inRooms) ...[
               title('Area'),
               Expanded(
-                child: RoomGallery(doc: doc, rooms: normal, pal: pal, onOpen: d.selectFloor, showIcons: false),
-              ),
-            ] else if (inRooms) ...[
-              Padding(
-                padding: const EdgeInsets.fromLTRB(18, 6, 14, 10),
-                child: Row(
-                  children: [
-                    if (normal.length > 1) ...[
-                      InkWell(
-                        customBorder: const CircleBorder(),
-                        onTap: d.floorsGallery,
-                        child: Container(
-                          width: 32,
-                          height: 32,
-                          decoration: flatDecoration(pal, pal.chipFill, circle: true),
-                          child: Icon(Icons.arrow_back, size: 17, color: pal.ink),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                    ],
-                    Expanded(
-                      child: Text(
-                        (floor?['title'] ?? '').toString(),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(fontSize: tfs(doc, 'titleSize'), fontWeight: FontWeight.w600, color: pal.sInk),
-                      ),
-                    ),
-                  ],
+                child: AreaList(
+                  doc: doc,
+                  floors: normal,
+                  pal: pal,
+                  onOpenRoom: d.selectRoom,
+                  scrollToFloor: inRooms ? (floor?['id'] as String?) : null,
+                  scrollSeq: d.areaSeq,
                 ),
-              ),
-              Expanded(
-                child: RoomGallery(doc: doc, rooms: roomsOf(doc, floor?['id'] as String?), pal: pal, onOpen: d.selectRoom),
               ),
             ] else if (room == null || sub == null)
               empty
             else ...[
-              _header(doc, room, floor, false, theme, onBack: special == null ? () => d.selectFloor((floor?['id'] ?? '').toString()) : null),
+              _header(doc, room, floor, false, theme, onBack: special == null ? d.floorsGallery : null),
               if (tablet) _pageTabs(room, sub),
               grid(room, sub),
             ],
@@ -381,13 +356,7 @@ class _Screen extends StatelessWidget {
               child: Row(
                 children: [
                   barItem(0, Icons.home, Icons.home_outlined, 'Home', () => d.selectSpecial('home')),
-                  barItem(1, Icons.layers, Icons.layers_outlined, 'Area', () {
-                    if (normal.length > 1) {
-                      d.floorsGallery();
-                    } else if (normal.isNotEmpty) {
-                      d.selectFloor(normal.first['id'] as String);
-                    }
-                  }),
+                  barItem(1, Icons.layers, Icons.layers_outlined, 'Area', d.floorsGallery),
                   barItem(2, Icons.shield, Icons.shield_outlined, 'Security', () => d.selectSpecial('security')),
                 ],
               ),
