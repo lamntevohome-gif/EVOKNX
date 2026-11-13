@@ -455,11 +455,7 @@ class _ScriptsPageState extends State<ScriptsPage> implements ScriptHost {
     final c = context.evo;
     final type = f?.type ?? '';
     var label = key;
-    if (f != null && type == 'number' && (f.min != null || f.max != null)) {
-      label += ' (${f.min == null ? '' : _numText(f.min)}–${f.max == null ? '' : _numText(f.max)}${f.unit.isEmpty ? '' : ' ${f.unit}'})';
-    } else if (f != null && f.unit.isNotEmpty) {
-      label += ' (${f.unit})';
-    }
+    if (f != null && f.spec.isNotEmpty) label += ' (${f.spec})';
     if (f?.required == true) label += ' *';
     final Widget input;
     if (type == 'number') {
@@ -470,6 +466,11 @@ class _ScriptsPageState extends State<ScriptsPage> implements ScriptHost {
           final n = num.tryParse(v.trim().replaceAll(',', '.'));
           _setData(i, key, n == null ? v : (n == n.roundToDouble() && !v.contains('.') && !v.contains(',') ? n.toInt() : n), typing: true);
         },
+      );
+    } else if (type == 'constant') {
+      input = Align(
+        alignment: Alignment.centerLeft,
+        child: Text(jsonEncode(f!.selector['value']), style: TextStyle(fontSize: 13, color: c.muted)),
       );
     } else if (type == 'boolean') {
       input = Align(
@@ -515,11 +516,23 @@ class _ScriptsPageState extends State<ScriptsPage> implements ScriptHost {
             width: 250,
             child: Tooltip(
               message: [if (f != null && f.name.isNotEmpty) f.name, if (f != null && f.description.isNotEmpty) f.description].join(' · '),
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 13, color: c.ink),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 13, color: c.ink),
+                  ),
+                  if (f != null && f.brief.isNotEmpty)
+                    Text(
+                      f.brief,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 11.5, color: c.muted),
+                    ),
+                ],
               ),
             ),
           ),
