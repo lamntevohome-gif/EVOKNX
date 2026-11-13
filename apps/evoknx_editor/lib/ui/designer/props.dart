@@ -1769,7 +1769,14 @@ class _OverviewProps extends StatelessWidget {
           tfsRow('pageTitle'),
         ]),
         if (modern) ...[
-          _Section('Modern layout', [tfsRow('navBar'), tfsRow('areaTitle'), tfsRow('areaFloor'), tfsRow('galleryTitle'), tfsRow('galleryIcon')]),
+          _Section('Modern layout', [
+            tfsRow('navBar'),
+            tfsRow('areaTitle'),
+            tfsRow('areaFloor'),
+            tfsRow('crumb'),
+            tfsRow('galleryTitle'),
+            tfsRow('galleryIcon'),
+          ]),
           _PageBgSettings(holder: theme, edit: editTheme, field: 'bgArea', title: 'Area background'),
           _PageBgSettings(holder: theme, edit: editTheme, field: 'bgHome', title: 'Home background'),
           _PageBgSettings(holder: theme, edit: editTheme, field: 'bgSecurity', title: 'Security background'),

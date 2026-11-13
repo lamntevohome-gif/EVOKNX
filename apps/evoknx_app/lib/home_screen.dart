@@ -419,10 +419,47 @@ class _HomeScreenState extends State<HomeScreen> {
   bool get _noMotion => MediaQuery.of(context).disableAnimations;
 
   /// A gentle fade between two screens (another floor, another room…).
+  /// The time of the fade between two screens, the same for the content and the background.
+  static const _kFade = Duration(milliseconds: 320);
+
+  /// The background of the page. A new one fades in over the old one, which stays whole until it is covered,
+  /// so the screen does not flash toward the color of the screen halfway; each layer has its own base color.
+  Widget _bgLayer(PageBg? bg, Object? pageId, AppPalette pal) {
+    final Widget layer = bg == null
+        ? ColoredBox(color: pal.screen, child: const SizedBox.expand())
+        : ClipRect(
+            child: ColoredBox(
+              color: pal.screen,
+              child: ImageFiltered(
+                enabled: bg.blur > 0,
+                imageFilter: ImageFilter.blur(sigmaX: bg.blur, sigmaY: bg.blur, tileMode: TileMode.clamp),
+                child: DecoratedBox(decoration: bg.decoration, child: const SizedBox.expand()),
+              ),
+            ),
+          );
+    return _BgFade(layerKey: bg == null ? 'none' : 'bg-$pageId', duration: _noMotion ? Duration.zero : _kFade, layer: layer);
+  }
+
+  /// The text colors of the screen (header, bar) change gently with the background instead of jumping.
+  Widget _inkAnim(AppPalette base, PageBg? bg, Widget Function(AppPalette pal) build) {
+    final d = _noMotion ? Duration.zero : _kFade;
+    return TweenAnimationBuilder<Color?>(
+      tween: ColorTween(end: bg?.ink ?? base.ink),
+      duration: d,
+      curve: Curves.easeInOut,
+      builder: (context, ink, _) => TweenAnimationBuilder<Color?>(
+        tween: ColorTween(end: bg?.muted ?? base.muted),
+        duration: d,
+        curve: Curves.easeInOut,
+        builder: (context, muted, _) => build(base.copyWith(onScreenInk: ink, onScreenMuted: muted)),
+      ),
+    );
+  }
+
   Widget _fade(Key key, Widget child) => AnimatedSwitcher(
-    duration: _noMotion ? Duration.zero : const Duration(milliseconds: 380),
-    switchInCurve: Curves.easeOut,
-    switchOutCurve: Curves.easeIn,
+    duration: _noMotion ? Duration.zero : _kFade,
+    switchInCurve: Curves.easeInOut,
+    switchOutCurve: Curves.easeInOut,
     layoutBuilder: (current, previous) => Stack(fit: StackFit.expand, children: [...previous, if (current != null) current]),
     child: KeyedSubtree(key: key, child: child),
   );
@@ -584,21 +621,7 @@ class _HomeScreenState extends State<HomeScreen> {
         backgroundColor: pal.screen,
         body: Stack(
           children: [
-            Positioned.fill(
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 380),
-                child: bg == null
-                    ? const SizedBox.expand(key: ValueKey('bg-none'))
-                    : ClipRect(
-                        key: ValueKey('bg-${s?['id']}'),
-                        child: ImageFiltered(
-                          enabled: bg.blur > 0,
-                          imageFilter: ImageFilter.blur(sigmaX: bg.blur, sigmaY: bg.blur, tileMode: TileMode.clamp),
-                          child: DecoratedBox(decoration: bg.decoration, child: const SizedBox.expand()),
-                        ),
-                      ),
-              ),
-            ),
+            Positioned.fill(child: _bgLayer(bg, s?['id'], pal)),
             SafeArea(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -768,39 +791,29 @@ class _HomeScreenState extends State<HomeScreen> {
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) _modernBack();
       },
-      child: Scaffold(
-        backgroundColor: pal.screen,
-        body: Stack(
-          children: [
-            Positioned.fill(
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 380),
-                child: bg == null
-                    ? const SizedBox.expand(key: ValueKey('bg-none'))
-                    : ClipRect(
-                        key: ValueKey('bg-${s?['id']}'),
-                        child: ImageFiltered(
-                          enabled: bg.blur > 0,
-                          imageFilter: ImageFilter.blur(sigmaX: bg.blur, sigmaY: bg.blur, tileMode: TileMode.clamp),
-                          child: DecoratedBox(decoration: bg.decoration, child: const SizedBox.expand()),
-                        ),
-                      ),
+      child: _inkAnim(
+        pal0,
+        bg,
+        (pal) => Scaffold(
+          backgroundColor: pal.screen,
+          body: Stack(
+            children: [
+              Positioned.fill(child: _bgLayer(bg, s?['id'], pal)),
+              SafeArea(
+                bottom: false,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _banner(pal),
+                    _header(d, pal, headFloor, onPage ? r : null, _tab == 1 && normal.length > 1, onBack: onBack, sizeKey: onPage ? 'titleSize' : 'areaTitle'),
+                    if (onPage && r != null && subs.length > 1 && _dev != 'mobile') _pageNav(subs, pal),
+                    Expanded(child: _fade(ValueKey('m$_tab-$_lvl-$floorId-$roomId-${blockedAbove?['id']}'), content)),
+                    _modernBar(pal),
+                  ],
+                ),
               ),
-            ),
-            SafeArea(
-              bottom: false,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _banner(pal),
-                  _header(d, pal, headFloor, onPage ? r : null, _tab == 1 && normal.length > 1, onBack: onBack, sizeKey: onPage ? 'titleSize' : 'areaTitle'),
-                  if (onPage && r != null && subs.length > 1 && _dev != 'mobile') _pageNav(subs, pal),
-                  Expanded(child: _fade(ValueKey('m$_tab-$_lvl-$floorId-$roomId-${blockedAbove?['id']}'), content)),
-                  _modernBar(pal),
-                ],
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -1422,4 +1435,61 @@ class _AppScriptHost implements ScriptHost {
 
   @override
   void message(String text) => s._toast(text);
+}
+
+/// Shows [layer]; when [layerKey] changes the new layer fades in over the old one (which stays whole until covered).
+class _BgFade extends StatefulWidget {
+  const _BgFade({required this.layerKey, required this.layer, required this.duration});
+  final Object layerKey;
+  final Widget layer;
+  final Duration duration;
+
+  @override
+  State<_BgFade> createState() => _BgFadeState();
+}
+
+class _BgFadeState extends State<_BgFade> with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(vsync: this, duration: widget.duration, value: 1);
+  late final Animation<double> _a = CurvedAnimation(parent: _c, curve: Curves.easeInOut);
+  late Widget _cur = widget.layer;
+  late Object _curKey = widget.layerKey;
+  Widget? _old;
+
+  @override
+  void didUpdateWidget(_BgFade old) {
+    super.didUpdateWidget(old);
+    _c.duration = widget.duration;
+    if (widget.layerKey == _curKey) {
+      _cur = widget.layer;
+      return;
+    }
+    _old = _cur;
+    _cur = widget.layer;
+    _curKey = widget.layerKey;
+    if (widget.duration == Duration.zero) {
+      _old = null;
+      _c.value = 1;
+      return;
+    }
+    _c.forward(from: 0).whenComplete(() {
+      if (mounted) setState(() => _old = null);
+    });
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => RepaintBoundary(
+    child: Stack(
+      fit: StackFit.expand,
+      children: [
+        if (_old != null) _old!,
+        FadeTransition(opacity: _a, child: _cur),
+      ],
+    ),
+  );
 }
