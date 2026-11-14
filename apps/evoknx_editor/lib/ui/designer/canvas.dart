@@ -977,7 +977,14 @@ class _GridAreaState extends State<_GridArea> {
               ? _GroupFrame(d: d, w: w, pal: pal, issues: widget.issues, selected: selected)
               : w['type'] == 'media'
               ? _outlined(
-                  MediaCard(w: w, pal: pal, host: d.mediaHost, sim: d.sim[id] ?? const {}, act: test ? (a, [arg]) => _testAct(w, a, arg) : null),
+                  MediaCard(
+                    w: w,
+                    pal: pal,
+                    host: d.mediaHost,
+                    simulate: test,
+                    sim: d.sim[id] ?? const {},
+                    act: test ? (a, [arg]) => _testAct(w, a, arg) : null,
+                  ),
                   selected,
                   pal,
                 )

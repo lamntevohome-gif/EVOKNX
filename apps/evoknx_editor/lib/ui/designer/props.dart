@@ -3287,8 +3287,6 @@ class _RemoteSection extends StatelessWidget {
         _Section('Keys', [EvoButton(label: 'Arrange the keys…', icon: Icons.open_with, onPressed: () => showRemoteLayout(context, d, id))]),
         if (knx)
           _Section('Values sent', [
-            if (remoteKnxMode(w) == 'single') Text('The value that tells the device which key was pressed.', style: TextStyle(fontSize: 12.5, color: c.muted)),
-            const SizedBox(height: 6),
             if (remoteKnxMode(w) == 'each')
               Theme(
                 data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
@@ -3301,7 +3299,7 @@ class _RemoteSection extends StatelessWidget {
                     'Every key sends 1',
                     style: TextStyle(fontSize: kUiText, fontWeight: FontWeight.w600, color: c.ink),
                   ),
-                  subtitle: Text('Open to give a key another value.', style: TextStyle(fontSize: 12.5, color: c.muted)),
+                  visualDensity: const VisualDensity(vertical: -4),
                   children: [
                     for (final k in used)
                       FieldLabel(
@@ -3328,11 +3326,6 @@ class _RemoteSection extends StatelessWidget {
           ])
         else
           _Section('Key names', [
-            Text(
-              'The name that the integration of Home Assistant gives to each key. Check them with your remote; a key without a name is not sent.',
-              style: TextStyle(fontSize: 12.5, color: c.muted),
-            ),
-            const SizedBox(height: 6),
             for (final k in kRemoteKeys)
               if (k.$1 != 'power')
                 FieldLabel(
