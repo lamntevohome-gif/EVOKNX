@@ -32,7 +32,10 @@ abstract class MediaHost {
 /// (previous, play or pause, next) of one media player of Home Assistant. A button the player does not
 /// have is left out. With no [host] (the design view of the Editor) it shows an example.
 class MediaCard extends StatefulWidget {
-  const MediaCard({super.key, required this.w, required this.pal, this.host, this.sim, this.act});
+  const MediaCard({super.key, required this.w, required this.pal, this.host, this.sim, this.act, this.simulate = false});
+
+  /// The Editor's test mode without Home Assistant: the example card answers the buttons (through [act], like KNX).
+  final bool simulate;
   final Json w;
   final AppPalette pal;
   final MediaHost? host;
@@ -125,8 +128,10 @@ class _MediaCardState extends State<MediaCard> {
     return v is num && v > 0 ? v.toDouble() : null;
   }
 
+  bool get _sim => widget.simulate && !mediaIsKnx(widget.w) && widget.host == null;
+
   Future<void> _call(String service, Map<String, dynamic> data) async {
-    if (mediaIsKnx(widget.w)) {
+    if (mediaIsKnx(widget.w) || _sim) {
       final act = widget.act;
       if (act == null) return;
       switch (service) {
@@ -163,7 +168,7 @@ class _MediaCardState extends State<MediaCard> {
     if (knx) {
       m = _knxMedia;
     } else if (host == null) {
-      m = _example;
+      m = _sim ? _exampleSim : _example;
     } else if (_id.isEmpty) {
       note = 'Choose the media player in the settings of the card.';
     } else if (!host.connected && host.entity(_id) == null) {
@@ -192,7 +197,7 @@ class _MediaCardState extends State<MediaCard> {
                 style: TextStyle(fontSize: fs(w, 'labelSize') - 1, color: pal.muted),
               ),
             )
-          : LayoutBuilder(builder: (context, bc) => _body(media, bc, knx ? widget.act == null : host == null, knx, pal)),
+          : LayoutBuilder(builder: (context, bc) => _body(media, bc, knx ? widget.act == null : (host == null && !_sim), knx, pal)),
     );
   }
 
@@ -203,6 +208,24 @@ class _MediaCardState extends State<MediaCard> {
     return HaMedia(
       HaEntity('media_player.knx', s['on'] == true ? 'playing' : 'paused', {
         if (vol != null) 'volume_level': (vol / 100).clamp(0.0, 1.0),
+        'is_volume_muted': s['mute'] == true,
+        'shuffle': s['shuffle'] == true,
+        'repeat': s['repeat'] == true ? 'all' : 'off',
+      }),
+    );
+  }
+
+  /// The example card in the test mode: it follows the taps (playing, volume, mute, shuffle, repeat).
+  HaMedia get _exampleSim {
+    final s = widget.sim ?? const <String, dynamic>{};
+    return HaMedia(
+      HaEntity('media_player.example', s['on'] == true ? 'playing' : 'paused', {
+        'media_title': 'Song title',
+        'media_artist': 'Artist',
+        'media_album_name': 'Album',
+        'media_duration': 225,
+        'media_position': 83,
+        'volume_level': s['vol'] is num ? ((s['vol'] as num) / 100).clamp(0.0, 1.0) : 0.5,
         'is_volume_muted': s['mute'] == true,
         'shuffle': s['shuffle'] == true,
         'repeat': s['repeat'] == true ? 'all' : 'off',
