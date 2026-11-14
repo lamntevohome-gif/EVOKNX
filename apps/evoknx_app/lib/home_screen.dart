@@ -18,6 +18,7 @@ import 'pin_dialog.dart';
 import 'popups.dart';
 import 'room_pages.dart';
 import 'settings_screen.dart';
+import 'user_screen.dart';
 import 'web_card.dart';
 
 /// Main screen: floors › rooms › pages with the cards, controlling KNX.
@@ -617,6 +618,12 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Future<void> _openUser() => Navigator.of(context).push(
+    MaterialPageRoute(
+      builder: (_) => UserScreen(store: store, onSettings: _openSettings),
+    ),
+  );
+
   Future<void> _openSettings() async {
     await Navigator.of(context).push(
       MaterialPageRoute(
@@ -850,6 +857,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     _banner(pal),
+                    _topRight(pal),
                     _header(d, pal, headFloor, onPage ? r : null, _tab == 1 && normal.length > 1, onBack: onBack, sizeKey: onPage ? 'titleSize' : 'areaTitle'),
                     if (onPage && r != null && subs.length > 1 && _dev != 'mobile') _pageNav(subs, pal),
                     Expanded(child: _fade(ValueKey('m$_tab-$_lvl-$floorId-$roomId-${blockedAbove?['id']}'), content)),
@@ -868,8 +876,8 @@ class _HomeScreenState extends State<HomeScreen> {
   /// only, and the selected one in a lighter pill with its icon filled.
   Widget _modernBar(AppPalette pal) {
     final f = tfs(doc, 'navBar');
-    Widget item(int t, IconData on, IconData off, String label) {
-      final sel = _tab == t;
+    Widget item(int t, IconData on, IconData off, String label, {VoidCallback? onTap}) {
+      final sel = t >= 0 && _tab == t;
       return Expanded(
         child: Semantics(
           button: true,
@@ -877,7 +885,7 @@ class _HomeScreenState extends State<HomeScreen> {
           label: label,
           excludeSemantics: true,
           child: PressFade(
-            onTap: () => _modernTab(t),
+            onTap: onTap ?? () => _modernTab(t),
             child: Container(
               padding: const EdgeInsets.symmetric(vertical: 6),
               margin: const EdgeInsets.symmetric(horizontal: 3, vertical: 4),
@@ -908,6 +916,7 @@ class _HomeScreenState extends State<HomeScreen> {
               item(0, Icons.home, Icons.home_outlined, 'Home'),
               item(1, Icons.layers, Icons.layers_outlined, 'Area'),
               item(2, Icons.shield, Icons.shield_outlined, 'Security'),
+              item(-1, Icons.person, Icons.person_outline, 'User', onTap: _openUser),
             ],
           ),
         ),
@@ -941,6 +950,15 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+
+  /// The top right corner of the Modern layout: the lights of the links and the switch of home (Settings are opened from the User page).
+  Widget _topRight(AppPalette pal) => Padding(
+    padding: const EdgeInsets.only(right: 12),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [_knxDot(), _haDot(), if (store.profiles.length > 1) _iconBtn(pal, Icons.home_work_outlined, () => _openProfiles(pal), 'Switch profile')],
+    ),
+  );
 
   /// "Tầng 1 › Phòng 1" on one row (floor shown only when there are several),
   /// settings button on the right: as in the Editor preview.
@@ -993,10 +1011,12 @@ class _HomeScreenState extends State<HomeScreen> {
                     ],
                   ),
           ),
-          _knxDot(),
-          _haDot(),
-          if (store.profiles.length > 1) _iconBtn(pal, Icons.home_work_outlined, () => _openProfiles(pal), 'Switch profile'),
-          _iconBtn(pal, Icons.settings_outlined, _openSettings, 'Settings'),
+          if (!_modernMode) ...[
+            _knxDot(),
+            _haDot(),
+            if (store.profiles.length > 1) _iconBtn(pal, Icons.home_work_outlined, () => _openProfiles(pal), 'Switch profile'),
+            _iconBtn(pal, Icons.settings_outlined, _openSettings, 'Settings'),
+          ],
         ],
       ),
     );

@@ -339,6 +339,11 @@ class _Screen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             statusBar,
+            // Top right: the link light only (Settings are in the User page).
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 2, 14, 0),
+              child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [_pill()]),
+            ),
             if (inSpecialList) ...[
               title((floor?['title'] ?? '').toString()),
               Expanded(
@@ -365,6 +370,7 @@ class _Screen extends StatelessWidget {
                 floor,
                 special == null && normal.length > 1,
                 theme,
+                pill: false,
                 onBack: special == null ? d.floorsGallery : (specialRooms.length > 1 ? () => d.selectFloor(floor!['id'] as String) : null),
               ),
               if (tablet) _pageTabs(room, sub),
@@ -384,6 +390,7 @@ class _Screen extends StatelessWidget {
                     barItem(0, Icons.home, Icons.home_outlined, 'Home', () => d.selectSpecial('home')),
                     barItem(1, Icons.layers, Icons.layers_outlined, 'Area', d.floorsGallery),
                     barItem(2, Icons.shield, Icons.shield_outlined, 'Security', () => d.selectSpecial('security')),
+                    barItem(3, Icons.person, Icons.person_outline, 'User', () => d.toggleAppSettings(true)),
                   ],
                 ),
               ),
@@ -1702,7 +1709,7 @@ class _AppSettingsSheet extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      'Settings',
+                      'User',
                       style: TextStyle(fontSize: 26, fontWeight: FontWeight.w700, color: pal.ink),
                     ),
                   ),

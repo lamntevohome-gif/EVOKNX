@@ -3,7 +3,6 @@ import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart' hide Text;
 import 'package:knx_config/knx_config.dart';
 
-import 'account_panel.dart';
 import 'app_store.dart';
 import 'knx_link.dart';
 import 'receive_dialog.dart';
@@ -106,7 +105,7 @@ class SettingsScreen extends StatelessWidget {
             colorSchemeSeed: pal.accent,
           ),
           child: DefaultTabController(
-            length: 5,
+            length: 4,
             child: Scaffold(
               backgroundColor: pal.screen,
               appBar: AppBar(
@@ -128,7 +127,6 @@ class SettingsScreen extends StatelessWidget {
                   labelStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
                   unselectedLabelStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
                   tabs: [
-                    Tab(text: tr('Account')),
                     Tab(text: tr('Profile')),
                     Tab(text: tr('Appearance')),
                     Tab(text: tr('Connections')),
@@ -138,7 +136,6 @@ class SettingsScreen extends StatelessWidget {
               ),
               body: TabBarView(
                 children: [
-                  tab([AccountPanel(account: store.account, pal: pal)]),
                   tab([
                     card('Profile', [
                       for (final pf in store.profiles)
