@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart' hide Text;
-import 'package:evoknx_ui/evoknx_ui.dart' show Text, iconWidget;
+import 'package:evoknx_ui/evoknx_ui.dart' show AppPalette, RemoteKeyFace, Text, iconWidget, liftOf;
 import 'package:knx_config/knx_config.dart';
 
 import '../../app/theme.dart';
 import '../common.dart';
 import 'designer.dart';
 import 'icon_picker.dart';
+import 'props.dart' show ColorPicker;
 
 /// Opens the window where the keys of a remote control card are dragged to the cell they should take, and where the size
 /// of the icon of each key is set.
@@ -13,20 +14,6 @@ Future<void> showRemoteLayout(BuildContext context, Designer d, String widgetId)
   context: context,
   builder: (_) => _RemoteLayoutDialog(d: d, id: widgetId),
 );
-
-const Map<String, IconData> _icons = {
-  'dpad': Icons.control_camera,
-  'touchpad': Icons.touch_app_outlined,
-  'back': Icons.arrow_back,
-  'home': Icons.home_outlined,
-  'menu': Icons.menu,
-  'voldown': Icons.volume_down,
-  'mute': Icons.volume_off_outlined,
-  'volup': Icons.volume_up,
-  'prev': Icons.skip_previous,
-  'playpause': Icons.play_arrow,
-  'next': Icons.skip_next,
-};
 
 class _RemoteLayoutDialog extends StatefulWidget {
   const _RemoteLayoutDialog({required this.d, required this.id});
@@ -101,6 +88,18 @@ class _RemoteLayoutDialogState extends State<_RemoteLayoutDialog> {
     x['remote'] = o;
   }, coalesce: 'rscale-${widget.id}-$part');
 
+  void _setColor(String part, String? hex) => d.editWidget(widget.id, (x) {
+    final o = jsonMap(x['remote']);
+    final m = jsonMap(o['kcolor']);
+    if (hex == null) {
+      m.remove(part);
+    } else {
+      m[part] = hex;
+    }
+    o['kcolor'] = m;
+    x['remote'] = o;
+  });
+
   void _setBg(String part, String mode) => d.editWidget(widget.id, (x) {
     final o = jsonMap(x['remote']);
     final m = jsonMap(o['kbg']);
@@ -160,9 +159,17 @@ class _RemoteLayoutDialogState extends State<_RemoteLayoutDialog> {
         final items = remoteItems(w);
         final cols = remoteCols(w);
         final rows = remoteRows(items) + 2;
-        final dialogW = (screen.width - 80).clamp(520.0, 860.0).toDouble();
-        const sideW = 250.0;
-        final cell = ((dialogW - 48 - sideW - 20) / cols).clamp(56.0, 112.0).toDouble();
+        final dialogW = (screen.width - 80).clamp(520.0, 760.0).toDouble();
+        const sideW = 330.0;
+        final cell = ((dialogW - 48 - sideW - 20) / cols).clamp(44.0, 76.0).toDouble();
+        final th = jsonMap(d.doc['theme']);
+        final pal = AppPalette.of(d.previewTheme ?? (th['mode'] ?? 'light').toString()).copyWith(
+          tileOpacity: ((th['cardOpacity'] as num?) ?? 100).toDouble().clamp(0, 100) / 100,
+          edgeOpacity: ((th['cardEdge'] as num?) ?? 100).toDouble().clamp(0, 100) / 100,
+          radius: ((th['cardRadius'] as num?) ?? 12).toDouble().clamp(0, 32).toDouble(),
+          border: ((th['cardBorder'] as num?) ?? 1).toDouble().clamp(0, 4).toDouble(),
+          lift: liftOf(((th['btnRaise'] as num?) ?? 60).toDouble().clamp(0, 100)),
+        );
         final hidden = <(String, String)>[
           for (final e in kRemoteElements)
             if (remoteHidden(w, e.$1)) (e.$1, e.$2),
@@ -275,7 +282,7 @@ class _RemoteLayoutDialogState extends State<_RemoteLayoutDialog> {
                       top: it.r * cell,
                       width: it.cw * cell,
                       height: it.rh * cell,
-                      child: _face(c, w, it, cell, nameOf(it.id), opacity: it.id == _drag && _moved ? 0.3 : 1, selected: it.id == _sel),
+                      child: _face(c, w, pal, it, opacity: it.id == _drag && _moved ? 0.3 : 1, selected: it.id == _sel),
                     ),
                   if (dragging != null && _moved)
                     Positioned(
@@ -283,7 +290,7 @@ class _RemoteLayoutDialogState extends State<_RemoteLayoutDialog> {
                       top: _pos.dy - _grab.dy,
                       width: dragging.cw * cell,
                       height: dragging.rh * cell,
-                      child: IgnorePointer(child: _face(c, w, dragging, cell, nameOf(dragging.id), opacity: 0.85, selected: true)),
+                      child: IgnorePointer(child: _face(c, w, pal, dragging, opacity: 0.85, selected: true)),
                     ),
                 ],
               ),
@@ -293,62 +300,73 @@ class _RemoteLayoutDialogState extends State<_RemoteLayoutDialog> {
 
         final sel = _sel;
         final pct = sel == null ? 100 : remoteScale(w, sel);
+        final isPad = sel == 'touchpad';
+        final hasIcon = sel != null && sel != 'dpad' && !isPad;
+        final own = sel == null ? null : remoteKeyColor(w, sel);
+        Widget title(String t) => Text(
+          t,
+          style: TextStyle(fontSize: kUiText, fontWeight: FontWeight.w600, color: c.ink),
+        );
         final side = SizedBox(
           width: sideW,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Icon size',
-                style: TextStyle(fontSize: kUiText, fontWeight: FontWeight.w600, color: c.ink),
-              ),
-              const SizedBox(height: 6),
               if (sel == null)
-                Text('Click a key to change the size of its icon.', style: TextStyle(fontSize: 12.5, color: c.muted))
+                Text('Click a key to change its size, its background and its icon.', style: TextStyle(fontSize: 12.5, color: c.muted))
               else ...[
                 Text(
                   nameOf(sel),
-                  style: TextStyle(fontSize: kUiText, color: c.ink),
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: c.ink),
                 ),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Slider(
-                        value: pct.toDouble().clamp(40, 300).toDouble(),
-                        min: 40,
-                        max: 300,
-                        divisions: 52,
-                        onChanged: (v) => _setScale(sel, v.round()),
+                if (!isPad) ...[
+                  const SizedBox(height: 10),
+                  title('Icon size'),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Slider(
+                          value: pct.toDouble().clamp(40, 300).toDouble(),
+                          min: 40,
+                          max: 300,
+                          divisions: 52,
+                          onChanged: (v) => _setScale(sel, v.round()),
+                        ),
                       ),
-                    ),
-                    SizedBox(
-                      width: 48,
-                      child: Text(
-                        '$pct %',
-                        textAlign: TextAlign.right,
-                        style: TextStyle(fontSize: kUiText, color: c.muted),
+                      SizedBox(
+                        width: 48,
+                        child: Text(
+                          '$pct %',
+                          textAlign: TextAlign.right,
+                          style: TextStyle(fontSize: kUiText, color: c.muted),
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-                if (pct != 100) TextButton(onPressed: () => _setScale(sel, 100), child: const Text('Usual size')),
-                const SizedBox(height: 14),
-                Text(
-                  'Background',
-                  style: TextStyle(fontSize: kUiText, fontWeight: FontWeight.w600, color: c.ink),
-                ),
-                const SizedBox(height: 6),
-                Seg<String>(
-                  items: const [('default', 'Default'), ('outline', 'Border only'), ('transparent', 'Transparent')],
-                  value: remoteKeyBg(w, sel),
-                  onChanged: (v) => _setBg(sel, v),
-                ),
-                if (sel != 'dpad') ...[
-                  const SizedBox(height: 14),
-                  Text(
-                    'Icon or picture',
-                    style: TextStyle(fontSize: kUiText, fontWeight: FontWeight.w600, color: c.ink),
+                    ],
                   ),
+                  if (pct != 100) TextButton(onPressed: () => _setScale(sel, 100), child: const Text('Usual size')),
+                ],
+                const SizedBox(height: 12),
+                title('Background'),
+                const SizedBox(height: 6),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Seg<String>(
+                    items: const [('default', 'Default'), ('outline', 'Border only'), ('transparent', 'Transparent')],
+                    value: remoteKeyBg(w, sel),
+                    onChanged: (v) => _setBg(sel, v),
+                  ),
+                ),
+                if (remoteKeyBg(w, sel) != 'transparent') ...[
+                  const SizedBox(height: 10),
+                  title(remoteKeyBg(w, sel) == 'outline' ? 'Border color' : 'Color'),
+                  const SizedBox(height: 6),
+                  ColorPicker(value: own ?? '', onChanged: (v) => _setColor(sel, v)),
+                  if (own != null) TextButton(onPressed: () => _setColor(sel, null), child: const Text('Usual color')),
+                ],
+                if (hasIcon) ...[
+                  const SizedBox(height: 14),
+                  title('Icon or picture'),
                   const SizedBox(height: 6),
                   Row(
                     children: [
@@ -360,9 +378,7 @@ class _RemoteLayoutDialogState extends State<_RemoteLayoutDialog> {
                           border: Border.all(color: c.line),
                           borderRadius: BorderRadius.circular(6),
                         ),
-                        child: _iconOf(w, sel) != null
-                            ? iconWidget(_iconOf(w, sel), 24, c.ink)
-                            : Icon(_icons[sel] ?? Icons.crop_square, size: 22, color: c.muted),
+                        child: _iconOf(w, sel) != null ? iconWidget(_iconOf(w, sel), 24, c.ink) : Icon(Icons.crop_square, size: 22, color: c.muted),
                       ),
                       const SizedBox(width: 8),
                       EvoButton(
@@ -440,37 +456,28 @@ class _RemoteLayoutDialogState extends State<_RemoteLayoutDialog> {
     );
   }
 
-  Widget _face(EvoColors c, Json w, RemoteItem it, double cell, String name, {double opacity = 1, bool selected = false}) {
-    final z = remoteScale(w, it.id) / 100;
-    final base = it.cw > 1 ? cell * 0.5 : cell * 0.36;
-    final custom = remoteCustom(w).where((x) => x['id'] == it.id).firstOrNull;
-    final mode = remoteKeyBg(w, it.id);
-    final over = _iconOf(w, it.id);
+  Widget _face(EvoColors c, Json w, AppPalette pal, RemoteItem it, {double opacity = 1, bool selected = false}) {
     return Opacity(
       opacity: opacity,
-      child: Container(
-        margin: const EdgeInsets.all(3),
-        decoration: BoxDecoration(
-          color: mode == 'default' ? c.accentSoft : null,
-          borderRadius: BorderRadius.circular(8),
-          border: mode == 'transparent' && !selected ? Border.all(color: c.line) : Border.all(color: selected ? c.ink : c.accent, width: selected ? 2 : 1),
-        ),
-        child: ClipRect(
-          child: Center(
-            child: over != null
-                ? iconWidget(over, base * z, c.ink)
-                : _icons[it.id] != null
-                ? Icon(_icons[it.id], size: base * z, color: c.ink)
-                : (custom != null && (custom['icon'] ?? '').toString().isNotEmpty
-                      ? Icon(Icons.radio_button_unchecked, size: base * z, color: c.ink)
-                      : Text(
-                          name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontSize: 12 * z, color: c.ink),
-                        )),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          // The key as it is on the card.
+          IgnorePointer(
+            child: RemoteKeyFace(w: w, pal: pal, id: it.id),
           ),
-        ),
+          if (selected)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    border: Border.all(color: c.accent, width: 2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }

@@ -509,14 +509,14 @@ class _WidgetPropsState extends State<_WidgetProps> {
           _Section('Color and status', [
             FieldLabel(
               'Color when on',
-              _ColorPicker(
+              ColorPicker(
                 value: (st['colorOn'] ?? '#EE9B2A').toString(),
                 onChanged: (v) => setStyle('colorOn', v, co: 'con-$id'),
               ),
             ),
             FieldLabel(
               'Color when off',
-              _ColorPicker(
+              ColorPicker(
                 value: (st['colorOff'] ?? '#8A938F').toString(),
                 onChanged: (v) => setStyle('colorOff', v, co: 'coff-$id'),
               ),
@@ -674,7 +674,7 @@ class _WidgetPropsState extends State<_WidgetProps> {
             ),
             FieldLabel(
               'Color when on',
-              _ColorPicker(
+              ColorPicker(
                 value: (jsonMap(w['style'])['colorOn'] ?? '#EE9B2A').toString(),
                 onChanged: (v) => d.editWidget(id, (x) {
                   final m = jsonMap(x['style']);
@@ -1851,8 +1851,8 @@ Color? _hex(String s) {
   return v == null ? null : Color(0xFF000000 | v);
 }
 
-class _ColorPicker extends StatelessWidget {
-  const _ColorPicker({required this.value, required this.onChanged, this.swatches = _kSwatches});
+class ColorPicker extends StatelessWidget {
+  const ColorPicker({required this.value, required this.onChanged, this.swatches = _kSwatches});
   final String value;
   final ValueChanged<String> onChanged;
   final List<String> swatches;
@@ -2030,7 +2030,7 @@ class _SplashSettings extends StatelessWidget {
       ),
       FieldLabel(
         'Background color',
-        _ColorPicker(
+        ColorPicker(
           value: (sp['bg'] ?? '#1B2320').toString(),
           onChanged: (v) => _set('bg', v, co: 'sp-bg'),
         ),
@@ -2099,7 +2099,7 @@ class _BgPicker extends StatelessWidget {
               : (isDefault ? 'Follow the App theme' : 'Text switches between light/dark for readability'),
         ),
         const SizedBox(height: 8),
-        _ColorPicker(value: isDefault || transparent || outline ? '' : value!, swatches: _kBgSwatches, onChanged: onChanged),
+        ColorPicker(value: isDefault || transparent || outline ? '' : value!, swatches: _kBgSwatches, onChanged: onChanged),
       ],
     );
   }
@@ -2184,7 +2184,7 @@ class _ButtonImageSettings extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 8),
-              _ColorPicker(
+              ColorPicker(
                 value: iconColor ?? '',
                 onChanged: (v) => d.editWidget(id, (x) => x['imgColor'] = v, coalesce: 'imgc-$id'),
               ),
@@ -2361,7 +2361,7 @@ class _PageBgSettings extends StatelessWidget {
         onChanged: (v) => _set({'mode': v, if (v == 'color' && b['color'] == null) 'color': '#E3F1E9'}),
       ),
       if (mode == 'color')
-        _ColorPicker(
+        ColorPicker(
           value: (b['color'] ?? '#E3F1E9').toString(),
           swatches: _kBgSwatches,
           onChanged: (v) => _set({'color': v}, co: 'pbgc'),
@@ -2511,7 +2511,7 @@ class _StatesEditor extends StatelessWidget {
         title: const Text('Status color', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
         content: SizedBox(
           width: 340,
-          child: _ColorPicker(value: cur ?? '', onChanged: (h) => Navigator.pop(c, h)),
+          child: ColorPicker(value: cur ?? '', onChanged: (h) => Navigator.pop(c, h)),
         ),
         actions: [
           EvoButton(label: 'Default', onPressed: () => Navigator.pop(c, '')),
