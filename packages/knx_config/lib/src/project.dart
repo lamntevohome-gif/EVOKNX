@@ -272,19 +272,19 @@ bool slotAccepts(SlotDef slot, Json ga) {
 // ------------------------------------------------------------ factories
 
 Json makeSub(String title, {int cols = 4, int rows = 12}) => {
-      'id': uid('sub_'),
-      'title': title,
-      'layout': {'type': 'grid', 'columns': cols, 'rows': rows},
-      'widgets': <Json>[],
-    };
+  'id': uid('sub_'),
+  'title': title,
+  'layout': {'type': 'grid', 'columns': cols, 'rows': rows},
+  'widgets': <Json>[],
+};
 
 Json makeRoom(String title, {String icon = 'sofa', String? floorId}) => {
-      'id': uid('page_'),
-      'title': title,
-      'icon': icon,
-      'floorId': floorId,
-      'subpages': [makeSub('Page 1')],
-    };
+  'id': uid('page_'),
+  'title': title,
+  'icon': icon,
+  'floorId': floorId,
+  'subpages': [makeSub('Page 1')],
+};
 
 Json makeFloor(String title, {String icon = 'none'}) => {'id': uid('fl_'), 'title': title, 'icon': icon, 'rows': 12, 'cols': 4};
 

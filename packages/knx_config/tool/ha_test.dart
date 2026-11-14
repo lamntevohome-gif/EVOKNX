@@ -309,8 +309,7 @@ Future<void> main() async {
           }),
           'mode',
           0,
-        )!
-            .data['hvac_mode'] ==
+        )!.data['hvac_mode'] ==
         'heat_cool',
     'command: auto → heat_cool when there is no auto',
   );
@@ -404,18 +403,17 @@ Future<void> main() async {
   check(setCardEntity(cs, 'scene.movie') == null, 'card entity: a scene card takes a scene');
   final cw2 = makeWidget('switch', 0, 0);
   setCardEntity(cw2, 'light.den1');
-  (((cdoc['pages'] as List)
-    ..add({
-      'id': 'rc',
-      'title': 'R',
-      'subpages': [
-        {
-          'id': 'sc',
-          'title': 'P',
-          'widgets': [cw, cw2, cv, cs],
-        },
-      ],
-    })));
+  (((cdoc['pages'] as List)..add({
+    'id': 'rc',
+    'title': 'R',
+    'subpages': [
+      {
+        'id': 'sc',
+        'title': 'P',
+        'widgets': [cw, cw2, cv, cs],
+      },
+    ],
+  })));
   final ce = cardEntities(cdoc);
   check(
     ce.binds[cw['id']]!['write'] != null && ce.binds[cw['id']]!['status'] != null && ce.binds[cw['id']]!['write'] == ce.binds[cw2['id']]!['write'],
@@ -460,18 +458,17 @@ Future<void> main() async {
     setCardEntity(makeWidget('dimmer', 0, 0), 'cover.blind') != null && setCardEntity(makeWidget('ac', 0, 0), 'light.lamp') != null,
     'card entity: the wrong kind of entity is refused',
   );
-  (((fdocW['pages'] as List)
-    ..add({
-      'id': 'rf',
-      'title': 'F',
-      'subpages': [
-        {
-          'id': 'sf',
-          'title': 'P',
-          'widgets': [dmW, dm2W, shW, sh2W, acW],
-        },
-      ],
-    })));
+  (((fdocW['pages'] as List)..add({
+    'id': 'rf',
+    'title': 'F',
+    'subpages': [
+      {
+        'id': 'sf',
+        'title': 'P',
+        'widgets': [dmW, dm2W, shW, sh2W, acW],
+      },
+    ],
+  })));
   final feW = cardEntities(fdocW);
   check(feW.binds[dmW['id']]!.keys.join(',') == 'write,value,status', 'dimmer: on/off, brightness and its status (${feW.binds[dmW['id']]!.keys})');
   check(
@@ -519,18 +516,17 @@ Future<void> main() async {
     'value card: a binary sensor is taken, a light is not',
   );
   final vdoc = newProject('v');
-  (((vdoc['pages'] as List)
-    ..add({
-      'id': 'rv',
-      'title': 'R',
-      'subpages': [
-        {
-          'id': 'sv',
-          'title': 'P',
-          'widgets': [vbin],
-        },
-      ],
-    })));
+  (((vdoc['pages'] as List)..add({
+    'id': 'rv',
+    'title': 'R',
+    'subpages': [
+      {
+        'id': 'sv',
+        'title': 'P',
+        'widgets': [vbin],
+      },
+    ],
+  })));
   final vce = cardEntities(vdoc);
   check(
     vce.gas.length == 1 &&
@@ -660,18 +656,17 @@ Future<void> main() async {
     'button: the service call',
   );
   final btDoc = newProject('b');
-  (((btDoc['pages'] as List)
-    ..add({
-      'id': 'rb',
-      'title': 'R',
-      'subpages': [
-        {
-          'id': 'sb',
-          'title': 'P',
-          'widgets': [btn],
-        },
-      ],
-    })));
+  (((btDoc['pages'] as List)..add({
+    'id': 'rb',
+    'title': 'R',
+    'subpages': [
+      {
+        'id': 'sb',
+        'title': 'P',
+        'widgets': [btn],
+      },
+    ],
+  })));
   check(cardEntities(btDoc).gas.isEmpty && cardEntities(btDoc).binds.isEmpty, 'button: a direct button makes no address');
   setCardEntity(btn, 'remote.tv');
   check(haDirect(btn) && jsonMap(btn['ha'])['action'] == null, 'button: another entity forgets the command');

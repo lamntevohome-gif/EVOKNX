@@ -919,7 +919,7 @@ class TileView extends StatelessWidget {
             textAlign: ha == 'left' ? TextAlign.left : (ha == 'right' ? TextAlign.right : TextAlign.center),
             style: TextStyle(
               fontSize: ((t['size'] as num?) ?? 20).toDouble().clamp(8, 200) * EvoScale.k,
-              color: hexColor(t['color']) ?? pal.text,
+              color: hexColor(t['color']) ?? pal.ink,
               fontWeight: t['bold'] == true ? FontWeight.w700 : FontWeight.w400,
               fontStyle: t['italic'] == true ? FontStyle.italic : FontStyle.normal,
             ),
