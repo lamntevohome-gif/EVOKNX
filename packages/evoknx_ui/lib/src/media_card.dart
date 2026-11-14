@@ -147,7 +147,8 @@ class _MediaCardState extends State<MediaCard> {
 
   @override
   Widget build(BuildContext context) {
-    final pal = widget.pal, w = widget.w;
+    final w = widget.w;
+    final (pal, noBorder) = cardPalette(w, widget.pal);
     final host = widget.host;
     final knx = mediaIsKnx(w);
     HaMedia? m;
@@ -173,7 +174,7 @@ class _MediaCardState extends State<MediaCard> {
         pal.fill(pal.tile),
         radius: BorderRadius.circular(pal.radius),
         lift: pal.cardLift,
-        border: pal.border <= 0 ? Border.fromBorderSide(BorderSide.none) : Border.all(color: pal.edge, width: pal.border),
+        border: pal.border <= 0 || noBorder ? Border.fromBorderSide(BorderSide.none) : Border.all(color: pal.edge, width: pal.border),
         shadow: false,
       ),
       child: media == null
@@ -184,7 +185,7 @@ class _MediaCardState extends State<MediaCard> {
                 style: TextStyle(fontSize: fs(w, 'labelSize') - 1, color: pal.muted),
               ),
             )
-          : LayoutBuilder(builder: (context, bc) => _body(media, bc, knx ? widget.act == null : host == null, knx)),
+          : LayoutBuilder(builder: (context, bc) => _body(media, bc, knx ? widget.act == null : host == null, knx, pal)),
     );
   }
 
@@ -213,8 +214,8 @@ class _MediaCardState extends State<MediaCard> {
     }),
   );
 
-  Widget _body(HaMedia m, BoxConstraints bc, bool demo, bool knx) {
-    final pal = widget.pal, w = widget.w;
+  Widget _body(HaMedia m, BoxConstraints bc, bool demo, bool knx, AppPalette pal) {
+    final w = widget.w;
     final bind = jsonMap(w['bind']);
     final showCover = _opts['cover'] != false;
     final showVolume = _opts['volume'] != false && (knx ? (bind['volume'] != null || bind['volumeSt'] != null) : m.supports(HaMedia.featVolumeSet));
@@ -232,13 +233,13 @@ class _MediaCardState extends State<MediaCard> {
     final pad = compact ? 6.0 : 10.0;
     final btnSize = _size('btnSize') ?? (compact ? 22.0 : 26.0);
     final playSize = _size('playSize') ?? btnSize * 34 / 26;
-    Widget btn(IconData icon, VoidCallback? onTap, {double? size, Color? color}) {
+    Widget btn(IconData icon, VoidCallback? onTap, {double? size, Color? color, double? h}) {
       final z = size ?? btnSize;
       return InkResponse(
         onTap: demo ? null : onTap,
         radius: z,
         child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: pad, vertical: 2),
+          padding: EdgeInsets.symmetric(horizontal: h ?? pad, vertical: 2),
           child: Icon(icon, size: z, color: color ?? (onTap == null && !demo ? pal.line : pal.ink)),
         ),
       );
@@ -293,12 +294,26 @@ class _MediaCardState extends State<MediaCard> {
     final canMute = knx ? bind['mute'] != null : m.supports(HaMedia.featVolumeMute);
     final canSetVolume = knx ? bind['volume'] != null : true;
     final volIcon = _size('volIcon') ?? (compact ? 18.0 : 20.0);
+    // The space between the rows (the lines of text keep half of it).
+    final gap = (_size('rowGap') ?? 8.0).clamp(0.0, 60.0).toDouble();
+
+    // The first and the last column of the volume row and of the row of buttons have the same width, so the mute button is
+    // right over the shuffle button and the value of the volume over the repeat button.
+    final sideW = math.max(volIcon, btnSize * 0.85) + 2 * pad;
+    final volNow = (_vol ?? m.volume ?? 0).clamp(0.0, 1.0).toDouble();
+    final volText = knx && mediaVolMax(w) == 255 ? '${(volNow * 255).round()}' : '${(volNow * 100).round()}%';
     final volume = Row(
       children: [
-        btn(
-          m.muted || (m.volume ?? 1) == 0 ? Icons.volume_off : Icons.volume_up,
-          canMute ? () => _call('volume_mute', {'is_volume_muted': !m.muted}) : null,
-          size: volIcon,
+        SizedBox(
+          width: sideW,
+          child: Center(
+            child: btn(
+              m.muted || (m.volume ?? 1) == 0 ? Icons.volume_off : Icons.volume_up,
+              canMute ? () => _call('volume_mute', {'is_volume_muted': !m.muted}) : null,
+              size: volIcon,
+              h: 0,
+            ),
+          ),
         ),
         Expanded(
           child: Align(
@@ -308,7 +323,7 @@ class _MediaCardState extends State<MediaCard> {
               child: SliderTheme(
                 data: thin,
                 child: Slider(
-                  value: (_vol ?? m.volume ?? 0).clamp(0.0, 1.0).toDouble(),
+                  value: volNow,
                   onChanged: demo || !canSetVolume ? null : (v) => setState(() => _vol = v),
                   onChangeEnd: demo || !canSetVolume
                       ? null
@@ -318,6 +333,16 @@ class _MediaCardState extends State<MediaCard> {
                         },
                 ),
               ),
+            ),
+          ),
+        ),
+        SizedBox(
+          width: sideW,
+          child: Center(
+            child: Text(
+              volText,
+              maxLines: 1,
+              style: TextStyle(fontSize: math.max(11.0, detailSize), color: pal.muted, fontFeatures: const [FontFeature.tabularFigures()]),
             ),
           ),
         ),
@@ -331,61 +356,99 @@ class _MediaCardState extends State<MediaCard> {
     final canShuffle = _opts['shuffle'] == true && (knx ? bind['shuffle'] != null : m.supports(HaMedia.featShuffle));
     final canRepeat = _opts['repeat'] == true && (knx ? bind['repeat'] != null : m.supports(HaMedia.featRepeat));
     final repeatOn = m.repeat != 'off';
+    // Previous, play and next are spread evenly between the two side columns.
     final controls = Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
-        if (canShuffle)
-          btn(Icons.shuffle, () => _call('shuffle_set', {'shuffle': !m.shuffle}), size: btnSize * 0.85, color: m.shuffle ? pal.accent : pal.muted),
-        if (canPrev) btn(Icons.skip_previous, () => _call('media_previous_track', {})),
-        if (canPlay)
-          btn(playing ? Icons.pause_circle : Icons.play_circle, () => _call(playing ? 'media_pause' : 'media_play', {}), size: playSize, color: pal.accent),
-        if (canNext) btn(Icons.skip_next, () => _call('media_next_track', {})),
-        if (canRepeat)
-          btn(
-            m.repeat == 'one' ? Icons.repeat_one : Icons.repeat,
-            () => _call('repeat_set', {'repeat': m.repeat == 'off' ? 'all' : (m.repeat == 'all' ? 'one' : 'off')}),
-            size: btnSize * 0.85,
-            color: repeatOn ? pal.accent : pal.muted,
+        SizedBox(
+          width: sideW,
+          child: canShuffle
+              ? Center(
+                  child: btn(
+                    Icons.shuffle,
+                    () => _call('shuffle_set', {'shuffle': !m.shuffle}),
+                    size: btnSize * 0.85,
+                    color: m.shuffle ? pal.accent : pal.muted,
+                    h: 0,
+                  ),
+                )
+              : null,
+        ),
+        Expanded(
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              if (canPrev) btn(Icons.skip_previous, () => _call('media_previous_track', {}), h: 0),
+              if (canPlay)
+                btn(
+                  playing ? Icons.pause_circle : Icons.play_circle,
+                  () => _call(playing ? 'media_pause' : 'media_play', {}),
+                  size: playSize,
+                  color: pal.accent,
+                  h: 0,
+                ),
+              if (canNext) btn(Icons.skip_next, () => _call('media_next_track', {}), h: 0),
+            ],
           ),
+        ),
+        SizedBox(
+          width: sideW,
+          child: canRepeat
+              ? Center(
+                  child: btn(
+                    m.repeat == 'one' ? Icons.repeat_one : Icons.repeat,
+                    () => _call('repeat_set', {'repeat': m.repeat == 'off' ? 'all' : (m.repeat == 'all' ? 'one' : 'off')}),
+                    size: btnSize * 0.85,
+                    color: repeatOn ? pal.accent : pal.muted,
+                    h: 0,
+                  ),
+                )
+              : null,
+        ),
       ],
     );
 
-    return Stack(
+    final hasControls = showControls && (canPlay || canPrev || canNext || canShuffle || canRepeat);
+    // The title, the song, the artist and the picture stay at the top; the volume and the buttons stay at the bottom.
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // The texts stay out from under the picture.
-            Padding(
-              padding: EdgeInsets.only(right: showCover ? pic + 8 : 0),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: lines),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (var i = 0; i < lines.length; i++) ...[if (i > 0) SizedBox(height: gap / 2), lines[i]],
+                ],
+              ),
             ),
-            if (showVolume) ...[const SizedBox(height: 4), volume],
-            if (showControls && (canPlay || canPrev || canNext || canShuffle || canRepeat)) ...[const SizedBox(height: 2), controls],
+            if (showCover) ...[const SizedBox(width: 8), SizedBox(width: pic, height: pic, child: _coverImage(m, pic, demo, knx, pal))],
           ],
         ),
-        if (showCover) Positioned(top: 0, right: 0, width: pic, height: pic, child: _coverImage(m, pic, demo, knx)),
+        const Spacer(),
+        if (showVolume) volume,
+        if (showVolume && hasControls) SizedBox(height: gap),
+        if (hasControls) controls,
       ],
     );
   }
 
   /// The cover. Without a picture (a KNX card has none, a stream of Home Assistant may have none) an equalizer moves
   /// while the music plays.
-  Widget _coverImage(HaMedia m, double size, bool demo, bool knx) {
-    final pal = widget.pal;
+  Widget _coverImage(HaMedia m, double size, bool demo, bool knx, AppPalette pal) {
     final bytes = _cover;
     return ClipRRect(
       borderRadius: BorderRadius.circular(pal.radius * 0.5),
       child: !knx && bytes != null && !demo
-          ? Image.memory(bytes, fit: BoxFit.cover, gaplessPlayback: true, errorBuilder: (_, __, ___) => _noCover(m))
-          : _noCover(m),
+          ? Image.memory(bytes, fit: BoxFit.cover, gaplessPlayback: true, errorBuilder: (_, __, ___) => _noCover(m, pal))
+          : _noCover(m, pal),
     );
   }
 
-  Widget _noCover(HaMedia m) => ColoredBox(
-    color: widget.pal.panel,
-    child: MediaEqualizer(color: widget.pal.accent, playing: m.playing),
+  Widget _noCover(HaMedia m, AppPalette pal) => ColoredBox(
+    color: pal.panel,
+    child: MediaEqualizer(color: pal.accent, playing: m.playing),
   );
 }
 

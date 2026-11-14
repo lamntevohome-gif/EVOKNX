@@ -293,6 +293,25 @@ List<RemoteItem> remoteItems(Json w) {
   return placed;
 }
 
+/// The size of the icon of a part, in percent of the usual one (100 = usual). Set in the window that arranges the keys.
+int remoteScale(Json w, String id) {
+  final v = jsonMap(jsonMap(w['remote'])['scale'])[id];
+  return v is num ? v.toInt().clamp(40, 300) : 100;
+}
+
+/// The background of a key: 'default' (a filled button), 'outline' (only a border) or 'transparent' (nothing).
+String remoteKeyBg(Json w, String id) {
+  final v = jsonMap(jsonMap(w['remote'])['kbg'])[id];
+  return v == 'outline' || v == 'transparent' ? v as String : 'default';
+}
+
+/// The icon (a key of the icon library, an uploaded image too) chosen for a key instead of its usual one; null = the usual
+/// one. A custom button keeps its icon in its own entry.
+String? remoteKeyIcon(Json w, String id) {
+  final v = jsonMap(jsonMap(w['remote'])['icons'])[id];
+  return v is String && v.isNotEmpty ? v : null;
+}
+
 /// The number of rows the parts need.
 int remoteRows(List<RemoteItem> items) => items.fold<int>(1, (m, i) => i.r + i.rh > m ? i.r + i.rh : m);
 

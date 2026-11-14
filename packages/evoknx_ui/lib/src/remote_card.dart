@@ -35,6 +35,10 @@ class _RemoteCardState extends State<RemoteCard> {
   String? _down;
   double _ax = 0, _ay = 0;
 
+  /// The palette of the card: its own background (style) changes the colors.
+  AppPalette get _pal => cardPalette(widget.w, widget.pal).$1;
+  bool get _noBorder => cardPalette(widget.w, widget.pal).$2;
+
   Json get _r => remoteSettings(widget.w);
   bool get _knx => remoteIsKnx(widget.w);
 
@@ -81,6 +85,17 @@ class _RemoteCardState extends State<RemoteCard> {
     if (_down != null && mounted) setState(() => _down = null);
   }
 
+  /// The look of the button of a key: filled (default), only a border, or nothing.
+  BoxDecoration _deco(String id, bool pressed, Color pressedColor, double radius) {
+    final mode = remoteKeyBg(widget.w, id);
+    final pal = _pal;
+    return BoxDecoration(
+      color: pressed ? pressedColor.withValues(alpha: 0.35) : (mode == 'default' ? pal.panel : Colors.transparent),
+      borderRadius: BorderRadius.circular(radius),
+      border: mode == 'outline' ? Border.all(color: pal.edge == Colors.transparent ? pal.line : pal.edge, width: math.max(1.0, pal.border)) : null,
+    );
+  }
+
   /// Whether the key can send something: it has a name for the remote (Home Assistant) or an address and a value (KNX).
   bool _has(String key) {
     final w = widget.w;
@@ -109,7 +124,7 @@ class _RemoteCardState extends State<RemoteCard> {
 
   @override
   Widget build(BuildContext context) {
-    final pal = widget.pal, host = widget.host, w = widget.w;
+    final pal = _pal, host = widget.host, w = widget.w;
     final r = _r;
     String? note;
     if (!_knx && host != null) {
@@ -130,7 +145,7 @@ class _RemoteCardState extends State<RemoteCard> {
         pal.fill(pal.tile),
         radius: BorderRadius.circular(pal.radius),
         lift: pal.cardLift,
-        border: pal.border <= 0 ? Border.fromBorderSide(BorderSide.none) : Border.all(color: pal.edge, width: pal.border),
+        border: pal.border <= 0 || _noBorder ? Border.fromBorderSide(BorderSide.none) : Border.all(color: pal.edge, width: pal.border),
         shadow: false,
       ),
       child: note != null
@@ -171,7 +186,7 @@ class _RemoteCardState extends State<RemoteCard> {
   }
 
   Widget _powerKey(String key, String text, Color color) {
-    final pal = widget.pal;
+    final pal = _pal;
     final on = _has(key) || !_live;
     final pressed = _down == key;
     return Listener(
@@ -205,7 +220,7 @@ class _RemoteCardState extends State<RemoteCard> {
         child: Text(
           'Nothing to show: turn on some keys in the settings.',
           textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 12, color: widget.pal.muted),
+          style: TextStyle(fontSize: 12, color: _pal.muted),
         ),
       );
     }
@@ -225,17 +240,18 @@ class _RemoteCardState extends State<RemoteCard> {
   }
 
   Widget _part(RemoteItem i) {
+    final z = remoteScale(widget.w, i.id) / 100;
     if (i.id == 'dpad') {
-      return LayoutBuilder(builder: (context, bc) => Center(child: _dpad(math.max(20.0, math.min(bc.maxWidth, bc.maxHeight) - 6))));
+      return LayoutBuilder(builder: (context, bc) => Center(child: _dpad(math.max(20.0, math.min(bc.maxWidth, bc.maxHeight) - 6), z)));
     }
-    if (i.id == 'touchpad') return _touchpad();
+    if (i.id == 'touchpad') return _touchpad(z);
     final custom = remoteCustom(widget.w).where((c) => c['id'] == i.id).firstOrNull;
-    if (custom != null) return _customButton(custom);
-    return _keyButton(i.id, _icons[i.id] ?? Icons.circle_outlined, repeat: i.id == 'voldown' || i.id == 'volup');
+    if (custom != null) return _customButton(custom, z);
+    return _keyButton(i.id, _icons[i.id] ?? Icons.circle_outlined, z, repeat: i.id == 'voldown' || i.id == 'volup');
   }
 
-  Widget _customButton(Json c) {
-    final pal = widget.pal;
+  Widget _customButton(Json c, double z) {
+    final pal = _pal;
     final key = (c['id'] ?? '').toString();
     final on = _has(key);
     final pressed = _down == key;
@@ -248,12 +264,12 @@ class _RemoteCardState extends State<RemoteCard> {
       onPointerCancel: (_) => _release(),
       child: Container(
         margin: const EdgeInsets.all(3),
-        decoration: BoxDecoration(color: pressed ? pal.accent.withValues(alpha: 0.35) : pal.panel, borderRadius: BorderRadius.circular(pal.radius * 0.5)),
+        decoration: _deco(key, pressed, pal.accent, pal.radius * 0.5),
         child: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              if (icon.isNotEmpty) iconWidget(icon, 22, color),
+              if (icon.isNotEmpty) iconWidget(icon, 22 * z, color),
               if (label.isNotEmpty)
                 Padding(
                   padding: EdgeInsets.only(top: icon.isNotEmpty ? 1 : 0),
@@ -264,7 +280,7 @@ class _RemoteCardState extends State<RemoteCard> {
                     style: TextStyle(fontSize: fs(widget.w, 'labelSize') - 3, color: color),
                   ),
                 ),
-              if (icon.isEmpty && label.isEmpty) Icon(Icons.touch_app_outlined, size: 22, color: color),
+              if (icon.isEmpty && label.isEmpty) Icon(Icons.touch_app_outlined, size: 22 * z, color: color),
             ],
           ),
         ),
@@ -272,8 +288,8 @@ class _RemoteCardState extends State<RemoteCard> {
     );
   }
 
-  Widget _keyButton(String key, IconData icon, {bool repeat = false}) {
-    final pal = widget.pal;
+  Widget _keyButton(String key, IconData icon, double z, {bool repeat = false}) {
+    final pal = _pal;
     final on = _has(key);
     final pressed = _down == key;
     return Listener(
@@ -282,8 +298,12 @@ class _RemoteCardState extends State<RemoteCard> {
       onPointerCancel: (_) => _release(),
       child: Container(
         margin: const EdgeInsets.all(3),
-        decoration: BoxDecoration(color: pressed ? pal.accent.withValues(alpha: 0.35) : pal.panel, borderRadius: BorderRadius.circular(pal.radius * 0.5)),
-        child: Center(child: Icon(icon, size: 22, color: on || !_live ? pal.ink : pal.line)),
+        decoration: _deco(key, pressed, pal.accent, pal.radius * 0.5),
+        child: Center(
+          child: remoteKeyIcon(widget.w, key) != null
+              ? iconWidget(remoteKeyIcon(widget.w, key), 22 * z, on || !_live ? pal.ink : pal.line)
+              : Icon(icon, size: 22 * z, color: on || !_live ? pal.ink : pal.line),
+        ),
       ),
     );
   }
@@ -300,8 +320,8 @@ class _RemoteCardState extends State<RemoteCard> {
     return 'up';
   }
 
-  Widget _dpad(double s) {
-    final pal = widget.pal;
+  Widget _dpad(double s, double z) {
+    final pal = _pal;
     return SizedBox(
       width: s,
       height: s,
@@ -313,7 +333,7 @@ class _RemoteCardState extends State<RemoteCard> {
         onPointerUp: (_) => _release(),
         onPointerCancel: (_) => _release(),
         child: CustomPaint(
-          painter: _DpadPainter(pal, _down, {
+          painter: _DpadPainter(pal, _down, z, remoteKeyBg(widget.w, 'dpad'), {
             for (final k in const ['up', 'down', 'left', 'right', 'ok']) k: _has(k),
           }),
         ),
@@ -321,8 +341,8 @@ class _RemoteCardState extends State<RemoteCard> {
     );
   }
 
-  Widget _touchpad() {
-    final pal = widget.pal;
+  Widget _touchpad(double z) {
+    final pal = _pal;
     return GestureDetector(
       onTap: _live && _has('ok') ? () => _send('ok') : null,
       onPanStart: (_) {
@@ -341,23 +361,31 @@ class _RemoteCardState extends State<RemoteCard> {
       },
       child: Container(
         margin: const EdgeInsets.only(bottom: 6),
-        decoration: BoxDecoration(color: pal.panel, borderRadius: BorderRadius.circular(pal.radius * 0.6)),
-        child: Center(child: Icon(Icons.touch_app_outlined, size: 28, color: pal.muted)),
+        decoration: _deco('touchpad', false, pal.accent, pal.radius * 0.6),
+        child: Center(
+          child: remoteKeyIcon(widget.w, 'touchpad') != null
+              ? iconWidget(remoteKeyIcon(widget.w, 'touchpad'), 28 * z, pal.muted)
+              : Icon(Icons.touch_app_outlined, size: 28 * z, color: pal.muted),
+        ),
       ),
     );
   }
 }
 
 class _DpadPainter extends CustomPainter {
-  _DpadPainter(this.pal, this.down, this.on);
+  _DpadPainter(this.pal, this.down, this.scale, this.mode, this.on);
   final AppPalette pal;
   final String? down;
+  final double scale;
+
+  /// 'default' (filled), 'outline' (only the lines) or 'transparent' (no ring, only the signs).
+  final String mode;
   final Map<String, bool> on;
 
   @override
   void paint(Canvas canvas, Size size) {
     final c = size.center(Offset.zero), r = size.width / 2;
-    canvas.drawCircle(c, r, Paint()..color = pal.panel);
+    if (mode == 'default') canvas.drawCircle(c, r, Paint()..color = pal.panel);
     // The pressed direction is a quarter of the ring.
     const starts = {'right': -math.pi / 4, 'down': math.pi / 4, 'left': 3 * math.pi / 4, 'up': -3 * math.pi / 4};
     final s = starts[down];
@@ -365,18 +393,20 @@ class _DpadPainter extends CustomPainter {
       canvas.drawArc(Rect.fromCircle(center: c, radius: r), s, math.pi / 2, true, Paint()..color = pal.accent.withValues(alpha: 0.35));
     }
     final inner = r * 0.34;
-    canvas.drawCircle(c, inner, Paint()..color = down == 'ok' ? pal.accent.withValues(alpha: 0.5) : pal.fill(pal.tile));
+    if (mode == 'default' || down == 'ok') canvas.drawCircle(c, inner, Paint()..color = down == 'ok' ? pal.accent.withValues(alpha: 0.5) : pal.fill(pal.tile));
     final edge = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1
       ..color = pal.line;
-    canvas.drawCircle(c, r - 0.5, edge);
-    canvas.drawCircle(c, inner, edge);
+    if (mode != 'transparent') {
+      canvas.drawCircle(c, r - 0.5, edge);
+      canvas.drawCircle(c, inner, edge);
+    }
     void glyph(IconData icon, Offset at, bool enabled) {
       final tp = TextPainter(
         text: TextSpan(
           text: String.fromCharCode(icon.codePoint),
-          style: TextStyle(fontFamily: icon.fontFamily, fontSize: r * 0.3, color: enabled ? pal.ink : pal.line),
+          style: TextStyle(fontFamily: icon.fontFamily, fontSize: r * 0.3 * scale, color: enabled ? pal.ink : pal.line),
         ),
         textDirection: TextDirection.ltr,
       )..layout();
@@ -391,7 +421,7 @@ class _DpadPainter extends CustomPainter {
     final ok = TextPainter(
       text: TextSpan(
         text: 'OK',
-        style: TextStyle(fontSize: r * 0.2, fontWeight: FontWeight.w600, color: (on['ok'] ?? false) ? pal.ink : pal.line),
+        style: TextStyle(fontSize: r * 0.2 * scale, fontWeight: FontWeight.w600, color: (on['ok'] ?? false) ? pal.ink : pal.line),
       ),
       textDirection: TextDirection.ltr,
     )..layout();
@@ -399,5 +429,5 @@ class _DpadPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_DpadPainter old) => old.down != down || old.pal != pal;
+  bool shouldRepaint(_DpadPainter old) => old.down != down || old.pal != pal || old.scale != scale || old.mode != mode;
 }

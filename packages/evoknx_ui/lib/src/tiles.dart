@@ -390,6 +390,19 @@ class AppPalette {
   );
 }
 
+/// The palette of a card with its own background (the "Background" of its style): a color, "outline" (only a border) or
+/// "transparent". [noBorder] is true for "transparent". Used by the cards that are not drawn by [TileView].
+(AppPalette, bool) cardPalette(Json w, AppPalette pal) {
+  final style = jsonMap(w['style']);
+  final bg = style['bg'];
+  final cardBg = hexColor(bg);
+  if (cardBg != null && pal.tile != cardBg) return (pal.forCard(cardBg), false);
+  if (bg == 'outline' || bg == 'transparent') {
+    return (pal.copyWith(tile: Colors.transparent, ink: pal.sInk, muted: pal.sMuted, panel: pal.panel.withValues(alpha: 0.85)), bg == 'transparent');
+  }
+  return (pal, false);
+}
+
 Color? hexColor(Object? s) {
   final t = (s ?? '').toString().replaceAll('#', '');
   if (t.length != 6) return null;
