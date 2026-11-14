@@ -60,7 +60,7 @@ class _RemoteLayoutDialogState extends State<_RemoteLayoutDialog> {
     return pos;
   }
 
-  void _apply(Map<String, (int, int)> pos) => d.editWidget(widget.id, (x) {
+  void _apply(Map<String, (int, int)> pos) => _edit((x) {
     final o = jsonMap(x['remote']);
     o['layout'] = {
       for (final e in pos.entries) e.key: {'c': e.value.$1, 'r': e.value.$2},
@@ -68,7 +68,22 @@ class _RemoteLayoutDialogState extends State<_RemoteLayoutDialog> {
     x['remote'] = o;
   });
 
-  void _show(String part) => d.editWidget(widget.id, (x) {
+  /// Changes the card wherever it is in the project (the page that is open does not matter).
+  void _edit(void Function(Json w) fn, {String? coalesce}) {
+    if (_card() == null) return;
+    d.p.mutate((doc) {
+      final x = allWidgets(doc).where((e) => e['id'] == widget.id).firstOrNull;
+      if (x != null) fn(x);
+    }, coalesce: coalesce);
+  }
+
+  void _setSize(String key, int v) => _edit((x) {
+    final o = jsonMap(x['remote']);
+    o[key] = v;
+    x['remote'] = o;
+  });
+
+  void _show(String part) => _edit((x) {
     final o = jsonMap(x['remote']);
     final h = jsonMap(o['hide']);
     h[part] = false;
@@ -76,7 +91,7 @@ class _RemoteLayoutDialogState extends State<_RemoteLayoutDialog> {
     x['remote'] = o;
   });
 
-  void _setScale(String part, int pct) => d.editWidget(widget.id, (x) {
+  void _setScale(String part, int pct) => _edit((x) {
     final o = jsonMap(x['remote']);
     final s = jsonMap(o['scale']);
     if (pct == 100) {
@@ -88,7 +103,7 @@ class _RemoteLayoutDialogState extends State<_RemoteLayoutDialog> {
     x['remote'] = o;
   }, coalesce: 'rscale-${widget.id}-$part');
 
-  void _setColor(String part, String? hex) => d.editWidget(widget.id, (x) {
+  void _setColor(String part, String? hex) => _edit((x) {
     final o = jsonMap(x['remote']);
     final m = jsonMap(o['kcolor']);
     if (hex == null) {
@@ -100,7 +115,7 @@ class _RemoteLayoutDialogState extends State<_RemoteLayoutDialog> {
     x['remote'] = o;
   });
 
-  void _setBg(String part, String mode) => d.editWidget(widget.id, (x) {
+  void _setBg(String part, String mode) => _edit((x) {
     final o = jsonMap(x['remote']);
     final m = jsonMap(o['kbg']);
     if (mode == 'default') {
@@ -113,7 +128,7 @@ class _RemoteLayoutDialogState extends State<_RemoteLayoutDialog> {
   });
 
   /// The icon of a key: a custom button keeps it in its own entry, the others in remote.icons.
-  void _setIcon(String part, String? key) => d.editWidget(widget.id, (x) {
+  void _setIcon(String part, String? key) => _edit((x) {
     final o = jsonMap(x['remote']);
     final cu = remoteCustom(x);
     final i = cu.indexWhere((e) => e['id'] == part);
@@ -158,10 +173,11 @@ class _RemoteLayoutDialogState extends State<_RemoteLayoutDialog> {
         if (w == null) return const SizedBox.shrink();
         final items = remoteItems(w);
         final cols = remoteCols(w);
-        final rows = remoteRows(items) + 2;
-        final dialogW = (screen.width - 80).clamp(520.0, 760.0).toDouble();
+        final rows = remoteRowCount(w, items);
+        final dialogW = (screen.width - 80).clamp(560.0, 820.0).toDouble();
         const sideW = 330.0;
-        final cell = ((dialogW - 48 - sideW - 20) / cols).clamp(44.0, 76.0).toDouble();
+        final cellW = ((dialogW - 48 - sideW - 20) / cols).clamp(56.0, 92.0).toDouble();
+        final cellH = (cellW * 0.8).clamp(44.0, 74.0).toDouble();
         final th = jsonMap(d.doc['theme']);
         final pal = AppPalette.of(d.previewTheme ?? (th['mode'] ?? 'light').toString()).copyWith(
           tileOpacity: ((th['cardOpacity'] as num?) ?? 100).toDouble().clamp(0, 100) / 100,
@@ -192,8 +208,8 @@ class _RemoteLayoutDialogState extends State<_RemoteLayoutDialog> {
         int? tc, tr;
         Map<String, (int, int)>? plan;
         if (dragging != null && _moved) {
-          tc = ((_pos.dx - _grab.dx) / cell).round().clamp(0, cols - dragging.cw);
-          tr = ((_pos.dy - _grab.dy) / cell).round().clamp(0, rows - dragging.rh);
+          tc = ((_pos.dx - _grab.dx) / cellW).round().clamp(0, cols - dragging.cw);
+          tr = ((_pos.dy - _grab.dy) / cellH).round().clamp(0, rows - dragging.rh);
           plan = _plan(w, dragging, tc, tr);
         }
 
@@ -201,14 +217,16 @@ class _RemoteLayoutDialogState extends State<_RemoteLayoutDialog> {
           behavior: HitTestBehavior.opaque,
           onPointerDown: (e) {
             final p = e.localPosition;
-            final hit = items.where((x) => p.dx >= x.c * cell && p.dx < (x.c + x.cw) * cell && p.dy >= x.r * cell && p.dy < (x.r + x.rh) * cell).firstOrNull;
+            final hit = items
+                .where((x) => p.dx >= x.c * cellW && p.dx < (x.c + x.cw) * cellW && p.dy >= x.r * cellH && p.dy < (x.r + x.rh) * cellH)
+                .firstOrNull;
             setState(() {
               _sel = hit?.id;
               _drag = hit?.id;
               _moved = false;
               _start = p;
               _pos = p;
-              _grab = hit == null ? Offset.zero : p - Offset(hit.c * cell, hit.r * cell);
+              _grab = hit == null ? Offset.zero : p - Offset(hit.c * cellW, hit.r * cellH);
             });
           },
           onPointerMove: (e) {
@@ -240,8 +258,8 @@ class _RemoteLayoutDialogState extends State<_RemoteLayoutDialog> {
           child: MouseRegion(
             cursor: _drag != null ? SystemMouseCursors.grabbing : SystemMouseCursors.grab,
             child: Container(
-              width: cols * cell,
-              height: rows * cell,
+              width: cols * cellW,
+              height: rows * cellH,
               decoration: BoxDecoration(
                 color: c.paper,
                 border: Border.all(color: c.line),
@@ -252,10 +270,10 @@ class _RemoteLayoutDialogState extends State<_RemoteLayoutDialog> {
                   for (var gx = 0; gx < cols; gx++)
                     for (var gy = 0; gy < rows; gy++)
                       Positioned(
-                        left: gx * cell,
-                        top: gy * cell,
-                        width: cell,
-                        height: cell,
+                        left: gx * cellW,
+                        top: gy * cellH,
+                        width: cellW,
+                        height: cellH,
                         child: DecoratedBox(
                           decoration: BoxDecoration(border: Border.all(color: c.line.withAlpha(120), width: 0.5)),
                         ),
@@ -263,10 +281,10 @@ class _RemoteLayoutDialogState extends State<_RemoteLayoutDialog> {
                   // The place the dragged key would take.
                   if (dragging != null && tc != null && tr != null)
                     Positioned(
-                      left: tc * cell,
-                      top: tr * cell,
-                      width: dragging.cw * cell,
-                      height: dragging.rh * cell,
+                      left: tc * cellW,
+                      top: tr * cellH,
+                      width: dragging.cw * cellW,
+                      height: dragging.rh * cellH,
                       child: Container(
                         margin: const EdgeInsets.all(2),
                         decoration: BoxDecoration(
@@ -278,18 +296,18 @@ class _RemoteLayoutDialogState extends State<_RemoteLayoutDialog> {
                     ),
                   for (final it in items)
                     Positioned(
-                      left: it.c * cell,
-                      top: it.r * cell,
-                      width: it.cw * cell,
-                      height: it.rh * cell,
+                      left: it.c * cellW,
+                      top: it.r * cellH,
+                      width: it.cw * cellW,
+                      height: it.rh * cellH,
                       child: _face(c, w, pal, it, opacity: it.id == _drag && _moved ? 0.3 : 1, selected: it.id == _sel),
                     ),
                   if (dragging != null && _moved)
                     Positioned(
                       left: _pos.dx - _grab.dx,
                       top: _pos.dy - _grab.dy,
-                      width: dragging.cw * cell,
-                      height: dragging.rh * cell,
+                      width: dragging.cw * cellW,
+                      height: dragging.rh * cellH,
                       child: IgnorePointer(child: _face(c, w, pal, dragging, opacity: 0.85, selected: true)),
                     ),
                 ],
@@ -312,6 +330,18 @@ class _RemoteLayoutDialogState extends State<_RemoteLayoutDialog> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              Row(
+                children: [
+                  title('Columns'),
+                  const SizedBox(width: 8),
+                  _Step(value: cols, min: 3, max: 6, onChanged: (v) => _setSize('cols', v)),
+                  const SizedBox(width: 22),
+                  title('Rows'),
+                  const SizedBox(width: 8),
+                  _Step(value: rows, min: remoteRows(items), max: 24, onChanged: (v) => _setSize('rows', v)),
+                ],
+              ),
+              const SizedBox(height: 14),
               if (sel == null)
                 Text('Click a key to change its size, its background and its icon.', style: TextStyle(fontSize: 12.5, color: c.muted))
               else ...[
@@ -437,7 +467,7 @@ class _RemoteLayoutDialogState extends State<_RemoteLayoutDialog> {
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       TextButton(
-                        onPressed: () => d.editWidget(widget.id, (x) {
+                        onPressed: () => _edit((x) {
                           final o = jsonMap(x['remote']);
                           o.remove('layout');
                           x['remote'] = o;
@@ -477,6 +507,47 @@ class _RemoteLayoutDialogState extends State<_RemoteLayoutDialog> {
                 ),
               ),
             ),
+        ],
+      ),
+    );
+  }
+}
+
+/// "− 3 +": a small whole-number stepper.
+class _Step extends StatelessWidget {
+  const _Step({required this.value, required this.min, required this.max, required this.onChanged});
+  final int value, min, max;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.evo;
+    Widget b(IconData i, bool on, VoidCallback f) => InkWell(
+      onTap: on ? f : null,
+      borderRadius: BorderRadius.circular(4),
+      child: Padding(
+        padding: const EdgeInsets.all(4),
+        child: Icon(i, size: 18, color: on ? c.ink : c.line),
+      ),
+    );
+    return Container(
+      decoration: BoxDecoration(
+        border: Border.all(color: c.lineStrong),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          b(Icons.remove, value > min, () => onChanged(value - 1)),
+          SizedBox(
+            width: 26,
+            child: Text(
+              '$value',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: kUiText, color: c.ink),
+            ),
+          ),
+          b(Icons.add, value < max, () => onChanged(value + 1)),
         ],
       ),
     );

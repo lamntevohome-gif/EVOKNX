@@ -668,10 +668,14 @@ class Designer extends ChangeNotifier {
     }, coalesce: coalesce);
   }
 
-  void editWidget(String id, void Function(Json w) fn, {String? coalesce}) => editSub((s) {
-    final w = findWidget(s, id);
-    if (w != null) fn(w);
-  }, coalesce: coalesce);
+  /// Changes a card wherever it is in the project, so it does not depend on the page that is open.
+  void editWidget(String id, void Function(Json w) fn, {String? coalesce}) {
+    if (allWidgets(doc).every((x) => x['id'] != id)) return;
+    p.mutate((d) {
+      final w = allWidgets(d).where((x) => x['id'] == id).firstOrNull;
+      if (w != null) fn(w);
+    }, coalesce: coalesce);
+  }
 
   Json? _box(Json s, String? g) => g == null ? s : findWidget(s, g);
 

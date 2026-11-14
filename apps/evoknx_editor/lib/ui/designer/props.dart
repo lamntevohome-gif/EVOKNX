@@ -3213,7 +3213,10 @@ class _RemoteSection extends StatelessWidget {
         ]),
         _Section('Keys', [
           for (final e in kRemoteElements) check(e.$2, !remoteHidden(w, e.$1), (v) => setIn('hide', e.$1, !v)),
-          FieldLabel('Columns', Seg<int>(items: const [(3, '3'), (4, '4'), (5, '5')], value: remoteCols(w), onChanged: (v) => set('cols', v == 3 ? null : v))),
+          FieldLabel(
+            'Columns',
+            Seg<int>(items: const [(3, '3'), (4, '4'), (5, '5'), (6, '6')], value: remoteCols(w), onChanged: (v) => set('cols', v == 3 ? null : v)),
+          ),
           EvoButton(label: 'Arrange the keys…', icon: Icons.open_with, onPressed: () => showRemoteLayout(context, d, id)),
         ]),
         _Section('Custom buttons', [

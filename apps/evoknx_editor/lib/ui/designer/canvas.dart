@@ -976,9 +976,13 @@ class _GridAreaState extends State<_GridArea> {
           final Widget tile = w['type'] == 'group'
               ? _GroupFrame(d: d, w: w, pal: pal, issues: widget.issues, selected: selected)
               : w['type'] == 'media'
-              ? MediaCard(w: w, pal: pal, host: d.mediaHost, sim: d.sim[id] ?? const {}, act: test ? (a, [arg]) => _testAct(w, a, arg) : null)
+              ? _outlined(
+                  MediaCard(w: w, pal: pal, host: d.mediaHost, sim: d.sim[id] ?? const {}, act: test ? (a, [arg]) => _testAct(w, a, arg) : null),
+                  selected,
+                  pal,
+                )
               : w['type'] == 'remote'
-              ? RemoteCard(w: w, pal: pal, host: d.mediaHost, act: test ? (a, [arg]) => _testAct(w, a, arg) : null)
+              ? _outlined(RemoteCard(w: w, pal: pal, host: d.mediaHost, act: test ? (a, [arg]) => _testAct(w, a, arg) : null), selected, pal)
               : TileView(
                   w: d.bound(w),
                   pal: pal,
@@ -1865,3 +1869,23 @@ class _ScenePopup extends StatelessWidget {
     );
   }
 }
+
+/// A card that draws no border of its own (media, remote) gets the blue outline of the selection.
+Widget _outlined(Widget card, bool selected, AppPalette pal) => !selected
+    ? card
+    : Stack(
+        fit: StackFit.expand,
+        children: [
+          card,
+          Positioned.fill(
+            child: IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  border: Border.all(color: kEditorSelection, width: 1.5),
+                  borderRadius: BorderRadius.circular(pal.radius),
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
