@@ -103,7 +103,11 @@ class Seg<T> extends StatelessWidget {
     final c = context.evo;
     return Container(
       padding: const EdgeInsets.all(2),
-      decoration: BoxDecoration(color: c.paper, borderRadius: BorderRadius.circular(6)),
+      decoration: BoxDecoration(
+        color: c.paper,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: c.lineStrong),
+      ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -117,16 +121,16 @@ class Seg<T> extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 10),
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: it.$1 == value ? c.panel : Colors.transparent,
+                    color: it.$1 == value ? c.accentSoft : Colors.transparent,
                     borderRadius: BorderRadius.circular(4),
-                    border: Border.all(color: it.$1 == value ? c.line : Colors.transparent),
+                    border: Border.all(color: it.$1 == value ? c.accent.withValues(alpha: 0.6) : Colors.transparent),
                   ),
                   child: Text(
                     it.$2,
                     style: TextStyle(
                       fontSize: kUiText,
                       fontWeight: it.$1 == value ? FontWeight.w600 : FontWeight.w400,
-                      color: it.$1 == value ? c.ink : c.muted,
+                      color: it.$1 == value ? c.accentInk : c.muted,
                     ),
                   ),
                 ),

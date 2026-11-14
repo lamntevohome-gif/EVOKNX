@@ -34,18 +34,30 @@ class _ScriptsPageState extends State<ScriptsPage> implements ScriptHost {
   int? _selStep;
   final FocusNode _focus = FocusNode(debugLabel: 'scripts');
 
-  /// Ctrl+C copies the selected step (all the steps when none is selected), Ctrl+V pastes after the selected step
+  /// Delete removes the selected step. Ctrl+C copies the selected step (all the steps when none is selected), Ctrl+V pastes after the selected step
   /// (at the end when none is selected). Inside a text field the keys keep their normal meaning.
   KeyEventResult _onKey(FocusNode node, KeyEvent e) {
     if (e is! KeyDownEvent) return KeyEventResult.ignored;
     final k = HardwareKeyboard.instance;
-    if (!(k.isControlPressed || k.isMetaPressed) || k.isAltPressed) return KeyEventResult.ignored;
-    // In a text field Ctrl+C and Ctrl+V keep their normal meaning.
+    final del = e.logicalKey == LogicalKeyboardKey.delete || e.logicalKey == LogicalKeyboardKey.backspace;
+    if (!del && (!(k.isControlPressed || k.isMetaPressed) || k.isAltPressed)) return KeyEventResult.ignored;
+    // In a text field the keys keep their normal meaning.
     final focused = FocusManager.instance.primaryFocus?.context;
     if (focused != null && (focused.widget is EditableText || focused.findAncestorWidgetOfExactType<EditableText>() != null)) return KeyEventResult.ignored;
     final cur = _sel == null ? null : scriptsOf(p.doc).where((x) => x['id'] == _sel).firstOrNull;
     if (cur == null) return KeyEventResult.ignored;
     final steps = jsonList(cur['steps']);
+    // Delete removes the selected step (Ctrl+Z brings it back).
+    if (del) {
+      final i = _selStep;
+      if (i == null || i >= steps.length) return KeyEventResult.ignored;
+      _edit((x) {
+        final l = jsonList(x['steps'])..removeAt(i);
+        x['steps'] = l;
+      });
+      setState(() => _selStep = null);
+      return KeyEventResult.handled;
+    }
     if (e.logicalKey == LogicalKeyboardKey.keyC) {
       final i = _selStep;
       if (i != null && i < steps.length) {

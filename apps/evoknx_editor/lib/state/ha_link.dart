@@ -110,10 +110,10 @@ class HaLinkController extends ChangeNotifier {
       if (!await f.exists()) return;
       final o = jsonDecode(await f.readAsString());
       if (o is! Map || o['entities'] is! List) return;
-      entities = [
+      entities = _wanted([
         for (final e in o['entities'] as List)
           if (e is Map) HaEntity.fromJson(Map<String, dynamic>.from(e)),
-      ];
+      ]);
       entitiesAt = DateTime.tryParse('${o['savedAt']}');
       notifyListeners();
     } catch (_) {}
@@ -143,12 +143,20 @@ class HaLinkController extends ChangeNotifier {
     return list;
   }
 
-  /// Asks Home Assistant for all its entities. Null (with [message]) on failure.
+  /// The kinds of entity that are kept (the ones a card can follow or a script can use).
+  static const keptDomains = {'switch', 'light', 'cover', 'sensor', 'binary_sensor', 'climate', 'automation', 'scene', 'script', 'media_player', 'remote'};
+
+  static List<HaEntity> _wanted(List<HaEntity> all) => [
+    for (final e in all)
+      if (keptDomains.contains(e.domain)) e,
+  ];
+
+  /// Asks Home Assistant for its entities (only the kinds in [keptDomains]). Null (with [message]) on failure.
   Future<List<HaEntity>?> fetchEntities() async {
     final s = _s;
     if (s == null || !connected) return null;
     try {
-      final list = await s.getStates();
+      final list = _wanted(await s.getStates());
       entities = list;
       notifyListeners();
       return list;
