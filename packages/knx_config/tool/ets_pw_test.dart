@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io' show exitCode;
+
 import 'package:knx_config/knx_config.dart';
 
 void check(bool c, String m) {
@@ -10,8 +11,16 @@ void check(bool c, String m) {
 void main() {
   const pw = 'Mật khẩu 123';
   for (final f in ['ets6', 'ets5', 'ets5d']) {
-    final tag = switch (f) { 'ets6' => 'ETS 6 (AES)', 'ets5' => 'ETS 5 (ZipCrypto)', _ => 'ETS 5 (ZipCrypto, streamed)' };
-    final b = base64.decode(switch (f) { 'ets6' => _ets6, 'ets5' => _ets5, _ => _ets5d });
+    final tag = switch (f) {
+      'ets6' => 'ETS 6 (AES)',
+      'ets5' => 'ETS 5 (ZipCrypto)',
+      _ => 'ETS 5 (ZipCrypto, streamed)',
+    };
+    final b = base64.decode(switch (f) {
+      'ets6' => _ets6,
+      'ets5' => _ets5,
+      _ => _ets5d,
+    });
     try {
       parseEts(b, fileName: 'x.knxproj');
       check(false, '$tag: should ask for a password');
@@ -26,10 +35,14 @@ void main() {
     }
     final sw = Stopwatch()..start();
     final r = parseEts(b, fileName: 'x.knxproj', password: pw);
-    check(r.items.length == 6 && r.projectName == 'Villa Test',
-        '$tag: right password imports ${r.items.length} addresses, project "${r.projectName}" (${sw.elapsedMilliseconds} ms)');
     check(
-        r.items[3].dpt == '9.001' && r.items[2].dpt == '5.001', '$tag: DPTs read from the manufacturer data still work (${r.items[2].dpt}, ${r.items[3].dpt})');
+      r.items.length == 6 && r.projectName == 'Villa Test',
+      '$tag: right password imports ${r.items.length} addresses, project "${r.projectName}" (${sw.elapsedMilliseconds} ms)',
+    );
+    check(
+      r.items[3].dpt == '9.001' && r.items[2].dpt == '5.001',
+      '$tag: DPTs read from the manufacturer data still work (${r.items[2].dpt}, ${r.items[3].dpt})',
+    );
   }
 }
 

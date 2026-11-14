@@ -201,8 +201,8 @@ class RemoteItem {
 /// The custom buttons of the card: {id, label, icon, cmd (the key name for Home Assistant), …}.
 List<Json> remoteCustom(Json w) => jsonList(jsonMap(w['remote'])['custom']);
 
-/// The number of columns of the grid (3 to 5).
-int remoteCols(Json w) => ((jsonMap(w['remote'])['cols'] as num?)?.toInt() ?? 3).clamp(3, 5);
+/// The number of columns of the grid (3 to 6).
+int remoteCols(Json w) => ((jsonMap(w['remote'])['cols'] as num?)?.toInt() ?? 3).clamp(3, 6);
 
 /// Whether a part is hidden. A card made before the parts could be hidden one by one keeps its group settings.
 bool remoteHidden(Json w, String id) {
@@ -379,4 +379,11 @@ String remoteKnxValue(Json w, String key) {
   final v = remoteKnxValue(w, key);
   if (v.isEmpty) return null;
   return (slot: single ? 'rk_all' : 'rk_$key', value: v);
+}
+
+/// The number of rows of the grid: the one set for the card (at least what the keys need).
+int remoteRowCount(Json w, List<RemoteItem> items) {
+  final need = remoteRows(items);
+  final set = (jsonMap(w['remote'])['rows'] as num?)?.toInt() ?? 0;
+  return set > need ? set.clamp(need, 24) : need;
 }

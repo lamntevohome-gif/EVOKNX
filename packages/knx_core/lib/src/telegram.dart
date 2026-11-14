@@ -13,14 +13,8 @@ class KnxTelegram {
   final List<int> data;
   final bool outgoing;
 
-  KnxTelegram({
-    DateTime? time,
-    required this.source,
-    required this.destination,
-    required this.type,
-    this.data = const [],
-    this.outgoing = false,
-  }) : time = time ?? DateTime.now();
+  KnxTelegram({DateTime? time, required this.source, required this.destination, required this.type, this.data = const [], this.outgoing = false})
+    : time = time ?? DateTime.now();
 
   @override
   String toString() => '$source -> $destination ${type.name} ${data.map((b) => b.toRadixString(16).padLeft(2, '0')).join(' ')}';

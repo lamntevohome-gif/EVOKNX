@@ -332,50 +332,46 @@ class KnxTunnelClient {
   }
 
   Future<void> _sendCemi(CemiFrame frame) => _enqueue(() async {
-        if (_state != KnxConnectionState.connected) throw KnxException('Not connected to the KNX bus.');
-        final wait = options.minSendInterval - DateTime.now().difference(_lastSend);
-        if (!wait.isNegative) await Future<void>.delayed(wait);
-        final bytes = frame.toBytes();
-        final seq = _sendSeq;
-        for (var attempt = 0; attempt < 2; attempt++) {
-          final ack = Completer<int>();
-          _ackWaiters[seq] = ack;
-          _conWaiter = Completer<bool>();
-          _send(KnxIpFrame.tunnellingRequest(_channel, seq, bytes));
-          _lastSend = DateTime.now();
-          try {
-            final status = await ack.future.timeout(options.ackTimeout);
-            if (status != KnxError.noError) throw KnxException(KnxError.describe(status));
-            _sendSeq = (seq + 1) & 0xFF;
-            break;
-          } on TimeoutException {
-            _ackWaiters.remove(seq);
-            if (attempt == 1) {
-              lastError = 'The interface did not acknowledge the telegram.';
-              _onLost();
-              throw KnxException(lastError!);
-            }
-          }
+    if (_state != KnxConnectionState.connected) throw KnxException('Not connected to the KNX bus.');
+    final wait = options.minSendInterval - DateTime.now().difference(_lastSend);
+    if (!wait.isNegative) await Future<void>.delayed(wait);
+    final bytes = frame.toBytes();
+    final seq = _sendSeq;
+    for (var attempt = 0; attempt < 2; attempt++) {
+      final ack = Completer<int>();
+      _ackWaiters[seq] = ack;
+      _conWaiter = Completer<bool>();
+      _send(KnxIpFrame.tunnellingRequest(_channel, seq, bytes));
+      _lastSend = DateTime.now();
+      try {
+        final status = await ack.future.timeout(options.ackTimeout);
+        if (status != KnxError.noError) throw KnxException(KnxError.describe(status));
+        _sendSeq = (seq + 1) & 0xFF;
+        break;
+      } on TimeoutException {
+        _ackWaiters.remove(seq);
+        if (attempt == 1) {
+          lastError = 'The interface did not acknowledge the telegram.';
+          _onLost();
+          throw KnxException(lastError!);
         }
-        try {
-          final ok = await _conWaiter!.future.timeout(const Duration(seconds: 3));
-          if (!ok) throw KnxException('The KNX bus did not acknowledge the telegram (L_Data.con reported an error).');
-        } on TimeoutException {
-          // Some interfaces do not send L_Data.con; accept.
-        } finally {
-          _conWaiter = null;
-        }
-        final t = frame.toTelegram(outgoing: true);
-        if (t != null && !_telegrams.isClosed) {
-          _telegrams.add(KnxTelegram(
-            source: individualAddress ?? const IndividualAddress(0),
-            destination: t.destination,
-            type: t.type,
-            data: t.data,
-            outgoing: true,
-          ));
-        }
-      });
+      }
+    }
+    try {
+      final ok = await _conWaiter!.future.timeout(const Duration(seconds: 3));
+      if (!ok) throw KnxException('The KNX bus did not acknowledge the telegram (L_Data.con reported an error).');
+    } on TimeoutException {
+      // Some interfaces do not send L_Data.con; accept.
+    } finally {
+      _conWaiter = null;
+    }
+    final t = frame.toTelegram(outgoing: true);
+    if (t != null && !_telegrams.isClosed) {
+      _telegrams.add(
+        KnxTelegram(source: individualAddress ?? const IndividualAddress(0), destination: t.destination, type: t.type, data: t.data, outgoing: true),
+      );
+    }
+  });
 
   /// Sends a GroupValueWrite with an encoded payload.
   Future<void> write(GroupAddress ga, KnxPayload payload) => _sendCemi(CemiFrame.groupRequest(ga, TelegramType.write, payload));

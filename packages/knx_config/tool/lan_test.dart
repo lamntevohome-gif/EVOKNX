@@ -1,4 +1,5 @@
 import 'dart:io' show InternetAddress;
+
 import 'package:knx_config/knx_config.dart';
 
 void check(bool c, String m) => print('${c ? "OK  " : "FAIL"} $m');
@@ -29,7 +30,9 @@ Future<void> main() async {
   r = await fetchConfigFromEditor('127.0.0.1:${s2.port}', s2.code);
   check((r.error ?? '').contains('expired'), 'expired code refused: ${r.error}');
   await s2.stop();
-  check(isLocalAddress(InternetAddress('192.168.1.5')) && isLocalAddress(InternetAddress('10.0.0.2')) && !isLocalAddress(InternetAddress('8.8.8.8')),
-      'local address detection');
+  check(
+    isLocalAddress(InternetAddress('192.168.1.5')) && isLocalAddress(InternetAddress('10.0.0.2')) && !isLocalAddress(InternetAddress('8.8.8.8')),
+    'local address detection',
+  );
   print('addresses here: ${(await LanShareServer.listAddresses()).map((a) => a.ip).toList()}');
 }

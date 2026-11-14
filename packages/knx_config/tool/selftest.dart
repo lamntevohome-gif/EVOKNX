@@ -90,8 +90,7 @@ void main() {
   final kp = zip({
     'knx_master.xml': '<KNX/>',
     'P-0A1B/project.xml': '<KNX><Project><ProjectInformation Name="Nhà anh Nam" GroupAddressStyle="ThreeLevel"/></Project></KNX>',
-    'P-0A1B/0.xml':
-        '<KNX><GroupAddress Id="x" Address="2305" Name="Đèn trần" DatapointType="DPST-1-1"/><GroupAddress Address="6145" Name="Nhiệt độ" DatapointType="DPST-9-1"/></KNX>',
+    'P-0A1B/0.xml': '<KNX><GroupAddress Id="x" Address="2305" Name="Đèn trần" DatapointType="DPST-1-1"/><GroupAddress Address="6145" Name="Nhiệt độ" DatapointType="DPST-9-1"/></KNX>',
   });
   final rk = parseEts(kp, fileName: 'a.knxproj');
   check(rk.projectName == 'Nhà anh Nam' && rk.items.map((e) => e.address).join(',') == '1/1/1,3/0/1', 'knxproj ${rk.items.map((e) => e.address)}');
@@ -116,12 +115,14 @@ void main() {
   check(res.removed == 2 && res.unlinked == 2 && jsonMap(w['bind']).isEmpty, 'replace');
   // Migration from web v1
   final v1 = jsonDecode(
-          '{"schemaVersion":1,"project":{"id":"x","name":"Cu","revision":0},"connections":[{"id":"main","type":"tunneling","host":"1.2.3.4","port":3671}],"groupAddresses":[],"pages":[{"id":"page_a","title":"Sảnh","icon":"home","layout":{"type":"grid","columns":4},"widgets":[{"id":"w1","type":"switch","label":"Đèn","icon":"bulb","pos":{"x":0,"y":1,"w":2,"h":1},"bind":{}}]}]}')
-      as Map<String, dynamic>;
+    '{"schemaVersion":1,"project":{"id":"x","name":"Cu","revision":0},"connections":[{"id":"main","type":"tunneling","host":"1.2.3.4","port":3671}],"groupAddresses":[],"pages":[{"id":"page_a","title":"Sảnh","icon":"home","layout":{"type":"grid","columns":4},"widgets":[{"id":"w1","type":"switch","label":"Đèn","icon":"bulb","pos":{"x":0,"y":1,"w":2,"h":1},"bind":{}}]}]}',
+  ) as Map<String, dynamic>;
   final m = migrate(v1);
   final mw = jsonList(jsonList(jsonList(m['pages']).first['subpages']).first['widgets']).first;
   check(
-      m['schemaVersion'] == kSchemaVersion && jsonMap(mw['pos'])['y'] == 2 && jsonMap(mw['pos'])['h'] == 2 && jsonList(m['floors']).length == 1, 'migrate v1');
+    m['schemaVersion'] == kSchemaVersion && jsonMap(mw['pos'])['y'] == 2 && jsonMap(mw['pos'])['h'] == 2 && jsonList(m['floors']).length == 1,
+    'migrate v1',
+  );
   // Export with tablet
   m['devices'] = {'mobile': true, 'tabletP': true, 'tabletL': false};
   final ex = exportProject(m);
@@ -156,27 +157,32 @@ void main() {
   check(!overlap(its) && remoteRows(its) == 6, 'remote: no overlap, 6 rows');
   rset('hide', {'back': true});
   rset('custom', [
-    {'id': 'rc_1', 'label': 'Netflix', 'icon': '', 'cmd': 'NETFLIX'}
+    {'id': 'rc_1', 'label': 'Netflix', 'icon': '', 'cmd': 'NETFLIX'},
   ]);
   its = remoteItems(rm);
   check(!its.any((i) => i.id == 'back') && its.any((i) => i.id == 'rc_1') && !overlap(its), 'remote: a hidden key is left out, a custom button is placed');
   rset('layout', {
-    'rc_1': {'c': 0, 'r': 0}
+    'rc_1': {'c': 0, 'r': 0},
   });
   its = remoteItems(rm);
   check(its.firstWhere((i) => i.id == 'rc_1').r == 0 && !overlap(its), 'remote: a dragged part keeps its cell, the ring moves out of its way');
   check(remoteCommand(rm, 'rc_1') == 'NETFLIX' && remoteCall(rm, 'poweron') == null, 'remote: custom key name; no call without a remote');
   rset('entity', 'remote.tv');
-  check(remoteCall(rm, 'poweron')!.service == 'remote.turn_on' && remoteCall(rm, 'rc_1')!.data['command'] == 'NETFLIX',
-      'remote: power on and the custom key call the remote');
+  check(
+    remoteCall(rm, 'poweron')!.service == 'remote.turn_on' && remoteCall(rm, 'rc_1')!.data['command'] == 'NETFLIX',
+    'remote: power on and the custom key call the remote',
+  );
   check(slotsFor(rm).isEmpty && switchRemoteSource(rm, 'knx') && remoteIsKnx(rm), 'remote: KNX gives address fields');
-  check(slotsFor(rm).any((s) => s.key == 'rk_up') && slotsFor(rm).any((s) => s.key == 'rk_rc_1') && slotsFor(rm).any((s) => s.key == 'rk_poweron'),
-      'remote: one address for each key');
+  check(
+    slotsFor(rm).any((s) => s.key == 'rk_up') && slotsFor(rm).any((s) => s.key == 'rk_rc_1') && slotsFor(rm).any((s) => s.key == 'rk_poweron'),
+    'remote: one address for each key',
+  );
   check(remoteKnxSend(rm, 'up')!.slot == 'rk_up' && remoteKnxSend(rm, 'up')!.value == '1', 'remote: each key sends 1 on its address');
   rset('knxMode', 'single');
   check(
-      slotsFor(rm).length == 1 && slotsFor(rm).first.key == 'rk_all' && remoteKnxSend(rm, 'down')!.slot == 'rk_all' && remoteKnxSend(rm, 'down')!.value == '4',
-      'remote: one address for all, the number of the key');
+    slotsFor(rm).length == 1 && slotsFor(rm).first.key == 'rk_all' && remoteKnxSend(rm, 'down')!.slot == 'rk_all' && remoteKnxSend(rm, 'down')!.value == '4',
+    'remote: one address for all, the number of the key',
+  );
   rset('values', {'down': '77'});
   check(remoteKnxSend(rm, 'down')!.value == '77', 'remote: own value');
   check(widgetEntity(rm).isEmpty && remoteProblem(rm) == null, 'remote: KNX has no entity and no problem');

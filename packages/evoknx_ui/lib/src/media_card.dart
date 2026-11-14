@@ -222,7 +222,7 @@ class _MediaCardState extends State<MediaCard> {
     final showControls = _opts['controls'] != false;
     final wide = bc.maxWidth;
     // The picture is small, in the top right corner.
-    final pic = showCover ? (_size('picSize') ?? 64.0).clamp(24.0, math.max(24.0, math.min(wide * 0.4, 200.0))).toDouble() : 0.0;
+    var pic = showCover ? (_size('picSize') ?? 64.0).clamp(24.0, math.max(24.0, math.min(wide * 0.4, 200.0))).toDouble() : 0.0;
     final labelSize = fs(w, 'labelSize');
     final dim = !m.available || m.off;
     final ink = dim ? pal.muted : pal.ink;
@@ -231,8 +231,8 @@ class _MediaCardState extends State<MediaCard> {
     // On a narrow card the buttons are smaller and closer.
     final compact = wide < 300;
     final pad = compact ? 6.0 : 10.0;
-    final btnSize = _size('btnSize') ?? (compact ? 22.0 : 26.0);
-    final playSize = _size('playSize') ?? btnSize * 34 / 26;
+    var btnSize = _size('btnSize') ?? (compact ? 22.0 : 26.0);
+    var playSize = _size('playSize') ?? btnSize * 34 / 26;
     Widget btn(IconData icon, VoidCallback? onTap, {double? size, Color? color, double? h}) {
       final z = size ?? btnSize;
       return InkResponse(
@@ -293,9 +293,34 @@ class _MediaCardState extends State<MediaCard> {
 
     final canMute = knx ? bind['mute'] != null : m.supports(HaMedia.featVolumeMute);
     final canSetVolume = knx ? bind['volume'] != null : true;
-    final volIcon = _size('volIcon') ?? (compact ? 18.0 : 20.0);
+    var volIcon = _size('volIcon') ?? (compact ? 18.0 : 20.0);
     // The space between the rows (the lines of text keep half of it).
-    final gap = (_size('rowGap') ?? 8.0).clamp(0.0, 60.0).toDouble();
+    var gap = (_size('rowGap') ?? 8.0).clamp(0.0, 60.0).toDouble();
+
+    // A card that is lower than its rows need gets lower rows (the space between them first, then the picture, then the
+    // buttons); the width is not touched. A narrower card only makes the buttons closer (above) and the picture smaller.
+    if (bc.maxHeight.isFinite) {
+      final textsH = (showTitle ? titleSize * 1.4 : 0) + (knx ? titleSize : songSize) * 1.4 + (!knx && m.artist.isNotEmpty ? detailSize * 1.4 : 0);
+      double need(double g, double p, double k) {
+        final topH = math.max(textsH + g / 2 * (lines.length - 1), showCover ? p : 0.0);
+        final volH = showVolume ? math.max(volIcon * k + 6, 26.0) : 0.0;
+        final ctlH = showControls ? playSize * k + 8 : 0.0;
+        return topH + volH + ctlH + (showVolume && showControls ? g : 0.0) + 4;
+      }
+
+      final avail = bc.maxHeight;
+      var g = gap, p = pic, k = 1.0;
+      if (need(g, p, k) > avail) g = 0;
+      if (showCover && need(g, p, k) > avail) p = math.max(24.0, p - (need(g, p, k) - avail));
+      while (need(g, p, k) > avail && k > 0.5) {
+        k -= 0.1;
+      }
+      gap = g;
+      pic = p;
+      btnSize *= k;
+      playSize *= k;
+      volIcon *= k;
+    }
 
     // The first and the last column of the volume row and of the row of buttons have the same width, so the mute button is
     // right over the shuffle button and the value of the volume over the repeat button.
@@ -409,19 +434,7 @@ class _MediaCardState extends State<MediaCard> {
 
     final hasControls = showControls && (canPlay || canPrev || canNext || canShuffle || canRepeat);
     // The title, the song, the artist and the picture stay at the top; the volume and the buttons stay at the bottom.
-    // The height the rows need. When the card is lower than that, everything is made smaller to fit, so no button sticks
-    // out of the card.
-    final textsH =
-        (showTitle ? titleSize * 1.4 : 0) +
-        (knx ? titleSize : songSize) * 1.4 +
-        (!knx && m.artist.isNotEmpty ? detailSize * 1.4 : 0) +
-        gap / 2 * (lines.length - 1);
-    final topH = math.max(textsH, showCover ? pic : 0.0);
-    final volH = showVolume ? math.max(volIcon + 6, 32.0) : 0.0;
-    final ctlH = hasControls ? playSize + 8 : 0.0;
-    final needH = topH + volH + ctlH + (showVolume && hasControls ? gap : 0.0) + 4;
-    final availH = bc.maxHeight.isFinite ? bc.maxHeight : needH;
-    final content = Column(
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Row(
@@ -443,12 +456,6 @@ class _MediaCardState extends State<MediaCard> {
         if (showVolume && hasControls) SizedBox(height: gap),
         if (hasControls) controls,
       ],
-    );
-    if (availH >= needH) return content;
-    return FittedBox(
-      fit: BoxFit.scaleDown,
-      alignment: Alignment.topCenter,
-      child: SizedBox(width: wide, height: needH, child: content),
     );
   }
 

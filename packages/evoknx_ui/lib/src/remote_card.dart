@@ -306,7 +306,7 @@ class _RemoteCardState extends State<RemoteCard> {
         ),
       );
     }
-    final cols = remoteCols(w), rows = remoteRows(items);
+    final cols = remoteCols(w), rows = remoteRowCount(w, items);
     final cw = bc.maxWidth / cols;
     // A cell is not much higher than wide, so a tall card does not make huge keys.
     final ch = math.min(bc.maxHeight.isFinite ? bc.maxHeight / rows : cw, cw * 1.1);

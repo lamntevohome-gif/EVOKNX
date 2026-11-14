@@ -6,14 +6,8 @@ class KnxPayload {
   final bool short;
   final int shortValue;
   final Uint8List bytes;
-  KnxPayload.short(int value)
-      : short = true,
-        shortValue = value & 0x3F,
-        bytes = Uint8List(0);
-  KnxPayload.bytes(List<int> data)
-      : short = false,
-        shortValue = 0,
-        bytes = Uint8List.fromList(data);
+  KnxPayload.short(int value) : short = true, shortValue = value & 0x3F, bytes = Uint8List(0);
+  KnxPayload.bytes(List<int> data) : short = false, shortValue = 0, bytes = Uint8List.fromList(data);
 
   /// Raw data as it appears on the bus (short values as a single byte).
   List<int> get raw => short ? [shortValue] : bytes;

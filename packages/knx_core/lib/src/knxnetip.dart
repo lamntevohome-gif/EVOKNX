@@ -46,9 +46,7 @@ class Hpai {
   final InternetAddress address;
   final int port;
   Hpai(this.address, this.port);
-  Hpai.nat()
-      : address = InternetAddress('0.0.0.0'),
-        port = 0;
+  Hpai.nat() : address = InternetAddress('0.0.0.0'), port = 0;
 
   List<int> toBytes() => [0x08, 0x01, ...address.rawAddress, (port >> 8) & 0xFF, port & 0xFF];
 

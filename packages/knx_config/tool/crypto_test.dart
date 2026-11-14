@@ -23,10 +23,12 @@ void main() {
   }
   check(hex(h.digest()) == v['sha256_long'], 'SHA-256 streamed in odd chunks');
   check(hex(Hmac(Sha1.new, u(utf8.encode('key' * 30))).mac(u(utf8.encode('The quick brown fox')))) == v['hmac_sha1'], 'HMAC-SHA1 (long key)');
-  check(hex(pbkdf2(Sha1.new, u(utf8.encode('password')), u(utf8.encode('saltsaltsaltsalt')), 1000, 66)) == v['pbkdf2_sha1'],
-      'PBKDF2-SHA1 (WinZip AES parameters)');
+  check(
+    hex(pbkdf2(Sha1.new, u(utf8.encode('password')), u(utf8.encode('saltsaltsaltsalt')), 1000, 66)) == v['pbkdf2_sha1'],
+    'PBKDF2-SHA1 (WinZip AES parameters)',
+  );
   final pw = u([
-    for (final c in 'Password'.codeUnits) ...[c & 0xFF, c >> 8]
+    for (final c in 'Password'.codeUnits) ...[c & 0xFF, c >> 8],
   ]);
   final sw = Stopwatch()..start();
   final d = pbkdf2(Sha256.new, pw, u(utf8.encode('21.project.ets.knx.org')), 65536, 32);

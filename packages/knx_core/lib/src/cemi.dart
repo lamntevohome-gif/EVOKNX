@@ -136,12 +136,6 @@ class CemiFrame {
   KnxTelegram? toTelegram({bool outgoing = false}) {
     final t = telegramType;
     if (t == null || !groupDestination) return null;
-    return KnxTelegram(
-      source: source,
-      destination: GroupAddress(destination),
-      type: t,
-      data: t == TelegramType.read ? const [] : data,
-      outgoing: outgoing,
-    );
+    return KnxTelegram(source: source, destination: GroupAddress(destination), type: t, data: t == TelegramType.read ? const [] : data, outgoing: outgoing);
   }
 }

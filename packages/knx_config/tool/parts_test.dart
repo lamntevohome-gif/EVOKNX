@@ -18,7 +18,7 @@ void main() {
     {'id': gaId('9/9/9'), 'address': '9/9/9', 'name': 'Khác', 'dpt': '1.001'},
   ];
   a['icons'] = [
-    {'id': 'ci_x', 'name': 'x', 'data': 'data:image/png;base64,AAAA'}
+    {'id': 'ci_x', 'name': 'x', 'data': 'data:image/png;base64,AAAA'},
   ];
 
   final part = makePart(a, 'floor', f['id'] as String)!;
@@ -32,7 +32,7 @@ void main() {
     {'id': 'ga_other', 'address': '1/1/1', 'name': 'Đèn B', 'dpt': '1.001'},
   ];
   b['icons'] = [
-    {'id': 'ci_x', 'name': 'khác', 'data': 'data:image/png;base64,BBBB'}
+    {'id': 'ci_x', 'name': 'khác', 'data': 'data:image/png;base64,BBBB'},
   ];
   final res = applyPart(b, part);
   check(res.error == null && res.floors == 1 && res.rooms == 1 && res.widgets == 1, 'floor imported');
@@ -62,8 +62,10 @@ void main() {
   swapDevice(c, 'tabletL');
   final res4 = applyPart(c, pr, floorId: jsonList(c['floors']).first['id'] as String);
   final s4 = jsonList(jsonList(c['pages']).last['subpages']).first;
-  check(res4.error == null && jsonMap(s4['layout'])['columns'] == 8 && jsonMap(jsonList(s4['widgets']).first['posBy'])['mobile'] != null,
-      'tablet layout prepared');
+  check(
+    res4.error == null && jsonMap(s4['layout'])['columns'] == 8 && jsonMap(jsonList(s4['widgets']).first['posBy'])['mobile'] != null,
+    'tablet layout prepared',
+  );
 
   // Cards: export one, import with and without addresses.
   final cp = makeCardPart(a, w);
@@ -120,6 +122,8 @@ void fullPageTest() {
   final part = makeCardPart(d, w);
   final gaBefore = jsonList(d['groupAddresses']).length;
   final res = applyCardPart(d, part, sub);
-  check(res.error != null && jsonList(sub['widgets']).length == n && jsonList(d['groupAddresses']).length == gaBefore,
-      'full page: card import refused, nothing changed');
+  check(
+    res.error != null && jsonList(sub['widgets']).length == n && jsonList(d['groupAddresses']).length == gaBefore,
+    'full page: card import refused, nothing changed',
+  );
 }
