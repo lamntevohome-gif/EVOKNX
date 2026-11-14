@@ -298,13 +298,13 @@ Json makeWidget(String type, int x, int y, [int? w, int? h]) {
     'bind': <String, dynamic>{},
   };
   if (type == 'dimmer') {
-    wd['features'] = {'tw': false, 'rgb': false};
-    wd['tw'] = {'min': 2700, 'max': 6500};
+    wd['features'] = <String, dynamic>{'tw': false, 'rgb': false};
+    wd['tw'] = <String, dynamic>{'min': 2700, 'max': 6500};
   }
   if (type == 'switch' || type == 'dimmer') {
-    wd['style'] = {'colorOn': '#EE9B2A', 'colorOff': '#8A938F', 'textOn': 'On', 'textOff': 'Off'};
+    wd['style'] = <String, dynamic>{'colorOn': '#EE9B2A', 'colorOff': '#8A938F', 'textOn': 'On', 'textOff': 'Off'};
   }
-  if (type == 'value') wd['format'] = {'unit': '', 'decimals': 1};
+  if (type == 'value') wd['format'] = <String, dynamic>{'unit': '', 'decimals': 1};
   if (type == 'button') wd['sendValue'] = '1';
   if (type == 'scene') wd['sendValue'] = '0';
   if (type == 'link') {
@@ -313,10 +313,10 @@ Json makeWidget(String type, int x, int y, [int? w, int? h]) {
   }
   if (type == 'webview') {
     wd['url'] = '';
-    wd['web'] = {'showHeader': true, 'interactive': true, 'fullscreen': true, 'refresh': 0};
+    wd['web'] = <String, dynamic>{'showHeader': true, 'interactive': true, 'fullscreen': true, 'refresh': 0};
   }
   if (type == 'ac') {
-    wd['ac'] = {
+    wd['ac'] = <String, dynamic>{
       'min': 16,
       'max': 30,
       'step': 0.5,
@@ -326,21 +326,21 @@ Json makeWidget(String type, int x, int y, [int? w, int? h]) {
     };
   }
   if (type == 'scene') {
-    wd['popup'] = {'enabled': true, 'text': 'Scene {name} activated', 'blur': 8, 'size': 20, 'seconds': 2};
+    wd['popup'] = <String, dynamic>{'enabled': true, 'text': 'Scene {name} activated', 'blur': 8, 'size': 20, 'seconds': 2};
   }
   if (type == 'remote') {
     // The remote of Home Assistant that the card controls, the platform whose key names are used, and what is shown.
-    wd['remote'] = {'entity': '', 'preset': 'Android TV', 'device': ''};
+    wd['remote'] = <String, dynamic>{'entity': '', 'preset': 'Android TV', 'device': ''};
   }
   if (type == 'media') {
     // The entity of Home Assistant that the card shows and controls; what is shown.
-    wd['media'] = {'entity': '', 'cover': true, 'volume': true, 'controls': true};
+    wd['media'] = <String, dynamic>{'entity': '', 'cover': true, 'volume': true, 'controls': true};
   }
   if (type == 'camera') {
-    wd['cam'] = {'protocol': 'rtsp', 'host': '', 'port': 554, 'path': '/Streaming/Channels/101', 'user': 'admin', 'pass': '', 'view': 'live'};
+    wd['cam'] = <String, dynamic>{'protocol': 'rtsp', 'host': '', 'port': 554, 'path': '/Streaming/Channels/101', 'user': 'admin', 'pass': '', 'view': 'live'};
   }
   if (type == 'group') {
-    wd['layout'] = {'type': 'grid', 'columns': min(w ?? t.w, 6), 'rows': min(h ?? t.h, 6)};
+    wd['layout'] = <String, dynamic>{'type': 'grid', 'columns': min(w ?? t.w, 6), 'rows': min(h ?? t.h, 6)};
     wd['widgets'] = <Json>[];
     wd['gstyle'] = 'card';
     wd['showTitle'] = true;
