@@ -131,6 +131,13 @@ void main() {
   final ac = makeWidget('ac', 0, 0);
   (ac['ac'] as Map)['modeAddr'] = 'separate';
   check(slotsFor(ac).any((s) => s.key == 'mode_cool') && !slotsFor(ac).any((s) => s.key == 'mode'), 'ac slots');
+  // media player card: addresses only with the source KNX
+  final mp = makeWidget('media', 0, 0);
+  check(slotsFor(mp).isEmpty && !mediaIsKnx(mp), 'media ha has no slots');
+  check(switchMediaSource(mp, 'knx') && mediaIsKnx(mp) && slotsFor(mp).any((s) => s.key == 'volume'), 'media knx slots');
+  check(widgetEntity(mp).isEmpty, 'media knx has no entity');
+  mp['bind'] = {'play': 'x'};
+  check(switchMediaSource(mp, 'ha') && !mediaIsKnx(mp) && jsonMap(mp['bind']).isEmpty, 'media back to ha');
   stdout.writeln('knx_config selftest: $_p passed, $_f failed');
   exit(_f == 0 ? 0 : 1);
 }

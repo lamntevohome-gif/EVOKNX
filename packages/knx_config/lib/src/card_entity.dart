@@ -13,9 +13,14 @@ const _onoffCmd = CardSlot('onoff', 'cmd'), _onoffSt = CardSlot('onoff', 'status
 /// What a card takes from an entity of Home Assistant: the domains it accepts and what each address field of the card
 /// follows.
 class CardEntityDef {
-  const CardEntityDef(this.domains, this.slots);
+  const CardEntityDef(this.domains, this.slots, {this.byDomain = const {}});
   final List<String> domains;
   final Map<String, CardSlot> slots;
+
+  /// For some domains a field follows another function (a binary sensor has an on/off status, not a number).
+  final Map<String, Map<String, CardSlot>> byDomain;
+
+  CardSlot? slot(String key, String domain) => byDomain[domain]?[key] ?? slots[key];
 }
 
 /// The cards that can take an entity. A field that the card does not show (a card setting turns it off) is not used.
@@ -23,7 +28,14 @@ const Map<String, CardEntityDef> kCardEntity = {
   'switch': CardEntityDef(['light', 'switch', 'fan', 'input_boolean', 'automation', 'script', 'scene'], {'write': _onoffCmd, 'status': _onoffSt}),
   'button': CardEntityDef(['scene', 'script', 'automation', 'light', 'switch', 'fan', 'input_boolean', 'media_player', 'remote'], {'write': _onoffCmd}),
   'scene': CardEntityDef(['scene', 'script', 'automation'], {'write': _onoffCmd}),
-  'value': CardEntityDef(['sensor'], {'status': CardSlot('sensor', 'status')}),
+  'value': CardEntityDef([
+    'sensor',
+    'binary_sensor'
+  ], {
+    'status': CardSlot('sensor', 'status')
+  }, byDomain: {
+    'binary_sensor': {'status': CardSlot('binary', 'status')},
+  }),
   'dimmer': CardEntityDef([
     'light'
   ], {
@@ -55,6 +67,33 @@ const Map<String, CardEntityDef> kCardEntity = {
 };
 
 final _entityId = RegExp(r'^[a-z0-9_]+\.[a-z0-9_]+$');
+
+/// The entity of Home Assistant that a card refers to, whatever the kind of card ('' = none): the entity it follows, the
+/// media player of a media player card, the remote of a remote control card.
+String widgetEntity(Json w) {
+  if (mediaIsKnx(w)) return '';
+  final e = cardEntity(w);
+  if (e.isNotEmpty) return e;
+  if (w['type'] == 'media') return (jsonMap(w['media'])['entity'] ?? '').toString().trim();
+  if (w['type'] == 'remote') return (jsonMap(w['remote'])['entity'] ?? '').toString().trim();
+  return '';
+}
+
+/// Changes the source of a media player card: 'knx' (addresses) or 'ha' (a media player of Home Assistant). What belongs
+/// to the other source is forgotten. False when the card already has that source.
+bool switchMediaSource(Json w, String source) {
+  if (w['type'] != 'media' || mediaIsKnx(w) == (source == 'knx')) return false;
+  if (source == 'knx') {
+    w['source'] = 'knx';
+    final m = jsonMap(w['media']);
+    m['entity'] = '';
+    w['media'] = m;
+  } else {
+    w.remove('source');
+    w['bind'] = <String, dynamic>{};
+  }
+  return true;
+}
 
 /// The entity a card follows ('' = none).
 String cardEntity(Json w) => w['ha'] is Map ? ((w['ha'] as Map)['entity'] ?? '').toString() : '';
@@ -127,11 +166,12 @@ CardEntities cardEntities(Json doc) {
     if (id.isEmpty || def == null || haDirect(w) || cardEntityProblem(w, id) != null) continue;
     final shown = {for (final sl in slotsFor(w)) sl.key};
     final mine = <String, dynamic>{};
-    for (final f in def.slots.entries) {
-      if (!shown.contains(f.key)) continue;
-      final attr = haAttr(f.value.attr);
-      if (attr == null) continue;
-      final key = '$id|${f.value.attr}|${f.value.role}';
+    for (final f in def.slots.keys) {
+      if (!shown.contains(f)) continue;
+      final slot = def.slot(f, id.split('.').first);
+      final attr = slot == null ? null : haAttr(slot.attr);
+      if (slot == null || attr == null) continue;
+      final key = '$id|${slot.attr}|${slot.role}';
       var ga = byKey[key];
       if (ga == null) {
         // An address of a reserved main group (1000), so that it never meets a real or an older virtual address.
@@ -139,13 +179,13 @@ CardEntities cardEntities(Json doc) {
         ga = byKey[key] = {
           'id': 'hac_$key',
           'address': '1000/${i ~/ 250}/${i % 250 + 1}',
-          'name': '$id (${f.value.role == 'cmd' ? 'command' : 'status'})',
+          'name': '$id (${slot.role == 'cmd' ? 'command' : 'status'})',
           'dpt': attr.dpt,
-          'ha': {'entity': id, 'attr': f.value.attr, 'role': f.value.role, 'card': true},
+          'ha': {'entity': id, 'attr': slot.attr, 'role': slot.role, 'card': true},
         };
         gas.add(ga);
       }
-      mine[f.key] = ga['id'];
+      mine[f] = ga['id'];
     }
     binds[w['id'].toString()] = mine;
   }

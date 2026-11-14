@@ -200,6 +200,7 @@ List<String> fsKeysFor(String type) => switch (type) {
   'webview' => const ['labelSize', 'iconSize'],
   'camera' => const ['labelSize', 'iconSize'],
   'media' => const ['labelSize'],
+  'remote' => const ['labelSize'],
   'shutter' => const ['labelSize', 'iconSize', 'stateSize', 'btnIcon'],
   'ac' => const ['labelSize', 'iconSize', 'stateSize', 'acBtn', 'acMode'],
   _ => const ['labelSize', 'iconSize', 'stateSize'],
@@ -241,7 +242,9 @@ class Issue {
   const Issue(this.error, this.text, {this.roomId, this.subId, this.widgetId});
 }
 
-List<Issue> computeIssues(Json d) {
+/// The problems of the project. With [knownEntities] (the entities saved by Update Entity) the entities that are not in
+/// the list are reported too.
+List<Issue> computeIssues(Json d, {Set<String>? knownEntities}) {
   final out = <Issue>[];
   final gas = jsonList(d['groupAddresses']);
   Json? ga(String? id) => byId(gas, id);
@@ -266,6 +269,17 @@ List<Issue> computeIssues(Json d) {
   }
   for (final m in scriptProblems(d)) {
     out.add(Issue(true, m));
+  }
+  if (knownEntities != null && knownEntities.isNotEmpty) {
+    for (final sc in scriptsOf(d)) {
+      final steps = jsonList(sc['steps']);
+      for (var i = 0; i < steps.length; i++) {
+        final e = (steps[i]['entity'] ?? '').toString().trim();
+        if (steps[i]['type'] == 'ha' && e.isNotEmpty && !knownEntities.contains(e)) {
+          out.add(Issue(false, 'Script “${sc['title']}”, step ${i + 1}: Home Assistant has no entity “$e” in the saved list.'));
+        }
+      }
+    }
   }
   // The targets that cards open after a press.
   final floorIds = {for (final f in jsonList(d['floors'])) f['id']};
@@ -356,7 +370,25 @@ List<Issue> computeIssues(Json d) {
             Issue(false, '$where$name follows an entity but Home Assistant is not enabled in the project.', roomId: r['id'], subId: s['id'], widgetId: w['id']),
           );
         }
-        if (w['type'] == 'media' && (jsonMap(w['media'])['entity'] ?? '').toString().trim().isEmpty) {
+        if (w['type'] == 'remote') {
+          final pr = remoteProblem(w);
+          if (pr != null) out.add(Issue(true, '$where$name: $pr', roomId: r['id'], subId: s['id'], widgetId: w['id']));
+        }
+        if (knownEntities != null && knownEntities.isNotEmpty) {
+          final eid = widgetEntity(w);
+          if (eid.isNotEmpty && !knownEntities.contains(eid)) {
+            out.add(
+              Issue(
+                false,
+                '$where$name: Home Assistant has no entity “$eid” in the saved list (click Update Entity, or choose another).',
+                roomId: r['id'],
+                subId: s['id'],
+                widgetId: w['id'],
+              ),
+            );
+          }
+        }
+        if (w['type'] == 'media' && !mediaIsKnx(w) && (jsonMap(w['media'])['entity'] ?? '').toString().trim().isEmpty) {
           out.add(Issue(true, '$where$name has no media player chosen yet.', roomId: r['id'], subId: s['id'], widgetId: w['id']));
         }
         if ((w['type'] == 'link' || w['type'] == 'webview') && !RegExp(r'^https?://\S+').hasMatch((w['url'] ?? '').toString())) {

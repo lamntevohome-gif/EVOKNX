@@ -91,6 +91,9 @@ class FakeHa {
 
   int get port => server.port;
 
+  /// How many times a client logged in (right or wrong).
+  int authCount = 0;
+
   void _serve(WebSocket ws) {
     ws.add(jsonEncode({'type': 'auth_required', 'ha_version': '2025.1.0'}));
     var authed = false;
@@ -98,6 +101,7 @@ class FakeHa {
       final m = jsonDecode(raw as String) as Map<String, dynamic>;
       if (!authed) {
         if (m['type'] == 'auth') {
+          authCount++;
           if (m['access_token'] == token) {
             authed = true;
             ws.add(jsonEncode({'type': 'auth_ok', 'ha_version': '2025.1.0'}));
@@ -452,6 +456,72 @@ Future<void> main() async {
   check(!switchCardSource(sw, 'ha'), 'card source: nothing changes when the source is the same');
   setCardEntity(sw, 'light.den1');
   check(switchCardSource(sw, 'knx') && cardEntity(sw).isEmpty && sw['source'] == null && !cardIsHa(sw), 'card source: KNX forgets the entity');
+
+  // ---- a value card takes a binary sensor; the entity of any card
+  final vbin = makeWidget('value', 0, 0);
+  check(setCardEntity(vbin, 'binary_sensor.door') == null && setCardEntity(makeWidget('value', 0, 0), 'light.x') != null,
+      'value card: a binary sensor is taken, a light is not');
+  final vdoc = newProject('v');
+  (((vdoc['pages'] as List)
+    ..add({
+      'id': 'rv',
+      'title': 'R',
+      'subpages': [
+        {
+          'id': 'sv',
+          'title': 'P',
+          'widgets': [vbin]
+        }
+      ]
+    })));
+  final vce = cardEntities(vdoc);
+  check(
+      vce.gas.length == 1 &&
+          vce.gas.single['ha']['attr'] == 'binary' &&
+          vce.gas.single['dpt'] == '1.001' &&
+          vce.binds[vbin['id']]!['status'] == vce.gas.single['id'],
+      'value card: a binary sensor gives an on/off status address');
+  check(
+      widgetEntity(vbin) == 'binary_sensor.door' &&
+          widgetEntity(makeWidget('media', 0, 0)) == '' &&
+          widgetEntity({
+                'type': 'media',
+                'media': {'entity': ' media_player.a '}
+              }) ==
+              'media_player.a' &&
+          widgetEntity({
+                'type': 'remote',
+                'remote': {'entity': 'remote.tv'}
+              }) ==
+              'remote.tv',
+      'widgetEntity: the entity of a card, a media player card and a remote card');
+  // ---- the remote control card
+  final rcard = makeWidget('remote', 0, 0);
+  check(remoteProblem(rcard) == 'choose the remote.' && remoteCall(rcard, 'up') == null, 'remote card: it needs a remote');
+  rcard['remote'] = {
+    'entity': 'remote.tv',
+    'preset': 'Samsung TV',
+    'device': 'TV',
+    'keys': {'ok': 'KEY_OK'}
+  };
+  final rup = remoteCall(rcard, 'up')!, rok = remoteCall(rcard, 'ok')!;
+  check(
+      rup.service == 'remote.send_command' &&
+          rup.entity == 'remote.tv' &&
+          rup.data['command'] == 'KEY_UP' &&
+          rup.data['device'] == 'TV' &&
+          rok.data['command'] == 'KEY_OK',
+      'remote card: the names of the platform, the ones typed on the card win, the device is sent');
+  rcard['remote'] = {'entity': 'remote.tv', 'preset': 'Apple TV'};
+  check(
+      remoteCall(rcard, 'mute') == null &&
+          remoteCall(rcard, 'ok')!.data['command'] == 'select' &&
+          !remoteCall(rcard, 'ok')!.data.containsKey('device') &&
+          remoteProblem(rcard) == null,
+      'remote card: a key without a name is left out; no device when none is set');
+  check(
+      kRemotePresets.values.every((p) => p.keys.every((k) => kRemoteKeys.any((x) => x.$1 == k))) && kRemotePresets['Android TV']!.length == kRemoteKeys.length,
+      'remote card: the presets only use known keys');
 
   // ---- push button commands for a media player and a remote
   final btSonos = HaEntity('media_player.sonos', 'playing', {
@@ -862,6 +932,38 @@ Future<void> main() async {
   check(await bridge.write(ga(addr('media_player.avr', 'srctext', 'cmd')), 'HDMI 2') == null, 'bridge: write a text source');
   check(
       ha.calls.last['service'] == 'select_source' && (ha.calls.last['service_data'] as Map)['source'] == 'HDMI 2', 'bridge: sent select_source with the text');
+  // a refused token is not tried again; entities that Home Assistant does not have are known
+  final authBefore = ha.authCount;
+  final bad = HaBridge(url: url, token: 'wrong', addresses: const []);
+  await bad.start();
+  await Future<void>.delayed(const Duration(milliseconds: 2600));
+  check(bad.state == HaConnection.failed && (bad.error ?? '').contains('token') && ha.authCount - authBefore == 1,
+      'bridge: a refused token is tried once, not again (${ha.authCount - authBefore} tries, ${bad.state})');
+  await bad.start();
+  await Future<void>.delayed(const Duration(milliseconds: 300));
+  check(ha.authCount - authBefore == 2, 'bridge: it tries again when it is started again');
+  await bad.stop();
+  final gone = HaBridge(url: url, token: 'tok', addresses: [
+    {
+      'id': 'g1',
+      'address': '1000/0/1',
+      'dpt': '1.001',
+      'ha': {'entity': 'light.gone', 'attr': 'onoff', 'role': 'cmd'}
+    },
+    {
+      'id': 'g2',
+      'address': '1000/0/2',
+      'dpt': '1.001',
+      'ha': {'entity': 'cover.rem1', 'attr': 'move', 'role': 'cmd'}
+    },
+  ]);
+  await gone.start();
+  for (var i = 0; i < 40 && !gone.connected; i++) {
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+  }
+  check(gone.connected && gone.missingEntities.length == 1 && gone.missingEntities.first == 'light.gone',
+      'bridge: the entities that Home Assistant does not have (${gone.missingEntities})');
+  await gone.stop();
   final cv1 = await bridge.thumbnail('media_player.avr');
   check(cv1 != null && cv1.join(',') == '1,2,3,4', 'bridge: the cover comes by WebSocket ($cv1)');
   final cv2 = await bridge.thumbnail('media_player.nows');

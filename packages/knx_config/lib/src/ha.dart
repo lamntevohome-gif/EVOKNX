@@ -862,8 +862,11 @@ Object? haStatusValue(String attr, HaEntity e) {
 // ======================================================================
 
 class HaException implements Exception {
-  HaException(this.message);
+  HaException(this.message, {this.auth = false});
   final String message;
+
+  /// Home Assistant refused the token (trying again with the same token is useless).
+  final bool auth;
   @override
   String toString() => message;
 }
@@ -916,8 +919,8 @@ class HaSession {
       s.version = hello['ha_version']?.toString();
       ws.add(jsonEncode({'type': 'auth', 'access_token': token}));
       final r = await s._next(timeout);
-      if (r['type'] == 'auth_invalid') throw HaException('The token is wrong or has been revoked.');
-      if (r['type'] != 'auth_ok') throw HaException('Home Assistant did not accept the login.');
+      if (r['type'] == 'auth_invalid') throw HaException('The token is wrong or has been revoked.', auth: true);
+      if (r['type'] != 'auth_ok') throw HaException('Home Assistant did not accept the login.', auth: true);
       s._authed = true;
       return s;
     } catch (e) {
@@ -1135,10 +1138,22 @@ class HaBridge {
     return null;
   }
 
+  /// A new number each time the bridge is started or stopped, so that an old loop never goes on (a stop and a quick
+  /// start would otherwise leave two loops).
+  int _gen = 0;
+
+  /// Home Assistant refused the token: the bridge does not try again until it is started again.
+  bool _refused = false;
+
+  /// The entities that addresses refer to and that Home Assistant does not have (known after the connection is made).
+  Set<String> missingEntities = {};
+
   Future<void> start() async {
     if (!_stopped) return;
     _stopped = false;
-    unawaited(_loop());
+    _refused = false;
+    final g = ++_gen;
+    unawaited(_loop(g));
   }
 
   void _set(HaConnection s, [String? err]) {
@@ -1147,34 +1162,49 @@ class HaBridge {
     onState?.call();
   }
 
-  Future<void> _loop() async {
+  Future<void> _loop(int g) async {
     var wait = 1;
-    while (!_stopped) {
+    while (!_stopped && g == _gen) {
       _set(HaConnection.connecting);
       try {
         final s = await HaSession.open(url, token);
         _session = s;
         await s.subscribeStates(_changed);
+        final known = <String>{};
         for (final e in await s.getStates()) {
+          known.add(e.id);
           _entities[e.id] = e;
           _push(e);
           _changes.add(e);
         }
+        missingEntities = {
+          for (final a in addresses)
+            if ((jsonMap(a['ha'])['entity'] ?? '').toString().isNotEmpty && !known.contains(jsonMap(a['ha'])['entity'].toString()))
+              jsonMap(a['ha'])['entity'].toString(),
+        };
         wait = 1;
         _set(HaConnection.connected);
         await s.closed;
-        if (!_stopped) _set(HaConnection.failed, 'Home Assistant connection lost. Retrying…');
+        if (!_stopped && g == _gen) _set(HaConnection.failed, 'Home Assistant connection lost. Retrying…');
       } on HaException catch (e) {
+        if (g != _gen) break;
+        if (e.auth) {
+          // The token is refused: stop (trying again could get this address blocked by Home Assistant).
+          _refused = true;
+          _stopped = true;
+          _set(HaConnection.failed, '${e.message} Check it in the Connections tab.');
+          break;
+        }
         _set(HaConnection.failed, e.message);
       } catch (e) {
         _set(HaConnection.failed, '$e');
       }
       _session = null;
-      if (_stopped) break;
+      if (_stopped || g != _gen) break;
       await Future<void>.delayed(Duration(seconds: wait));
       wait = (wait * 2).clamp(1, 30);
     }
-    if (_stopped) _set(HaConnection.disconnected);
+    if (_stopped && !_refused && g == _gen) _set(HaConnection.disconnected);
   }
 
   void _changed(HaEntity e) {
@@ -1230,6 +1260,7 @@ class HaBridge {
 
   Future<void> stop() async {
     _stopped = true;
+    _gen++;
     final s = _session;
     _session = null;
     await s?.close();

@@ -76,7 +76,19 @@ const Map<String, WidgetTypeDef> kWidgetTypes = {
     SlotDef('modeSt', 'Mode status', [20, 5]),
   ]),
   'camera': WidgetTypeDef('camera', 'Camera', 'camera', 2, 2, []),
-  'media': WidgetTypeDef('media', 'Media player', 'mdi:music', 4, 2, []),
+  // The addresses of a media player card exist only when its source is KNX (see slotsFor); with the source HA the card
+  // follows a media player of Home Assistant.
+  'media': WidgetTypeDef('media', 'Media player', 'mdi:music', 4, 2, [
+    SlotDef('play', 'Play / Pause', [1]),
+    SlotDef('playSt', 'Play / Pause status', [1], recommended: true),
+    SlotDef('prev', 'Previous', [1]),
+    SlotDef('next', 'Next', [1]),
+    SlotDef('mute', 'Mute', [1]),
+    SlotDef('muteSt', 'Mute status', [1]),
+    SlotDef('volume', 'Volume', [5]),
+    SlotDef('volumeSt', 'Volume status', [5]),
+  ]),
+  'remote': WidgetTypeDef('remote', 'Remote control', 'mdi:remote', 4, 4, []),
   'group': WidgetTypeDef('group', 'Grid frame', 'layout', 2, 2, []),
 };
 
@@ -175,12 +187,17 @@ const List<AcMode> kAcModes = [
   AcMode('dry', 'Dry', 'drop', 14),
 ];
 
+/// A media player card whose source is KNX (its own addresses) and not a media player of Home Assistant.
+bool mediaIsKnx(Json w) => w['type'] == 'media' && w['source'] == 'knx';
+
 /// Slots of a widget, including dynamic ones (dimmer features, shutter
 /// options, AC per-mode addresses). Mirrors the web editor.
 List<SlotDef> slotsFor(Json w) {
   final t = kWidgetTypes[w['type']];
   final base = t?.slots ?? const <SlotDef>[];
   switch (w['type']) {
+    case 'media':
+      return mediaIsKnx(w) ? base : const <SlotDef>[];
     case 'shutter':
       var out = w['showStop'] == false ? base.where((s) => s.key != 'stop').toList() : List<SlotDef>.from(base);
       final ctrl = (w['shCtrl'] ?? 'buttons') as String;
@@ -290,9 +307,13 @@ Json makeWidget(String type, int x, int y, [int? w, int? h]) {
   if (type == 'scene') {
     wd['popup'] = {'enabled': true, 'text': 'Scene {name} activated', 'blur': 8, 'size': 20, 'seconds': 2};
   }
+  if (type == 'remote') {
+    // The remote of Home Assistant that the card controls, the platform whose key names are used, and what is shown.
+    wd['remote'] = {'entity': '', 'preset': 'Android TV', 'device': '', 'dpad': true, 'nav': true, 'volume': true, 'transport': true, 'touchpad': false};
+  }
   if (type == 'media') {
     // The entity of Home Assistant that the card shows and controls; what is shown.
-    wd['media'] = {'entity': '', 'cover': true, 'progress': true, 'volume': true, 'controls': true};
+    wd['media'] = {'entity': '', 'cover': true, 'volume': true, 'controls': true};
   }
   if (type == 'camera') {
     wd['cam'] = {'protocol': 'rtsp', 'host': '', 'port': 554, 'path': '/Streaming/Channels/101', 'user': 'admin', 'pass': '', 'view': 'live'};

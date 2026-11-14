@@ -80,5 +80,5 @@ bool haNeeded(Json doc) {
   for (final s in jsonList(doc['scripts'])) {
     if (jsonList(s['steps']).any((st) => st['type'] == 'ha')) return true;
   }
-  return allWidgets(doc).any((w) => w['type'] == 'media' || cardEntity(w).isNotEmpty);
+  return allWidgets(doc).any((w) => (w['type'] == 'media' && !mediaIsKnx(w)) || w['type'] == 'remote' || cardEntity(w).isNotEmpty);
 }

@@ -2,6 +2,7 @@
 library knx_config;
 
 export 'src/project.dart';
+export 'src/remote_keys.dart';
 export 'src/script.dart';
 export 'src/card_entity.dart';
 export 'src/ha.dart';

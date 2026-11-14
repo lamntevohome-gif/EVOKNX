@@ -187,6 +187,26 @@ class CardEngine extends ChangeNotifier {
           }
         }
         break;
+      case 'media':
+        // A media player card with KNX addresses: play/pause and mute are toggles, volume is 0–100 %.
+        if (action == 'play') {
+          final on = !(s['on'] == true);
+          s['on'] = on;
+          send(w, 'play', on);
+        } else if (action == 'prev' || action == 'next') {
+          send(w, action, true);
+        } else if (action == 'mute') {
+          final m = !(s['mute'] == true);
+          s['mute'] = m;
+          send(w, 'mute', m);
+        } else if (action == 'preview') {
+          s['vol'] = (arg as num).round();
+        } else if (action == 'volume') {
+          final v = (arg as num).round();
+          s['vol'] = v;
+          send(w, 'volume', v);
+        }
+        break;
       case 'link':
       case 'webview':
         final url = (w['url'] ?? '').toString();
@@ -231,6 +251,11 @@ class CardEngine extends ChangeNotifier {
             break;
           case 'shutter':
             if (k == 'status' || k == 'position') s['pos'] = n;
+            break;
+          case 'media':
+            if (k == 'play' || k == 'playSt') s['on'] = (n ?? 0) != 0;
+            if (k == 'mute' || k == 'muteSt') s['mute'] = (n ?? 0) != 0;
+            if ((k == 'volume' || k == 'volumeSt') && n != null) s['vol'] = n.round();
             break;
           case 'ac':
             final ac = jsonMap(w['ac']);
@@ -279,8 +304,8 @@ class CardEngine extends ChangeNotifier {
   /// Addresses to read when a page opens: the status address of each card,
   /// or its main address when it has no status address.
   List<Json> readsFor(Json sub) {
-    const status = {'status', 'ctStatus', 'rgbStatus', 'powerSt', 'setpointSt', 'modeSt', 'fanSt', 'current'};
-    const main = {'write', 'value', 'position', 'setpoint', 'power', 'mode', 'fan'};
+    const status = {'status', 'ctStatus', 'rgbStatus', 'powerSt', 'setpointSt', 'modeSt', 'fanSt', 'current', 'playSt', 'muteSt', 'volumeSt'};
+    const main = {'write', 'value', 'position', 'setpoint', 'power', 'mode', 'fan', 'play', 'mute', 'volume'};
     final out = <Json>[];
     final seen = <String>{};
     for (final w in cardsOf(sub)) {
