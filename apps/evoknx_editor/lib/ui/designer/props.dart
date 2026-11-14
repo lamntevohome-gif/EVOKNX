@@ -2413,6 +2413,7 @@ class _PageBgSettings extends StatelessWidget {
     final bright = ((b['bright'] as num?) ?? (legacyDim != null ? 100 - legacyDim : 100)).toInt().clamp(20, 150).toInt();
     return _Section(title, [
       Seg<String>(
+        expand: true,
         items: const [('default', 'Default'), ('color', 'Color'), ('image', 'Image')],
         value: mode,
         onChanged: (v) => _set({'mode': v, if (v == 'color' && b['color'] == null) 'color': '#E3F1E9'}),
@@ -2493,9 +2494,7 @@ class _PageBgSettings extends StatelessWidget {
             onChanged: (v) => _set({'text': v == 'auto' ? null : v}),
           ),
         ),
-      Hint(
-        'Brightness 100% is the original; lower darkens, higher brightens. Opacity below 100% lets the App\'s default background show through. The text color applies to text that sits on the background (time, room name, page name).',
-      ),
+      if (mode != 'default') Hint('Brightness 100% is the original. Opacity below 100% shows the App\'s default background through.'),
     ]);
   }
 }
@@ -3288,20 +3287,44 @@ class _RemoteSection extends StatelessWidget {
         _Section('Keys', [EvoButton(label: 'Arrange the keys…', icon: Icons.open_with, onPressed: () => showRemoteLayout(context, d, id))]),
         if (knx)
           _Section('Values sent', [
-            Text(
-              remoteKnxMode(w) == 'single' ? 'The value that tells the device which key was pressed.' : 'The value a key sends on its address. Empty = 1.',
-              style: TextStyle(fontSize: 12.5, color: c.muted),
-            ),
+            if (remoteKnxMode(w) == 'single') Text('The value that tells the device which key was pressed.', style: TextStyle(fontSize: 12.5, color: c.muted)),
             const SizedBox(height: 6),
-            for (final k in used)
-              FieldLabel(
-                remoteKeyLabel(w, k),
-                SyncedField(
-                  value: (jsonMap(raw['values'])[k] ?? '').toString(),
-                  hint: remoteKnxValue(w, k),
-                  onChanged: (v) => setIn('values', k, v, co: 'rv-$id-$k'),
+            if (remoteKnxMode(w) == 'each')
+              Theme(
+                data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                child: ExpansionTile(
+                  tilePadding: EdgeInsets.zero,
+                  childrenPadding: EdgeInsets.zero,
+                  dense: true,
+                  initiallyExpanded: jsonMap(raw['values']).values.any((v) => v.toString().isNotEmpty),
+                  title: Text(
+                    'Every key sends 1',
+                    style: TextStyle(fontSize: kUiText, fontWeight: FontWeight.w600, color: c.ink),
+                  ),
+                  subtitle: Text('Open to give a key another value.', style: TextStyle(fontSize: 12.5, color: c.muted)),
+                  children: [
+                    for (final k in used)
+                      FieldLabel(
+                        remoteKeyLabel(w, k),
+                        SyncedField(
+                          value: (jsonMap(raw['values'])[k] ?? '').toString(),
+                          hint: remoteKnxValue(w, k),
+                          onChanged: (v) => setIn('values', k, v, co: 'rv-$id-$k'),
+                        ),
+                      ),
+                  ],
                 ),
-              ),
+              )
+            else
+              for (final k in used)
+                FieldLabel(
+                  remoteKeyLabel(w, k),
+                  SyncedField(
+                    value: (jsonMap(raw['values'])[k] ?? '').toString(),
+                    hint: remoteKnxValue(w, k),
+                    onChanged: (v) => setIn('values', k, v, co: 'rv-$id-$k'),
+                  ),
+                ),
           ])
         else
           _Section('Key names', [

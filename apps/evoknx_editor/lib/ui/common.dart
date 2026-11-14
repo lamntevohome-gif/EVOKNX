@@ -93,7 +93,9 @@ class EvoButton extends StatelessWidget {
 
 /// Segmented control (grey track, white selected item).
 class Seg<T> extends StatelessWidget {
-  const Seg({super.key, required this.items, required this.value, required this.onChanged});
+  const Seg({super.key, required this.items, required this.value, required this.onChanged, this.expand = false, this.height = 34});
+  final bool expand;
+  final double height;
   final List<(T, String)> items;
   final T value;
   final ValueChanged<T> onChanged;
@@ -109,28 +111,30 @@ class Seg<T> extends StatelessWidget {
         border: Border.all(color: c.lineStrong),
       ),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
+        mainAxisSize: expand ? MainAxisSize.max : MainAxisSize.min,
         children: [
           for (final it in items)
-            GestureDetector(
-              onTap: () => onChanged(it.$1),
-              child: MouseRegion(
-                cursor: SystemMouseCursors.click,
-                child: Container(
-                  height: 34,
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: it.$1 == value ? c.accentSoft : Colors.transparent,
-                    borderRadius: BorderRadius.circular(4),
-                    border: Border.all(color: it.$1 == value ? c.accent.withValues(alpha: 0.6) : Colors.transparent),
-                  ),
-                  child: Text(
-                    it.$2,
-                    style: TextStyle(
-                      fontSize: kUiText,
-                      fontWeight: it.$1 == value ? FontWeight.w600 : FontWeight.w400,
-                      color: it.$1 == value ? c.accentInk : c.muted,
+            (expand ? (Widget x) => Expanded(child: x) : (Widget x) => x)(
+              GestureDetector(
+                onTap: () => onChanged(it.$1),
+                child: MouseRegion(
+                  cursor: SystemMouseCursors.click,
+                  child: Container(
+                    height: height,
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: it.$1 == value ? c.accentSoft : Colors.transparent,
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: it.$1 == value ? c.accent.withValues(alpha: 0.6) : Colors.transparent),
+                    ),
+                    child: Text(
+                      it.$2,
+                      style: TextStyle(
+                        fontSize: kUiText,
+                        fontWeight: it.$1 == value ? FontWeight.w600 : FontWeight.w400,
+                        color: it.$1 == value ? c.accentInk : c.muted,
+                      ),
                     ),
                   ),
                 ),
