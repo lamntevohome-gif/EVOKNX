@@ -2843,7 +2843,7 @@ class _MediaSection extends StatelessWidget {
       max: max,
       onChanged: (v) => set(key, v, co: 'ms-$key-$id'),
     );
-    const sizeKeys = ['titleSize', 'songSize', 'detailSize', 'picSize', 'btnSize', 'playSize', 'volIcon', 'volWidth', 'volThick'];
+    const sizeKeys = ['titleSize', 'songSize', 'detailSize', 'picSize', 'btnSize', 'playSize', 'volIcon', 'volWidth', 'volThick', 'rowGap'];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -2909,6 +2909,7 @@ class _MediaSection extends StatelessWidget {
           size('volIcon', 'Volume icon', 20, 12, 40),
           size('volWidth', 'Volume bar width', 100, 20, 100, unit: '%'),
           size('volThick', 'Volume bar thickness', 3, 1, 12),
+          size('rowGap', 'Space between the rows', 8, 0, 40),
           if (sizeKeys.any((k) => m[k] != null))
             Align(
               alignment: Alignment.centerLeft,

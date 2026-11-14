@@ -108,23 +108,6 @@ class BusController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// The value of a telegram whose address has no DPT, in a readable form: a number (1, 2 or 4 bytes, unsigned), the text of
-  /// a string (14 bytes that are all printable) or, for anything else, the bytes in hex.
-  static String _plain(List<int> d) {
-    if (d.isEmpty) return '';
-    if (d.length == 14 && d.every((b) => b == 0 || (b >= 32 && b < 127))) {
-      return String.fromCharCodes(d.where((b) => b != 0));
-    }
-    if (d.length <= 4) {
-      var n = 0;
-      for (final b in d) {
-        n = (n << 8) | (b & 0xFF);
-      }
-      return '$n';
-    }
-    return d.map((b) => b.toRadixString(16).padLeft(2, '0').toUpperCase()).join(' ');
-  }
-
   void _onTelegram(KnxTelegram t) {
     final addr = t.destination.toString();
     final ga = project.gaByAddress(addr);
@@ -136,8 +119,9 @@ class BusController extends ChangeNotifier {
         values[addr] = v;
         value = Dpt.format(dpt, v);
       } else {
+        // No DPT: the bytes are shown as they are (hex), they cannot be read as a number without knowing the type.
         values[addr] = t.data.map((b) => b.toRadixString(16).padLeft(2, '0').toUpperCase()).join(' ');
-        value = _plain(t.data);
+        value = values[addr] as String;
       }
     }
     if (t.type != TelegramType.read) {
