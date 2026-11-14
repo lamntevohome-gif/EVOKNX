@@ -3111,15 +3111,6 @@ class _RemoteSection extends StatelessWidget {
       o[map] = m;
       x['remote'] = o;
     }, coalesce: co);
-    void setCustom(String cid, String field, String v, {String? co}) => d.editWidget(id, (x) {
-      final o = jsonMap(x['remote']);
-      final list = jsonList(o['custom']);
-      for (final it in list) {
-        if (it['id'] == cid) it[field] = v.trim();
-      }
-      o['custom'] = list;
-      x['remote'] = o;
-    }, coalesce: co);
     final entity = r['entity'] as String;
     final list = [
       for (final e in d.link?.entities ?? const <HaEntity>[])
@@ -3130,15 +3121,6 @@ class _RemoteSection extends StatelessWidget {
       for (final e in list) (e.id, e.name == e.id ? e.id : '${e.id}   ${e.name}'),
       if (entity.isNotEmpty && list.every((e) => e.id != entity)) (entity, entity),
     ];
-    Widget check(String label, bool value, ValueChanged<bool> onChanged) => CheckboxListTile(
-      value: value,
-      onChanged: (v) => onChanged(v ?? false),
-      title: Text(label),
-      dense: true,
-      controlAffinity: ListTileControlAffinity.leading,
-      contentPadding: EdgeInsets.zero,
-    );
-    final custom = remoteCustom(w);
     // The keys that need a name (Home Assistant) or a value (KNX).
     final used = remoteKeysUsed(w);
     return Column(
@@ -3206,85 +3188,9 @@ class _RemoteSection extends StatelessWidget {
             ),
           ],
         ]),
-        _Section('Top bar', [
-          check('Title (the display name)', remoteShowTop(w, 'Title'), (v) => set('topTitle', v ? null : false)),
-          check('Power on', remoteShowTop(w, 'PowerOn'), (v) => set('topPowerOn', v ? null : false)),
-          check('Power off', remoteShowTop(w, 'PowerOff'), (v) => set('topPowerOff', v ? null : false)),
-        ]),
         _Section('Keys', [
-          for (final e in kRemoteElements) check(e.$2, !remoteHidden(w, e.$1), (v) => setIn('hide', e.$1, !v)),
-          FieldLabel(
-            'Columns',
-            Seg<int>(items: const [(3, '3'), (4, '4'), (5, '5'), (6, '6')], value: remoteCols(w), onChanged: (v) => set('cols', v == 3 ? null : v)),
-          ),
+          Hint('The title, which keys are shown, their size, color and icon, and the custom buttons are set in the window below.'),
           EvoButton(label: 'Arrange the keys…', icon: Icons.open_with, onPressed: () => showRemoteLayout(context, d, id)),
-        ]),
-        _Section('Custom buttons', [
-          for (final cb in custom) ...[
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    (cb['label'] ?? '').toString().isEmpty ? 'Custom button' : cb['label'].toString(),
-                    style: const TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                ),
-                IconButton(
-                  tooltip: 'Delete the button',
-                  icon: Icon(Icons.delete_outline, color: c.danger),
-                  onPressed: () => d.editWidget(id, (x) {
-                    final o = jsonMap(x['remote']);
-                    final cid = cb['id'];
-                    o['custom'] = [
-                      for (final it in jsonList(o['custom']))
-                        if (it['id'] != cid) it,
-                    ];
-                    for (final m in ['layout', 'hide', 'values']) {
-                      final mm = jsonMap(o[m]);
-                      mm.remove(cid);
-                      o[m] = mm;
-                    }
-                    final b = jsonMap(x['bind']);
-                    b.remove('rk_$cid');
-                    x['bind'] = b;
-                    x['remote'] = o;
-                  }),
-                ),
-              ],
-            ),
-            FieldLabel(
-              'Name',
-              SyncedField(
-                value: (cb['label'] ?? '').toString(),
-                onChanged: (v) => setCustom(cb['id'].toString(), 'label', v, co: 'rcl-$id-${cb['id']}'),
-              ),
-            ),
-            FieldLabel(
-              'Icon',
-              IconField(d: d, value: (cb['icon'] ?? '').toString(), scope: IconScope.widget, onChanged: (v) => setCustom(cb['id'].toString(), 'icon', v)),
-            ),
-            if (!knx)
-              FieldLabel(
-                'Key name',
-                SyncedField(
-                  value: (cb['cmd'] ?? '').toString(),
-                  hint: 'as the remote names it',
-                  onChanged: (v) => setCustom(cb['id'].toString(), 'cmd', v, co: 'rcc-$id-${cb['id']}'),
-                ),
-              ),
-            const Divider(),
-          ],
-          EvoButton(
-            label: 'Add a button',
-            icon: Icons.add,
-            onPressed: () => d.editWidget(id, (x) {
-              final o = jsonMap(x['remote']);
-              final list = jsonList(o['custom']);
-              list.add({'id': uid('rc_'), 'label': 'Button ${list.length + 1}', 'icon': '', 'cmd': ''});
-              o['custom'] = list;
-              x['remote'] = o;
-            }),
-          ),
         ]),
         if (knx)
           _Section('Values sent', [

@@ -106,13 +106,134 @@ class _RemoteLayoutDialogState extends State<_RemoteLayoutDialog> {
     x['remote'] = o;
   });
 
-  void _show(String part) => _edit((x) {
+  void _setSpan(String part, int cw, int rh) => _edit((x) {
     final o = jsonMap(x['remote']);
-    final h = jsonMap(o['hide']);
-    h[part] = false;
-    o['hide'] = h;
+    final m = jsonMap(o['span']);
+    final d = kRemoteSpan[part] ?? (1, 1);
+    if (cw == d.$1 && rh == d.$2) {
+      m.remove(part);
+    } else {
+      m[part] = <String, dynamic>{'w': cw, 'h': rh};
+    }
+    o['span'] = m;
     x['remote'] = o;
   });
+
+  void _set(String k, Object? v) => _edit((x) {
+    final o = jsonMap(x['remote']);
+    if (v == null) {
+      o.remove(k);
+    } else {
+      o[k] = v;
+    }
+    x['remote'] = o;
+  });
+
+  void _setHide(String part, bool hide) => _edit((x) {
+    final o = jsonMap(x['remote']);
+    final m = jsonMap(o['hide']);
+    m[part] = hide;
+    o['hide'] = m;
+    x['remote'] = o;
+  });
+
+  void _setCustom(String cid, String field, String v) => _edit((x) {
+    final o = jsonMap(x['remote']);
+    final list = jsonList(o['custom']);
+    for (final it in list) {
+      if (it['id'] == cid) it[field] = v.trim();
+    }
+    o['custom'] = list;
+    x['remote'] = o;
+  }, coalesce: 'rc-${widget.id}-$cid-$field');
+
+  void _addCustom() => _edit((x) {
+    final o = jsonMap(x['remote']);
+    final list = jsonList(o['custom']);
+    list.add(<String, dynamic>{'id': uid('rc_'), 'label': 'Button ${list.length + 1}', 'icon': '', 'cmd': ''});
+    o['custom'] = list;
+    x['remote'] = o;
+  });
+
+  void _delCustom(String cid) => _edit((x) {
+    final o = jsonMap(x['remote']);
+    o['custom'] = [
+      for (final it in jsonList(o['custom']))
+        if (it['id'] != cid) it,
+    ];
+    for (final m in ['layout', 'hide', 'values', 'span', 'scale', 'kbg', 'kcolor']) {
+      final mm = jsonMap(o[m]);
+      mm.remove(cid);
+      o[m] = mm;
+    }
+    final b = jsonMap(x['bind']);
+    b.remove('rk_$cid');
+    x['bind'] = b;
+    x['remote'] = o;
+  });
+
+  /// The title of the top bar, which keys are shown, and the custom buttons: what the properties panel used to hold.
+  List<Widget> _sections(EvoColors c, Json w) {
+    final knx = remoteIsKnx(w);
+    Widget head(String t) => Padding(
+      padding: const EdgeInsets.only(top: 6, bottom: 4),
+      child: Text(
+        t,
+        style: TextStyle(fontSize: kUiText, fontWeight: FontWeight.w600, color: c.ink),
+      ),
+    );
+    Widget check(String label, bool value, ValueChanged<bool> onChanged) => CheckboxListTile(
+      value: value,
+      onChanged: (v) => onChanged(v ?? false),
+      title: Text(label),
+      dense: true,
+      visualDensity: VisualDensity.compact,
+      controlAffinity: ListTileControlAffinity.leading,
+      contentPadding: EdgeInsets.zero,
+    );
+    return [
+      Divider(color: c.line),
+      head('Top bar'),
+      check('Title (the display name)', remoteShowTop(w, 'Title'), (v) => _set('topTitle', v ? null : false)),
+      Divider(color: c.line),
+      head('Keys'),
+      for (final e in kRemoteElements) check(e.$2, !remoteHidden(w, e.$1), (v) => _setHide(e.$1, !v)),
+      Divider(color: c.line),
+      head('Custom buttons'),
+      for (final cb in remoteCustom(w)) ...[
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                (cb['label'] ?? '').toString().isEmpty ? 'Custom button' : cb['label'].toString(),
+                style: TextStyle(fontWeight: FontWeight.w600, color: c.ink),
+              ),
+            ),
+            IconButton(
+              tooltip: 'Delete the button',
+              icon: Icon(Icons.delete_outline, color: c.danger),
+              onPressed: () => _delCustom(cb['id'].toString()),
+            ),
+          ],
+        ),
+        FieldLabel('Name', SyncedField(value: (cb['label'] ?? '').toString(), onChanged: (v) => _setCustom(cb['id'].toString(), 'label', v))),
+        FieldLabel(
+          'Icon',
+          IconField(d: d, value: (cb['icon'] ?? '').toString(), scope: IconScope.widget, onChanged: (v) => _setCustom(cb['id'].toString(), 'icon', v)),
+        ),
+        if (!knx)
+          FieldLabel(
+            'Key name',
+            SyncedField(value: (cb['cmd'] ?? '').toString(), hint: 'as the remote names it', onChanged: (v) => _setCustom(cb['id'].toString(), 'cmd', v)),
+          ),
+        Divider(color: c.line),
+      ],
+      Align(
+        alignment: Alignment.centerLeft,
+        child: EvoButton(label: 'Add a button', icon: Icons.add, onPressed: _addCustom),
+      ),
+    ];
+  }
 
   void _setScale(String part, int pct) => _edit((x) {
     final o = jsonMap(x['remote']);
@@ -209,12 +330,6 @@ class _RemoteLayoutDialogState extends State<_RemoteLayoutDialog> {
           border: ((th['cardBorder'] as num?) ?? 1).toDouble().clamp(0, 4).toDouble(),
           lift: liftOf(((th['btnRaise'] as num?) ?? 60).toDouble().clamp(0, 100)),
         );
-        final hidden = <(String, String)>[
-          for (final e in kRemoteElements)
-            if (remoteHidden(w, e.$1)) (e.$1, e.$2),
-          for (final x in remoteCustom(w))
-            if (remoteHidden(w, (x['id'] ?? '').toString())) ((x['id'] ?? '').toString(), (x['label'] ?? 'Custom button').toString()),
-        ];
         String nameOf(String part) {
           for (final e in kRemoteElements) {
             if (e.$1 == part) return e.$2;
@@ -401,6 +516,26 @@ class _RemoteLayoutDialogState extends State<_RemoteLayoutDialog> {
                   if (pct != 100) TextButton(onPressed: () => _setScale(sel, 100), child: const Text('Usual size')),
                 ],
                 const SizedBox(height: 12),
+                title('Size of the button (cells)'),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    Text(
+                      'Width',
+                      style: TextStyle(fontSize: kUiText, color: c.muted),
+                    ),
+                    const SizedBox(width: 8),
+                    _Step(value: remoteSpan(w, sel).$1, min: 1, max: cols, onChanged: (v) => _setSpan(sel, v, remoteSpan(w, sel).$2)),
+                    const SizedBox(width: 22),
+                    Text(
+                      'Height',
+                      style: TextStyle(fontSize: kUiText, color: c.muted),
+                    ),
+                    const SizedBox(width: 8),
+                    _Step(value: remoteSpan(w, sel).$2, min: 1, max: 8, onChanged: (v) => _setSpan(sel, remoteSpan(w, sel).$1, v)),
+                  ],
+                ),
+                const SizedBox(height: 12),
                 title('Background'),
                 const SizedBox(height: 6),
                 FittedBox(
@@ -450,16 +585,8 @@ class _RemoteLayoutDialogState extends State<_RemoteLayoutDialog> {
                   ),
                 ],
               ],
-              if (hidden.isNotEmpty) ...[
-                const SizedBox(height: 18),
-                Text('Hidden keys (click to show):', style: TextStyle(fontSize: 12.5, color: c.muted)),
-                const SizedBox(height: 6),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: [for (final h in hidden) ActionChip(label: Text(h.$2), onPressed: () => _show(h.$1))],
-                ),
-              ],
+              const SizedBox(height: 12),
+              ..._sections(c, w),
             ],
           ),
         );
@@ -484,39 +611,7 @@ class _RemoteLayoutDialogState extends State<_RemoteLayoutDialog> {
                   const SizedBox(height: 12),
                   Flexible(
                     child: SingleChildScrollView(
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // The On and Off keys of the top bar: they are not dragged, but they can be changed here.
-                              if (remoteShowTop(w, 'PowerOn') || remoteShowTop(w, 'PowerOff'))
-                                Padding(
-                                  padding: const EdgeInsets.only(bottom: 8),
-                                  child: Row(
-                                    children: [
-                                      for (final k in ['poweron', 'poweroff'])
-                                        if (remoteShowTop(w, k == 'poweron' ? 'PowerOn' : 'PowerOff'))
-                                          GestureDetector(
-                                            behavior: HitTestBehavior.opaque,
-                                            onTap: () => setState(() => _sel = k),
-                                            child: SizedBox(
-                                              width: cellW,
-                                              height: 40,
-                                              child: _face(c, w, pal, RemoteItem(k, 0, 0, 1, 1), selected: _sel == k),
-                                            ),
-                                          ),
-                                    ],
-                                  ),
-                                ),
-                              grid,
-                            ],
-                          ),
-                          const SizedBox(width: 20),
-                          side,
-                        ],
-                      ),
+                      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [grid, const SizedBox(width: 20), side]),
                     ),
                   ),
                   const SizedBox(height: 8),
