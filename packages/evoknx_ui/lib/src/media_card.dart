@@ -242,12 +242,18 @@ class _MediaCardState extends State<MediaCard> {
     var playSize = _size('playSize') ?? btnSize * 34 / 26;
     Widget btn(IconData icon, VoidCallback? onTap, {double? size, Color? color, double? h}) {
       final z = size ?? btnSize;
-      return InkResponse(
-        onTap: demo ? null : onTap,
+      return PressEffect(
+        enabled: !demo && onTap != null,
+        scale: 0.85,
         radius: z,
-        child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: h ?? pad, vertical: 2),
-          child: Icon(icon, size: z, color: color ?? (onTap == null && !demo ? pal.line : pal.ink)),
+        dark: pal.tile.computeLuminance() < 0.35,
+        child: InkResponse(
+          onTap: demo ? null : onTap,
+          radius: z,
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: h ?? pad, vertical: 2),
+            child: Icon(icon, size: z, color: color ?? (onTap == null && !demo ? pal.line : pal.ink)),
+          ),
         ),
       );
     }

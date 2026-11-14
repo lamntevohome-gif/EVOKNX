@@ -215,7 +215,7 @@ class _RemoteCardState extends State<RemoteCard> {
     _release();
     setState(() => _down = key);
     _send(key);
-    if (repeat) {
+    if (repeat && !_sim) {
       final ms = ((_r['repeatMs'] as int).clamp(60, 1000)).toInt();
       _hold = Timer(const Duration(milliseconds: 420), () {
         _rep = Timer.periodic(Duration(milliseconds: ms), (_) => _send(key));
@@ -325,10 +325,16 @@ class _RemoteCardState extends State<RemoteCard> {
       onPointerDown: _live && _has(key) ? (_) => _press(key) : null,
       onPointerUp: (_) => _release(),
       onPointerCancel: (_) => _release(),
-      child: Container(
-        margin: const EdgeInsets.all(3),
-        decoration: remoteKeyDeco(widget.w, pal, key, pressed: pressed, pressedColor: color, radius: pal.radius * 0.5),
-        child: Center(child: _fitIn(_powerFace(widget.w, pal, key, z, on, color))),
+      child: PressEffect(
+        enabled: _live && _has(key) || _sim,
+        scale: 0.92,
+        radius: _pal.radius * 0.5,
+        dark: _pal.tile.computeLuminance() < 0.35,
+        child: Container(
+          margin: const EdgeInsets.all(3),
+          decoration: remoteKeyDeco(widget.w, pal, key, pressed: pressed, pressedColor: color, radius: pal.radius * 0.5),
+          child: Center(child: _fitIn(_powerFace(widget.w, pal, key, z, on, color))),
+        ),
       ),
     );
   }
@@ -397,27 +403,33 @@ class _RemoteCardState extends State<RemoteCard> {
       onPointerDown: _live && on ? (_) => _press(key) : null,
       onPointerUp: (_) => _release(),
       onPointerCancel: (_) => _release(),
-      child: Container(
-        margin: const EdgeInsets.all(3),
-        decoration: _deco(key, pressed, pal.accent, pal.radius * 0.5),
-        child: Center(
-          child: _fitIn(
-            Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (icon.isNotEmpty) iconWidget(icon, 22 * z, color),
-                if (label.isNotEmpty)
-                  Padding(
-                    padding: EdgeInsets.only(top: icon.isNotEmpty ? 1 : 0),
-                    child: Text(
-                      label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: fs(widget.w, 'labelSize') - 3, color: color),
+      child: PressEffect(
+        enabled: _live && _has(key) || _sim,
+        scale: 0.92,
+        radius: _pal.radius * 0.5,
+        dark: _pal.tile.computeLuminance() < 0.35,
+        child: Container(
+          margin: const EdgeInsets.all(3),
+          decoration: _deco(key, pressed, pal.accent, pal.radius * 0.5),
+          child: Center(
+            child: _fitIn(
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (icon.isNotEmpty) iconWidget(icon, 22 * z, color),
+                  if (label.isNotEmpty)
+                    Padding(
+                      padding: EdgeInsets.only(top: icon.isNotEmpty ? 1 : 0),
+                      child: Text(
+                        label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: fs(widget.w, 'labelSize') - 3, color: color),
+                      ),
                     ),
-                  ),
-                if (icon.isEmpty && label.isEmpty) Icon(Icons.touch_app_outlined, size: 22 * z, color: color),
-              ],
+                  if (icon.isEmpty && label.isEmpty) Icon(Icons.touch_app_outlined, size: 22 * z, color: color),
+                ],
+              ),
             ),
           ),
         ),
@@ -434,14 +446,20 @@ class _RemoteCardState extends State<RemoteCard> {
       onPointerDown: _live && on ? (_) => _press(key, repeat: repeat) : null,
       onPointerUp: (_) => _release(),
       onPointerCancel: (_) => _release(),
-      child: Container(
-        margin: const EdgeInsets.all(3),
-        decoration: _deco(key, pressed, pal.accent, pal.radius * 0.5),
-        child: Center(
-          child: _fitIn(
-            remoteKeyIcon(widget.w, key) != null
-                ? iconWidget(remoteKeyIcon(widget.w, key), 22 * z, on || !_live ? pal.ink : pal.line)
-                : Icon(icon, size: 22 * z, color: on || !_live ? pal.ink : pal.line),
+      child: PressEffect(
+        enabled: _live && _has(key) || _sim,
+        scale: 0.92,
+        radius: _pal.radius * 0.5,
+        dark: _pal.tile.computeLuminance() < 0.35,
+        child: Container(
+          margin: const EdgeInsets.all(3),
+          decoration: _deco(key, pressed, pal.accent, pal.radius * 0.5),
+          child: Center(
+            child: _fitIn(
+              remoteKeyIcon(widget.w, key) != null
+                  ? iconWidget(remoteKeyIcon(widget.w, key), 22 * z, on || !_live ? pal.ink : pal.line)
+                  : Icon(icon, size: 22 * z, color: on || !_live ? pal.ink : pal.line),
+            ),
           ),
         ),
       ),
