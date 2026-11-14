@@ -74,6 +74,27 @@ class RemoteKeyFace extends StatelessWidget {
         },
       );
     }
+    if (id == 'poweron' || id == 'poweroff') {
+      final on = id == 'poweron';
+      final color = on ? p.accent : p.muted;
+      return Center(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: remoteKeyDeco(w, p, id, radius: p.radius * 0.5),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              remoteKeyIcon(w, id) != null ? iconWidget(remoteKeyIcon(w, id), 16 * z, color) : Icon(Icons.power_settings_new, size: 16 * z, color: color),
+              const SizedBox(width: 3),
+              Text(
+                on ? 'On' : 'Off',
+                style: TextStyle(fontSize: fs(w, 'labelSize') - 3, fontWeight: FontWeight.w600, color: p.ink),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
     if (id == 'touchpad') {
       return Container(
         margin: const EdgeInsets.only(bottom: 6),
@@ -277,11 +298,13 @@ class _RemoteCardState extends State<RemoteCard> {
       onPointerCancel: (_) => _release(),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(color: pressed ? color.withValues(alpha: 0.35) : pal.panel, borderRadius: BorderRadius.circular(pal.radius * 0.5)),
+        decoration: remoteKeyDeco(widget.w, pal, key, pressed: pressed, pressedColor: color, radius: pal.radius * 0.5),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.power_settings_new, size: 16, color: on ? color : pal.line),
+            remoteKeyIcon(widget.w, key) != null
+                ? iconWidget(remoteKeyIcon(widget.w, key), 16 * remoteScale(widget.w, key) / 100, on ? color : pal.line)
+                : Icon(Icons.power_settings_new, size: 16 * remoteScale(widget.w, key) / 100, color: on ? color : pal.line),
             const SizedBox(width: 3),
             Text(
               text,
