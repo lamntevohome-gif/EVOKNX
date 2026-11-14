@@ -299,13 +299,21 @@ class _Screen extends StatelessWidget {
       // Home and Security with two rooms or more: the rooms are listed as a gallery first, like the floors of Area.
       final specialRooms = special == null ? const <Json>[] : roomsOf(doc, floor?['id'] as String?);
       final inSpecialList = special != null && d.view == 'floor' && specialRooms.length > 1;
+      // The title and the link light on one row (Settings are in the User page).
       Widget title(String t) => Padding(
         padding: const EdgeInsets.fromLTRB(18, 6, 14, 10),
-        child: Text(
-          t,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(fontSize: tfs(doc, 'areaTitle'), fontWeight: FontWeight.w600, color: pal.sInk),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                t,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: tfs(doc, 'areaTitle'), fontWeight: FontWeight.w600, color: pal.sInk),
+              ),
+            ),
+            _pill(),
+          ],
         ),
       );
       final tab = !inFloors && special == 'home' ? 0 : (!inFloors && special == 'security' ? 2 : 1);
@@ -339,11 +347,6 @@ class _Screen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             statusBar,
-            // Top right: the link light only (Settings are in the User page).
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 2, 14, 0),
-              child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [_pill()]),
-            ),
             if (inSpecialList) ...[
               title((floor?['title'] ?? '').toString()),
               Expanded(
@@ -370,7 +373,7 @@ class _Screen extends StatelessWidget {
                 floor,
                 special == null && normal.length > 1,
                 theme,
-                pill: false,
+                gear: false,
                 onBack: special == null ? d.floorsGallery : (specialRooms.length > 1 ? () => d.selectFloor(floor!['id'] as String) : null),
               ),
               if (tablet) _pageTabs(room, sub),
@@ -465,7 +468,7 @@ class _Screen extends StatelessWidget {
 
   Widget _gearIcon() => SizedBox(width: 32, height: 32, child: Icon(Icons.settings_outlined, size: 20, color: pal.ink));
 
-  Widget _header(Json doc, Json room, Json? floor, bool multi, Json theme, {bool pill = true, VoidCallback? onBack}) {
+  Widget _header(Json doc, Json room, Json? floor, bool multi, Json theme, {bool pill = true, bool gear = true, VoidCallback? onBack}) {
     final hide = theme['hideTitle'] == true && dev != 'tabletL' && theme['layout'] != 'modern';
     return Padding(
       padding: EdgeInsets.fromLTRB(18, dev == 'tabletL' ? 10 : 6, 14, 10),
@@ -517,7 +520,10 @@ class _Screen extends StatelessWidget {
                     ],
                   ),
           ),
-          if (pill) ...[_pill(), const SizedBox(width: 8), _gear()],
+          if (pill) ...[
+            _pill(),
+            if (gear) ...[const SizedBox(width: 8), _gear()],
+          ],
         ],
       ),
     );

@@ -857,7 +857,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     _banner(pal),
-                    _topRight(pal),
                     _header(d, pal, headFloor, onPage ? r : null, _tab == 1 && normal.length > 1, onBack: onBack, sizeKey: onPage ? 'titleSize' : 'areaTitle'),
                     if (onPage && r != null && subs.length > 1 && _dev != 'mobile') _pageNav(subs, pal),
                     Expanded(child: _fade(ValueKey('m$_tab-$_lvl-$floorId-$roomId-${blockedAbove?['id']}'), content)),
@@ -951,15 +950,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  /// The top right corner of the Modern layout: the lights of the links and the switch of home (Settings are opened from the User page).
-  Widget _topRight(AppPalette pal) => Padding(
-    padding: const EdgeInsets.only(right: 12),
-    child: Row(
-      mainAxisAlignment: MainAxisAlignment.end,
-      children: [_knxDot(), _haDot(), if (store.profiles.length > 1) _iconBtn(pal, Icons.home_work_outlined, () => _openProfiles(pal), 'Switch profile')],
-    ),
-  );
-
   /// "Tầng 1 › Phòng 1" on one row (floor shown only when there are several),
   /// settings button on the right: as in the Editor preview.
   Widget _header(Json d, AppPalette pal, Json? floor, Json? r, bool multi, {VoidCallback? onBack, String sizeKey = 'titleSize'}) {
@@ -1011,12 +1001,11 @@ class _HomeScreenState extends State<HomeScreen> {
                     ],
                   ),
           ),
-          if (!_modernMode) ...[
-            _knxDot(),
-            _haDot(),
-            if (store.profiles.length > 1) _iconBtn(pal, Icons.home_work_outlined, () => _openProfiles(pal), 'Switch profile'),
-            _iconBtn(pal, Icons.settings_outlined, _openSettings, 'Settings'),
-          ],
+          _knxDot(),
+          _haDot(),
+          if (store.profiles.length > 1) _iconBtn(pal, Icons.home_work_outlined, () => _openProfiles(pal), 'Switch profile'),
+          // The Modern layout opens Settings from the User page.
+          if (!_modernMode) _iconBtn(pal, Icons.settings_outlined, _openSettings, 'Settings'),
         ],
       ),
     );
