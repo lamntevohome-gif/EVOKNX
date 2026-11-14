@@ -20,8 +20,7 @@ class ConnectionsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.evo;
-    // The connections panel has the same width as the one of the "Mở rộng" tab;
-    // the address table takes the rest.
+    // The connections panel on the left; the address table takes the rest.
     return LayoutBuilder(
       builder: (context, bc) => Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -34,7 +33,9 @@ class ConnectionsPage extends StatelessWidget {
             ),
             child: _ConnectionList(project: project, link: link),
           ),
-          Expanded(child: GaTable(project: project)),
+          Expanded(
+            child: GaTable(project: project, link: link),
+          ),
         ],
       ),
     );
@@ -119,28 +120,32 @@ class _ConnectionList extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: SyncedField(
-                        value: (list[i]['name'] as String?) ?? '',
-                        hint: 'Connection name',
-                        bold: true,
-                        onChanged: (v) => _edit(list[i]['id'] as String, (x) => x['name'] = v, field: 'name'),
-                      ),
-                    ),
-                    if (i == 0) ...[
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(color: c.accentSoft, borderRadius: BorderRadius.circular(5)),
-                        child: Text(
-                          'Default',
-                          style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: c.accentInk),
+                IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(
+                        child: SyncedField(
+                          value: (list[i]['name'] as String?) ?? '',
+                          hint: 'Connection name',
+                          bold: true,
+                          onChanged: (v) => _edit(list[i]['id'] as String, (x) => x['name'] = v, field: 'name'),
                         ),
                       ),
+                      if (i == 0) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(color: c.accentSoft, borderRadius: BorderRadius.circular(4)),
+                          child: Text(
+                            'Default',
+                            style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: c.accentInk),
+                          ),
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
                 const SizedBox(height: 10),
                 FieldLabel(
@@ -184,15 +189,14 @@ class _ConnectionList extends StatelessWidget {
                   spacing: 6,
                   runSpacing: 6,
                   children: [
-                    if (i > 0) EvoButton(label: 'Set as default', small: true, onPressed: () => _move(i, 0)),
-                    if (i > 1) EvoButton(label: '', icon: Icons.arrow_upward, small: true, tooltip: tr('Move up'), onPressed: () => _move(i, i - 1)),
+                    if (i > 0) EvoButton(label: 'Set as default', onPressed: () => _move(i, 0)),
+                    if (i > 1) EvoButton(label: '', icon: Icons.arrow_upward, tooltip: tr('Move up'), onPressed: () => _move(i, i - 1)),
                     if (i > 0 && i < list.length - 1)
-                      EvoButton(label: '', icon: Icons.arrow_downward, small: true, tooltip: tr('Move down'), onPressed: () => _move(i, i + 1)),
+                      EvoButton(label: '', icon: Icons.arrow_downward, tooltip: tr('Move down'), onPressed: () => _move(i, i + 1)),
                     if (list.length > 1)
                       EvoButton(
                         label: 'Delete',
                         icon: Icons.delete_outline,
-                        small: true,
                         danger: true,
                         onPressed: () {
                           final id = list[i]['id'];
@@ -213,8 +217,9 @@ class _ConnectionList extends StatelessWidget {
 // ---------------------------------------------------------------- GA table
 
 class GaTable extends StatefulWidget {
-  const GaTable({super.key, required this.project});
+  const GaTable({super.key, required this.project, required this.link});
   final ProjectController project;
+  final HaLinkController link;
   @override
   State<GaTable> createState() => _GaTableState();
 }
@@ -225,6 +230,11 @@ class _GaTableState extends State<GaTable> {
   final Set<String> selected = {};
   int? lastIndex;
   String bulkDpt = '';
+
+  /// 0 = KNX group addresses, 1 = Home Assistant entities.
+  int tab = 0;
+  String haQuery = '';
+  String haFilter = 'all';
 
   ProjectController get p => widget.project;
 
@@ -299,6 +309,264 @@ class _GaTableState extends State<GaTable> {
   @override
   Widget build(BuildContext context) {
     final c = context.evo;
+    return ListenableBuilder(
+      listenable: widget.link,
+      builder: (context, _) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            height: 42,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            decoration: BoxDecoration(
+              color: c.panel,
+              border: Border(bottom: BorderSide(color: c.line)),
+            ),
+            child: Row(
+              children: [
+                _GaTab(label: 'KNX Group Address', count: _gas.length, selected: tab == 0, onTap: () => setState(() => tab = 0)),
+                _GaTab(label: 'Home Assistant Entity', count: widget.link.entities?.length ?? 0, selected: tab == 1, onTap: () => setState(() => tab = 1)),
+              ],
+            ),
+          ),
+          Expanded(child: tab == 0 ? _gaView(context) : _haView(context)),
+        ],
+      ),
+    );
+  }
+
+  // ------------------------------------------------------------ Home Assistant entities
+
+  Widget _haView(BuildContext context) {
+    final c = context.evo;
+    final all = widget.link.entities ?? const <HaEntity>[];
+    final domains = {for (final e in all) e.domain}.toList()..sort();
+    final use = <String, int>{};
+    for (final w in allWidgets(p.doc)) {
+      final e = widgetEntity(w);
+      if (e.isNotEmpty) use[e] = (use[e] ?? 0) + 1;
+    }
+    final q = fold(haQuery.trim());
+    final filter = domains.contains(haFilter) ? haFilter : 'all';
+    final list = all.where((e) {
+      if (filter != 'all' && e.domain != filter) return false;
+      return q.isEmpty || fold('${e.id} ${e.name}').contains(q);
+    }).toList()..sort((a, b) => a.id.compareTo(b.id));
+
+    Widget head(String t, {double? w, int flex = 0}) {
+      final txt = Text(
+        t,
+        style: TextStyle(fontSize: 13.5, color: c.muted, fontWeight: FontWeight.w500),
+      );
+      return flex > 0 ? Expanded(flex: flex, child: txt) : SizedBox(width: w, child: txt);
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Container(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+          decoration: BoxDecoration(
+            color: c.panel,
+            border: Border(bottom: BorderSide(color: c.line)),
+          ),
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              SearchField(hint: 'Search by entity or name', framed: true, onChanged: (v) => setState(() => haQuery = v)),
+              EvoDropdown<String>(
+                value: filter,
+                items: [('all', 'All types'), for (final d in domains) (d, '$d (${all.where((e) => e.domain == d).length})')],
+                onChanged: (v) => setState(() => haFilter = v),
+              ),
+            ],
+          ),
+        ),
+        Container(
+          height: 38,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            color: c.panel,
+            border: Border(bottom: BorderSide(color: c.line)),
+          ),
+          child: Row(children: [head('Entity', flex: 5), head('Name', flex: 5), head('Type', w: 140), head('In use', w: 120)]),
+        ),
+        Expanded(
+          child: list.isEmpty
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Text(
+                      all.isEmpty ? 'No entities yet. Connect to Home Assistant and click "Update Entity".' : 'No entities match the filter.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: c.muted),
+                    ),
+                  ),
+                )
+              : ListView.builder(
+                  itemCount: list.length,
+                  itemExtent: 44,
+                  itemBuilder: (context, i) {
+                    final e = list[i];
+                    return Container(
+                      key: ValueKey(e.id),
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      decoration: BoxDecoration(
+                        color: c.panel,
+                        border: Border(bottom: BorderSide(color: c.line)),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            flex: 5,
+                            child: Text(
+                              e.id,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                          Expanded(
+                            flex: 5,
+                            child: Padding(
+                              padding: const EdgeInsets.only(right: 12),
+                              child: Text(e.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+                            ),
+                          ),
+                          SizedBox(
+                            width: 140,
+                            child: Text(e.domain, style: TextStyle(fontSize: 13.5, color: c.muted)),
+                          ),
+                          SizedBox(
+                            width: 120,
+                            child: Text(use[e.id] != null ? '${use[e.id]} components' : '', style: TextStyle(fontSize: 13.5, color: c.muted)),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+        ),
+      ],
+    );
+  }
+
+  // ------------------------------------------------------------ KNX group addresses
+
+  Widget _gaView(BuildContext context) {
+    final c = context.evo;
+    selected.removeWhere((id) => p.gaById(id) == null);
+    final list = _filtered();
+    final used = gaUsage(p.doc);
+    final mains = _gas.map((g) => dptMain(g['dpt'] as String?)).whereType<int>().toSet().toList()..sort();
+    final nNone = _gas.where((g) => ((g['dpt'] as String?) ?? '').isEmpty).length;
+    final nSel = list.where((g) => selected.contains(g['id'])).length;
+
+    Widget head(String t, {double? w, int flex = 0}) {
+      final txt = Text(
+        t,
+        style: TextStyle(fontSize: 13.5, color: c.muted, fontWeight: FontWeight.w500),
+      );
+      return flex > 0 ? Expanded(flex: flex, child: txt) : SizedBox(width: w, child: txt);
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Container(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+          decoration: BoxDecoration(
+            color: c.panel,
+            border: Border(bottom: BorderSide(color: c.line)),
+          ),
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              SearchField(framed: true, onChanged: (v) => setState(() => query = v)),
+              EvoDropdown<String>(
+                value: filter,
+                items: [('all', 'All types'), for (final d in domains) (d, '$d (${all.where((e) => e.domain == d).length})')],
+                onChanged: (v) => setState(() => haFilter = v),
+              ),
+            ],
+          ),
+        ),
+        Container(
+          height: 38,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            color: c.panel,
+            border: Border(bottom: BorderSide(color: c.line)),
+          ),
+          child: Row(children: [head('Entity', flex: 5), head('Name', flex: 5), head('Type', w: 140), head('In use', w: 120)]),
+        ),
+        Expanded(
+          child: list.isEmpty
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Text(
+                      all.isEmpty ? 'No entities yet. Connect to Home Assistant and click "Update Entity".' : 'No entities match the filter.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: c.muted),
+                    ),
+                  ),
+                )
+              : ListView.builder(
+                  itemCount: list.length,
+                  itemExtent: 44,
+                  itemBuilder: (context, i) {
+                    final e = list[i];
+                    return Container(
+                      key: ValueKey(e.id),
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      decoration: BoxDecoration(
+                        color: c.panel,
+                        border: Border(bottom: BorderSide(color: c.line)),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            flex: 5,
+                            child: Text(
+                              e.id,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                          Expanded(
+                            flex: 5,
+                            child: Padding(
+                              padding: const EdgeInsets.only(right: 12),
+                              child: Text(e.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+                            ),
+                          ),
+                          SizedBox(
+                            width: 140,
+                            child: Text(e.domain, style: TextStyle(fontSize: 13.5, color: c.muted)),
+                          ),
+                          SizedBox(
+                            width: 120,
+                            child: Text(use[e.id] != null ? '${use[e.id]} components' : '', style: TextStyle(fontSize: 13.5, color: c.muted)),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+        ),
+      ],
+    );
+  }
+
+  // ------------------------------------------------------------ KNX group addresses
+
+  Widget _gaView(BuildContext context) {
+    final c = context.evo;
     selected.removeWhere((id) => p.gaById(id) == null);
     final list = _filtered();
     final used = gaUsage(p.doc);
@@ -353,9 +621,9 @@ class _GaTableState extends State<GaTable> {
                 ],
                 onChanged: (v) => setState(() => filter = v),
               ),
-              const SizedBox(width: 24),
-              EvoButton(label: 'Add manually', icon: Icons.add, small: true, onPressed: _addManual),
-              EvoButton(label: 'Import from ETS', icon: Icons.upload_outlined, small: true, primary: true, onPressed: () => runEtsImport(context, p)),
+              const SizedBox(width: 16),
+              EvoButton(label: 'Add manually', icon: Icons.add, onPressed: _addManual),
+              EvoButton(label: 'Import from ETS', icon: Icons.upload_outlined, primary: true, onPressed: () => runEtsImport(context, p)),
             ],
           ),
         ),
@@ -429,7 +697,7 @@ class _GaTableState extends State<GaTable> {
               ),
               head('Address', w: 100),
               head('Name', flex: 1),
-              head('DPT', w: 232),
+              head('DPT', w: 392),
               head('In use', w: 100),
               const SizedBox(width: 40),
             ],
@@ -486,11 +754,11 @@ class _GaTableState extends State<GaTable> {
                             ),
                           ),
                           SizedBox(
-                            width: 232,
+                            width: 392,
                             child: Align(
                               alignment: Alignment.centerLeft,
                               child: EvoDropdown<String>(
-                                width: 212,
+                                width: 372,
                                 value: dpt,
                                 warn: dpt.isEmpty,
                                 items: dptItems(dpt),
@@ -611,6 +879,45 @@ class _AddGaDialogState extends State<_AddGaDialog> {
         EvoButton(label: 'Cancel', onPressed: () => Navigator.pop(context)),
         EvoButton(label: 'Add address', primary: true, onPressed: _submit),
       ],
+    );
+  }
+}
+
+/// A tab of the address list: the label with its count, an accent line under the chosen one.
+class _GaTab extends StatelessWidget {
+  const _GaTab({required this.label, required this.count, required this.selected, required this.onTap});
+  final String label;
+  final int count;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.evo;
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        height: 42,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          border: Border(bottom: BorderSide(color: selected ? c.accent : Colors.transparent, width: 2)),
+        ),
+        child: Text.rich(
+          TextSpan(
+            children: [
+              TextSpan(
+                text: label,
+                style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600, color: selected ? c.ink : c.muted),
+              ),
+              TextSpan(
+                text: '  $count',
+                style: TextStyle(fontSize: 14.5, color: c.muted),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

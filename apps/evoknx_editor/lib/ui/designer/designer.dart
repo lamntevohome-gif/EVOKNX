@@ -220,6 +220,15 @@ class Designer extends ChangeNotifier {
   /// 'f:<floor id>', 'r:<room id>' or 's:<room id>:<page id>'.
   final Set<String> treeSel = <String>{};
 
+  /// Which rows of the structure tree are open (key 'area', 'f:<id>' or 'r:<id>'). A row that was not opened or closed by
+  /// hand follows its default: Area and the floors are open, a room is open while it is the one being edited.
+  final Map<String, bool> treeOpen = <String, bool>{};
+  bool isTreeOpen(String key, bool byDefault) => treeOpen[key] ?? byDefault;
+  void toggleTreeOpen(String key, bool byDefault) {
+    treeOpen[key] = !isTreeOpen(key, byDefault);
+    _n();
+  }
+
   /// The tree key of the single selected floor / room / page, if any.
   String? get primaryTreeKey => switch (view) {
     'floor' => floorId == null ? null : 'f:$floorId',
@@ -565,6 +574,8 @@ class Designer extends ChangeNotifier {
   }
 
   String? deleteFloor(String id) {
+    if (floorsOf(doc).any((f) => f['id'] == id && f['special'] != null))
+      return 'Home and Security are fixed parts of the Modern layout, so they cannot be deleted.';
     if (floorsOf(doc).length < 2) return 'A project needs at least one floor.';
     if (roomsOf(doc, id).isNotEmpty) return 'The floor still has rooms. Move or delete the rooms first.';
     p.mutate((d) => rawList(d, 'floors').removeWhere((x) => x is Map && x['id'] == id));
@@ -1068,6 +1079,16 @@ class Designer extends ChangeNotifier {
     });
   }
 
+  /// Changes the source of a remote control card (KNX addresses or a remote of Home Assistant).
+  void setRemoteSource(String widgetId, String source) {
+    final w0 = allWidgets(p.doc).where((x) => x['id'] == widgetId).firstOrNull;
+    if (w0 == null || remoteIsKnx(w0) == (source == 'knx')) return;
+    p.mutate((doc) {
+      final w = allWidgets(doc).where((x) => x['id'] == widgetId).firstOrNull;
+      if (w != null) switchRemoteSource(w, source);
+    });
+  }
+
   void setCardSource(String widgetId, String source) {
     final w0 = allWidgets(p.doc).where((x) => x['id'] == widgetId).firstOrNull;
     if (w0 == null || cardIsHa(w0) == (source == 'ha')) return;
@@ -1309,6 +1330,18 @@ class Designer extends ChangeNotifier {
           }
         }
         break;
+      case 'remote':
+        if (action == 'key') {
+          final sd = remoteKnxSend(w, arg as String);
+          if (sd == null) {
+            onMessage?.call('$label: ${remoteKeyLabel(w, arg).toLowerCase()} has no value to send');
+          } else {
+            final dpt = (byId(gasAll, jsonMap(bound(w)['bind'])[sd.slot] as String?)?['dpt'] ?? '').toString();
+            final v = dpt.startsWith('16') ? sd.value : (num.tryParse(sd.value.replaceAll(',', '.')) ?? 1);
+            send(w, sd.slot, v, sd.value);
+          }
+        }
+        break;
       case 'media':
         if (action == 'play') {
           final on = !(s['on'] == true);
@@ -1320,12 +1353,16 @@ class Designer extends ChangeNotifier {
           final m = !(s['mute'] == true);
           s['mute'] = m;
           send(w, 'mute', m, m ? '1 (Mute)' : '0 (Unmute)');
+        } else if (action == 'shuffle' || action == 'repeat') {
+          final on = !(s[action] == true);
+          s[action] = on;
+          send(w, action, on, on ? '1 (On)' : '0 (Off)');
         } else if (action == 'preview') {
           s['vol'] = (arg as num).round();
         } else if (action == 'volume') {
           final v = (arg as num).round();
           s['vol'] = v;
-          send(w, 'volume', v, '$v %');
+          send(w, 'volume', (v * mediaVolMax(w) / 100).round(), '$v %');
         }
         break;
       case 'link':
@@ -1384,7 +1421,9 @@ class Designer extends ChangeNotifier {
               case 'media':
                 if (k == 'play' || k == 'playSt') s['on'] = (n ?? 0) != 0;
                 if (k == 'mute' || k == 'muteSt') s['mute'] = (n ?? 0) != 0;
-                if ((k == 'volume' || k == 'volumeSt') && n != null) s['vol'] = n.round();
+                if (k == 'shuffle' || k == 'shuffleSt') s['shuffle'] = (n ?? 0) != 0;
+                if (k == 'repeat' || k == 'repeatSt') s['repeat'] = (n ?? 0) != 0;
+                if ((k == 'volume' || k == 'volumeSt') && n != null) s['vol'] = (n * 100 / mediaVolMax(w)).round();
                 break;
               case 'ac':
                 final ac = jsonMap(w['ac']);

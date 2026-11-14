@@ -64,33 +64,39 @@ class HaConnectionCard extends StatelessWidget {
       builder: (context, _) {
         final h = haSettings(project.doc);
         return Container(
-          margin: const EdgeInsets.only(top: 12),
+          margin: const EdgeInsets.only(bottom: 10),
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: c.paper,
-            borderRadius: BorderRadius.circular(8),
+            color: c.panel,
+            borderRadius: BorderRadius.circular(6),
             border: Border.all(color: c.line),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Row(
-                children: [
-                  Icon(Icons.home_outlined, size: 18, color: c.muted),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Home Assistant',
-                      style: TextStyle(fontWeight: FontWeight.w600, color: c.ink),
+              // Like the name box of a KNX connection.
+              Container(
+                height: 36,
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                decoration: BoxDecoration(
+                  color: c.panel,
+                  border: Border.all(color: c.line),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.home_outlined, size: 17, color: c.muted),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Home Assistant',
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: c.ink),
+                      ),
                     ),
-                  ),
-                  IconButton(
-                    tooltip: 'Remove the connection',
-                    icon: Icon(Icons.delete_outline, size: 18, color: c.muted),
-                    onPressed: () => _remove(context),
-                  ),
-                ],
+                  ],
+                ),
               ),
+              const SizedBox(height: 10),
               if (h['enabled'] != true)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 8),
@@ -103,7 +109,6 @@ class HaConnectionCard extends StatelessWidget {
                     ],
                   ),
                 ),
-              const SizedBox(height: 4),
               FieldLabel(
                 'Address',
                 SyncedField(
@@ -118,11 +123,24 @@ class HaConnectionCard extends StatelessWidget {
               Row(
                 children: [
                   Expanded(
-                    child: EvoButton(label: link.connected ? 'Disconnect' : 'Connect', primary: !link.connected, onPressed: link.connecting ? null : _toggle),
+                    flex: 10,
+                    child: EvoButton(
+                      label: link.connected ? 'Disconnect' : 'Connect',
+                      primary: !link.connected,
+                      fit: true,
+                      keepSize: true,
+                      onPressed: link.connecting ? null : _toggle,
+                    ),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: EvoButton(label: 'Update Entity', onPressed: link.connected ? () => _update(context) : null),
+                    flex: 11,
+                    child: EvoButton(label: 'Update Entity', fit: true, keepSize: true, onPressed: link.connected ? () => _update(context) : null),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    flex: 9,
+                    child: EvoButton(label: 'Delete', icon: Icons.delete_outline, danger: true, fit: true, keepSize: true, onPressed: () => _remove(context)),
                   ),
                 ],
               ),

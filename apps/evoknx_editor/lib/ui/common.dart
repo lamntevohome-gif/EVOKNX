@@ -23,6 +23,7 @@ class EvoButton extends StatelessWidget {
     this.small = false,
     this.tooltip,
     this.fit = false,
+    this.keepSize = false,
   });
   final String label;
   final IconData? icon;
@@ -33,6 +34,9 @@ class EvoButton extends StatelessWidget {
   /// Fills the width it is given (put it in an Expanded) and shrinks its
   /// icon and text to fit, so a row of buttons never wraps.
   final bool fit;
+
+  /// With [fit]: keeps the normal size of the text and the icon and shrinks them only when there is no room.
+  final bool keepSize;
 
   @override
   Widget build(BuildContext context) {
@@ -54,7 +58,7 @@ class EvoButton extends StatelessWidget {
           hoverColor: primary ? Colors.black.withValues(alpha: 0.08) : (danger ? c.dangerSoft : Theme.of(context).hoverColor),
           child: Container(
             height: h,
-            padding: EdgeInsets.symmetric(horizontal: iconOnly ? 0 : (fit ? 6 : (small ? 10 : 12))),
+            padding: EdgeInsets.symmetric(horizontal: iconOnly ? 0 : (fit && !keepSize ? 6 : (small ? 10 : 12))),
             constraints: BoxConstraints(minWidth: h),
             alignment: fit ? Alignment.center : null,
             child: _content(fg, small, iconOnly),
@@ -71,15 +75,15 @@ class EvoButton extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        if (icon != null) Icon(icon, size: fit ? 15 : (small ? 16 : 17), color: fg),
-        if (icon != null && !iconOnly) SizedBox(width: fit ? 4 : 5),
+        if (icon != null) Icon(icon, size: fit && !keepSize ? 15 : (small ? 16 : 17), color: fg),
+        if (icon != null && !iconOnly) SizedBox(width: fit && !keepSize ? 4 : 5),
         if (!iconOnly)
           Text(
             label,
             maxLines: 1,
             softWrap: false,
             // Buttons that share a row use one size, so none looks bigger.
-            style: TextStyle(color: fg, fontSize: fit ? kUiText - 1.5 : (small ? kUiText - 1 : kUiText), fontWeight: FontWeight.w500),
+            style: TextStyle(color: fg, fontSize: fit && !keepSize ? kUiText - 1.5 : (small ? kUiText - 1 : kUiText), fontWeight: FontWeight.w500),
           ),
       ],
     );
@@ -584,9 +588,8 @@ class StatusDot extends StatelessWidget {
   }
 }
 
-/// Width of the left panel of the "Kết nối" and "Mở rộng" workspaces (the same
-/// in both).
-double sidePanelWidth(double maxWidth) => (maxWidth * 0.30).clamp(340.0, 480.0).toDouble();
+/// Width of the left panel of the Connections workspace.
+double sidePanelWidth(double maxWidth) => (maxWidth * 0.30).clamp(380.0, 480.0).toDouble();
 
 class SearchField extends StatelessWidget {
   const SearchField({super.key, required this.onChanged, this.hint = 'Search by address or name', this.width = 280, this.framed = false});

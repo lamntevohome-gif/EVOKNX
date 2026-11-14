@@ -63,7 +63,13 @@ class _HomeScreenState extends State<HomeScreen> {
     if (f == null) return;
     final rs = roomsOf(doc, f['id'] as String);
     setState(() => floorId = f['id'] as String);
-    if (rs.isNotEmpty) _openRoom(rs.first['id'] as String);
+    // Home and Security can have several rooms: the one that was open stays.
+    final keep = rs.where((r) => r['id'] == roomId).firstOrNull;
+    if (keep != null) {
+      _openRoom(keep['id'] as String);
+    } else if (rs.isNotEmpty) {
+      _openRoom(rs.first['id'] as String);
+    }
   }
 
   void _modernTab(int t) {
@@ -833,6 +839,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   children: [
                     _banner(pal),
                     _header(d, pal, headFloor, onPage ? r : null, _tab == 1 && normal.length > 1, onBack: onBack, sizeKey: onPage ? 'titleSize' : 'areaTitle'),
+                    // Home and Security show the choice of room only when they have two rooms or more.
+                    if (blockedAbove == null && _tab != 1 && floor != null && roomsOf(d, floor['id'] as String).length > 1)
+                      _roomsBar(d, pal, roomsOf(d, floor['id'] as String)),
                     if (onPage && r != null && subs.length > 1 && _dev != 'mobile') _pageNav(subs, pal),
                     Expanded(child: _fade(ValueKey('m$_tab-$_lvl-$floorId-$roomId-${blockedAbove?['id']}'), content)),
                     _modernBar(pal),
@@ -846,13 +855,12 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  /// The three buttons at the bottom.
+  /// The three buttons at the bottom, as the new bar of YouTube: a rounded bar that floats above the bottom edge, icons
+  /// only, and the selected one in a lighter pill with its icon filled.
   Widget _modernBar(AppPalette pal) {
     final f = tfs(doc, 'navBar');
-    // Like the tab bar of iOS: an icon with a small label; the selected one is filled and tinted.
     Widget item(int t, IconData on, IconData off, String label) {
       final sel = _tab == t;
-      final col = sel ? pal.accent : pal.muted;
       return Expanded(
         child: Semantics(
           button: true,
@@ -861,16 +869,19 @@ class _HomeScreenState extends State<HomeScreen> {
           excludeSemantics: true,
           child: PressFade(
             onTap: () => _modernTab(t),
-            child: Padding(
-              padding: const EdgeInsets.only(top: 8, bottom: 6),
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              margin: const EdgeInsets.symmetric(horizontal: 3, vertical: 4),
+              decoration: BoxDecoration(color: sel ? pal.ink.withAlpha(36) : Colors.transparent, borderRadius: BorderRadius.circular(30)),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(sel ? on : off, size: f * 2.2, color: col),
+                  Icon(sel ? on : off, size: f * 2.0, color: pal.ink),
                   const SizedBox(height: 2),
                   Text(
                     label,
-                    style: TextStyle(fontSize: f * 0.9, fontWeight: FontWeight.w500, color: col),
+                    maxLines: 1,
+                    style: TextStyle(fontSize: f * 0.78, fontWeight: sel ? FontWeight.w700 : FontWeight.w400, color: pal.ink, height: 1.1),
                   ),
                 ],
               ),
@@ -880,19 +891,24 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
 
-    return Container(
-      decoration: BoxDecoration(
-        color: Color.lerp(pal.screen, pal.ink, 0.05),
-        border: Border(top: BorderSide(color: pal.tileEdge, width: 0.5)),
-      ),
-      child: SafeArea(
-        top: false,
-        child: Row(
-          children: [
-            item(0, Icons.home, Icons.home_outlined, 'Home'),
-            item(1, Icons.layers, Icons.layers_outlined, 'Area'),
-            item(2, Icons.shield, Icons.shield_outlined, 'Security'),
-          ],
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Color.lerp(pal.screen, pal.ink, 0.10),
+            borderRadius: BorderRadius.circular(40),
+            border: Border.all(color: pal.tileEdge, width: 0.8),
+            boxShadow: const [BoxShadow(color: Color(0x40000000), blurRadius: 14, offset: Offset(0, 4))],
+          ),
+          child: Row(
+            children: [
+              item(0, Icons.home, Icons.home_outlined, 'Home'),
+              item(1, Icons.layers, Icons.layers_outlined, 'Area'),
+              item(2, Icons.shield, Icons.shield_outlined, 'Security'),
+            ],
+          ),
         ),
       ),
     );
@@ -1385,7 +1401,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final type = w['type'] as String? ?? '';
     if (type == 'webview') return WebCard(w: w, pal: pal);
     if (type == 'media') return MediaCard(w: w, pal: pal, host: _mediaHost, sim: engine.st(id), act: (a, [x]) => _act(w, a, x));
-    if (type == 'remote') return RemoteCard(w: w, pal: pal, host: _mediaHost);
+    if (type == 'remote') return RemoteCard(w: w, pal: pal, host: _mediaHost, act: (a, [x]) => _act(w, a, x));
     final tile = TileView(w: w, pal: pal, gas: gas, sim: engine.st(id), act: (a, [x]) => _act(w, a, x));
     final tap = const ['switch', 'dimmer', 'ac', 'button', 'scene', 'link'].contains(type) || (type == 'camera' && jsonMap(w['cam'])['view'] == 'button');
     if (!tap) return tile;

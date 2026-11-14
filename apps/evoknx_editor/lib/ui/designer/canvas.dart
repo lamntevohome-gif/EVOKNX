@@ -307,25 +307,30 @@ class _Screen extends StatelessWidget {
       );
       final tab = !inFloors && special == 'home' ? 0 : (!inFloors && special == 'security' ? 2 : 1);
       final nf = tfs(doc, 'navBar');
-      // An icon with a small label; the selected one is filled and tinted.
+      // As the new bar of YouTube: a rounded bar that floats, icons only, the selected one in a lighter pill.
       Widget barItem(int t, IconData on, IconData off, String label, VoidCallback onTap) {
         final sel = tab == t;
-        final col = sel ? pal.accent : pal.muted;
         return Expanded(
-          child: PressFade(
-            onTap: onTap,
-            child: Padding(
-              padding: const EdgeInsets.only(top: 8, bottom: 6),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(sel ? on : off, size: nf * 2.2, color: col),
-                  const SizedBox(height: 2),
-                  Text(
-                    label,
-                    style: TextStyle(fontSize: nf * 0.9, fontWeight: FontWeight.w500, color: col),
-                  ),
-                ],
+          child: Tooltip(
+            message: label,
+            child: PressFade(
+              onTap: onTap,
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                margin: const EdgeInsets.symmetric(horizontal: 3, vertical: 4),
+                decoration: BoxDecoration(color: sel ? pal.ink.withAlpha(36) : Colors.transparent, borderRadius: BorderRadius.circular(30)),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(sel ? on : off, size: nf * 2.0, color: pal.ink),
+                    const SizedBox(height: 2),
+                    Text(
+                      label,
+                      maxLines: 1,
+                      style: TextStyle(fontSize: nf * 0.78, fontWeight: sel ? FontWeight.w700 : FontWeight.w400, color: pal.ink, height: 1.1),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -355,20 +360,27 @@ class _Screen extends StatelessWidget {
               empty
             else ...[
               _header(doc, room, floor, special == null && normal.length > 1, theme, onBack: special == null ? d.floorsGallery : null),
+              // Home and Security show the choice of room only when they have two rooms or more.
+              if (special != null && roomsOf(doc, floor?['id'] as String?).length > 1) _roomsBar(doc, room, floor),
               if (tablet) _pageTabs(room, sub),
               grid(room, sub),
             ],
-            Container(
-              decoration: BoxDecoration(
-                color: Color.lerp(pal.screen, pal.ink, 0.05),
-                border: Border(top: BorderSide(color: pal.tileEdge, width: 0.5)),
-              ),
-              child: Row(
-                children: [
-                  barItem(0, Icons.home, Icons.home_outlined, 'Home', () => d.selectSpecial('home')),
-                  barItem(1, Icons.layers, Icons.layers_outlined, 'Area', d.floorsGallery),
-                  barItem(2, Icons.shield, Icons.shield_outlined, 'Security', () => d.selectSpecial('security')),
-                ],
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Color.lerp(pal.screen, pal.ink, 0.10),
+                  borderRadius: BorderRadius.circular(40),
+                  border: Border.all(color: pal.tileEdge, width: 0.8),
+                  boxShadow: const [BoxShadow(color: Color(0x40000000), blurRadius: 14, offset: Offset(0, 4))],
+                ),
+                child: Row(
+                  children: [
+                    barItem(0, Icons.home, Icons.home_outlined, 'Home', () => d.selectSpecial('home')),
+                    barItem(1, Icons.layers, Icons.layers_outlined, 'Area', d.floorsGallery),
+                    barItem(2, Icons.shield, Icons.shield_outlined, 'Security', () => d.selectSpecial('security')),
+                  ],
+                ),
               ),
             ),
           ],
@@ -948,7 +960,7 @@ class _GridAreaState extends State<_GridArea> {
               : w['type'] == 'media'
               ? MediaCard(w: w, pal: pal, host: d.mediaHost, sim: d.sim[id] ?? const {}, act: test ? (a, [arg]) => _testAct(w, a, arg) : null)
               : w['type'] == 'remote'
-              ? RemoteCard(w: w, pal: pal, host: d.mediaHost)
+              ? RemoteCard(w: w, pal: pal, host: d.mediaHost, act: test ? (a, [arg]) => _testAct(w, a, arg) : null)
               : TileView(
                   w: d.bound(w),
                   pal: pal,

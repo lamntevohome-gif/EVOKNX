@@ -6,7 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:knx_config/knx_config.dart';
 import 'package:path_provider/path_provider.dart';
 
-/// The Editor's own connection to Home Assistant (tab "Mở rộng"): opened and
+/// The Editor's own connection to Home Assistant (Connections tab): opened and
 /// closed by the user like the KNX bus, closed by itself when the Editor is
 /// closed. It is used to list the entities of Home Assistant.
 class HaLinkController extends ChangeNotifier {

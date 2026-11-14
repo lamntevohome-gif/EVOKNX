@@ -275,7 +275,7 @@ class _ScriptsPageState extends State<ScriptsPage> implements ScriptHost {
               const Expanded(
                 child: Text('Scripts', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
               ),
-              EvoButton(label: 'Add script', icon: Icons.add, small: true, onPressed: _newScript),
+              EvoButton(label: 'Add script', icon: Icons.add, onPressed: _newScript),
             ],
           ),
         ),
@@ -385,15 +385,9 @@ class _ScriptsPageState extends State<ScriptsPage> implements ScriptHost {
           spacing: 6,
           runSpacing: 6,
           children: [
-            for (final t in kScriptStepTypes)
-              EvoButton(label: t.$2, icon: Icons.add, small: true, onPressed: steps.length >= kScriptMaxSteps ? null : () => _addStep(t.$1)),
-            EvoButton(label: 'Paste', icon: Icons.content_paste_go_outlined, small: true, onPressed: () => _pasteSteps(steps.length)),
-            EvoButton(
-              label: 'Copy all steps',
-              icon: Icons.copy_outlined,
-              small: true,
-              onPressed: steps.isEmpty ? null : () => _copySteps(steps, 'All steps copied.'),
-            ),
+            for (final t in kScriptStepTypes) EvoButton(label: t.$2, icon: Icons.add, onPressed: steps.length >= kScriptMaxSteps ? null : () => _addStep(t.$1)),
+            EvoButton(label: 'Paste', icon: Icons.content_paste_go_outlined, onPressed: () => _pasteSteps(steps.length)),
+            EvoButton(label: 'Copy all steps', icon: Icons.copy_outlined, onPressed: steps.isEmpty ? null : () => _copySteps(steps, 'All steps copied.')),
           ],
         ),
         const SizedBox(height: 4),
@@ -407,7 +401,7 @@ class _ScriptsPageState extends State<ScriptsPage> implements ScriptHost {
             children: [
               const Text('Run log', style: TextStyle(fontWeight: FontWeight.w600)),
               const Spacer(),
-              EvoButton(label: 'Clear', small: true, onPressed: () => setState(_log.clear)),
+              EvoButton(label: 'Clear', onPressed: () => setState(_log.clear)),
             ],
           ),
           const SizedBox(height: 6),
@@ -493,7 +487,7 @@ class _ScriptsPageState extends State<ScriptsPage> implements ScriptHost {
               alignment: Alignment.centerRight,
               child: EvoButton(
                 label: raw ? 'Fields' : 'Edit as JSON',
-                small: true,
+
                 onPressed: bad != null && raw ? null : () => _editStep(i, (x) => raw ? x.remove('raw') : x['raw'] = true),
               ),
             ),
@@ -551,12 +545,7 @@ class _ScriptsPageState extends State<ScriptsPage> implements ScriptHost {
                 if (!map.containsKey(f.key))
                   Tooltip(
                     message: [if (f.name.isNotEmpty) f.name, if (f.description.isNotEmpty) f.description].join(' · '),
-                    child: EvoButton(
-                      label: '${f.key}${f.required ? ' *' : ''}',
-                      icon: Icons.add,
-                      small: true,
-                      onPressed: () => _setData(i, f.key, f.sample ?? ''),
-                    ),
+                    child: EvoButton(label: '${f.key}${f.required ? ' *' : ''}', icon: Icons.add, onPressed: () => _setData(i, f.key, f.sample ?? '')),
                   ),
             ],
           ),
@@ -803,25 +792,37 @@ class _ScriptsPageState extends State<ScriptsPage> implements ScriptHost {
         final dpt = (ga?['dpt'] ?? '').toString();
         final raw = (st['value'] ?? '').toString();
         return [
-          FieldLabel(
-            'Address',
-            GaPickerField(
-              value: gid,
-              items: [
-                ('', 'Not assigned'),
-                for (final g in gas) (g['id'].toString(), '${g['address']}   ${g['name']}'),
-                if (gid.isNotEmpty && ga == null) (gid, 'The address was deleted'),
-              ],
-              onChanged: (v) => _editStep(i, (x) => x['ga'] = v.isEmpty ? null : v),
-            ),
-          ),
-          FieldLabel(
-            'Value',
-            SyncedField(
-              value: raw,
-              hint: '1',
-              onChanged: (v) => _editStep(i, (x) => x['value'] = v.trim(), coalesce: 'scv-$id-$i'),
-            ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                flex: 3,
+                child: FieldLabel(
+                  'Address',
+                  GaPickerField(
+                    value: gid,
+                    items: [
+                      ('', 'Not assigned'),
+                      for (final g in gas) (g['id'].toString(), '${g['address']}   ${g['name']}'),
+                      if (gid.isNotEmpty && ga == null) (gid, 'The address was deleted'),
+                    ],
+                    onChanged: (v) => _editStep(i, (x) => x['ga'] = v.isEmpty ? null : v),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                flex: 2,
+                child: FieldLabel(
+                  'Value',
+                  SyncedField(
+                    value: raw,
+                    hint: '1',
+                    onChanged: (v) => _editStep(i, (x) => x['value'] = v.trim(), coalesce: 'scv-$id-$i'),
+                  ),
+                ),
+              ),
+            ],
           ),
           Text(
             ga != null && isHaAddress(ga)
@@ -834,23 +835,33 @@ class _ScriptsPageState extends State<ScriptsPage> implements ScriptHost {
         ];
       case 'ha':
         return [
-          FieldLabel(
-            'Service',
-            SuggestField(
-              value: (st['service'] ?? '').toString(),
-              hint: 'light.turn_on',
-              options: _serviceOptions((st['entity'] ?? '').toString()),
-              onChanged: (v) => _changeService(i, v),
-            ),
-          ),
-          FieldLabel(
-            'Entity (optional)',
-            SuggestField(
-              value: (st['entity'] ?? '').toString(),
-              hint: 'light.living_room',
-              options: _entityOptions((st['service'] ?? '').toString()),
-              onChanged: (v) => _editStep(i, (x) => x['entity'] = v.trim(), coalesce: 'sce-$id-$i'),
-            ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: FieldLabel(
+                  'Service',
+                  SuggestField(
+                    value: (st['service'] ?? '').toString(),
+                    hint: 'light.turn_on',
+                    options: _serviceOptions((st['entity'] ?? '').toString()),
+                    onChanged: (v) => _changeService(i, v),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: FieldLabel(
+                  'Entity (optional)',
+                  SuggestField(
+                    value: (st['entity'] ?? '').toString(),
+                    hint: 'light.living_room',
+                    options: _entityOptions((st['service'] ?? '').toString()),
+                    onChanged: (v) => _editStep(i, (x) => x['entity'] = v.trim(), coalesce: 'sce-$id-$i'),
+                  ),
+                ),
+              ),
+            ],
           ),
           ..._dataEditor(context, i, st),
           Text(

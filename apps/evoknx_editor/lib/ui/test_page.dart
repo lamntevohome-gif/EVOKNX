@@ -119,7 +119,7 @@ class _TestPageState extends State<TestPage> {
               ),
               const SizedBox(width: 10),
               EvoButton(
-                label: st == KnxConnectionState.disconnected ? 'Connections' : 'Disconnect',
+                label: st == KnxConnectionState.disconnected ? 'Connect' : 'Disconnect',
                 primary: st == KnxConnectionState.disconnected,
                 onPressed: busy ? null : _connectToggle,
               ),
@@ -128,7 +128,7 @@ class _TestPageState extends State<TestPage> {
               const SizedBox(width: 8),
               Text(
                 stText,
-                style: TextStyle(fontWeight: FontWeight.w500, color: st == KnxConnectionState.connected ? c.accentInk : c.muted),
+                style: TextStyle(fontSize: kUiText, fontWeight: FontWeight.w500, color: st == KnxConnectionState.connected ? c.accentInk : c.muted),
               ),
               if (bus.error != null && st != KnxConnectionState.connected) ...[
                 const SizedBox(width: 12),
@@ -206,7 +206,7 @@ class _TestPageState extends State<TestPage> {
           ),
           child: Row(
             children: [
-              SearchField(hint: 'Filter by address, name or value', onChanged: (v) => setState(() => query = v)),
+              SearchField(hint: 'Filter by address, name or value', framed: true, onChanged: (v) => setState(() => query = v)),
               const SizedBox(width: 8),
               EvoDropdown<String>(
                 value: type,
@@ -219,13 +219,12 @@ class _TestPageState extends State<TestPage> {
                 style: TextStyle(color: c.muted, fontSize: kUiText),
               ),
               const SizedBox(width: 10),
-              EvoButton(label: bus.paused ? 'Continue' : 'Pause', small: true, icon: bus.paused ? Icons.play_arrow : Icons.pause, onPressed: bus.togglePause),
+              EvoButton(label: bus.paused ? 'Continue' : 'Pause', icon: bus.paused ? Icons.play_arrow : Icons.pause, onPressed: bus.togglePause),
               const SizedBox(width: 6),
-              EvoButton(label: 'Delete', small: true, onPressed: bus.clear),
+              EvoButton(label: 'Delete', onPressed: bus.clear),
               const SizedBox(width: 6),
               EvoButton(
                 label: 'Export CSV',
-                small: true,
                 icon: Icons.download_outlined,
                 onPressed: rows.isEmpty
                     ? null
@@ -351,13 +350,13 @@ class _TestPageState extends State<TestPage> {
       padding: const EdgeInsets.all(16),
       children: [
         const SectionTitle('Read / Write group address'),
-        SearchField(width: double.infinity, hint: 'Search address or name', onChanged: (v) => setState(() => rwQuery = v)),
+        SearchField(width: double.infinity, hint: 'Search address or name', framed: true, onChanged: (v) => setState(() => rwQuery = v)),
         const SizedBox(height: 8),
         Container(
           height: 240,
           decoration: BoxDecoration(
             border: Border.all(color: c.line),
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(4),
           ),
           child: ListView.builder(
             itemCount: list.length,
@@ -385,7 +384,11 @@ class _TestPageState extends State<TestPage> {
         if (ga != null)
           Container(
             padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: c.paper, borderRadius: BorderRadius.circular(5)),
+            decoration: BoxDecoration(
+              color: c.panel,
+              border: Border.all(color: c.line),
+              borderRadius: BorderRadius.circular(4),
+            ),
             child: Row(
               children: [
                 Text(

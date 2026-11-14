@@ -76,17 +76,32 @@ class StructureTree extends StatelessWidget {
     final curSub = d.sub;
     const sep = (Icons.remove, '', null);
 
+    final allFloors = floorsOf(doc);
+    final home = allFloors.where((f) => f['special'] == 'home').firstOrNull;
+    final security = allFloors.where((f) => f['special'] == 'security').firstOrNull;
+    final normal = normalFloorsOf(doc);
+    final areaOpen = d.isTreeOpen('area', true);
+    bool floorOpen(Json f) => d.isTreeOpen('f:${f['id']}', true);
+    bool roomOpen(Json r) => d.isTreeOpen('r:${r['id']}', curRoom?['id'] == r['id']);
+
     // Visible rows in order, for Shift+click ranges.
-    final order = <String>[
-      for (final f in floorsOf(doc)) ...[
-        'f:${f['id']}',
-        for (final r in roomsOf(doc, f['id'] as String?)) ...[
-          'r:${r['id']}',
-          if (curRoom?['id'] == r['id'])
-            for (final s in subsOf(r)) 's:${r['id']}:${s['id']}',
-        ],
-      ],
-    ];
+    final order = <String>[];
+    void addFloorRows(Json f) {
+      order.add('f:${f['id']}');
+      if (!floorOpen(f)) return;
+      for (final r in roomsOf(doc, f['id'] as String?)) {
+        order.add('r:${r['id']}');
+        if (roomOpen(r)) {
+          for (final s in subsOf(r)) {
+            order.add('s:${r['id']}:${s['id']}');
+          }
+        }
+      }
+    }
+
+    if (home != null) addFloorRows(home);
+    if (areaOpen) normal.forEach(addFloorRows);
+    if (security != null) addFloorRows(security);
 
     void tapRow(String key, VoidCallback normal) {
       final kb = HardwareKeyboard.instance;
@@ -103,8 +118,9 @@ class StructureTree extends StatelessWidget {
     Widget row({
       required Widget leading,
       required String text,
-      String? trailing,
       required bool on,
+      bool? open,
+      VoidCallback? onToggle,
       required VoidCallback onTap,
       required void Function(Offset at) onMenu,
       String? selKey,
@@ -135,8 +151,19 @@ class StructureTree extends StatelessWidget {
             decoration: hover ? BoxDecoration(border: Border.all(color: c.accent, width: 1.5)) : null,
             child: Row(
               children: [
+                // The triangle opens and closes the rows under this one.
+                SizedBox(
+                  width: 18,
+                  child: open == null
+                      ? null
+                      : GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: onToggle,
+                          child: Center(child: Icon(open ? Icons.arrow_drop_down : Icons.arrow_right, size: 20, color: c.muted)),
+                        ),
+                ),
                 SizedBox(width: 16, child: Center(child: leading)),
-                const SizedBox(width: 8),
+                const SizedBox(width: 6),
                 Expanded(
                   child: Text(
                     text,
@@ -144,7 +171,6 @@ class StructureTree extends StatelessWidget {
                     style: TextStyle(fontSize: kUiText, fontWeight: bold ? FontWeight.w600 : FontWeight.w400, color: c.ink),
                   ),
                 ),
-                if (trailing != null) Text(trailing, style: TextStyle(fontSize: 13, color: c.muted)),
               ],
             ),
           ),
@@ -181,73 +207,56 @@ class StructureTree extends StatelessWidget {
       return w;
     }
 
-    return ListView(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      children: [
-        // The name of the project (click it to rename).
-        Padding(
-          padding: const EdgeInsets.fromLTRB(10, 2, 10, 6),
-          child: Tooltip(
-            message: tr('Click to rename the project'),
-            child: SyncedField(
-              value: d.p.projectName,
-              bold: true,
-              borderless: true,
-              onChanged: (v) => d.p.mutate((doc) => (doc['project'] as Map)['name'] = v, coalesce: 'pname'),
-            ),
-          ),
-        ),
+    // A floor, its rooms and (for the room being edited, or one that was opened) its pages. [base] is the indent of the
+    // floor: a room is 16 further in, a page 32.
+    List<Widget> floorBlock(Json f, double base) {
+      final fid = f['id'] as String;
+      final open = floorOpen(f);
+      final rooms = roomsOf(doc, fid);
+      return [
         row(
-          leading: Icon(Icons.tune, size: 14, color: c.muted),
-          text: 'Overview',
-          on: d.view == 'overview',
-          onTap: d.overview,
+          leading: isNoIcon(f['icon'] as String?) ? Icon(Icons.layers_outlined, size: 14, color: c.muted) : iconWidget(f['icon'] as String?, 14, c.muted),
+          text: (f['title'] ?? '').toString(),
+          open: rooms.isEmpty ? null : open,
+          onToggle: () => d.toggleTreeOpen('f:$fid', true),
+          indent: base,
+          on: d.view == 'floor' && d.floor?['id'] == fid,
+          bold: true,
+          selKey: 'f:$fid',
+          onTap: () => d.selectFloor(fid),
+          drag: _TreeDrag('floor', fid),
+          accepts: (t) => t.kind == 'floor' || t.kind == 'room',
+          onDrop: (t) => t.kind == 'floor' ? d.dropFloor(t.id, fid) : d.dropRoom(t.id, floorId: fid),
           onMenu: (at) => _menu(context, at, [
-            (Icons.add, 'Add floor', () async => d.addFloor()),
-            (Icons.file_download_outlined, 'Import floor', () => importPart(context, d, only: 'floor')),
+            (Icons.add, 'Add room', () async => d.addRoom(fid)),
+            (
+              Icons.file_download_outlined,
+              'Import room',
+              () async {
+                d.selectFloor(fid);
+                await importPart(context, d, only: 'room');
+              },
+            ),
+            (Icons.file_upload_outlined, 'Export floor', () => exportPart(context, d, 'floor', fid)),
+            sep,
+            (
+              Icons.delete_outline,
+              'Delete floor',
+              () async {
+                final m = d.deleteFloor(fid);
+                if (m != null && context.mounted) toast(context, m);
+              },
+            ),
           ]),
         ),
-        const SizedBox(height: 6),
-        for (final f in floorsOf(doc)) ...[
-          row(
-            leading: const SizedBox.shrink(),
-            text: (f['title'] ?? '').toString(),
-            trailing: '${roomsOf(doc, f['id'] as String?).length}',
-            on: d.view == 'floor' && d.floor?['id'] == f['id'],
-            bold: true,
-            selKey: 'f:${f['id']}',
-            onTap: () => d.selectFloor(f['id'] as String),
-            drag: _TreeDrag('floor', f['id'] as String),
-            accepts: (t) => t.kind == 'floor' || t.kind == 'room',
-            onDrop: (t) => t.kind == 'floor' ? d.dropFloor(t.id, f['id'] as String) : d.dropRoom(t.id, floorId: f['id'] as String),
-            onMenu: (at) => _menu(context, at, [
-              (Icons.add, 'Add room', () async => d.addRoom(f['id'] as String)),
-              (
-                Icons.file_download_outlined,
-                'Import room',
-                () async {
-                  d.selectFloor(f['id'] as String);
-                  await importPart(context, d, only: 'room');
-                },
-              ),
-              (Icons.file_upload_outlined, 'Export floor', () => exportPart(context, d, 'floor', f['id'] as String)),
-              sep,
-              (
-                Icons.delete_outline,
-                'Delete floor',
-                () async {
-                  final m = d.deleteFloor(f['id'] as String);
-                  if (m != null && context.mounted) toast(context, m);
-                },
-              ),
-            ]),
-          ),
-          for (final r in roomsOf(doc, f['id'] as String?)) ...[
+        if (open)
+          for (final r in rooms) ...[
             row(
-              indent: 16,
+              indent: base + 16,
               leading: iconWidget(r['icon'] as String?, 14, c.muted),
               text: (r['title'] ?? '').toString(),
-              trailing: '${subsOf(r).fold<int>(0, (n, s) => n + jsonList(s['widgets']).length)}',
+              open: subsOf(r).isEmpty ? null : roomOpen(r),
+              onToggle: () => d.toggleTreeOpen('r:${r['id']}', curRoom?['id'] == r['id']),
               on: d.view == 'room' && d.roomFocus && curRoom?['id'] == r['id'],
               selKey: 'r:${r['id']}',
               onTap: () => d.selectRoom(r['id'] as String),
@@ -290,13 +299,12 @@ class StructureTree extends StatelessWidget {
                 ),
               ]),
             ),
-            if (curRoom?['id'] == r['id'])
+            if (roomOpen(r))
               for (final s in subsOf(r))
                 row(
-                  indent: 32,
+                  indent: base + 32,
                   leading: Icon(Icons.crop_portrait, size: 13, color: s['id'] == curSub?['id'] ? c.accent : c.muted),
                   text: (s['title'] ?? '').toString(),
-                  trailing: '${jsonList(s['widgets']).length}',
                   on: d.view == 'room' && !d.roomFocus && s['id'] == curSub?['id'],
                   selKey: 's:${r['id']}:${s['id']}',
                   onTap: () => d.selectSub(r['id'] as String, s['id'] as String),
@@ -334,8 +342,55 @@ class StructureTree extends StatelessWidget {
                   ]),
                 ),
           ],
-          const SizedBox(height: 4),
-        ],
+      ];
+    }
+
+    return ListView(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      children: [
+        // The name of the project (click it to rename).
+        Padding(
+          padding: const EdgeInsets.fromLTRB(10, 2, 10, 6),
+          child: Tooltip(
+            message: tr('Click to rename the project'),
+            child: SyncedField(
+              value: d.p.projectName,
+              bold: true,
+              borderless: true,
+              onChanged: (v) => d.p.mutate((doc) => (doc['project'] as Map)['name'] = v, coalesce: 'pname'),
+            ),
+          ),
+        ),
+        row(
+          leading: Icon(Icons.tune, size: 14, color: c.muted),
+          text: 'Overview',
+          on: d.view == 'overview',
+          onTap: d.overview,
+          onMenu: (at) => _menu(context, at, [
+            (Icons.add, 'Add floor', () async => d.addFloor()),
+            (Icons.file_download_outlined, 'Import floor', () => importPart(context, d, only: 'floor')),
+          ]),
+        ),
+        const SizedBox(height: 6),
+        // Home – Area – Security, as the bar at the bottom of the App.
+        if (home != null) ...floorBlock(home, 0),
+        row(
+          leading: Icon(Icons.layers_outlined, size: 14, color: c.muted),
+          text: 'Area',
+          open: areaOpen,
+          onToggle: () => d.toggleTreeOpen('area', true),
+          bold: true,
+          on: false,
+          onTap: () => d.toggleTreeOpen('area', true),
+          onMenu: (at) => _menu(context, at, [
+            (Icons.add, 'Add floor', () async => d.addFloor()),
+            (Icons.file_download_outlined, 'Import floor', () => importPart(context, d, only: 'floor')),
+          ]),
+        ),
+        if (areaOpen)
+          for (final f in normal) ...floorBlock(f, 16),
+        if (security != null) ...floorBlock(security, 0),
+        const SizedBox(height: 4),
       ],
     );
   }

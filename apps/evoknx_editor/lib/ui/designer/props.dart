@@ -12,6 +12,7 @@ import '../../state/app_settings.dart';
 import '../common.dart';
 import 'designer.dart';
 import 'icon_picker.dart';
+import 'remote_layout.dart';
 import 'tree.dart' show deleteTreeSelection;
 
 import 'package:evoknx_ui/evoknx_ui.dart';
@@ -2842,7 +2843,7 @@ class _MediaSection extends StatelessWidget {
       max: max,
       onChanged: (v) => set(key, v, co: 'ms-$key-$id'),
     );
-    const sizeKeys = ['titleSize', 'songSize', 'detailSize', 'coverSize', 'btnSize', 'volIcon', 'volWidth', 'volThick'];
+    const sizeKeys = ['titleSize', 'songSize', 'detailSize', 'picSize', 'btnSize', 'playSize', 'volIcon', 'volWidth', 'volThick'];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -2862,6 +2863,11 @@ class _MediaSection extends StatelessWidget {
             ),
           ),
           if (knx)
+            FieldLabel(
+              'Volume values',
+              Seg<int>(items: const [(100, '0 – 100 %'), (255, '0 – 255')], value: mediaVolMax(w), onChanged: (v) => set('volMax', v == 255 ? 255 : null)),
+            ),
+          if (knx)
             Hint('Assign the addresses below. A button without an address is left out. KNX gives no picture: an equalizer moves while the music plays.')
           else
             FieldLabel(
@@ -2876,13 +2882,30 @@ class _MediaSection extends StatelessWidget {
           check('cover', 'Show the picture'),
           check('controls', 'Show the buttons (previous, play, next)'),
           check('volume', 'Show the volume'),
+          CheckboxListTile(
+            value: m['shuffle'] == true,
+            onChanged: (v) => set('shuffle', v == true ? true : null),
+            title: const Text('Show shuffle'),
+            dense: true,
+            controlAffinity: ListTileControlAffinity.leading,
+            contentPadding: EdgeInsets.zero,
+          ),
+          CheckboxListTile(
+            value: m['repeat'] == true,
+            onChanged: (v) => set('repeat', v == true ? true : null),
+            title: const Text('Show repeat'),
+            dense: true,
+            controlAffinity: ListTileControlAffinity.leading,
+            contentPadding: EdgeInsets.zero,
+          ),
         ]),
         _Section('Sizes', [
           if (!knx) size('titleSize', 'Title', label, 8, 40),
           size('songSize', knx ? 'Name' : 'Song', label, 8, 40),
-          if (!knx) size('detailSize', 'Artist and album', label - 2, 8, 32),
-          size('coverSize', 'Picture', 100, 20, 100, unit: '%'),
-          size('btnSize', 'Buttons', 26, 14, 56),
+          if (!knx) size('detailSize', 'Artist', label - 2, 8, 32),
+          size('picSize', 'Picture', 64, 24, 200),
+          size('btnSize', 'Previous, next, shuffle, repeat', 26, 14, 56),
+          size('playSize', 'Play / pause', 34, 18, 72),
           size('volIcon', 'Volume icon', 20, 12, 40),
           size('volWidth', 'Volume bar width', 100, 20, 100, unit: '%'),
           size('volThick', 'Volume bar thickness', 3, 1, 12),
@@ -3052,8 +3075,8 @@ class _CommandSection extends StatelessWidget {
   }
 }
 
-/// The settings of a remote control card: the remote of Home Assistant, the platform whose key names are used, what the
-/// card shows and the name of each key.
+/// The settings of a remote control card: its source (a remote of Home Assistant, or KNX addresses), the top bar, which
+/// keys are shown and where, the custom buttons, and the name (Home Assistant) or the value (KNX) of each key.
 class _RemoteSection extends StatelessWidget {
   const _RemoteSection({required this.d, required this.w});
   final Designer d;
@@ -3064,6 +3087,8 @@ class _RemoteSection extends StatelessWidget {
     final c = context.evo;
     final id = w['id'] as String;
     final r = remoteSettings(w);
+    final raw = jsonMap(w['remote']);
+    final knx = remoteIsKnx(w);
     final keys = jsonMap(r['keys']);
     void set(String k, Object? v, {String? co}) => d.editWidget(id, (x) {
       final o = jsonMap(x['remote']);
@@ -3074,17 +3099,26 @@ class _RemoteSection extends StatelessWidget {
       }
       x['remote'] = o;
     }, coalesce: co);
-    void setKey(String key, String v) => d.editWidget(id, (x) {
+    void setIn(String map, String key, Object? v, {String? co}) => d.editWidget(id, (x) {
       final o = jsonMap(x['remote']);
-      final ks = jsonMap(o['keys']);
-      if (v.trim().isEmpty) {
-        ks.remove(key);
+      final m = jsonMap(o[map]);
+      if (v == null || (v is String && v.trim().isEmpty)) {
+        m.remove(key);
       } else {
-        ks[key] = v.trim();
+        m[key] = v is String ? v.trim() : v;
       }
-      o['keys'] = ks;
+      o[map] = m;
       x['remote'] = o;
-    }, coalesce: 'rk-$id-$key');
+    }, coalesce: co);
+    void setCustom(String cid, String field, String v, {String? co}) => d.editWidget(id, (x) {
+      final o = jsonMap(x['remote']);
+      final list = jsonList(o['custom']);
+      for (final it in list) {
+        if (it['id'] == cid) it[field] = v.trim();
+      }
+      o['custom'] = list;
+      x['remote'] = o;
+    }, coalesce: co);
     final entity = r['entity'] as String;
     final list = [
       for (final e in d.link?.entities ?? const <HaEntity>[])
@@ -3095,68 +3129,194 @@ class _RemoteSection extends StatelessWidget {
       for (final e in list) (e.id, e.name == e.id ? e.id : '${e.id}   ${e.name}'),
       if (entity.isNotEmpty && list.every((e) => e.id != entity)) (entity, entity),
     ];
-    Widget check(String key, String label) => CheckboxListTile(
-      value: key == 'touchpad' ? r[key] == true : r[key] != false,
-      onChanged: (v) => set(key, v ?? false),
+    Widget check(String label, bool value, ValueChanged<bool> onChanged) => CheckboxListTile(
+      value: value,
+      onChanged: (v) => onChanged(v ?? false),
       title: Text(label),
       dense: true,
       controlAffinity: ListTileControlAffinity.leading,
       contentPadding: EdgeInsets.zero,
     );
+    final custom = remoteCustom(w);
+    // The keys that need a name (Home Assistant) or a value (KNX).
+    final used = remoteKeysUsed(w);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _Section('Remote control', [
-          FieldLabel('Remote *', GaPickerField(value: entity, items: items, onChanged: (v) => set('entity', v.isEmpty ? null : v))),
-          if (list.isEmpty)
-            Text(
-              'No remotes are saved yet. In the Connections tab connect to Home Assistant and click Update Entity.',
-              style: TextStyle(fontSize: 12.5, color: c.warn),
-            ),
-          FieldLabel(
-            'Key names of',
-            EvoDropdown<String>(
-              value: kRemotePresets.containsKey(r['preset']) ? r['preset'] as String : 'Android TV',
-              items: [for (final k in kRemotePresets.keys) (k, k)],
-              onChanged: (v) => set('preset', v),
-            ),
-          ),
-          FieldLabel(
-            'Device (if the remote has several)',
-            SyncedField(
-              value: r['device'] as String,
-              hint: 'optional',
-              onChanged: (v) => set('device', v.trim().isEmpty ? null : v.trim(), co: 'rd-$id'),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Row(
+              children: [
+                Expanded(
+                  child: EvoButton(label: 'KNX', primary: knx, onPressed: () => d.setRemoteSource(id, 'knx')),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: EvoButton(label: 'HA', primary: !knx, onPressed: () => d.setRemoteSource(id, 'ha')),
+                ),
+              ],
             ),
           ),
-          FieldLabel(
-            'Repeat while held',
-            EvoDropdown<int>(
-              value: const [80, 150, 250, 400].contains(r['repeatMs']) ? r['repeatMs'] as int : 150,
-              items: const [(80, 'Fast'), (150, 'Normal'), (250, 'Slow'), (400, 'Very slow')],
-              onChanged: (v) => set('repeatMs', v),
-            ),
-          ),
-        ]),
-        _Section('Shows', [
-          check('dpad', 'The ring (up, down, left, right, OK)'),
-          check('nav', 'Back, Home, Menu'),
-          check('volume', 'Volume'),
-          check('transport', 'Previous, play or pause, next'),
-          check('touchpad', 'A touchpad (swipe and tap)'),
-        ]),
-        _Section('Key names', [
-          Text(
-            'The name that the integration of Home Assistant gives to each key. Check them with your remote; a key without a name is not sent.',
-            style: TextStyle(fontSize: 12.5, color: c.muted),
-          ),
-          const SizedBox(height: 6),
-          for (final k in kRemoteKeys)
+          if (knx) ...[
             FieldLabel(
-              k.$2,
-              SyncedField(value: (keys[k.$1] ?? '').toString(), hint: kRemotePresets[r['preset']]?[k.$1] ?? '', onChanged: (v) => setKey(k.$1, v)),
+              'Addresses',
+              Seg<String>(
+                items: const [('each', 'One for each key'), ('single', 'One for all keys')],
+                value: remoteKnxMode(w),
+                onChanged: (v) => set('knxMode', v == 'single' ? 'single' : null),
+              ),
             ),
+            Hint(
+              remoteKnxMode(w) == 'single'
+                  ? 'Every key sends its own value on the one address (a number, or a text for a text address). Set the value of each key below.'
+                  : 'Assign an address to each key below the settings. A key sends its value (1 unless you change it).',
+            ),
+          ] else ...[
+            FieldLabel('Remote *', GaPickerField(value: entity, items: items, onChanged: (v) => set('entity', v.isEmpty ? null : v))),
+            if (list.isEmpty)
+              Text(
+                'No remotes are saved yet. In the Connections tab connect to Home Assistant and click Update Entity.',
+                style: TextStyle(fontSize: 12.5, color: c.warn),
+              ),
+            FieldLabel(
+              'Key names of',
+              EvoDropdown<String>(
+                value: kRemotePresets.containsKey(r['preset']) ? r['preset'] as String : 'Android TV',
+                items: [for (final k in kRemotePresets.keys) (k, k)],
+                onChanged: (v) => set('preset', v),
+              ),
+            ),
+            FieldLabel(
+              'Device (if the remote has several)',
+              SyncedField(
+                value: r['device'] as String,
+                hint: 'optional',
+                onChanged: (v) => set('device', v.trim().isEmpty ? null : v.trim(), co: 'rd-$id'),
+              ),
+            ),
+            FieldLabel(
+              'Repeat while held',
+              EvoDropdown<int>(
+                value: const [80, 150, 250, 400].contains(r['repeatMs']) ? r['repeatMs'] as int : 150,
+                items: const [(80, 'Fast'), (150, 'Normal'), (250, 'Slow'), (400, 'Very slow')],
+                onChanged: (v) => set('repeatMs', v),
+              ),
+            ),
+          ],
         ]),
+        _Section('Top bar', [
+          check('Title (the display name)', remoteShowTop(w, 'Title'), (v) => set('topTitle', v ? null : false)),
+          check('Power on', remoteShowTop(w, 'PowerOn'), (v) => set('topPowerOn', v ? null : false)),
+          check('Power off', remoteShowTop(w, 'PowerOff'), (v) => set('topPowerOff', v ? null : false)),
+        ]),
+        _Section('Keys', [
+          for (final e in kRemoteElements) check(e.$2, !remoteHidden(w, e.$1), (v) => setIn('hide', e.$1, !v)),
+          FieldLabel('Columns', Seg<int>(items: const [(3, '3'), (4, '4'), (5, '5')], value: remoteCols(w), onChanged: (v) => set('cols', v == 3 ? null : v))),
+          EvoButton(label: 'Arrange the keys…', icon: Icons.open_with, onPressed: () => showRemoteLayout(context, d, id)),
+        ]),
+        _Section('Custom buttons', [
+          for (final cb in custom) ...[
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    (cb['label'] ?? '').toString().isEmpty ? 'Custom button' : cb['label'].toString(),
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Delete the button',
+                  icon: Icon(Icons.delete_outline, color: c.danger),
+                  onPressed: () => d.editWidget(id, (x) {
+                    final o = jsonMap(x['remote']);
+                    final cid = cb['id'];
+                    o['custom'] = [
+                      for (final it in jsonList(o['custom']))
+                        if (it['id'] != cid) it,
+                    ];
+                    for (final m in ['layout', 'hide', 'values']) {
+                      final mm = jsonMap(o[m]);
+                      mm.remove(cid);
+                      o[m] = mm;
+                    }
+                    final b = jsonMap(x['bind']);
+                    b.remove('rk_$cid');
+                    x['bind'] = b;
+                    x['remote'] = o;
+                  }),
+                ),
+              ],
+            ),
+            FieldLabel(
+              'Name',
+              SyncedField(
+                value: (cb['label'] ?? '').toString(),
+                onChanged: (v) => setCustom(cb['id'].toString(), 'label', v, co: 'rcl-$id-${cb['id']}'),
+              ),
+            ),
+            FieldLabel(
+              'Icon',
+              IconField(d: d, value: (cb['icon'] ?? '').toString(), scope: IconScope.widget, onChanged: (v) => setCustom(cb['id'].toString(), 'icon', v)),
+            ),
+            if (!knx)
+              FieldLabel(
+                'Key name',
+                SyncedField(
+                  value: (cb['cmd'] ?? '').toString(),
+                  hint: 'as the remote names it',
+                  onChanged: (v) => setCustom(cb['id'].toString(), 'cmd', v, co: 'rcc-$id-${cb['id']}'),
+                ),
+              ),
+            const Divider(),
+          ],
+          EvoButton(
+            label: 'Add a button',
+            icon: Icons.add,
+            onPressed: () => d.editWidget(id, (x) {
+              final o = jsonMap(x['remote']);
+              final list = jsonList(o['custom']);
+              list.add({'id': uid('rc_'), 'label': 'Button ${list.length + 1}', 'icon': '', 'cmd': ''});
+              o['custom'] = list;
+              x['remote'] = o;
+            }),
+          ),
+        ]),
+        if (knx)
+          _Section('Values sent', [
+            Text(
+              remoteKnxMode(w) == 'single' ? 'The value that tells the device which key was pressed.' : 'The value a key sends on its address. Empty = 1.',
+              style: TextStyle(fontSize: 12.5, color: c.muted),
+            ),
+            const SizedBox(height: 6),
+            for (final k in used)
+              FieldLabel(
+                remoteKeyLabel(w, k),
+                SyncedField(
+                  value: (jsonMap(raw['values'])[k] ?? '').toString(),
+                  hint: remoteKnxValue(w, k),
+                  onChanged: (v) => setIn('values', k, v, co: 'rv-$id-$k'),
+                ),
+              ),
+          ])
+        else
+          _Section('Key names', [
+            Text(
+              'The name that the integration of Home Assistant gives to each key. Check them with your remote; a key without a name is not sent.',
+              style: TextStyle(fontSize: 12.5, color: c.muted),
+            ),
+            const SizedBox(height: 6),
+            for (final k in kRemoteKeys)
+              if (k.$1 != 'power')
+                FieldLabel(
+                  k.$2,
+                  SyncedField(
+                    value: (keys[k.$1] ?? '').toString(),
+                    hint: kRemotePresets[r['preset']]?[k.$1] ?? '',
+                    onChanged: (v) => setIn('keys', k.$1, v, co: 'rk-$id-${k.$1}'),
+                  ),
+                ),
+          ]),
       ],
     );
   }
