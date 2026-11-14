@@ -106,6 +106,18 @@ class _RemoteLayoutDialogState extends State<_RemoteLayoutDialog> {
     x['remote'] = o;
   });
 
+  void _setBgSize(String part, int pct) => _edit((x) {
+    final o = jsonMap(x['remote']);
+    final m = jsonMap(o['bgsize']);
+    if (pct >= 100) {
+      m.remove(part);
+    } else {
+      m[part] = pct;
+    }
+    o['bgsize'] = m;
+    x['remote'] = o;
+  }, coalesce: 'rbs-${widget.id}-$part');
+
   void _setSpan(String part, int cw, int rh) => _edit((x) {
     final o = jsonMap(x['remote']);
     final m = jsonMap(o['span']);
@@ -161,7 +173,7 @@ class _RemoteLayoutDialogState extends State<_RemoteLayoutDialog> {
       for (final it in jsonList(o['custom']))
         if (it['id'] != cid) it,
     ];
-    for (final m in ['layout', 'hide', 'values', 'span', 'scale', 'kbg', 'kcolor']) {
+    for (final m in ['layout', 'hide', 'values', 'span', 'scale', 'kbg', 'kcolor', 'bgsize']) {
       final mm = jsonMap(o[m]);
       mm.remove(cid);
       o[m] = mm;
@@ -318,10 +330,11 @@ class _RemoteLayoutDialogState extends State<_RemoteLayoutDialog> {
         final items = remoteItems(w);
         final cols = remoteCols(w);
         final rows = remoteRowCount(w, items);
-        final dialogW = (screen.width - 80).clamp(560.0, 820.0).toDouble();
-        const sideW = 330.0;
-        final cellW = ((dialogW - 48 - sideW - 20) / cols).clamp(56.0, 92.0).toDouble();
-        final cellH = (cellW * 0.8).clamp(44.0, 74.0).toDouble();
+        // The panel of the keys has a fixed size: more columns or rows only make more, smaller cells.
+        const gridW = 360.0, gridH = 400.0, sideW = 310.0;
+        final dialogW = (gridW + 20 + sideW + 48 + 8).clamp(0.0, screen.width - 48).toDouble();
+        final cellW = gridW / cols;
+        final cellH = gridH / rows;
         final th = jsonMap(d.doc['theme']);
         final pal = AppPalette.of(d.previewTheme ?? (th['mode'] ?? 'light').toString()).copyWith(
           tileOpacity: ((th['cardOpacity'] as num?) ?? 100).toDouble().clamp(0, 100) / 100,
@@ -398,8 +411,8 @@ class _RemoteLayoutDialogState extends State<_RemoteLayoutDialog> {
           child: MouseRegion(
             cursor: _drag != null ? SystemMouseCursors.grabbing : SystemMouseCursors.grab,
             child: Container(
-              width: cols * cellW,
-              height: rows * cellH,
+              width: gridW,
+              height: gridH,
               decoration: BoxDecoration(
                 color: c.paper,
                 border: Border.all(color: c.line),
@@ -465,23 +478,11 @@ class _RemoteLayoutDialogState extends State<_RemoteLayoutDialog> {
           t,
           style: TextStyle(fontSize: kUiText, fontWeight: FontWeight.w600, color: c.ink),
         );
-        final side = SizedBox(
-          width: sideW,
+        final keyPanel = SizedBox(
+          width: gridW,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  title('Columns'),
-                  const SizedBox(width: 8),
-                  _Step(value: cols, min: 3, max: 6, onChanged: (v) => _setSize('cols', v)),
-                  const SizedBox(width: 22),
-                  title('Rows'),
-                  const SizedBox(width: 8),
-                  _Step(value: rows, min: remoteRows(items), max: 24, onChanged: (v) => _setSize('rows', v)),
-                ],
-              ),
-              const SizedBox(height: 14),
               if (sel == null)
                 Text('Click a key to change its size, its background and its icon.', style: TextStyle(fontSize: 12.5, color: c.muted))
               else ...[
@@ -549,6 +550,23 @@ class _RemoteLayoutDialogState extends State<_RemoteLayoutDialog> {
                 ),
                 if (remoteKeyBg(w, sel) != 'transparent') ...[
                   const SizedBox(height: 10),
+                  title('Background size'),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Slider(value: remoteBgSize(w, sel).toDouble(), min: 40, max: 100, divisions: 60, onChanged: (v) => _setBgSize(sel, v.round())),
+                      ),
+                      SizedBox(
+                        width: 48,
+                        child: Text(
+                          '${remoteBgSize(w, sel)} %',
+                          textAlign: TextAlign.right,
+                          style: TextStyle(fontSize: kUiText, color: c.muted),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
                   title(remoteKeyBg(w, sel) == 'outline' ? 'Border color' : 'Color'),
                   const SizedBox(height: 6),
                   ColorPicker(value: own ?? '', onChanged: (v) => _setColor(sel, v)),
@@ -585,7 +603,26 @@ class _RemoteLayoutDialogState extends State<_RemoteLayoutDialog> {
                   ),
                 ],
               ],
-              const SizedBox(height: 12),
+            ],
+          ),
+        );
+        final side = SizedBox(
+          width: sideW,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  title('Columns'),
+                  const SizedBox(width: 8),
+                  _Step(value: cols, min: 3, max: 6, onChanged: (v) => _setSize('cols', v)),
+                  const SizedBox(width: 22),
+                  title('Rows'),
+                  const SizedBox(width: 8),
+                  _Step(value: rows, min: remoteRows(items), max: 24, onChanged: (v) => _setSize('rows', v)),
+                ],
+              ),
+              const SizedBox(height: 14),
               ..._sections(c, w),
             ],
           ),
@@ -611,7 +648,14 @@ class _RemoteLayoutDialogState extends State<_RemoteLayoutDialog> {
                   const SizedBox(height: 12),
                   Flexible(
                     child: SingleChildScrollView(
-                      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [grid, const SizedBox(width: 20), side]),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [grid, const SizedBox(height: 14), keyPanel]),
+                          const SizedBox(width: 20),
+                          side,
+                        ],
+                      ),
                     ),
                   ),
                   const SizedBox(height: 8),

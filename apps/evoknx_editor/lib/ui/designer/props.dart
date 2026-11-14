@@ -2900,7 +2900,16 @@ class _MediaSection extends StatelessWidget {
           ),
         ]),
         _Section('Sizes', [
-          if (!knx) size('titleSize', 'Title', label, 8, 40),
+          if (!knx)
+            CheckboxListTile(
+              value: w['showLabel'] != false,
+              onChanged: (v) => d.editWidget(id, (x) => x['showLabel'] = v ?? true),
+              title: const Text('Show the display name'),
+              dense: true,
+              controlAffinity: ListTileControlAffinity.leading,
+              contentPadding: EdgeInsets.zero,
+            ),
+          if (!knx) size('titleSize', 'Display name', label, 8, 40),
           size('songSize', knx ? 'Name' : 'Song', label, 8, 40),
           if (!knx) size('detailSize', 'Artist', label - 2, 8, 32),
           size('picSize', 'Picture', 64, 24, 200),
@@ -2909,7 +2918,7 @@ class _MediaSection extends StatelessWidget {
           size('volIcon', 'Volume icon', 20, 12, 40),
           size('volWidth', 'Volume bar width', 100, 20, 100, unit: '%'),
           size('volThick', 'Volume bar thickness', 3, 1, 12),
-          size('rowGap', 'Space between the rows', 8, 0, 40),
+          size('rowGap', 'Space above and below the volume', 8, 0, 40),
           if (sizeKeys.any((k) => m[k] != null))
             Align(
               alignment: Alignment.centerLeft,
