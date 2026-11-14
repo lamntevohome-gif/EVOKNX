@@ -19,7 +19,9 @@ class ZipReader {
   final Uint8List? _pwd;
   final Map<String, _Entry> _entries = {};
 
-  ZipReader(Uint8List bytes, {Uint8List? password}) : _b = bytes, _pwd = password {
+  ZipReader(Uint8List bytes, {Uint8List? password})
+      : _b = bytes,
+        _pwd = password {
     final bd = ByteData.sublistView(_b);
     var eocd = -1;
     for (var i = _b.length - 22; i >= 0 && i >= _b.length - 65557; i--) {

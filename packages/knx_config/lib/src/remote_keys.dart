@@ -170,6 +170,8 @@ bool switchRemoteSource(Json w, String source) {
 /// The parts of the card that are placed on its grid (the top bar with the title and the power keys is fixed).
 /// "dpad" is the ring (up, down, left, right, OK), "touchpad" is the pad; the others are one key each.
 const List<(String, String)> kRemoteElements = [
+  ('poweron', 'Power on'),
+  ('poweroff', 'Power off'),
   ('dpad', 'Ring (up, down, left, right, OK)'),
   ('touchpad', 'Touchpad'),
   ('back', 'Back'),
@@ -188,6 +190,14 @@ const List<String> kRemoteRing = ['up', 'down', 'left', 'right', 'ok'];
 
 /// The size in cells of the parts that are bigger than one cell.
 const Map<String, (int, int)> kRemoteSpan = {'dpad': (3, 3), 'touchpad': (3, 2)};
+
+/// The size in cells of a part: the one chosen in the window that arranges the keys, or the usual one.
+(int, int) remoteSpan(Json w, String id) {
+  final own = jsonMap(jsonMap(jsonMap(w['remote'])['span'])[id]);
+  final d = kRemoteSpan[id] ?? (1, 1);
+  final cw = (own['w'] as num?)?.toInt() ?? d.$1, rh = (own['h'] as num?)?.toInt() ?? d.$2;
+  return (cw.clamp(1, 6), rh.clamp(1, 8));
+}
 
 /// A part of the card on its grid: [id] (an element, or the id of a custom button), the cell (column [c], row [r]) and
 /// its size in cells.
@@ -210,6 +220,10 @@ bool remoteHidden(Json w, String id) {
   final own = jsonMap(r['hide'])[id];
   if (own is bool) return own;
   switch (id) {
+    case 'poweron':
+      return r['topPowerOn'] == false;
+    case 'poweroff':
+      return r['topPowerOff'] == false;
     case 'dpad':
       return r['dpad'] == false;
     case 'touchpad':
@@ -230,7 +244,7 @@ bool remoteHidden(Json w, String id) {
   return false;
 }
 
-/// Whether the top bar shows the title / the power on key / the power off key.
+/// Whether the top bar shows the title (the power keys are keys of the grid).
 bool remoteShowTop(Json w, String part) {
   final v = jsonMap(w['remote'])['top$part'];
   return v != false;
@@ -248,7 +262,7 @@ List<RemoteItem> remoteItems(Json w) {
       if (!remoteHidden(w, (c['id'] ?? '').toString())) (c['id'] ?? '').toString(),
   ];
   (int, int) span(String id) {
-    final s = kRemoteSpan[id] ?? (1, 1);
+    final s = remoteSpan(w, id);
     return (s.$1.clamp(1, cols), s.$2);
   }
 
@@ -329,8 +343,6 @@ List<String> remoteKeysUsed(Json w) {
     if (!out.contains(k)) out.add(k);
   }
 
-  if (remoteShowTop(w, 'PowerOn')) add('poweron');
-  if (remoteShowTop(w, 'PowerOff')) add('poweroff');
   for (final i in remoteItems(w)) {
     if (i.id == 'dpad' || i.id == 'touchpad') {
       kRemoteRing.forEach(add);

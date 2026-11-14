@@ -302,7 +302,7 @@ class _MediaCardState extends State<MediaCard> {
     if (bc.maxHeight.isFinite) {
       final textsH = (showTitle ? titleSize * 1.4 : 0) + (knx ? titleSize : songSize) * 1.4 + (!knx && m.artist.isNotEmpty ? detailSize * 1.4 : 0);
       double need(double g, double p, double k) {
-        final topH = math.max(textsH + g / 2 * (lines.length - 1), showCover ? p : 0.0);
+        final topH = math.max(textsH + (g * 0.5 + 3) * (lines.length - 1), showCover ? p : 0.0);
         final volH = showVolume ? math.max(volIcon * k + 6, 26.0) : 0.0;
         final ctlH = showControls ? playSize * k + 8 : 0.0;
         return topH + volH + ctlH + (showVolume && showControls ? g : 0.0) + 4;
@@ -444,7 +444,7 @@ class _MediaCardState extends State<MediaCard> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  for (var i = 0; i < lines.length; i++) ...[if (i > 0) SizedBox(height: gap / 2), lines[i]],
+                  for (var i = 0; i < lines.length; i++) ...[if (i > 0) SizedBox(height: (gap * 0.5 + 3)), lines[i]],
                 ],
               ),
             ),

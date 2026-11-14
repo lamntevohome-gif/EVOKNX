@@ -90,7 +90,8 @@ void main() {
   final kp = zip({
     'knx_master.xml': '<KNX/>',
     'P-0A1B/project.xml': '<KNX><Project><ProjectInformation Name="Nhà anh Nam" GroupAddressStyle="ThreeLevel"/></Project></KNX>',
-    'P-0A1B/0.xml': '<KNX><GroupAddress Id="x" Address="2305" Name="Đèn trần" DatapointType="DPST-1-1"/><GroupAddress Address="6145" Name="Nhiệt độ" DatapointType="DPST-9-1"/></KNX>',
+    'P-0A1B/0.xml':
+        '<KNX><GroupAddress Id="x" Address="2305" Name="Đèn trần" DatapointType="DPST-1-1"/><GroupAddress Address="6145" Name="Nhiệt độ" DatapointType="DPST-9-1"/></KNX>',
   });
   final rk = parseEts(kp, fileName: 'a.knxproj');
   check(rk.projectName == 'Nhà anh Nam' && rk.items.map((e) => e.address).join(',') == '1/1/1,3/0/1', 'knxproj ${rk.items.map((e) => e.address)}');
@@ -143,8 +144,9 @@ void main() {
   final rm = makeWidget('remote', 0, 0);
   void rset(String k, Object v) => rm['remote'] = <String, dynamic>{...Map<String, dynamic>.from(rm['remote'] as Map), k: v};
   var its = remoteItems(rm);
-  check(its.first.id == 'dpad' && its.first.c == 0 && its.first.r == 0 && its.first.rh == 3, 'remote: the ring is placed first, 3 x 3');
-  check(!its.any((i) => i.id == 'touchpad') && its.length == 10, 'remote: the touchpad is hidden by default, 10 parts shown');
+  check(its.first.id == 'poweron' && its.first.r == 0 && its[1].id == 'poweroff' && its[1].r == 0, 'remote: On and Off are in the first row');
+  check(its.firstWhere((i) => i.id == 'dpad').r == 1 && its.firstWhere((i) => i.id == 'dpad').rh == 3, 'remote: the ring is below, 3 x 3');
+  check(!its.any((i) => i.id == 'touchpad') && its.length == 12, 'remote: the touchpad is hidden by default, 12 parts shown');
   bool overlap(List<RemoteItem> l) {
     for (var a = 0; a < l.length; a++) {
       for (var b = a + 1; b < l.length; b++) {
@@ -154,7 +156,7 @@ void main() {
     return false;
   }
 
-  check(!overlap(its) && remoteRows(its) == 6, 'remote: no overlap, 6 rows');
+  check(!overlap(its) && remoteRows(its) == 7, 'remote: no overlap, 7 rows');
   rset('hide', {'back': true});
   rset('custom', [
     {'id': 'rc_1', 'label': 'Netflix', 'icon': '', 'cmd': 'NETFLIX'},

@@ -75,24 +75,10 @@ class RemoteKeyFace extends StatelessWidget {
       );
     }
     if (id == 'poweron' || id == 'poweroff') {
-      final on = id == 'poweron';
-      final color = on ? p.accent : p.muted;
-      return Center(
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: remoteKeyDeco(w, p, id, radius: p.radius * 0.5),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              remoteKeyIcon(w, id) != null ? iconWidget(remoteKeyIcon(w, id), 16 * z, color) : Icon(Icons.power_settings_new, size: 16 * z, color: color),
-              const SizedBox(width: 3),
-              Text(
-                on ? 'On' : 'Off',
-                style: TextStyle(fontSize: fs(w, 'labelSize') - 3, fontWeight: FontWeight.w600, color: p.ink),
-              ),
-            ],
-          ),
-        ),
+      return Container(
+        margin: const EdgeInsets.all(3),
+        decoration: remoteKeyDeco(w, p, id, radius: p.radius * 0.5),
+        child: Center(child: _powerFace(w, p, id, z, true, id == 'poweron' ? p.accent : p.muted)),
       );
     }
     if (id == 'touchpad') {
@@ -137,6 +123,25 @@ class RemoteKeyFace extends StatelessWidget {
     );
   }
 }
+
+/// The inside of an On or Off key: the power sign (or the chosen icon) and the name.
+Widget _powerFace(Json w, AppPalette pal, String key, double z, bool on, Color color) => Row(
+  mainAxisSize: MainAxisSize.min,
+  children: [
+    remoteKeyIcon(w, key) != null
+        ? iconWidget(remoteKeyIcon(w, key), 18 * z, on ? color : pal.line)
+        : Icon(Icons.power_settings_new, size: 18 * z, color: on ? color : pal.line),
+    const SizedBox(width: 3),
+    Flexible(
+      child: Text(
+        key == 'poweron' ? 'On' : 'Off',
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(fontSize: fs(w, 'labelSize') - 3, fontWeight: FontWeight.w600, color: on ? pal.ink : pal.line),
+      ),
+    ),
+  ],
+);
 
 class RemoteCard extends StatefulWidget {
   const RemoteCard({super.key, required this.w, required this.pal, this.host, this.act});
@@ -239,8 +244,7 @@ class _RemoteCardState extends State<RemoteCard> {
     }
     final title = (w['label'] ?? '').toString().trim();
     final showTitle = remoteShowTop(w, 'Title') && title.isNotEmpty && w['showLabel'] != false;
-    final showOn = remoteShowTop(w, 'PowerOn'), showOff = remoteShowTop(w, 'PowerOff');
-    final top = showTitle || showOn || showOff;
+    final top = showTitle;
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: raisedDecoration(
@@ -276,9 +280,6 @@ class _RemoteCardState extends State<RemoteCard> {
                                 )
                               : const SizedBox.shrink(),
                         ),
-                        if (showOn) _powerKey('poweron', 'On', pal.accent),
-                        if (showOn && showOff) const SizedBox(width: 6),
-                        if (showOff) _powerKey('poweroff', 'Off', pal.muted),
                       ],
                     ),
                   ),
@@ -288,8 +289,11 @@ class _RemoteCardState extends State<RemoteCard> {
     );
   }
 
-  Widget _powerKey(String key, String text, Color color) {
+  /// The On and Off keys: a key of the grid with the name of the key and the power sign.
+  Widget _powerKey(String key, double z) {
     final pal = _pal;
+    final isOn = key == 'poweron';
+    final color = isOn ? pal.accent : pal.muted;
     final on = _has(key) || !_live;
     final pressed = _down == key;
     return Listener(
@@ -297,21 +301,9 @@ class _RemoteCardState extends State<RemoteCard> {
       onPointerUp: (_) => _release(),
       onPointerCancel: (_) => _release(),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        margin: const EdgeInsets.all(3),
         decoration: remoteKeyDeco(widget.w, pal, key, pressed: pressed, pressedColor: color, radius: pal.radius * 0.5),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            remoteKeyIcon(widget.w, key) != null
-                ? iconWidget(remoteKeyIcon(widget.w, key), 16 * remoteScale(widget.w, key) / 100, on ? color : pal.line)
-                : Icon(Icons.power_settings_new, size: 16 * remoteScale(widget.w, key) / 100, color: on ? color : pal.line),
-            const SizedBox(width: 3),
-            Text(
-              text,
-              style: TextStyle(fontSize: fs(widget.w, 'labelSize') - 3, fontWeight: FontWeight.w600, color: on ? pal.ink : pal.line),
-            ),
-          ],
-        ),
+        child: Center(child: _powerFace(widget.w, pal, key, z, on, color)),
       ),
     );
   }
@@ -349,6 +341,7 @@ class _RemoteCardState extends State<RemoteCard> {
     if (i.id == 'dpad') {
       return LayoutBuilder(builder: (context, bc) => Center(child: _dpad(math.max(20.0, math.min(bc.maxWidth, bc.maxHeight) - 6), z)));
     }
+    if (i.id == 'poweron' || i.id == 'poweroff') return _powerKey(i.id, z);
     if (i.id == 'touchpad') return _touchpad(z);
     final custom = remoteCustom(widget.w).where((c) => c['id'] == i.id).firstOrNull;
     if (custom != null) return _customButton(custom, z);
