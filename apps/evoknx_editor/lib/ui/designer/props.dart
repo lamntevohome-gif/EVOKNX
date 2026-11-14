@@ -3197,10 +3197,26 @@ class _RemoteSection extends StatelessWidget {
             ),
           ],
         ]),
-        _Section('Keys', [
-          Hint('The title, which keys are shown, their size, color and icon, and the custom buttons are set in the window below.'),
-          EvoButton(label: 'Arrange the keys…', icon: Icons.open_with, onPressed: () => showRemoteLayout(context, d, id)),
+        _Section('Display name', [
+          CheckboxListTile(
+            value: remoteShowTop(w, 'Title'),
+            onChanged: (v) => set('topTitle', v == true ? null : false),
+            title: const Text('Show the display name'),
+            dense: true,
+            controlAffinity: ListTileControlAffinity.leading,
+            contentPadding: EdgeInsets.zero,
+          ),
+          if (remoteShowTop(w, 'Title'))
+            FieldLabel(
+              'Position',
+              Seg<String>(
+                items: const [('left', 'Left'), ('center', 'Center'), ('right', 'Right')],
+                value: remoteTitleAlign(w),
+                onChanged: (v) => set('titleAlign', v == 'left' ? null : v),
+              ),
+            ),
         ]),
+        _Section('Keys', [EvoButton(label: 'Arrange the keys…', icon: Icons.open_with, onPressed: () => showRemoteLayout(context, d, id))]),
         if (knx)
           _Section('Values sent', [
             Text(

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart' hide Text;
-import 'package:evoknx_ui/evoknx_ui.dart' show AppPalette, RemoteKeyFace, Text, iconWidget, liftOf;
+import 'package:flutter/services.dart';
+import 'package:evoknx_ui/evoknx_ui.dart' show AppPalette, RemoteKeyFace, Text, iconWidget, liftOf, remoteDefaultIconWidget;
 import 'package:knx_config/knx_config.dart';
 
 import '../../app/theme.dart';
@@ -8,8 +9,8 @@ import 'designer.dart';
 import 'icon_picker.dart';
 import 'props.dart' show ColorPicker;
 
-/// Opens the window where the keys of a remote control card are dragged to the cell they should take, and where the size
-/// of the icon of each key is set.
+/// Opens the window where the keys of a remote control card are arranged (dragged to a cell, one or several at a time),
+/// and where their size, background, color, corner radius and icon are set.
 Future<void> showRemoteLayout(BuildContext context, Designer d, String widgetId) => showDialog<void>(
   context: context,
   builder: (_) => _RemoteLayoutDialog(d: d, id: widgetId),
@@ -25,13 +26,17 @@ class _RemoteLayoutDialog extends StatefulWidget {
 }
 
 class _RemoteLayoutDialogState extends State<_RemoteLayoutDialog> {
-  /// The key that is selected (its icon size is shown on the right).
+  /// The keys that are selected (the last one clicked is [_sel]; the settings below the grid show its values).
+  final Set<String> _sels = {};
   String? _sel;
 
-  /// The key that is being dragged, where the pointer is (in the grid) and where on the key it took hold.
+  /// The key that is being dragged, where the pointer is (in the grid) and where it was pressed.
   String? _drag;
-  Offset _pos = Offset.zero, _grab = Offset.zero, _start = Offset.zero;
+  Offset _pos = Offset.zero, _start = Offset.zero;
   bool _moved = false;
+
+  /// A press on a key of a group that was not dragged makes that key the only one selected.
+  bool _collapse = false;
 
   Designer get d => widget.d;
 
@@ -54,6 +59,169 @@ class _RemoteLayoutDialogState extends State<_RemoteLayoutDialog> {
   }
 
   Json? _card() => allWidgets(d.doc).where((x) => x['id'] == widget.id).firstOrNull;
+
+  /// Changes the card wherever it is in the project (the page that is open does not matter).
+  void _edit(void Function(Json w) fn, {String? coalesce}) {
+    if (_card() == null) return;
+    try {
+      d.p.mutate((doc) {
+        final x = allWidgets(doc).where((e) => e['id'] == widget.id).firstOrNull;
+        if (x != null) fn(x);
+      }, coalesce: coalesce);
+    } catch (e) {
+      if (mounted) toast(context, 'Could not change the card: $e');
+    }
+    if (mounted) setState(() {});
+  }
+
+  Json _remote(Json x) => jsonMap(x['remote']);
+
+  /// Sets (or, with null, removes) the value of every selected key in the map [key] of the settings of the card.
+  void _map(String key, Object? v, {String? coalesce}) {
+    final ids = _sels.toList();
+    _edit((x) {
+      final o = _remote(x);
+      final m = jsonMap(o[key]);
+      for (final id in ids) {
+        if (v == null) {
+          m.remove(id);
+        } else {
+          m[id] = v;
+        }
+      }
+      o[key] = m;
+      x['remote'] = o;
+    }, coalesce: coalesce == null ? null : 'r$coalesce-${widget.id}-${ids.join(',')}');
+  }
+
+  void _setScale(int pct) => _map('scale', pct == 100 ? null : pct, coalesce: 'scale');
+  void _setBgSize(int pct) => _map('bgsize', pct >= 100 ? null : pct, coalesce: 'bgsize');
+  void _setRadius(int? r) => _map('kradius', r, coalesce: 'radius');
+  void _setBg(String mode) => _map('kbg', mode == 'default' ? null : mode);
+  void _setColor(String? hex) => _map('kcolor', hex);
+
+  void _setSpan(int cw, int rh) {
+    final ids = _sels.toList();
+    _edit((x) {
+      final o = _remote(x);
+      final m = jsonMap(o['span']);
+      for (final id in ids) {
+        final dflt = kRemoteSpan[id] ?? (1, 1);
+        if (cw == dflt.$1 && rh == dflt.$2) {
+          m.remove(id);
+        } else {
+          m[id] = <String, dynamic>{'w': cw, 'h': rh};
+        }
+      }
+      o['span'] = m;
+      x['remote'] = o;
+    });
+  }
+
+  /// The icon of the selected keys: a custom button keeps it in its own entry, the others in remote.icons.
+  void _setIcon(String? key) {
+    final ids = _sels.where((e) => e != 'dpad' && e != 'touchpad').toList();
+    _edit((x) {
+      final o = _remote(x);
+      final cu = remoteCustom(x);
+      final m = jsonMap(o['icons']);
+      for (final id in ids) {
+        final i = cu.indexWhere((e) => e['id'] == id);
+        if (i >= 0) {
+          final e = Map<String, dynamic>.from(cu[i]);
+          if (key == null) {
+            e.remove('icon');
+          } else {
+            e['icon'] = key;
+          }
+          cu[i] = e;
+        } else if (key == null) {
+          m.remove(id);
+        } else {
+          m[id] = key;
+        }
+      }
+      o['custom'] = cu;
+      o['icons'] = m;
+      x['remote'] = o;
+    });
+  }
+
+  String? _iconOf(Json w, String part) {
+    final e = remoteCustom(w).where((x) => x['id'] == part).firstOrNull;
+    if (e != null) {
+      final k = (e['icon'] ?? '').toString();
+      return k.isEmpty ? null : k;
+    }
+    return remoteKeyIcon(w, part);
+  }
+
+  void _setSize(String key, int v) => _edit((x) {
+    final o = _remote(x);
+    o[key] = v;
+    x['remote'] = o;
+  });
+
+  void _setHide(String part, bool hide) => _edit((x) {
+    final o = _remote(x);
+    final m = jsonMap(o['hide']);
+    m[part] = hide;
+    o['hide'] = m;
+    x['remote'] = o;
+  });
+
+  void _setCustom(String cid, String field, String v) => _edit((x) {
+    final o = _remote(x);
+    final list = jsonList(o['custom']);
+    for (final it in list) {
+      if (it['id'] == cid) it[field] = v.trim();
+    }
+    o['custom'] = list;
+    x['remote'] = o;
+  }, coalesce: 'rc-${widget.id}-$cid-$field');
+
+  void _addCustom() => _edit((x) {
+    final o = _remote(x);
+    final list = jsonList(o['custom']);
+    list.add(<String, dynamic>{'id': uid('rc_'), 'label': 'Button ${list.length + 1}', 'icon': '', 'cmd': ''});
+    o['custom'] = list;
+    x['remote'] = o;
+  });
+
+  void _delCustom(Iterable<String> cids) {
+    final gone = cids.toSet();
+    if (gone.isEmpty) return;
+    _sels.removeAll(gone);
+    if (_sel != null && gone.contains(_sel)) _sel = _sels.firstOrNull;
+    _edit((x) {
+      final o = _remote(x);
+      o['custom'] = [
+        for (final it in jsonList(o['custom']))
+          if (!gone.contains(it['id'])) it,
+      ];
+      for (final m in ['layout', 'hide', 'values', 'span', 'scale', 'kbg', 'kcolor', 'bgsize', 'kradius', 'icons']) {
+        final mm = jsonMap(o[m]);
+        for (final g in gone) {
+          mm.remove(g);
+        }
+        o[m] = mm;
+      }
+      final b = jsonMap(x['bind']);
+      for (final g in gone) {
+        b.remove('rk_$g');
+      }
+      x['bind'] = b;
+      x['remote'] = o;
+    });
+  }
+
+  void _apply(Map<String, (int, int)> pos) => _edit((x) {
+    final o = _remote(x);
+    o['layout'] = {
+      for (final e in pos.entries) e.key: {'c': e.value.$1, 'r': e.value.$2},
+    };
+    x['remote'] = o;
+  });
 
   /// Where every key would be if [item] went to the cell ([c], [r]): a free place, or a swap with one key of the same size.
   /// Null when there is no room there.
@@ -78,245 +246,24 @@ class _RemoteLayoutDialogState extends State<_RemoteLayoutDialog> {
     return pos;
   }
 
-  void _apply(Map<String, (int, int)> pos) => _edit((x) {
-    final o = jsonMap(x['remote']);
-    o['layout'] = {
-      for (final e in pos.entries) e.key: {'c': e.value.$1, 'r': e.value.$2},
-    };
-    x['remote'] = o;
-  });
-
-  /// Changes the card wherever it is in the project (the page that is open does not matter).
-  void _edit(void Function(Json w) fn, {String? coalesce}) {
-    if (_card() == null) return;
-    try {
-      d.p.mutate((doc) {
-        final x = allWidgets(doc).where((e) => e['id'] == widget.id).firstOrNull;
-        if (x != null) fn(x);
-      }, coalesce: coalesce);
-    } catch (e) {
-      if (mounted) toast(context, 'Could not change the card: $e');
+  /// The selected keys all moved by ([dc], [dr]) cells: only when they stay in the grid and on free cells.
+  Map<String, (int, int)>? _planGroup(Json w, List<RemoteItem> group, int dc, int dr, int rows) {
+    final items = remoteItems(w);
+    final cols = remoteCols(w);
+    final ids = {for (final g in group) g.id};
+    for (final g in group) {
+      if (g.c + dc < 0 || g.c + g.cw + dc > cols || g.r + dr < 0 || g.r + g.rh + dr > rows) return null;
     }
-    if (mounted) setState(() {});
-  }
-
-  void _setSize(String key, int v) => _edit((x) {
-    final o = jsonMap(x['remote']);
-    o[key] = v;
-    x['remote'] = o;
-  });
-
-  void _setBgSize(String part, int pct) => _edit((x) {
-    final o = jsonMap(x['remote']);
-    final m = jsonMap(o['bgsize']);
-    if (pct >= 100) {
-      m.remove(part);
-    } else {
-      m[part] = pct;
-    }
-    o['bgsize'] = m;
-    x['remote'] = o;
-  }, coalesce: 'rbs-${widget.id}-$part');
-
-  void _setSpan(String part, int cw, int rh) => _edit((x) {
-    final o = jsonMap(x['remote']);
-    final m = jsonMap(o['span']);
-    final d = kRemoteSpan[part] ?? (1, 1);
-    if (cw == d.$1 && rh == d.$2) {
-      m.remove(part);
-    } else {
-      m[part] = <String, dynamic>{'w': cw, 'h': rh};
-    }
-    o['span'] = m;
-    x['remote'] = o;
-  });
-
-  void _set(String k, Object? v) => _edit((x) {
-    final o = jsonMap(x['remote']);
-    if (v == null) {
-      o.remove(k);
-    } else {
-      o[k] = v;
-    }
-    x['remote'] = o;
-  });
-
-  void _setHide(String part, bool hide) => _edit((x) {
-    final o = jsonMap(x['remote']);
-    final m = jsonMap(o['hide']);
-    m[part] = hide;
-    o['hide'] = m;
-    x['remote'] = o;
-  });
-
-  void _setCustom(String cid, String field, String v) => _edit((x) {
-    final o = jsonMap(x['remote']);
-    final list = jsonList(o['custom']);
-    for (final it in list) {
-      if (it['id'] == cid) it[field] = v.trim();
-    }
-    o['custom'] = list;
-    x['remote'] = o;
-  }, coalesce: 'rc-${widget.id}-$cid-$field');
-
-  void _addCustom() => _edit((x) {
-    final o = jsonMap(x['remote']);
-    final list = jsonList(o['custom']);
-    list.add(<String, dynamic>{'id': uid('rc_'), 'label': 'Button ${list.length + 1}', 'icon': '', 'cmd': ''});
-    o['custom'] = list;
-    x['remote'] = o;
-  });
-
-  void _delCustom(String cid) => _edit((x) {
-    final o = jsonMap(x['remote']);
-    o['custom'] = [
-      for (final it in jsonList(o['custom']))
-        if (it['id'] != cid) it,
-    ];
-    for (final m in ['layout', 'hide', 'values', 'span', 'scale', 'kbg', 'kcolor', 'bgsize']) {
-      final mm = jsonMap(o[m]);
-      mm.remove(cid);
-      o[m] = mm;
-    }
-    final b = jsonMap(x['bind']);
-    b.remove('rk_$cid');
-    x['bind'] = b;
-    x['remote'] = o;
-  });
-
-  /// The title of the top bar, which keys are shown, and the custom buttons: what the properties panel used to hold.
-  List<Widget> _sections(EvoColors c, Json w) {
-    final knx = remoteIsKnx(w);
-    Widget head(String t) => Padding(
-      padding: const EdgeInsets.only(top: 6, bottom: 4),
-      child: Text(
-        t,
-        style: TextStyle(fontSize: kUiText, fontWeight: FontWeight.w600, color: c.ink),
-      ),
-    );
-    Widget check(String label, bool value, ValueChanged<bool> onChanged) => CheckboxListTile(
-      value: value,
-      onChanged: (v) => onChanged(v ?? false),
-      title: Text(label),
-      dense: true,
-      visualDensity: VisualDensity.compact,
-      controlAffinity: ListTileControlAffinity.leading,
-      contentPadding: EdgeInsets.zero,
-    );
-    return [
-      Divider(color: c.line),
-      head('Top bar'),
-      check('Title (the display name)', remoteShowTop(w, 'Title'), (v) => _set('topTitle', v ? null : false)),
-      Divider(color: c.line),
-      head('Keys'),
-      for (final e in kRemoteElements) check(e.$2, !remoteHidden(w, e.$1), (v) => _setHide(e.$1, !v)),
-      Divider(color: c.line),
-      head('Custom buttons'),
-      for (final cb in remoteCustom(w)) ...[
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                (cb['label'] ?? '').toString().isEmpty ? 'Custom button' : cb['label'].toString(),
-                style: TextStyle(fontWeight: FontWeight.w600, color: c.ink),
-              ),
-            ),
-            IconButton(
-              tooltip: 'Delete the button',
-              icon: Icon(Icons.delete_outline, color: c.danger),
-              onPressed: () => _delCustom(cb['id'].toString()),
-            ),
-          ],
-        ),
-        FieldLabel('Name', SyncedField(value: (cb['label'] ?? '').toString(), onChanged: (v) => _setCustom(cb['id'].toString(), 'label', v))),
-        FieldLabel(
-          'Icon',
-          IconField(d: d, value: (cb['icon'] ?? '').toString(), scope: IconScope.widget, onChanged: (v) => _setCustom(cb['id'].toString(), 'icon', v)),
-        ),
-        if (!knx)
-          FieldLabel(
-            'Key name',
-            SyncedField(value: (cb['cmd'] ?? '').toString(), hint: 'as the remote names it', onChanged: (v) => _setCustom(cb['id'].toString(), 'cmd', v)),
-          ),
-        Divider(color: c.line),
-      ],
-      Align(
-        alignment: Alignment.centerLeft,
-        child: EvoButton(label: 'Add a button', icon: Icons.add, onPressed: _addCustom),
-      ),
-    ];
-  }
-
-  void _setScale(String part, int pct) => _edit((x) {
-    final o = jsonMap(x['remote']);
-    final s = jsonMap(o['scale']);
-    if (pct == 100) {
-      s.remove(part);
-    } else {
-      s[part] = pct;
-    }
-    o['scale'] = s;
-    x['remote'] = o;
-  }, coalesce: 'rscale-${widget.id}-$part');
-
-  void _setColor(String part, String? hex) => _edit((x) {
-    final o = jsonMap(x['remote']);
-    final m = jsonMap(o['kcolor']);
-    if (hex == null) {
-      m.remove(part);
-    } else {
-      m[part] = hex;
-    }
-    o['kcolor'] = m;
-    x['remote'] = o;
-  });
-
-  void _setBg(String part, String mode) => _edit((x) {
-    final o = jsonMap(x['remote']);
-    final m = jsonMap(o['kbg']);
-    if (mode == 'default') {
-      m.remove(part);
-    } else {
-      m[part] = mode;
-    }
-    o['kbg'] = m;
-    x['remote'] = o;
-  });
-
-  /// The icon of a key: a custom button keeps it in its own entry, the others in remote.icons.
-  void _setIcon(String part, String? key) => _edit((x) {
-    final o = jsonMap(x['remote']);
-    final cu = remoteCustom(x);
-    final i = cu.indexWhere((e) => e['id'] == part);
-    if (i >= 0) {
-      final e = Map<String, dynamic>.from(cu[i]);
-      if (key == null) {
-        e.remove('icon');
-      } else {
-        e['icon'] = key;
+    for (final g in group) {
+      for (final o in items) {
+        if (ids.contains(o.id)) continue;
+        if (g.c + dc < o.c + o.cw && o.c < g.c + g.cw + dc && g.r + dr < o.r + o.rh && o.r < g.r + g.rh + dr) return null;
       }
-      cu[i] = e;
-      o['custom'] = cu;
-    } else {
-      final m = jsonMap(o['icons']);
-      if (key == null) {
-        m.remove(part);
-      } else {
-        m[part] = key;
-      }
-      o['icons'] = m;
     }
-    x['remote'] = o;
-  });
-
-  String? _iconOf(Json w, String part) {
-    final e = remoteCustom(w).where((x) => x['id'] == part).firstOrNull;
-    if (e != null) {
-      final k = (e['icon'] ?? '').toString();
-      return k.isEmpty ? null : k;
-    }
-    return remoteKeyIcon(w, part);
+    return {for (final o in items) o.id: ids.contains(o.id) ? (o.c + dc, o.r + dr) : (o.c, o.r)};
   }
+
+  bool get _modifier => HardwareKeyboard.instance.isControlPressed || HardwareKeyboard.instance.isShiftPressed || HardwareKeyboard.instance.isMetaPressed;
 
   @override
   Widget build(BuildContext context) {
@@ -331,8 +278,8 @@ class _RemoteLayoutDialogState extends State<_RemoteLayoutDialog> {
         final cols = remoteCols(w);
         final rows = remoteRowCount(w, items);
         // The panel of the keys has a fixed size: more columns or rows only make more, smaller cells.
-        const gridW = 360.0, gridH = 400.0, sideW = 310.0;
-        final dialogW = (gridW + 20 + sideW + 48 + 8).clamp(0.0, screen.width - 48).toDouble();
+        const gridW = 340.0, gridH = 380.0, sideW = 270.0, customW = 270.0;
+        final dialogW = (gridW + sideW + customW + 40 + 48 + 8).clamp(0.0, screen.width - 48).toDouble();
         final cellW = gridW / cols;
         final cellH = gridH / rows;
         final th = jsonMap(d.doc['theme']);
@@ -350,21 +297,31 @@ class _RemoteLayoutDialogState extends State<_RemoteLayoutDialog> {
           for (final x in remoteCustom(w)) {
             if (x['id'] == part) return (x['label'] ?? '').toString().isEmpty ? 'Custom button' : (x['label'] ?? '').toString();
           }
-          if (part == 'poweron') return 'Power on';
-          if (part == 'poweroff') return 'Power off';
           return part;
         }
 
-        if (_sel != null && _sel != 'poweron' && _sel != 'poweroff' && items.every((x) => x.id != _sel)) _sel = null;
+        // A key that is hidden or deleted leaves the selection.
+        final shown = {for (final i in items) i.id};
+        _sels.removeWhere((e) => !shown.contains(e));
+        if (_sel != null && !_sels.contains(_sel)) _sel = _sels.firstOrNull;
         final dragging = _drag == null ? null : items.where((x) => x.id == _drag).firstOrNull;
-        // Where the dragged key would land, and whether it can.
-        int? tc, tr;
+        final group = dragging != null && _sels.length > 1 && _sels.contains(dragging.id)
+            ? [
+                for (final i in items)
+                  if (_sels.contains(i.id)) i,
+              ]
+            : <RemoteItem>[];
+
+        // Where the dragged key (or keys) would land, and whether it can.
+        final delta = _pos - _start;
+        final dc = (delta.dx / cellW).round(), dr = (delta.dy / cellH).round();
         Map<String, (int, int)>? plan;
         if (dragging != null && _moved) {
-          tc = ((_pos.dx - _grab.dx) / cellW).round().clamp(0, cols - dragging.cw);
-          tr = ((_pos.dy - _grab.dy) / cellH).round().clamp(0, rows - dragging.rh);
-          plan = _plan(w, dragging, tc, tr);
+          plan = group.isNotEmpty
+              ? _planGroup(w, group, dc, dr, rows)
+              : _plan(w, dragging, (dragging.c + dc).clamp(0, cols - dragging.cw), (dragging.r + dr).clamp(0, rows - dragging.rh));
         }
+        final moving = group.isNotEmpty ? group : [if (dragging != null) dragging];
 
         final grid = Listener(
           behavior: HitTestBehavior.opaque,
@@ -374,12 +331,34 @@ class _RemoteLayoutDialogState extends State<_RemoteLayoutDialog> {
                 .where((x) => p.dx >= x.c * cellW && p.dx < (x.c + x.cw) * cellW && p.dy >= x.r * cellH && p.dy < (x.r + x.rh) * cellH)
                 .firstOrNull;
             setState(() {
-              _sel = hit?.id;
-              _drag = hit?.id;
               _moved = false;
               _start = p;
               _pos = p;
-              _grab = hit == null ? Offset.zero : p - Offset(hit.c * cellW, hit.r * cellH);
+              _collapse = false;
+              _drag = null;
+              if (hit == null) {
+                if (!_modifier) {
+                  _sels.clear();
+                  _sel = null;
+                }
+              } else if (_modifier) {
+                if (!_sels.remove(hit.id)) {
+                  _sels.add(hit.id);
+                  _sel = hit.id;
+                } else {
+                  _sel = _sels.firstOrNull;
+                }
+              } else if (_sels.contains(hit.id) && _sels.length > 1) {
+                _sel = hit.id;
+                _drag = hit.id;
+                _collapse = true;
+              } else {
+                _sels
+                  ..clear()
+                  ..add(hit.id);
+                _sel = hit.id;
+                _drag = hit.id;
+              }
             });
           },
           onPointerMove: (e) {
@@ -390,23 +369,29 @@ class _RemoteLayoutDialogState extends State<_RemoteLayoutDialog> {
             });
           },
           onPointerUp: (_) {
-            final it = dragging;
             final p = plan;
-            if (it != null && _moved) {
+            if (dragging != null && _moved) {
               if (p != null) {
                 _apply(p);
               } else {
                 toast(context, 'Not enough room there.');
               }
+            } else if (_collapse && dragging != null) {
+              _sels
+                ..clear()
+                ..add(dragging.id);
+              _sel = dragging.id;
             }
             setState(() {
               _drag = null;
               _moved = false;
+              _collapse = false;
             });
           },
           onPointerCancel: (_) => setState(() {
             _drag = null;
             _moved = false;
+            _collapse = false;
           }),
           child: MouseRegion(
             cursor: _drag != null ? SystemMouseCursors.grabbing : SystemMouseCursors.grab,
@@ -431,38 +416,40 @@ class _RemoteLayoutDialogState extends State<_RemoteLayoutDialog> {
                           decoration: BoxDecoration(border: Border.all(color: c.line.withAlpha(120), width: 0.5)),
                         ),
                       ),
-                  // The place the dragged key would take.
-                  if (dragging != null && tc != null && tr != null)
-                    Positioned(
-                      left: tc * cellW,
-                      top: tr * cellH,
-                      width: dragging.cw * cellW,
-                      height: dragging.rh * cellH,
-                      child: Container(
-                        margin: const EdgeInsets.all(2),
-                        decoration: BoxDecoration(
-                          color: (plan != null ? c.accent : c.danger).withAlpha(40),
-                          border: Border.all(color: plan != null ? c.accent : c.danger, width: 2),
-                          borderRadius: BorderRadius.circular(8),
+                  // The places the dragged keys would take.
+                  if (_moved)
+                    for (final m in moving)
+                      Positioned(
+                        left: (plan?[m.id]?.$1 ?? m.c + dc) * cellW,
+                        top: (plan?[m.id]?.$2 ?? m.r + dr) * cellH,
+                        width: m.cw * cellW,
+                        height: m.rh * cellH,
+                        child: Container(
+                          margin: const EdgeInsets.all(2),
+                          decoration: BoxDecoration(
+                            color: (plan != null ? c.accent : c.danger).withAlpha(40),
+                            border: Border.all(color: plan != null ? c.accent : c.danger, width: 2),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
                         ),
                       ),
-                    ),
                   for (final it in items)
                     Positioned(
                       left: it.c * cellW,
                       top: it.r * cellH,
                       width: it.cw * cellW,
                       height: it.rh * cellH,
-                      child: _face(c, w, pal, it, opacity: it.id == _drag && _moved ? 0.3 : 1, selected: it.id == _sel),
+                      child: _face(c, w, pal, it, opacity: _moved && moving.any((m) => m.id == it.id) ? 0.3 : 1, selected: _sels.contains(it.id)),
                     ),
-                  if (dragging != null && _moved)
-                    Positioned(
-                      left: _pos.dx - _grab.dx,
-                      top: _pos.dy - _grab.dy,
-                      width: dragging.cw * cellW,
-                      height: dragging.rh * cellH,
-                      child: IgnorePointer(child: _face(c, w, pal, dragging, opacity: 0.85, selected: true)),
-                    ),
+                  if (_moved)
+                    for (final m in moving)
+                      Positioned(
+                        left: m.c * cellW + delta.dx,
+                        top: m.r * cellH + delta.dy,
+                        width: m.cw * cellW,
+                        height: m.rh * cellH,
+                        child: IgnorePointer(child: _face(c, w, pal, m, opacity: 0.85, selected: true)),
+                      ),
                 ],
               ),
             ),
@@ -470,53 +457,72 @@ class _RemoteLayoutDialogState extends State<_RemoteLayoutDialog> {
         );
 
         final sel = _sel;
-        final pct = sel == null ? 100 : remoteScale(w, sel);
-        final isPad = sel == 'touchpad';
-        final hasIcon = sel != null && sel != 'dpad' && !isPad;
-        final own = sel == null ? null : remoteKeyColor(w, sel);
+        final many = _sels.length > 1;
+        final selItems = [
+          for (final i in items)
+            if (_sels.contains(i.id)) i,
+        ];
+        final onlyPad = selItems.isNotEmpty && selItems.every((i) => i.id == 'touchpad');
+        final noRadius = selItems.isNotEmpty && selItems.every((i) => i.id == 'dpad');
+        final hasIcon = selItems.any((i) => i.id != 'dpad' && i.id != 'touchpad');
+        final customSel = [
+          for (final i in selItems)
+            if (remoteCustom(w).any((x) => x['id'] == i.id)) i.id,
+        ];
         Widget title(String t) => Text(
           t,
           style: TextStyle(fontSize: kUiText, fontWeight: FontWeight.w600, color: c.ink),
         );
+
+        Widget numberRow(int value, int min, int max, ValueChanged<int> onChanged, {String unit = '%'}) => Row(
+          children: [
+            Expanded(
+              child: Slider(
+                value: value.toDouble().clamp(min.toDouble(), max.toDouble()),
+                min: min.toDouble(),
+                max: max.toDouble(),
+                onChanged: (v) => onChanged(v.round()),
+              ),
+            ),
+            SyncedField(
+              value: '$value',
+              number: true,
+              width: 58,
+              center: true,
+              onChanged: (t) {
+                final n = int.tryParse(t.trim());
+                if (n != null) onChanged(n.clamp(min, max));
+              },
+            ),
+            const SizedBox(width: 4),
+            Text(
+              unit,
+              style: TextStyle(fontSize: kUiText, color: c.muted),
+            ),
+          ],
+        );
+
         final keyPanel = SizedBox(
           width: gridW,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (sel == null)
-                Text('Click a key to change its size, its background and its icon.', style: TextStyle(fontSize: 12.5, color: c.muted))
+                Text('Click a key. Ctrl or Shift + click selects several.', style: TextStyle(fontSize: 12.5, color: c.muted))
               else ...[
-                Text(
-                  nameOf(sel),
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: c.ink),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        many ? '${_sels.length} keys selected' : nameOf(sel),
+                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: c.ink),
+                      ),
+                    ),
+                    if (customSel.isNotEmpty)
+                      EvoButton(label: 'Delete', icon: Icons.delete_outline, danger: true, small: true, onPressed: () => _delCustom(customSel)),
+                  ],
                 ),
-                if (!isPad) ...[
-                  const SizedBox(height: 10),
-                  title('Icon size'),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Slider(
-                          value: pct.toDouble().clamp(40, 300).toDouble(),
-                          min: 40,
-                          max: 300,
-                          divisions: 52,
-                          onChanged: (v) => _setScale(sel, v.round()),
-                        ),
-                      ),
-                      SizedBox(
-                        width: 48,
-                        child: Text(
-                          '$pct %',
-                          textAlign: TextAlign.right,
-                          style: TextStyle(fontSize: kUiText, color: c.muted),
-                        ),
-                      ),
-                    ],
-                  ),
-                  if (pct != 100) TextButton(onPressed: () => _setScale(sel, 100), child: const Text('Usual size')),
-                ],
-                const SizedBox(height: 12),
+                if (!onlyPad) ...[const SizedBox(height: 8), title('Icon size'), numberRow(remoteScale(w, sel), 40, 300, _setScale)],
                 title('Size of the button (cells)'),
                 const SizedBox(height: 6),
                 Row(
@@ -526,17 +532,17 @@ class _RemoteLayoutDialogState extends State<_RemoteLayoutDialog> {
                       style: TextStyle(fontSize: kUiText, color: c.muted),
                     ),
                     const SizedBox(width: 8),
-                    _Step(value: remoteSpan(w, sel).$1, min: 1, max: cols, onChanged: (v) => _setSpan(sel, v, remoteSpan(w, sel).$2)),
+                    _Step(value: remoteSpan(w, sel).$1, min: 1, max: cols, onChanged: (v) => _setSpan(v, remoteSpan(w, sel).$2)),
                     const SizedBox(width: 22),
                     Text(
                       'Height',
                       style: TextStyle(fontSize: kUiText, color: c.muted),
                     ),
                     const SizedBox(width: 8),
-                    _Step(value: remoteSpan(w, sel).$2, min: 1, max: 8, onChanged: (v) => _setSpan(sel, remoteSpan(w, sel).$1, v)),
+                    _Step(value: remoteSpan(w, sel).$2, min: 1, max: 8, onChanged: (v) => _setSpan(remoteSpan(w, sel).$1, v)),
                   ],
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 10),
                 title('Background'),
                 const SizedBox(height: 6),
                 FittedBox(
@@ -545,35 +551,24 @@ class _RemoteLayoutDialogState extends State<_RemoteLayoutDialog> {
                   child: Seg<String>(
                     items: const [('default', 'Default'), ('outline', 'Border only'), ('transparent', 'Transparent')],
                     value: remoteKeyBg(w, sel),
-                    onChanged: (v) => _setBg(sel, v),
+                    onChanged: _setBg,
                   ),
                 ),
                 if (remoteKeyBg(w, sel) != 'transparent') ...[
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 8),
                   title('Background size'),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Slider(value: remoteBgSize(w, sel).toDouble(), min: 40, max: 100, divisions: 60, onChanged: (v) => _setBgSize(sel, v.round())),
-                      ),
-                      SizedBox(
-                        width: 48,
-                        child: Text(
-                          '${remoteBgSize(w, sel)} %',
-                          textAlign: TextAlign.right,
-                          style: TextStyle(fontSize: kUiText, color: c.muted),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
+                  numberRow(remoteBgSize(w, sel), 40, 100, _setBgSize),
+                  if (!noRadius) ...[
+                    title('Border radius'),
+                    numberRow(remoteKeyRadius(w, sel)?.round() ?? (pal.radius * 0.5).round(), 0, 60, _setRadius, unit: 'px'),
+                  ],
                   title(remoteKeyBg(w, sel) == 'outline' ? 'Border color' : 'Color'),
                   const SizedBox(height: 6),
-                  ColorPicker(value: own ?? '', onChanged: (v) => _setColor(sel, v)),
-                  if (own != null) TextButton(onPressed: () => _setColor(sel, null), child: const Text('Usual color')),
+                  ColorPicker(value: remoteKeyColor(w, sel) ?? '', onChanged: _setColor),
+                  if (remoteKeyColor(w, sel) != null) TextButton(onPressed: () => _setColor(null), child: const Text('Usual color')),
                 ],
                 if (hasIcon) ...[
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 10),
                   title('Icon or picture'),
                   const SizedBox(height: 6),
                   Row(
@@ -586,7 +581,7 @@ class _RemoteLayoutDialogState extends State<_RemoteLayoutDialog> {
                           border: Border.all(color: c.line),
                           borderRadius: BorderRadius.circular(6),
                         ),
-                        child: _iconOf(w, sel) != null ? iconWidget(_iconOf(w, sel), 24, c.ink) : Icon(Icons.crop_square, size: 22, color: c.muted),
+                        child: _iconOf(w, sel) != null ? iconWidget(_iconOf(w, sel), 24, c.ink) : remoteDefaultIconWidget(w, sel, 24, c.ink),
                       ),
                       const SizedBox(width: 8),
                       EvoButton(
@@ -594,11 +589,11 @@ class _RemoteLayoutDialogState extends State<_RemoteLayoutDialog> {
                         small: true,
                         onPressed: () async {
                           final k = await pickIcon(context, d: d, current: _iconOf(w, sel), scope: IconScope.widget);
-                          if (k != null && k.isNotEmpty) _setIcon(sel, k);
+                          if (k != null && k.isNotEmpty) _setIcon(k);
                         },
                       ),
                       const SizedBox(width: 6),
-                      EvoButton(label: 'Default', small: true, onPressed: _iconOf(w, sel) == null ? null : () => _setIcon(sel, null)),
+                      EvoButton(label: 'Default', small: true, onPressed: () => _setIcon(null)),
                     ],
                   ),
                 ],
@@ -606,6 +601,17 @@ class _RemoteLayoutDialogState extends State<_RemoteLayoutDialog> {
             ],
           ),
         );
+
+        Widget check(String label, bool value, ValueChanged<bool> onChanged) => CheckboxListTile(
+          value: value,
+          onChanged: (v) => onChanged(v ?? false),
+          title: Text(label),
+          dense: true,
+          visualDensity: VisualDensity.compact,
+          controlAffinity: ListTileControlAffinity.leading,
+          contentPadding: EdgeInsets.zero,
+        );
+        final knx = remoteIsKnx(w);
         final side = SizedBox(
           width: sideW,
           child: Column(
@@ -616,64 +622,128 @@ class _RemoteLayoutDialogState extends State<_RemoteLayoutDialog> {
                   title('Columns'),
                   const SizedBox(width: 8),
                   _Step(value: cols, min: 3, max: 6, onChanged: (v) => _setSize('cols', v)),
-                  const SizedBox(width: 22),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
                   title('Rows'),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 28),
                   _Step(value: rows, min: remoteRows(items), max: 24, onChanged: (v) => _setSize('rows', v)),
                 ],
               ),
-              const SizedBox(height: 14),
-              ..._sections(c, w),
+              Divider(color: c.line),
+              title('Keys'),
+              for (final e in kRemoteElements) check(e.$2, !remoteHidden(w, e.$1), (v) => _setHide(e.$1, !v)),
+            ],
+          ),
+        );
+        final custom = SizedBox(
+          width: customW,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              title('Custom buttons'),
+              const SizedBox(height: 6),
+              for (final cb in remoteCustom(w)) ...[
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        (cb['label'] ?? '').toString().isEmpty ? 'Custom button' : cb['label'].toString(),
+                        style: TextStyle(fontWeight: FontWeight.w600, color: c.ink),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Delete the button',
+                      icon: Icon(Icons.delete_outline, color: c.danger),
+                      onPressed: () => _delCustom([cb['id'].toString()]),
+                    ),
+                  ],
+                ),
+                FieldLabel('Name', SyncedField(value: (cb['label'] ?? '').toString(), onChanged: (v) => _setCustom(cb['id'].toString(), 'label', v))),
+                FieldLabel(
+                  'Icon',
+                  IconField(d: d, value: (cb['icon'] ?? '').toString(), scope: IconScope.widget, onChanged: (v) => _setCustom(cb['id'].toString(), 'icon', v)),
+                ),
+                if (!knx)
+                  FieldLabel(
+                    'Key name',
+                    SyncedField(
+                      value: (cb['cmd'] ?? '').toString(),
+                      hint: 'as the remote names it',
+                      onChanged: (v) => _setCustom(cb['id'].toString(), 'cmd', v),
+                    ),
+                  ),
+                Divider(color: c.line),
+              ],
+              Align(
+                alignment: Alignment.centerLeft,
+                child: EvoButton(label: 'Add a button', icon: Icons.add, onPressed: _addCustom),
+              ),
             ],
           ),
         );
 
-        return Dialog(
-          backgroundColor: c.panel,
-          insetPadding: const EdgeInsets.all(24),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(maxWidth: dialogW, maxHeight: screen.height - 48),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(24, 22, 24, 14),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Arrange the keys',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: c.ink),
-                  ),
-                  const SizedBox(height: 6),
-                  Text('Drag a key to another cell. Dropping it on a key of the same size swaps them.', style: TextStyle(fontSize: 12.5, color: c.muted)),
-                  const SizedBox(height: 12),
-                  Flexible(
-                    child: SingleChildScrollView(
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [grid, const SizedBox(height: 14), keyPanel]),
-                          const SizedBox(width: 20),
-                          side,
-                        ],
+        return Focus(
+          autofocus: true,
+          onKeyEvent: (node, e) {
+            if (e is KeyDownEvent &&
+                e.logicalKey == LogicalKeyboardKey.delete &&
+                customSel.isNotEmpty &&
+                FocusManager.instance.primaryFocus?.context?.findAncestorWidgetOfExactType<EditableText>() == null) {
+              _delCustom(customSel);
+              return KeyEventResult.handled;
+            }
+            return KeyEventResult.ignored;
+          },
+          child: Dialog(
+            backgroundColor: c.panel,
+            insetPadding: const EdgeInsets.all(24),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: dialogW, maxHeight: screen.height - 48),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(24, 22, 24, 14),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Arrange the keys',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: c.ink),
+                    ),
+                    const SizedBox(height: 12),
+                    Flexible(
+                      child: SingleChildScrollView(
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [grid, const SizedBox(height: 14), keyPanel]),
+                            const SizedBox(width: 20),
+                            side,
+                            const SizedBox(width: 20),
+                            custom,
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      TextButton(
-                        onPressed: () => _edit((x) {
-                          final o = jsonMap(x['remote']);
-                          o.remove('layout');
-                          x['remote'] = o;
-                        }),
-                        child: const Text('Reset the layout'),
-                      ),
-                      TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Close')),
-                    ],
-                  ),
-                ],
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed: () => _edit((x) {
+                            final o = _remote(x);
+                            o.addAll(remoteDefaultSettings());
+                            x['remote'] = o;
+                          }),
+                          child: const Text('Reset the layout'),
+                        ),
+                        TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Close')),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
