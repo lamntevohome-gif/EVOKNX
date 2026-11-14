@@ -278,8 +278,9 @@ class _RemoteLayoutDialogState extends State<_RemoteLayoutDialog> {
         final cols = remoteCols(w);
         final rows = remoteRowCount(w, items);
         // The panel of the keys has a fixed size: more columns or rows only make more, smaller cells.
-        const gridW = 340.0, gridH = 380.0, sideW = 270.0, customW = 270.0;
-        final dialogW = (gridW + sideW + customW + 40 + 48 + 8).clamp(0.0, screen.width - 48).toDouble();
+        const gridW = 340.0, gridH = 430.0, keyW = 290.0, sideW = 235.0, customW = 250.0;
+        final dialogW = (gridW + keyW + sideW + customW + 60 + 48 + 8).clamp(0.0, screen.width - 48).toDouble();
+        final bodyH = (screen.height - 48 - 130).clamp(300.0, 600.0).toDouble();
         final cellW = gridW / cols;
         final cellH = gridH / rows;
         final th = jsonMap(d.doc['theme']);
@@ -503,7 +504,7 @@ class _RemoteLayoutDialogState extends State<_RemoteLayoutDialog> {
         );
 
         final keyPanel = SizedBox(
-          width: gridW,
+          width: keyW,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -616,28 +617,24 @@ class _RemoteLayoutDialogState extends State<_RemoteLayoutDialog> {
           width: sideW,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+            children: [title('Keys'), for (final e in kRemoteElements) check(e.$2, !remoteHidden(w, e.$1), (v) => _setHide(e.$1, !v))],
+          ),
+        );
+        final size = SizedBox(
+          width: gridW,
+          child: Row(
             children: [
-              Row(
-                children: [
-                  title('Columns'),
-                  const SizedBox(width: 8),
-                  _Step(value: cols, min: 3, max: 6, onChanged: (v) => _setSize('cols', v)),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  title('Rows'),
-                  const SizedBox(width: 28),
-                  _Step(value: rows, min: remoteRows(items), max: 24, onChanged: (v) => _setSize('rows', v)),
-                ],
-              ),
-              Divider(color: c.line),
-              title('Keys'),
-              for (final e in kRemoteElements) check(e.$2, !remoteHidden(w, e.$1), (v) => _setHide(e.$1, !v)),
+              title('Columns'),
+              const SizedBox(width: 8),
+              _Step(value: cols, min: 3, max: 6, onChanged: (v) => _setSize('cols', v)),
+              const SizedBox(width: 24),
+              title('Rows'),
+              const SizedBox(width: 8),
+              _Step(value: rows, min: remoteRows(items), max: 24, onChanged: (v) => _setSize('rows', v)),
             ],
           ),
         );
+        Widget column(Widget child) => SingleChildScrollView(child: child);
         final custom = SizedBox(
           width: customW,
           child: Column(
@@ -713,16 +710,26 @@ class _RemoteLayoutDialogState extends State<_RemoteLayoutDialog> {
                       style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: c.ink),
                     ),
                     const SizedBox(height: 12),
-                    Flexible(
-                      child: SingleChildScrollView(
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: SizedBox(
+                        height: bodyH,
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [grid, const SizedBox(height: 14), keyPanel]),
-                            const SizedBox(width: 20),
-                            side,
-                            const SizedBox(width: 20),
-                            custom,
+                            column(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [size, const SizedBox(height: 10), grid])),
+                            const SizedBox(width: 10),
+                            VerticalDivider(color: c.line, width: 1),
+                            const SizedBox(width: 10),
+                            column(keyPanel),
+                            const SizedBox(width: 10),
+                            VerticalDivider(color: c.line, width: 1),
+                            const SizedBox(width: 10),
+                            column(side),
+                            const SizedBox(width: 10),
+                            VerticalDivider(color: c.line, width: 1),
+                            const SizedBox(width: 10),
+                            column(custom),
                           ],
                         ),
                       ),

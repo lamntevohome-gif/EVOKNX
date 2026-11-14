@@ -1344,7 +1344,10 @@ class Designer extends ChangeNotifier {
         }
         break;
       case 'remote':
-        if (action == 'key') {
+        if (action == 'key' && !remoteIsKnx(w)) {
+          final cmd = remoteCommand(w, arg as String);
+          onMessage?.call('$label: ${remoteKeyLabel(w, arg)}${cmd.isEmpty ? '' : ' → $cmd'} (Home Assistant)');
+        } else if (action == 'key') {
           final sd = remoteKnxSend(w, arg as String);
           if (sd == null) {
             onMessage?.call('$label: ${remoteKeyLabel(w, arg).toLowerCase()} has no value to send');
@@ -1377,6 +1380,8 @@ class Designer extends ChangeNotifier {
           s['vol'] = v;
           send(w, 'volume', (v * mediaVolMax(w) / 100).round(), '$v %');
         }
+        break;
+      case 'text':
         break;
       case 'link':
       case 'webview':

@@ -982,7 +982,7 @@ class _GridAreaState extends State<_GridArea> {
                   pal,
                 )
               : w['type'] == 'remote'
-              ? _outlined(RemoteCard(w: w, pal: pal, host: d.mediaHost, act: test ? (a, [arg]) => _testAct(w, a, arg) : null), selected, pal)
+              ? _outlined(RemoteCard(w: w, pal: pal, host: d.mediaHost, simulate: test, act: test ? (a, [arg]) => _testAct(w, a, arg) : null), selected, pal)
               : TileView(
                   w: d.bound(w),
                   pal: pal,
@@ -996,7 +996,7 @@ class _GridAreaState extends State<_GridArea> {
             children.add(
               Positioned.fromRect(
                 rect: rc,
-                child: w['type'] == 'group' || (w['type'] == 'value' && !isStateValue(w))
+                child: w['type'] == 'group' || w['type'] == 'remote' || (w['type'] == 'value' && !isStateValue(w))
                     ? tile
                     : GestureDetector(
                         behavior: HitTestBehavior.opaque,

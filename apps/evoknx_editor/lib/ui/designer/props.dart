@@ -364,25 +364,26 @@ class _WidgetPropsState extends State<_WidgetProps> {
           if (inGroup) Hint('Inside the grid frame “${box['label'] ?? ''}”: the position is counted on the frame\'s grid.'),
         ]),
         ..._typeSpecific(context, type),
-        _Section('Font size', [
-          for (final k in fsKeysFor(type))
-            StepRow(
-              label: kFs[k]!.name,
-              value: fs(w, k).toInt(),
-              min: kFs[k]!.min,
-              max: kFs[k]!.max,
-              onChanged: (v) => d.editWidget(id, (o) {
-                final t = jsonMap(o['text']);
-                t[k] = v;
-                o['text'] = t;
-              }, coalesce: 'fs-$id-$k'),
-            ),
-          if (text.isNotEmpty)
-            Align(
-              alignment: Alignment.centerLeft,
-              child: TextButton(onPressed: () => set('text', <String, dynamic>{}), child: const Text('Default size')),
-            ),
-        ]),
+        if (fsKeysFor(type).isNotEmpty)
+          _Section('Font size', [
+            for (final k in fsKeysFor(type))
+              StepRow(
+                label: kFs[k]!.name,
+                value: fs(w, k).toInt(),
+                min: kFs[k]!.min,
+                max: kFs[k]!.max,
+                onChanged: (v) => d.editWidget(id, (o) {
+                  final t = jsonMap(o['text']);
+                  t[k] = v;
+                  o['text'] = t;
+                }, coalesce: 'fs-$id-$k'),
+              ),
+            if (text.isNotEmpty)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton(onPressed: () => set('text', <String, dynamic>{}), child: const Text('Default size')),
+              ),
+          ]),
         if (slotsFor(w).isNotEmpty)
           _Section('', [
             if (canEntity) _SourceSwitch(d: d, w: w),
@@ -421,6 +422,62 @@ class _WidgetPropsState extends State<_WidgetProps> {
 
   List<Widget> _typeSpecific(BuildContext context, String type) {
     switch (type) {
+      case 'text':
+        final t = jsonMap(w['txt']);
+        void setT(String k, Object? v, {String? coalesce}) => d.editWidget(id, (x) {
+          final m = jsonMap(x['txt']);
+          m[k] = v;
+          x['txt'] = m;
+        }, coalesce: coalesce);
+        return [
+          _Section('Text', [
+            FieldLabel(
+              'Content',
+              SyncedField(
+                value: (t['content'] ?? '').toString(),
+                onChanged: (v) => setT('content', v, coalesce: 'txt-$id'),
+              ),
+            ),
+            FieldLabel(
+              'Size',
+              SyncedField(
+                value: '${(t['size'] as num?)?.toInt() ?? 20}',
+                number: true,
+                onChanged: (v) => setT('size', (int.tryParse(v) ?? 20).clamp(8, 200), coalesce: 'txs-$id'),
+              ),
+            ),
+            FieldLabel('Color', ColorPicker(value: (t['color'] ?? '').toString(), onChanged: (v) => setT('color', v))),
+            FieldLabel(
+              'Horizontal position',
+              EvoDropdown<String>(
+                value: (t['align'] ?? 'center').toString(),
+                items: const [('left', 'Left'), ('center', 'Center'), ('right', 'Right')],
+                onChanged: (v) => setT('align', v),
+              ),
+            ),
+            FieldLabel(
+              'Vertical position',
+              EvoDropdown<String>(
+                value: (t['valign'] ?? 'center').toString(),
+                items: const [('top', 'Top'), ('center', 'Middle'), ('bottom', 'Bottom')],
+                onChanged: (v) => setT('valign', v),
+              ),
+            ),
+            FieldLabel(
+              'Style',
+              EvoDropdown<String>(
+                value: t['bold'] == true ? (t['italic'] == true ? 'bi' : 'b') : (t['italic'] == true ? 'i' : 'n'),
+                items: const [('n', 'Normal'), ('b', 'Bold'), ('i', 'Italic'), ('bi', 'Bold italic')],
+                onChanged: (v) => d.editWidget(id, (x) {
+                  final m = jsonMap(x['txt']);
+                  m['bold'] = v == 'b' || v == 'bi';
+                  m['italic'] = v == 'i' || v == 'bi';
+                  x['txt'] = m;
+                }),
+              ),
+            ),
+          ]),
+        ];
       case 'link':
       case 'webview':
         return [
@@ -3206,6 +3263,18 @@ class _RemoteSection extends StatelessWidget {
             controlAffinity: ListTileControlAffinity.leading,
             contentPadding: EdgeInsets.zero,
           ),
+          if (remoteShowTop(w, 'Title'))
+            StepRow(
+              label: 'Size',
+              value: fs(w, 'labelSize').toInt(),
+              min: kFs['labelSize']!.min,
+              max: kFs['labelSize']!.max,
+              onChanged: (v) => d.editWidget(id, (o) {
+                final t = jsonMap(o['text']);
+                t['labelSize'] = v;
+                o['text'] = t;
+              }, coalesce: 'fs-$id-labelSize'),
+            ),
           if (remoteShowTop(w, 'Title'))
             FieldLabel(
               'Position',
