@@ -144,7 +144,7 @@ void main() {
   void rset(String k, Object v) => rm['remote'] = <String, dynamic>{...Map<String, dynamic>.from(rm['remote'] as Map), k: v};
   var its = remoteItems(rm);
   check(its.first.id == 'poweron' && its.first.r == 0 && its[1].id == 'poweroff' && its[1].r == 0, 'remote: On and Off are in the first row');
-  check(its.firstWhere((i) => i.id == 'dpad').r == 1 && its.firstWhere((i) => i.id == 'dpad').rh == 3, 'remote: the ring is below, 3 x 3');
+  check(its.firstWhere((i) => i.id == 'dpad').r == 1 && its.firstWhere((i) => i.id == 'dpad').rh == 4, 'remote: the ring is below, 4 x 4');
   check(!its.any((i) => i.id == 'touchpad') && its.length == 12, 'remote: the touchpad is hidden by default, 12 parts shown');
   bool overlap(List<RemoteItem> l) {
     for (var a = 0; a < l.length; a++) {
@@ -155,7 +155,7 @@ void main() {
     return false;
   }
 
-  check(!overlap(its) && remoteRows(its) == 7, 'remote: no overlap, 7 rows');
+  check(!overlap(its) && remoteRows(its) == 8, 'remote: no overlap, 8 rows');
   rset('hide', {'back': true});
   rset('custom', [
     {'id': 'rc_1', 'label': 'Netflix', 'icon': '', 'cmd': 'NETFLIX'},

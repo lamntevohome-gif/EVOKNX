@@ -330,7 +330,7 @@ Json makeWidget(String type, int x, int y, [int? w, int? h]) {
   }
   if (type == 'remote') {
     // The remote of Home Assistant that the card controls, the platform whose key names are used, and what is shown.
-    wd['remote'] = <String, dynamic>{'entity': '', 'preset': 'Android TV', 'device': ''};
+    wd['remote'] = <String, dynamic>{'entity': '', 'preset': 'Android TV', 'device': '', ...remoteDefaultSettings()};
   }
   if (type == 'media') {
     // The entity of Home Assistant that the card shows and controls; what is shown.

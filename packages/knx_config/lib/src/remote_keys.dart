@@ -406,3 +406,44 @@ int remoteRowCount(Json w, List<RemoteItem> items) {
   final set = (jsonMap(w['remote'])['rows'] as num?)?.toInt() ?? 0;
   return set > need ? set.clamp(need, 24) : need;
 }
+
+/// The corner radius chosen for the button of a key (in px), or null for the usual one.
+double? remoteKeyRadius(Json w, String id) {
+  final v = jsonMap(jsonMap(w['remote'])['kradius'])[id];
+  return v is num ? v.toDouble().clamp(0, 80).toDouble() : null;
+}
+
+/// Where the display name is in the card: 'left', 'center' or 'right'.
+String remoteTitleAlign(Json w) {
+  final v = jsonMap(w['remote'])['titleAlign'];
+  return v == 'center' || v == 'right' ? v as String : 'left';
+}
+
+/// The usual look of a new card: 6 columns and 8 rows, On and Off on the first row, the ring under them, then the keys
+/// of three in a row.
+Map<String, dynamic> remoteDefaultSettings() {
+  const places = <String, (int, int)>{
+    'poweron': (1, 0),
+    'poweroff': (3, 0),
+    'dpad': (1, 1),
+    'back': (0, 5),
+    'home': (2, 5),
+    'menu': (4, 5),
+    'voldown': (0, 6),
+    'mute': (2, 6),
+    'volup': (4, 6),
+    'prev': (0, 7),
+    'playpause': (2, 7),
+    'next': (4, 7),
+  };
+  return <String, dynamic>{
+    'cols': 6,
+    'rows': 8,
+    'layout': <String, dynamic>{
+      for (final e in places.entries) e.key: <String, dynamic>{'c': e.value.$1, 'r': e.value.$2},
+    },
+    'span': <String, dynamic>{
+      for (final e in places.entries) e.key: <String, dynamic>{'w': e.key == 'dpad' ? 4 : 2, 'h': e.key == 'dpad' ? 4 : 1},
+    },
+  };
+}

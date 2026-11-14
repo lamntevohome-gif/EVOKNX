@@ -23,12 +23,12 @@ BoxDecoration remoteKeyDeco(Json w, AppPalette pal, String id, {bool pressed = f
   final own = hexColor(remoteKeyColor(w, id));
   return BoxDecoration(
     color: pressed ? (pressedColor ?? pal.accent).withValues(alpha: 0.35) : (mode == 'default' ? (own ?? pal.panel) : Colors.transparent),
-    borderRadius: BorderRadius.circular(radius),
+    borderRadius: BorderRadius.circular(remoteKeyRadius(w, id) ?? radius),
     border: mode == 'outline' ? Border.all(color: own ?? (pal.edge == Colors.transparent ? pal.line : pal.edge), width: math.max(1.0, pal.border)) : null,
   );
 }
 
-const _kKeyIcons = <String, IconData>{
+const kRemoteKeyIcons = <String, IconData>{
   'back': Icons.arrow_back,
   'home': Icons.home_outlined,
   'menu': Icons.menu,
@@ -124,7 +124,7 @@ class RemoteKeyFace extends StatelessWidget {
     } else {
       child = remoteKeyIcon(w, id) != null
           ? iconWidget(remoteKeyIcon(w, id), 22 * z, p.ink)
-          : Icon(_kKeyIcons[id] ?? Icons.circle_outlined, size: 22 * z, color: p.ink);
+          : Icon(kRemoteKeyIcons[id] ?? Icons.circle_outlined, size: 22 * z, color: p.ink);
     }
     return Container(
       margin: const EdgeInsets.all(3),
@@ -134,24 +134,19 @@ class RemoteKeyFace extends StatelessWidget {
   }
 }
 
-/// The inside of an On or Off key: the power sign (or the chosen icon) and the name.
-Widget _powerFace(Json w, AppPalette pal, String key, double z, bool on, Color color) => Row(
-  mainAxisSize: MainAxisSize.min,
-  children: [
-    remoteKeyIcon(w, key) != null
-        ? iconWidget(remoteKeyIcon(w, key), 18 * z, on ? color : pal.line)
-        : Icon(Icons.power_settings_new, size: 18 * z, color: on ? color : pal.line),
-    const SizedBox(width: 3),
-    Flexible(
-      child: Text(
-        key == 'poweron' ? 'On' : 'Off',
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(fontSize: fs(w, 'labelSize') - 3, fontWeight: FontWeight.w600, color: on ? pal.ink : pal.line),
-      ),
-    ),
-  ],
-);
+/// The default icon of a key as the card draws it (for the window that arranges the keys).
+Widget remoteDefaultIconWidget(Json w, String id, double size, Color color) {
+  if (id == 'poweron' || id == 'poweroff') return iconWidget(id == 'poweron' ? 'mdi:power-on' : 'mdi:power-off', size, color);
+  if (id == 'dpad') return Icon(Icons.open_with, size: size, color: color);
+  if (id == 'touchpad') return Icon(Icons.touch_app_outlined, size: size, color: color);
+  final custom = remoteCustom(w).where((c) => c['id'] == id).firstOrNull;
+  if (custom != null) return iconWidget((custom['icon'] ?? '').toString().isEmpty ? 'mdi:gesture-tap-button' : custom['icon'].toString(), size, color);
+  return Icon(kRemoteKeyIcons[id] ?? Icons.circle_outlined, size: size, color: color);
+}
+
+/// The inside of an On or Off key: only the sign (power-on / power-off), or the icon chosen for it.
+Widget _powerFace(Json w, AppPalette pal, String key, double z, bool on, Color color) =>
+    iconWidget(remoteKeyIcon(w, key) ?? (key == 'poweron' ? 'mdi:power-on' : 'mdi:power-off'), 24 * z, on ? color : pal.line);
 
 class RemoteCard extends StatefulWidget {
   const RemoteCard({super.key, required this.w, required this.pal, this.host, this.act});
@@ -238,7 +233,7 @@ class _RemoteCardState extends State<RemoteCard> {
   /// Whether a key of the card works now: not in the design view.
   bool get _live => _knx ? widget.act != null : widget.host != null;
 
-  static const _icons = _kKeyIcons;
+  static const _icons = kRemoteKeyIcons;
 
   @override
   Widget build(BuildContext context) {
@@ -277,18 +272,21 @@ class _RemoteCardState extends State<RemoteCard> {
               children: [
                 if (top)
                   Padding(
-                    padding: const EdgeInsets.only(bottom: 6),
+                    padding: const EdgeInsets.only(top: 8, bottom: 14),
                     child: Row(
                       children: [
                         Expanded(
-                          child: showTitle
-                              ? Text(
-                                  title,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(fontSize: fs(w, 'labelSize'), fontWeight: FontWeight.w600, color: pal.ink),
-                                )
-                              : const SizedBox.shrink(),
+                          child: Text(
+                            title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            textAlign: switch (remoteTitleAlign(w)) {
+                              'center' => TextAlign.center,
+                              'right' => TextAlign.right,
+                              _ => TextAlign.left,
+                            },
+                            style: TextStyle(fontSize: fs(w, 'labelSize'), fontWeight: FontWeight.w600, color: pal.ink),
+                          ),
                         ),
                       ],
                     ),
