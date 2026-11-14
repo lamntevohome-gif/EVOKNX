@@ -90,7 +90,7 @@ class HaConnectionCard extends StatelessWidget {
                     Expanded(
                       child: Text(
                         'Home Assistant',
-                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: c.ink),
+                        style: TextStyle(fontSize: kUiText, fontWeight: FontWeight.w600, color: c.ink),
                       ),
                     ),
                   ],

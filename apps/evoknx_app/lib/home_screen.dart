@@ -55,6 +55,13 @@ class _HomeScreenState extends State<HomeScreen> {
   int _lvl = 0;
   bool _modernReady = false;
 
+  /// Home or Security with two rooms or more, before a room is chosen: its rooms are listed as a gallery, like the floors of
+  /// Area.
+  bool get _specialList => _modernMode && _tab != 1 && _lvl != 2 && roomsOf(doc, floorId).length > 1;
+
+  /// True when a room (and not a list of floors or rooms) is on the screen in the Modern layout.
+  bool get _onRoom => _tab == 1 ? _lvl == 2 : !_specialList;
+
   Json? _special(String kind) => floorsOf(doc).where((f) => f['special'] == kind).firstOrNull;
 
   /// Puts Home or Security on the screen.
@@ -62,7 +69,11 @@ class _HomeScreenState extends State<HomeScreen> {
     final f = _special(kind);
     if (f == null) return;
     final rs = roomsOf(doc, f['id'] as String);
-    setState(() => floorId = f['id'] as String);
+    setState(() {
+      floorId = f['id'] as String;
+      // Several rooms: the list of rooms first.
+      _lvl = rs.length > 1 ? 0 : 2;
+    });
     // Home and Security can have several rooms: the one that was open stays.
     final keep = rs.where((r) => r['id'] == roomId).firstOrNull;
     if (keep != null) {
@@ -104,11 +115,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   /// The back button of the phone in the Modern layout. False: leave the App.
   bool _modernBack() {
-    if (_tab == 1) {
-      if (_lvl == 2) {
-        setState(() => _lvl = 0);
-        return true;
-      }
+    if (_lvl == 2 && (_tab == 1 || roomsOf(doc, floorId).length > 1)) {
+      // Back from a room to the list of rooms.
+      setState(() => _lvl = 0);
+      return true;
     }
     if (_tab != 0) {
       _modernTab(0);
@@ -383,9 +393,9 @@ class _HomeScreenState extends State<HomeScreen> {
   /// The floor or the room that is shown now and is still locked (the page is checked apart).
   Json? _closedAbove() {
     final f = floorsOf(doc).where((x) => x['id'] == floorId).firstOrNull;
-    final listsFloors = _modernMode && _tab == 1 && _lvl == 0;
+    final listsFloors = _modernMode && (_tab == 1 ? _lvl == 0 : _specialList);
     if (!listsFloors && !_isOpen(f)) return f;
-    final showsRoom = _modernMode ? (_tab != 1 || _lvl == 2) : !(_galleryMode && _gallery);
+    final showsRoom = _modernMode ? _onRoom : !(_galleryMode && _gallery);
     if (showsRoom && !_isOpen(room)) return room;
     return null;
   }
@@ -394,7 +404,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Json? _closedItem() {
     final above = _closedAbove();
     if (above != null) return above;
-    final showsRoom = _modernMode ? (_tab != 1 || _lvl == 2) : !(_galleryMode && _gallery);
+    final showsRoom = _modernMode ? _onRoom : !(_galleryMode && _gallery);
     final s = sub;
     return showsRoom && s != null && !_isOpen(s) ? s : null;
   }
@@ -763,7 +773,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _maybePrompt(_closedItem());
     final blockedAbove = _closedAbove();
     final d = doc;
-    final onPage = _tab != 1 || _lvl == 2;
+    final onPage = _onRoom;
     final s = onPage ? sub : null;
     // The Area screen, Home and Security can have a background of their own (a page's own one wins).
     final theme = jsonMap(d['theme']);
@@ -775,7 +785,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final subs = r == null ? const <Json>[] : subsOf(r);
     final floor = floorsOf(d).where((f) => f['id'] == floorId).firstOrNull;
     final normal = normalFloorsOf(d);
-    final VoidCallback? onBack = _tab == 1 && _lvl == 2 ? () => _modernBack() : null;
+    final VoidCallback? onBack = _lvl == 2 && (_tab == 1 || roomsOf(d, floorId).length > 1) ? () => _modernBack() : null;
     final Json? headFloor = _tab == 1 && _lvl == 0 ? <String, dynamic>{'title': 'Area'} : floor;
     final Widget content;
     if (blockedAbove != null) {
@@ -792,6 +802,8 @@ class _HomeScreenState extends State<HomeScreen> {
       );
       // The request to scroll is done once.
       if (_areaFloor != null) WidgetsBinding.instance.addPostFrameCallback((_) => _areaFloor = null);
+    } else if (_specialList) {
+      content = RoomGallery(doc: d, rooms: roomsOf(d, floorId), pal: pal, onOpen: _openRoomModern, unlocked: store.unlocked);
     } else if (r == null) {
       content = Center(
         child: Text(
@@ -819,7 +831,7 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
     return PopScope(
-      canPop: _tab == 0,
+      canPop: _tab == 0 && !(_lvl == 2 && roomsOf(d, floorId).length > 1),
       // Back leaves a room, then a floor, then returns to Home.
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) _modernBack();
@@ -839,9 +851,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   children: [
                     _banner(pal),
                     _header(d, pal, headFloor, onPage ? r : null, _tab == 1 && normal.length > 1, onBack: onBack, sizeKey: onPage ? 'titleSize' : 'areaTitle'),
-                    // Home and Security show the choice of room only when they have two rooms or more.
-                    if (blockedAbove == null && _tab != 1 && floor != null && roomsOf(d, floor['id'] as String).length > 1)
-                      _roomsBar(d, pal, roomsOf(d, floor['id'] as String)),
                     if (onPage && r != null && subs.length > 1 && _dev != 'mobile') _pageNav(subs, pal),
                     Expanded(child: _fade(ValueKey('m$_tab-$_lvl-$floorId-$roomId-${blockedAbove?['id']}'), content)),
                     _modernBar(pal),
@@ -875,15 +884,7 @@ class _HomeScreenState extends State<HomeScreen> {
               decoration: BoxDecoration(color: sel ? pal.ink.withAlpha(36) : Colors.transparent, borderRadius: BorderRadius.circular(30)),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(sel ? on : off, size: f * 2.0, color: pal.ink),
-                  const SizedBox(height: 2),
-                  Text(
-                    label,
-                    maxLines: 1,
-                    style: TextStyle(fontSize: f * 0.78, fontWeight: sel ? FontWeight.w700 : FontWeight.w400, color: pal.ink, height: 1.1),
-                  ),
-                ],
+                children: [Icon(sel ? on : off, size: f * 2.0, color: pal.ink)],
               ),
             ),
           ),

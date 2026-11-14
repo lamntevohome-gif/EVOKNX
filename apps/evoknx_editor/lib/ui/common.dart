@@ -433,7 +433,7 @@ class _SyncedFieldState extends State<SyncedField> {
       onChanged: widget.onChanged,
       textAlign: widget.center ? TextAlign.center : TextAlign.start,
       keyboardType: widget.number ? TextInputType.number : TextInputType.text,
-      style: TextStyle(fontSize: widget.bold ? 13 : kUiText, fontWeight: widget.bold ? FontWeight.w600 : FontWeight.w400, color: c.ink),
+      style: TextStyle(fontSize: kUiText, fontWeight: widget.bold ? FontWeight.w600 : FontWeight.w400, color: c.ink),
       decoration: InputDecoration(
         hintText: trn(widget.hint),
         filled: !widget.borderless,

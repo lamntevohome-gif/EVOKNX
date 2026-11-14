@@ -116,7 +116,7 @@ class StructureTree extends StatelessWidget {
     }
 
     Widget row({
-      required Widget leading,
+      Widget? leading,
       required String text,
       required bool on,
       bool? open,
@@ -146,7 +146,7 @@ class StructureTree extends StatelessWidget {
           onTap: selKey == null ? onTap : () => tapRow(selKey, onTap),
           onSecondaryTapDown: (e) => menu(e.globalPosition),
           child: Container(
-            height: 34,
+            height: 36,
             padding: EdgeInsets.only(left: 12 + indent, right: 12),
             decoration: hover ? BoxDecoration(border: Border.all(color: c.accent, width: 1.5)) : null,
             child: Row(
@@ -159,16 +159,15 @@ class StructureTree extends StatelessWidget {
                       : GestureDetector(
                           behavior: HitTestBehavior.opaque,
                           onTap: onToggle,
-                          child: Center(child: Icon(open ? Icons.arrow_drop_down : Icons.arrow_right, size: 20, color: c.muted)),
+                          child: Center(child: Icon(open ? Icons.arrow_drop_down : Icons.arrow_right, size: 22, color: c.muted)),
                         ),
                 ),
-                SizedBox(width: 16, child: Center(child: leading)),
-                const SizedBox(width: 6),
+                if (leading != null) ...[SizedBox(width: 18, child: Center(child: leading)), const SizedBox(width: 6)],
                 Expanded(
                   child: Text(
                     text,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: kUiText, fontWeight: bold ? FontWeight.w600 : FontWeight.w400, color: c.ink),
+                    style: TextStyle(fontSize: kUiText + 1, fontWeight: bold ? FontWeight.w600 : FontWeight.w400, color: c.ink),
                   ),
                 ),
               ],
@@ -209,13 +208,32 @@ class StructureTree extends StatelessWidget {
 
     // A floor, its rooms and (for the room being edited, or one that was opened) its pages. [base] is the indent of the
     // floor: a room is 16 further in, a page 32.
+    // Home and Security have their own icons (a shield for Security) unless another one was chosen.
+    Widget? floorIcon(Json f) {
+      final k = f['icon'] as String?;
+      final sp = f['special'];
+      if (sp == 'security' && (k == null || k.isEmpty || k == 'shield-home')) return Icon(Icons.shield_outlined, size: 16, color: c.muted);
+      if (sp == 'home' && (k == null || k.isEmpty || k == 'home')) return Icon(Icons.home_outlined, size: 16, color: c.muted);
+      if (k == null || k.isEmpty || isNoIcon(k)) return Icon(Icons.layers_outlined, size: 16, color: c.muted);
+      return iconWidget(k, 16, c.muted);
+    }
+
+    // A room without an icon has no space for one.
+    Widget? roomIcon(Json r, Json f) {
+      final k = r['icon'] as String?;
+      if (f['special'] == 'security' && (k == null || k.isEmpty || k == 'shield-home')) return Icon(Icons.shield_outlined, size: 16, color: c.muted);
+      if (f['special'] == 'home' && k == 'home') return Icon(Icons.home_outlined, size: 16, color: c.muted);
+      if (k == null || k.isEmpty || isNoIcon(k)) return null;
+      return iconWidget(k, 16, c.muted);
+    }
+
     List<Widget> floorBlock(Json f, double base) {
       final fid = f['id'] as String;
       final open = floorOpen(f);
       final rooms = roomsOf(doc, fid);
       return [
         row(
-          leading: isNoIcon(f['icon'] as String?) ? Icon(Icons.layers_outlined, size: 14, color: c.muted) : iconWidget(f['icon'] as String?, 14, c.muted),
+          leading: floorIcon(f),
           text: (f['title'] ?? '').toString(),
           open: rooms.isEmpty ? null : open,
           onToggle: () => d.toggleTreeOpen('f:$fid', true),
@@ -253,7 +271,7 @@ class StructureTree extends StatelessWidget {
           for (final r in rooms) ...[
             row(
               indent: base + 16,
-              leading: iconWidget(r['icon'] as String?, 14, c.muted),
+              leading: roomIcon(r, f),
               text: (r['title'] ?? '').toString(),
               open: subsOf(r).isEmpty ? null : roomOpen(r),
               onToggle: () => d.toggleTreeOpen('r:${r['id']}', curRoom?['id'] == r['id']),
@@ -303,7 +321,7 @@ class StructureTree extends StatelessWidget {
               for (final s in subsOf(r))
                 row(
                   indent: base + 32,
-                  leading: Icon(Icons.crop_portrait, size: 13, color: s['id'] == curSub?['id'] ? c.accent : c.muted),
+                  leading: Icon(Icons.crop_portrait, size: 15, color: s['id'] == curSub?['id'] ? c.accent : c.muted),
                   text: (s['title'] ?? '').toString(),
                   on: d.view == 'room' && !d.roomFocus && s['id'] == curSub?['id'],
                   selKey: 's:${r['id']}:${s['id']}',
@@ -362,7 +380,7 @@ class StructureTree extends StatelessWidget {
           ),
         ),
         row(
-          leading: Icon(Icons.tune, size: 14, color: c.muted),
+          leading: Icon(Icons.tune, size: 16, color: c.muted),
           text: 'Overview',
           on: d.view == 'overview',
           onTap: d.overview,
@@ -375,7 +393,7 @@ class StructureTree extends StatelessWidget {
         // Home – Area – Security, as the bar at the bottom of the App.
         if (home != null) ...floorBlock(home, 0),
         row(
-          leading: Icon(Icons.layers_outlined, size: 14, color: c.muted),
+          leading: Icon(Icons.layers_outlined, size: 16, color: c.muted),
           text: 'Area',
           open: areaOpen,
           onToggle: () => d.toggleTreeOpen('area', true),

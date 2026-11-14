@@ -296,6 +296,9 @@ class _Screen extends StatelessWidget {
       final normal = normalFloorsOf(doc);
       final inFloors = d.view == 'floors';
       final inRooms = special == null && d.view == 'floor';
+      // Home and Security with two rooms or more: the rooms are listed as a gallery first, like the floors of Area.
+      final specialRooms = special == null ? const <Json>[] : roomsOf(doc, floor?['id'] as String?);
+      final inSpecialList = special != null && d.view == 'floor' && specialRooms.length > 1;
       Widget title(String t) => Padding(
         padding: const EdgeInsets.fromLTRB(18, 6, 14, 10),
         child: Text(
@@ -321,15 +324,7 @@ class _Screen extends StatelessWidget {
                 decoration: BoxDecoration(color: sel ? pal.ink.withAlpha(36) : Colors.transparent, borderRadius: BorderRadius.circular(30)),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(sel ? on : off, size: nf * 2.0, color: pal.ink),
-                    const SizedBox(height: 2),
-                    Text(
-                      label,
-                      maxLines: 1,
-                      style: TextStyle(fontSize: nf * 0.78, fontWeight: sel ? FontWeight.w700 : FontWeight.w400, color: pal.ink, height: 1.1),
-                    ),
-                  ],
+                  children: [Icon(sel ? on : off, size: nf * 2.0, color: pal.ink)],
                 ),
               ),
             ),
@@ -344,7 +339,12 @@ class _Screen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             statusBar,
-            if (inFloors || inRooms) ...[
+            if (inSpecialList) ...[
+              title((floor?['title'] ?? '').toString()),
+              Expanded(
+                child: RoomGallery(doc: doc, rooms: specialRooms, pal: pal, onOpen: d.selectRoom),
+              ),
+            ] else if (inFloors || inRooms) ...[
               title('Area'),
               Expanded(
                 child: AreaList(
@@ -359,9 +359,14 @@ class _Screen extends StatelessWidget {
             ] else if (room == null || sub == null)
               empty
             else ...[
-              _header(doc, room, floor, special == null && normal.length > 1, theme, onBack: special == null ? d.floorsGallery : null),
-              // Home and Security show the choice of room only when they have two rooms or more.
-              if (special != null && roomsOf(doc, floor?['id'] as String?).length > 1) _roomsBar(doc, room, floor),
+              _header(
+                doc,
+                room,
+                floor,
+                special == null && normal.length > 1,
+                theme,
+                onBack: special == null ? d.floorsGallery : (specialRooms.length > 1 ? () => d.selectFloor(floor!['id'] as String) : null),
+              ),
               if (tablet) _pageTabs(room, sub),
               grid(room, sub),
             ],

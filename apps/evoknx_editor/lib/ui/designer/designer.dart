@@ -365,7 +365,12 @@ class Designer extends ChangeNotifier {
     final f = floorsOf(doc).where((x) => x['special'] == kind).firstOrNull;
     if (f == null) return;
     final rs = roomsOf(doc, f['id'] as String);
-    if (rs.isNotEmpty) selectRoom(rs.first['id'] as String);
+    // Two rooms or more: the gallery of the rooms first.
+    if (rs.length > 1) {
+      selectFloor(f['id'] as String);
+    } else if (rs.isNotEmpty) {
+      selectRoom(rs.first['id'] as String);
+    }
   }
 
   /// Shows the room gallery in the preview.

@@ -199,14 +199,14 @@ class _TestPageState extends State<TestPage> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Container(
-          padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
           decoration: BoxDecoration(
             color: c.panel,
             border: Border(bottom: BorderSide(color: c.line)),
           ),
           child: Row(
             children: [
-              SearchField(hint: 'Filter by address, name or value', framed: true, onChanged: (v) => setState(() => query = v)),
+              SearchField(width: 300, hint: 'Filter by address, name or value', framed: true, onChanged: (v) => setState(() => query = v)),
               const SizedBox(width: 8),
               EvoDropdown<String>(
                 value: type,
