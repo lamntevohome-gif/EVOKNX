@@ -671,10 +671,14 @@ class Designer extends ChangeNotifier {
   /// Changes a card wherever it is in the project, so it does not depend on the page that is open.
   void editWidget(String id, void Function(Json w) fn, {String? coalesce}) {
     if (allWidgets(doc).every((x) => x['id'] != id)) return;
-    p.mutate((d) {
-      final w = allWidgets(d).where((x) => x['id'] == id).firstOrNull;
-      if (w != null) fn(w);
-    }, coalesce: coalesce);
+    try {
+      p.mutate((d) {
+        final w = allWidgets(d).where((x) => x['id'] == id).firstOrNull;
+        if (w != null) fn(w);
+      }, coalesce: coalesce);
+    } catch (e) {
+      onMessage?.call('Could not change the card: $e');
+    }
   }
 
   Json? _box(Json s, String? g) => g == null ? s : findWidget(s, g);

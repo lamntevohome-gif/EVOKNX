@@ -35,6 +35,24 @@ class _RemoteLayoutDialogState extends State<_RemoteLayoutDialog> {
 
   Designer get d => widget.d;
 
+  void _refresh() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    d.addListener(_refresh);
+    d.p.addListener(_refresh);
+  }
+
+  @override
+  void dispose() {
+    d.removeListener(_refresh);
+    d.p.removeListener(_refresh);
+    super.dispose();
+  }
+
   Json? _card() => allWidgets(d.doc).where((x) => x['id'] == widget.id).firstOrNull;
 
   /// Where every key would be if [item] went to the cell ([c], [r]): a free place, or a swap with one key of the same size.
@@ -71,10 +89,15 @@ class _RemoteLayoutDialogState extends State<_RemoteLayoutDialog> {
   /// Changes the card wherever it is in the project (the page that is open does not matter).
   void _edit(void Function(Json w) fn, {String? coalesce}) {
     if (_card() == null) return;
-    d.p.mutate((doc) {
-      final x = allWidgets(doc).where((e) => e['id'] == widget.id).firstOrNull;
-      if (x != null) fn(x);
-    }, coalesce: coalesce);
+    try {
+      d.p.mutate((doc) {
+        final x = allWidgets(doc).where((e) => e['id'] == widget.id).firstOrNull;
+        if (x != null) fn(x);
+      }, coalesce: coalesce);
+    } catch (e) {
+      if (mounted) toast(context, 'Could not change the card: $e');
+    }
+    if (mounted) setState(() {});
   }
 
   void _setSize(String key, int v) => _edit((x) {
@@ -199,10 +222,12 @@ class _RemoteLayoutDialogState extends State<_RemoteLayoutDialog> {
           for (final x in remoteCustom(w)) {
             if (x['id'] == part) return (x['label'] ?? '').toString().isEmpty ? 'Custom button' : (x['label'] ?? '').toString();
           }
+          if (part == 'poweron') return 'Power on';
+          if (part == 'poweroff') return 'Power off';
           return part;
         }
 
-        if (_sel != null && items.every((x) => x.id != _sel)) _sel = null;
+        if (_sel != null && _sel != 'poweron' && _sel != 'poweroff' && items.every((x) => x.id != _sel)) _sel = null;
         final dragging = _drag == null ? null : items.where((x) => x.id == _drag).firstOrNull;
         // Where the dragged key would land, and whether it can.
         int? tc, tr;
@@ -459,7 +484,39 @@ class _RemoteLayoutDialogState extends State<_RemoteLayoutDialog> {
                   const SizedBox(height: 12),
                   Flexible(
                     child: SingleChildScrollView(
-                      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [grid, const SizedBox(width: 20), side]),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // The On and Off keys of the top bar: they are not dragged, but they can be changed here.
+                              if (remoteShowTop(w, 'PowerOn') || remoteShowTop(w, 'PowerOff'))
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 8),
+                                  child: Row(
+                                    children: [
+                                      for (final k in ['poweron', 'poweroff'])
+                                        if (remoteShowTop(w, k == 'poweron' ? 'PowerOn' : 'PowerOff'))
+                                          GestureDetector(
+                                            behavior: HitTestBehavior.opaque,
+                                            onTap: () => setState(() => _sel = k),
+                                            child: SizedBox(
+                                              width: cellW,
+                                              height: 40,
+                                              child: _face(c, w, pal, RemoteItem(k, 0, 0, 1, 1), selected: _sel == k),
+                                            ),
+                                          ),
+                                    ],
+                                  ),
+                                ),
+                              grid,
+                            ],
+                          ),
+                          const SizedBox(width: 20),
+                          side,
+                        ],
+                      ),
                     ),
                   ),
                   const SizedBox(height: 8),
