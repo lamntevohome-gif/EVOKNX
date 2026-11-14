@@ -49,11 +49,11 @@ class RoomGallery extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, bc) {
         final w = bc.maxWidth;
-        // One column of 16:9 cards (two columns on a wide tablet).
-        final cols = w >= 760 ? 2 : 1;
+        // The same cards as the Area screen: 4:3, two columns (more on a wide screen).
+        final cols = w >= 1000 ? 4 : (w >= 760 ? 3 : 2);
         return GridView.builder(
           padding: EdgeInsets.all(pal.safeMargin),
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: cols, mainAxisSpacing: 12, crossAxisSpacing: 12, childAspectRatio: 16 / 9),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: cols, mainAxisSpacing: 12, crossAxisSpacing: 12, childAspectRatio: 4 / 3),
           itemCount: rooms.length,
           itemBuilder: (context, i) => _RoomCard(
             doc: doc,
