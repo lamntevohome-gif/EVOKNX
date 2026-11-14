@@ -219,22 +219,22 @@ class HaEntity {
   ];
 
   Map<String, dynamic> toJson() => {
-        'entity_id': id,
-        'state': state,
-        'attributes': {
-          for (final k in keptAttributes)
-            if (attributes.containsKey(k)) k: attributes[k],
-        },
-      };
+    'entity_id': id,
+    'state': state,
+    'attributes': {
+      for (final k in keptAttributes)
+        if (attributes.containsKey(k)) k: attributes[k],
+    },
+  };
 
   List<String> get hvacModes => [for (final x in (attributes['hvac_modes'] as List? ?? const [])) x.toString()];
 }
 
 /// The HA virtual addresses of a project.
 List<Json> haAddresses(Json doc) => [
-      for (final g in jsonList(doc['groupAddresses']))
-        if (isHaAddress(g)) g,
-    ];
+  for (final g in jsonList(doc['groupAddresses']))
+    if (isHaAddress(g)) g,
+];
 
 /// Connection settings of the project: {enabled, url, token}.
 Json haSettings(Json doc) => jsonMap(doc['ha']);
@@ -273,8 +273,9 @@ HaCall? haCommand(HaEntity e, String attr, Object value) {
       if (d == 'scene') return on ? const HaCall('scene', 'turn_on') : HaCall.none;
       if (d == 'automation') return on ? const HaCall('automation', 'trigger') : HaCall.none;
       if (d == 'script') return HaCall('script', on ? 'turn_on' : 'turn_off');
-      final dom =
-          const ['light', 'switch', 'fan', 'input_boolean', 'climate', 'automation', 'cover', 'media_player', 'remote'].contains(d) ? d : 'homeassistant';
+      final dom = const ['light', 'switch', 'fan', 'input_boolean', 'climate', 'automation', 'cover', 'media_player', 'remote'].contains(d)
+          ? d
+          : 'homeassistant';
       if (dom == 'cover') return HaCall('cover', on ? 'open_cover' : 'close_cover');
       return HaCall(dom, on ? 'turn_on' : 'turn_off');
     case 'brightness':

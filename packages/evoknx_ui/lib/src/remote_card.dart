@@ -50,12 +50,22 @@ class RemoteKeyFace extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final f = remoteBgSize(w, id) / 100;
+    final child = _inner(context);
+    return f >= 1 || id == 'dpad'
+        ? child
+        : Center(
+            child: FractionallySizedBox(widthFactor: f, heightFactor: f, child: child),
+          );
+  }
+
+  Widget _inner(BuildContext context) {
     final p = cardPalette(w, pal).$1;
     final z = remoteScale(w, id) / 100;
     if (id == 'dpad') {
       return LayoutBuilder(
         builder: (context, bc) {
-          final s = math.max(20.0, math.min(bc.maxWidth, bc.maxHeight) - 6);
+          final s = math.max(20.0, (math.min(bc.maxWidth, bc.maxHeight) - 6) * remoteBgSize(w, 'dpad') / 100);
           return Center(
             child: SizedBox(
               width: s,
@@ -337,9 +347,20 @@ class _RemoteCardState extends State<RemoteCard> {
   }
 
   Widget _part(RemoteItem i) {
+    final f = remoteBgSize(widget.w, i.id) / 100;
+    final child = _partInner(i);
+    return f >= 1 || i.id == 'dpad'
+        ? child
+        : Center(
+            child: FractionallySizedBox(widthFactor: f, heightFactor: f, child: child),
+          );
+  }
+
+  Widget _partInner(RemoteItem i) {
     final z = remoteScale(widget.w, i.id) / 100;
     if (i.id == 'dpad') {
-      return LayoutBuilder(builder: (context, bc) => Center(child: _dpad(math.max(20.0, math.min(bc.maxWidth, bc.maxHeight) - 6), z)));
+      final f = remoteBgSize(widget.w, 'dpad') / 100;
+      return LayoutBuilder(builder: (context, bc) => Center(child: _dpad(math.max(20.0, (math.min(bc.maxWidth, bc.maxHeight) - 6) * f), z)));
     }
     if (i.id == 'poweron' || i.id == 'poweroff') return _powerKey(i.id, z);
     if (i.id == 'touchpad') return _touchpad(z);

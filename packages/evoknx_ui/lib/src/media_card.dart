@@ -46,12 +46,18 @@ class MediaCard extends StatefulWidget {
   State<MediaCard> createState() => _MediaCardState();
 }
 
+/// The space between the lines of text, and how much higher the volume row is than the row of buttons' margin.
+const double _kLineGap = 5;
+const double _kVolLift = 4;
+
 class _MediaCardState extends State<MediaCard> {
   StreamSubscription<HaEntity>? _sub;
   Uint8List? _cover;
   String _coverKey = '';
   String _wanted = '';
   double? _vol; // while the volume is being dragged
+  bool? _shufLocal; // what a tap on shuffle set, until the player says the same
+  String? _repLocal; // the same for repeat
 
   Json get _opts => jsonMap(widget.w['media']);
   String get _id => (_opts['entity'] ?? '').toString().trim();
@@ -295,26 +301,40 @@ class _MediaCardState extends State<MediaCard> {
     final canSetVolume = knx ? bind['volume'] != null : true;
     var volIcon = _size('volIcon') ?? (compact ? 18.0 : 20.0);
     // The space between the rows (the lines of text keep half of it).
+    // The space above and below the volume row.
     var gap = (_size('rowGap') ?? 8.0).clamp(0.0, 60.0).toDouble();
 
-    // A card that is lower than its rows need gets lower rows (the space between them first, then the picture, then the
-    // buttons); the width is not touched. A narrower card only makes the buttons closer (above) and the picture smaller.
+    // A card that is lower than its rows need gets lower rows, little by little (never in a jump): first the space around
+    // the volume row, then the picture, then the buttons. The width is not touched.
+    final hasCtl = showControls;
     if (bc.maxHeight.isFinite) {
-      final textsH = (showTitle ? titleSize * 1.4 : 0) + (knx ? titleSize : songSize) * 1.4 + (!knx && m.artist.isNotEmpty ? detailSize * 1.4 : 0);
+      final textsH = (showTitle ? titleSize * 1.35 : 0) + (knx ? titleSize : songSize) * 1.35 + (!knx && m.artist.isNotEmpty ? detailSize * 1.35 : 0);
       double need(double g, double p, double k) {
-        final topH = math.max(textsH + (g * 0.5 + 3) * (lines.length - 1), showCover ? p : 0.0);
-        final volH = showVolume ? math.max(volIcon * k + 6, 26.0) : 0.0;
-        final ctlH = showControls ? playSize * k + 8 : 0.0;
-        return topH + volH + ctlH + (showVolume && showControls ? g : 0.0) + 4;
+        final topH = math.max(textsH + _kLineGap * (lines.length - 1), showCover ? p : 0.0);
+        final volH = showVolume ? math.max(volIcon * k + 4, 24.0) : 0.0;
+        final ctlH = hasCtl ? playSize * k + 4 : 0.0;
+        return topH + (showVolume ? g + volH + (hasCtl ? g + _kVolLift : 0) : 0) + ctlH;
       }
 
-      final avail = bc.maxHeight;
-      var g = gap, p = pic, k = 1.0;
-      if (need(g, p, k) > avail) g = 0;
-      if (showCover && need(g, p, k) > avail) p = math.max(24.0, p - (need(g, p, k) - avail));
-      while (need(g, p, k) > avail && k > 0.5) {
-        k -= 0.1;
+      // The largest t in [lo, hi] for which the card still fits, found by halving (the need grows with t).
+      double fit(double lo, double hi, double Function(double) f) {
+        if (f(hi) <= bc.maxHeight) return hi;
+        if (f(lo) > bc.maxHeight) return lo;
+        for (var i = 0; i < 24; i++) {
+          final mid = (lo + hi) / 2;
+          if (f(mid) <= bc.maxHeight) {
+            lo = mid;
+          } else {
+            hi = mid;
+          }
+        }
+        return lo;
       }
+
+      final g = fit(0, gap, (t) => need(t, pic, 1));
+      var p = pic, k = 1.0;
+      if (need(g, p, k) > bc.maxHeight && showCover) p = fit(24, pic, (t) => need(g, t, 1));
+      if (need(g, p, k) > bc.maxHeight) k = fit(0.5, 1, (t) => need(g, p, t));
       gap = g;
       pic = p;
       btnSize *= k;
@@ -380,7 +400,17 @@ class _MediaCardState extends State<MediaCard> {
     // Shuffle and repeat are off unless ticked in the settings; the card shows them only if the player (or the address) has them.
     final canShuffle = _opts['shuffle'] == true && (knx ? bind['shuffle'] != null : m.supports(HaMedia.featShuffle));
     final canRepeat = _opts['repeat'] == true && (knx ? bind['repeat'] != null : m.supports(HaMedia.featRepeat));
-    final repeatOn = m.repeat != 'off';
+    if (_shufLocal == m.shuffle) _shufLocal = null;
+    if (_repLocal == m.repeat) _repLocal = null;
+    final shuffleOn = _shufLocal ?? m.shuffle;
+    final repeatMode = _repLocal ?? m.repeat;
+    final repeatOn = repeatMode != 'off';
+    // A button that is on has a round, tinted background, so the change is seen at once.
+    Widget mark(Widget b, bool on, double size) => Container(
+      decoration: BoxDecoration(shape: BoxShape.circle, color: on ? pal.accent.withValues(alpha: 0.22) : Colors.transparent),
+      padding: const EdgeInsets.all(2),
+      child: b,
+    );
     // Previous, play and next are spread evenly between the two side columns.
     final controls = Row(
       children: [
@@ -388,12 +418,19 @@ class _MediaCardState extends State<MediaCard> {
           width: sideW,
           child: canShuffle
               ? Center(
-                  child: btn(
-                    Icons.shuffle,
-                    () => _call('shuffle_set', {'shuffle': !m.shuffle}),
-                    size: btnSize * 0.85,
-                    color: m.shuffle ? pal.accent : pal.muted,
-                    h: 0,
+                  child: mark(
+                    btn(
+                      Icons.shuffle,
+                      () {
+                        setState(() => _shufLocal = !shuffleOn);
+                        _call('shuffle_set', {'shuffle': !shuffleOn});
+                      },
+                      size: btnSize * 0.85,
+                      color: shuffleOn ? pal.accent : pal.muted,
+                      h: 0,
+                    ),
+                    shuffleOn,
+                    btnSize,
                   ),
                 )
               : null,
@@ -419,12 +456,20 @@ class _MediaCardState extends State<MediaCard> {
           width: sideW,
           child: canRepeat
               ? Center(
-                  child: btn(
-                    m.repeat == 'one' ? Icons.repeat_one : Icons.repeat,
-                    () => _call('repeat_set', {'repeat': m.repeat == 'off' ? 'all' : (m.repeat == 'all' ? 'one' : 'off')}),
-                    size: btnSize * 0.85,
-                    color: repeatOn ? pal.accent : pal.muted,
-                    h: 0,
+                  child: mark(
+                    btn(
+                      repeatMode == 'one' ? Icons.repeat_one : Icons.repeat,
+                      () {
+                        final next = repeatMode == 'off' ? 'all' : (repeatMode == 'all' ? 'one' : 'off');
+                        setState(() => _repLocal = next);
+                        _call('repeat_set', {'repeat': next});
+                      },
+                      size: btnSize * 0.85,
+                      color: repeatOn ? pal.accent : pal.muted,
+                      h: 0,
+                    ),
+                    repeatOn,
+                    btnSize,
                   ),
                 )
               : null,
@@ -444,7 +489,7 @@ class _MediaCardState extends State<MediaCard> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  for (var i = 0; i < lines.length; i++) ...[if (i > 0) SizedBox(height: (gap * 0.5 + 3)), lines[i]],
+                  for (var i = 0; i < lines.length; i++) ...[if (i > 0) SizedBox(height: _kLineGap), lines[i]],
                 ],
               ),
             ),
@@ -452,8 +497,8 @@ class _MediaCardState extends State<MediaCard> {
           ],
         ),
         const Spacer(),
-        if (showVolume) volume,
-        if (showVolume && hasControls) SizedBox(height: gap),
+        if (showVolume) ...[SizedBox(height: gap), volume],
+        if (showVolume && hasControls) SizedBox(height: gap + _kVolLift),
         if (hasControls) controls,
       ],
     );

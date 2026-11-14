@@ -171,8 +171,7 @@ Future<({Json? config, String? error})> fetchConfigFromEditor(String address, St
   } on SocketException {
     return (
       config: null,
-      error:
-          'Could not connect to the computer. Check that the phone and the computer are on the same Wi-Fi, the address is correct, and EvoKNX is allowed through the Windows firewall.',
+      error: 'Could not connect to the computer. Check that the phone and the computer are on the same Wi-Fi, the address is correct, and EvoKNX is allowed through the Windows firewall.',
     );
   } on TimeoutException {
     return (config: null, error: 'Timed out. Check that both are on the same Wi-Fi and the Windows firewall.');

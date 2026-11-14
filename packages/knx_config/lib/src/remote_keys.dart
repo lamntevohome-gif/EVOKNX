@@ -319,6 +319,13 @@ String remoteKeyBg(Json w, String id) {
   return v == 'outline' || v == 'transparent' ? v as String : 'default';
 }
 
+/// The size of the button of a key (its background and border) in percent of its cell: 40 to 100, usually 100. A smaller
+/// one leaves more space between the buttons.
+int remoteBgSize(Json w, String id) {
+  final v = jsonMap(jsonMap(w['remote'])['bgsize'])[id];
+  return v is num ? v.toInt().clamp(40, 100) : 100;
+}
+
 /// The color of the button of a key (a hex color) instead of the usual one; null = the usual one.
 String? remoteKeyColor(Json w, String id) {
   final v = jsonMap(jsonMap(w['remote'])['kcolor'])[id];
