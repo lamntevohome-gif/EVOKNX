@@ -946,7 +946,9 @@ class _GridAreaState extends State<_GridArea> {
           final Widget tile = w['type'] == 'group'
               ? _GroupFrame(d: d, w: w, pal: pal, issues: widget.issues, selected: selected)
               : w['type'] == 'media'
-              ? MediaCard(w: w, pal: pal, host: d.mediaHost)
+              ? MediaCard(w: w, pal: pal, host: d.mediaHost, sim: d.sim[id] ?? const {}, act: test ? (a, [arg]) => _testAct(w, a, arg) : null)
+              : w['type'] == 'remote'
+              ? RemoteCard(w: w, pal: pal, host: d.mediaHost)
               : TileView(
                   w: d.bound(w),
                   pal: pal,

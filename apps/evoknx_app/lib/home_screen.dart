@@ -140,7 +140,14 @@ class _HomeScreenState extends State<HomeScreen> {
       final b = HaBridge(url: url, token: token, addresses: haGas);
       b.onValue = engine.onBusValue;
       b.onState = () {
-        if (mounted) setState(() {});
+        if (!mounted) return;
+        setState(() {});
+        // Once per connection: the entities that Home Assistant does not have.
+        if (b.connected && b.missingEntities.isNotEmpty && !_missingTold.containsAll(b.missingEntities)) {
+          _missingTold.addAll(b.missingEntities);
+          final l = b.missingEntities.toList()..sort();
+          _toast('Home Assistant has no entity: ${l.take(3).join(', ')}${l.length > 3 ? ' and ${l.length - 3} more' : ''}.');
+        }
       };
       ha = b;
       b.start();
@@ -160,7 +167,17 @@ class _HomeScreenState extends State<HomeScreen> {
     _grace = Timer(const Duration(seconds: 10), () {
       if (mounted) setState(() => _graceOver = true);
     });
-    _life = AppLifecycleListener(onResume: () => _connect(), onHide: () => knx.disconnect());
+    _life = AppLifecycleListener(
+      // In the background neither KNX nor Home Assistant stay connected; they connect again when the App is back.
+      onResume: () {
+        _connect();
+        ha?.start();
+      },
+      onHide: () {
+        knx.disconnect();
+        ha?.stop();
+      },
+    );
     _applyWakelock();
     _connect();
   }
@@ -245,6 +262,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   int _navSeq = 0;
   Future<void>? _popup;
+
+  /// The entities that Home Assistant lacks and that were already announced.
+  final Set<String> _missingTold = {};
 
   /// What the media player cards use: the connection to Home Assistant.
   late final MediaHost _mediaHost = _AppMediaHost(this);
@@ -957,6 +977,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
           ),
           _knxDot(),
+          _haDot(),
           if (store.profiles.length > 1) _iconBtn(pal, Icons.home_work_outlined, () => _openProfiles(pal), 'Switch profile'),
           _iconBtn(pal, Icons.settings_outlined, _openSettings, 'Settings'),
         ],
@@ -966,6 +987,59 @@ class _HomeScreenState extends State<HomeScreen> {
 
   /// The light of the KNX link: green when connected, orange while connecting, red when the bus is not reachable.
   /// Not shown when the project does not use KNX. A tap tells the state (and tries again when it is red).
+  /// The light of Home Assistant: green when connected, orange while connecting (or when an entity is missing), red when
+  /// it cannot connect. Not shown when the project does not use Home Assistant. A tap tells the state (and tries again
+  /// when it is red).
+  Widget _haDot() {
+    final b = ha;
+    if (b == null) return const SizedBox.shrink();
+    final Color c;
+    final String tip;
+    if (b.connected && b.missingEntities.isNotEmpty) {
+      c = const Color(0xFFFF9F0A);
+      tip = 'Home Assistant has no entity: ${(b.missingEntities.toList()..sort()).take(3).join(', ')}';
+    } else if (b.connected) {
+      c = const Color(0xFF30D158);
+      tip = 'Home Assistant connected';
+    } else if (b.state == HaConnection.failed) {
+      c = const Color(0xFFFF453A);
+      tip = '${b.error ?? 'Home Assistant is not connected.'} Tap to try again.';
+    } else {
+      c = const Color(0xFFFF9F0A);
+      tip = 'Home Assistant connecting…';
+    }
+    return Tooltip(
+      message: tip,
+      child: PressFade(
+        onTap: () {
+          if (b.state == HaConnection.failed) b.start();
+          _toast(tip);
+        },
+        child: SizedBox(
+          width: 34,
+          height: 44,
+          child: Center(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(color: c, shape: BoxShape.circle),
+                ),
+                const SizedBox(width: 3),
+                Text(
+                  'HA',
+                  style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: store.palette.sMuted),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _knxDot() {
     if (!_usesKnx) return const SizedBox.shrink();
     final connecting = knx.state == KnxConnectionState.connecting || knx.state == KnxConnectionState.reconnecting || !_graceOver;
@@ -1310,7 +1384,8 @@ class _HomeScreenState extends State<HomeScreen> {
     final id = w['id'] as String;
     final type = w['type'] as String? ?? '';
     if (type == 'webview') return WebCard(w: w, pal: pal);
-    if (type == 'media') return MediaCard(w: w, pal: pal, host: _mediaHost);
+    if (type == 'media') return MediaCard(w: w, pal: pal, host: _mediaHost, sim: engine.st(id), act: (a, [x]) => _act(w, a, x));
+    if (type == 'remote') return RemoteCard(w: w, pal: pal, host: _mediaHost);
     final tile = TileView(w: w, pal: pal, gas: gas, sim: engine.st(id), act: (a, [x]) => _act(w, a, x));
     final tap = const ['switch', 'dimmer', 'ac', 'button', 'scene', 'link'].contains(type) || (type == 'camera' && jsonMap(w['cam'])['view'] == 'button');
     if (!tap) return tile;

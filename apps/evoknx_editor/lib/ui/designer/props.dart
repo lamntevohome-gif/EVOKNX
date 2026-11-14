@@ -964,6 +964,8 @@ class _WidgetPropsState extends State<_WidgetProps> {
         ];
       case 'media':
         return [_MediaSection(d: d, w: w)];
+      case 'remote':
+        return [_RemoteSection(d: d, w: w)];
       case 'camera':
         final cam = jsonMap(w['cam']);
         final rtsp = cam['protocol'] != 'http';
@@ -2796,7 +2798,8 @@ class _TextSendInfo extends StatelessWidget {
   }
 }
 
-/// The settings of a media player card: which player of Home Assistant, and what the card shows.
+/// The settings of a media player card: its source (KNX addresses or a media player of Home Assistant), what the card
+/// shows and the size of each part.
 class _MediaSection extends StatelessWidget {
   const _MediaSection({required this.d, required this.w});
   final Designer d;
@@ -2806,9 +2809,14 @@ class _MediaSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final id = w['id'] as String;
     final m = jsonMap(w['media']);
+    final knx = mediaIsKnx(w);
     void set(String k, Object? v, {String? co}) => d.editWidget(id, (x) {
       final o = jsonMap(x['media']);
-      o[k] = v;
+      if (v == null) {
+        o.remove(k);
+      } else {
+        o[k] = v;
+      }
       x['media'] = o;
     }, coalesce: co);
     // The media players of Home Assistant, when the list was saved with Update Entity (Connections tab).
@@ -2824,21 +2832,77 @@ class _MediaSection extends StatelessWidget {
       controlAffinity: ListTileControlAffinity.leading,
       contentPadding: EdgeInsets.zero,
     );
-    return _Section('Media player', [
-      FieldLabel(
-        'Media player',
-        SuggestField(
-          value: (m['entity'] ?? '').toString(),
-          hint: 'media_player.living_room',
-          options: players,
-          onChanged: (v) => set('entity', v.trim(), co: 'mp-$id'),
-        ),
-      ),
-      check('cover', 'Show the cover'),
-      check('progress', 'Show the progress of the track'),
-      check('controls', 'Show the buttons (previous, play, next)'),
-      check('volume', 'Show the volume'),
-    ]);
+    // A size that was not set stays automatic (null); the row shows the usual value until it is changed.
+    final label = fs(w, 'labelSize').toInt();
+    Widget size(String key, String name, int usual, int min, int max, {String unit = 'px'}) => StepRow(
+      label: name,
+      unit: unit,
+      value: (m[key] is num ? (m[key] as num).toInt() : usual).clamp(min, max),
+      min: min,
+      max: max,
+      onChanged: (v) => set(key, v, co: 'ms-$key-$id'),
+    );
+    const sizeKeys = ['titleSize', 'songSize', 'detailSize', 'coverSize', 'btnSize', 'volIcon', 'volWidth', 'volThick'];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _Section('Media player', [
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Row(
+              children: [
+                Expanded(
+                  child: EvoButton(label: 'KNX', primary: knx, onPressed: () => d.setMediaSource(id, 'knx')),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: EvoButton(label: 'HA', primary: !knx, onPressed: () => d.setMediaSource(id, 'ha')),
+                ),
+              ],
+            ),
+          ),
+          if (knx)
+            Hint('Assign the addresses below. A button without an address is left out. KNX gives no picture: an equalizer moves while the music plays.')
+          else
+            FieldLabel(
+              'Media player',
+              SuggestField(
+                value: (m['entity'] ?? '').toString(),
+                hint: 'media_player.living_room',
+                options: players,
+                onChanged: (v) => set('entity', v.trim(), co: 'mp-$id'),
+              ),
+            ),
+          check('cover', 'Show the picture'),
+          check('controls', 'Show the buttons (previous, play, next)'),
+          check('volume', 'Show the volume'),
+        ]),
+        _Section('Sizes', [
+          if (!knx) size('titleSize', 'Title', label, 8, 40),
+          size('songSize', knx ? 'Name' : 'Song', label, 8, 40),
+          if (!knx) size('detailSize', 'Artist and album', label - 2, 8, 32),
+          size('coverSize', 'Picture', 100, 20, 100, unit: '%'),
+          size('btnSize', 'Buttons', 26, 14, 56),
+          size('volIcon', 'Volume icon', 20, 12, 40),
+          size('volWidth', 'Volume bar width', 100, 20, 100, unit: '%'),
+          size('volThick', 'Volume bar thickness', 3, 1, 12),
+          if (sizeKeys.any((k) => m[k] != null))
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton(
+                onPressed: () => d.editWidget(id, (x) {
+                  final o = jsonMap(x['media']);
+                  for (final k in sizeKeys) {
+                    o.remove(k);
+                  }
+                  x['media'] = o;
+                }),
+                child: const Text('Default sizes'),
+              ),
+            ),
+        ]),
+      ],
+    );
   }
 }
 
@@ -2983,6 +3047,116 @@ class _CommandSection extends StatelessWidget {
               style: TextStyle(fontSize: 12.5, color: c.muted),
             ),
           ),
+      ],
+    );
+  }
+}
+
+/// The settings of a remote control card: the remote of Home Assistant, the platform whose key names are used, what the
+/// card shows and the name of each key.
+class _RemoteSection extends StatelessWidget {
+  const _RemoteSection({required this.d, required this.w});
+  final Designer d;
+  final Json w;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.evo;
+    final id = w['id'] as String;
+    final r = remoteSettings(w);
+    final keys = jsonMap(r['keys']);
+    void set(String k, Object? v, {String? co}) => d.editWidget(id, (x) {
+      final o = jsonMap(x['remote']);
+      if (v == null) {
+        o.remove(k);
+      } else {
+        o[k] = v;
+      }
+      x['remote'] = o;
+    }, coalesce: co);
+    void setKey(String key, String v) => d.editWidget(id, (x) {
+      final o = jsonMap(x['remote']);
+      final ks = jsonMap(o['keys']);
+      if (v.trim().isEmpty) {
+        ks.remove(key);
+      } else {
+        ks[key] = v.trim();
+      }
+      o['keys'] = ks;
+      x['remote'] = o;
+    }, coalesce: 'rk-$id-$key');
+    final entity = r['entity'] as String;
+    final list = [
+      for (final e in d.link?.entities ?? const <HaEntity>[])
+        if (e.domain == 'remote') e,
+    ]..sort((a, b) => a.id.compareTo(b.id));
+    final items = <(String, String)>[
+      ('', 'Not assigned'),
+      for (final e in list) (e.id, e.name == e.id ? e.id : '${e.id}   ${e.name}'),
+      if (entity.isNotEmpty && list.every((e) => e.id != entity)) (entity, entity),
+    ];
+    Widget check(String key, String label) => CheckboxListTile(
+      value: key == 'touchpad' ? r[key] == true : r[key] != false,
+      onChanged: (v) => set(key, v ?? false),
+      title: Text(label),
+      dense: true,
+      controlAffinity: ListTileControlAffinity.leading,
+      contentPadding: EdgeInsets.zero,
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _Section('Remote control', [
+          FieldLabel('Remote *', GaPickerField(value: entity, items: items, onChanged: (v) => set('entity', v.isEmpty ? null : v))),
+          if (list.isEmpty)
+            Text(
+              'No remotes are saved yet. In the Connections tab connect to Home Assistant and click Update Entity.',
+              style: TextStyle(fontSize: 12.5, color: c.warn),
+            ),
+          FieldLabel(
+            'Key names of',
+            EvoDropdown<String>(
+              value: kRemotePresets.containsKey(r['preset']) ? r['preset'] as String : 'Android TV',
+              items: [for (final k in kRemotePresets.keys) (k, k)],
+              onChanged: (v) => set('preset', v),
+            ),
+          ),
+          FieldLabel(
+            'Device (if the remote has several)',
+            SyncedField(
+              value: r['device'] as String,
+              hint: 'optional',
+              onChanged: (v) => set('device', v.trim().isEmpty ? null : v.trim(), co: 'rd-$id'),
+            ),
+          ),
+          FieldLabel(
+            'Repeat while held',
+            EvoDropdown<int>(
+              value: const [80, 150, 250, 400].contains(r['repeatMs']) ? r['repeatMs'] as int : 150,
+              items: const [(80, 'Fast'), (150, 'Normal'), (250, 'Slow'), (400, 'Very slow')],
+              onChanged: (v) => set('repeatMs', v),
+            ),
+          ),
+        ]),
+        _Section('Shows', [
+          check('dpad', 'The ring (up, down, left, right, OK)'),
+          check('nav', 'Back, Home, Menu'),
+          check('volume', 'Volume'),
+          check('transport', 'Previous, play or pause, next'),
+          check('touchpad', 'A touchpad (swipe and tap)'),
+        ]),
+        _Section('Key names', [
+          Text(
+            'The name that the integration of Home Assistant gives to each key. Check them with your remote; a key without a name is not sent.',
+            style: TextStyle(fontSize: 12.5, color: c.muted),
+          ),
+          const SizedBox(height: 6),
+          for (final k in kRemoteKeys)
+            FieldLabel(
+              k.$2,
+              SyncedField(value: (keys[k.$1] ?? '').toString(), hint: kRemotePresets[r['preset']]?[k.$1] ?? '', onChanged: (v) => setKey(k.$1, v)),
+            ),
+        ]),
       ],
     );
   }

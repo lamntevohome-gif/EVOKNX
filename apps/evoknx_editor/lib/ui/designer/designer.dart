@@ -1058,6 +1058,16 @@ class Designer extends ChangeNotifier {
   /// The source of the address fields of a card that can take an entity: 'knx' (its own addresses; the entity is
   /// forgotten) or 'ha' (an entity of Home Assistant, chosen next; the KNX addresses are forgotten). Nothing of the
   /// other side is kept.
+  /// Changes the source of a media player card (KNX addresses or a media player of Home Assistant).
+  void setMediaSource(String widgetId, String source) {
+    final w0 = allWidgets(p.doc).where((x) => x['id'] == widgetId).firstOrNull;
+    if (w0 == null || mediaIsKnx(w0) == (source == 'knx')) return;
+    p.mutate((doc) {
+      final w = allWidgets(doc).where((x) => x['id'] == widgetId).firstOrNull;
+      if (w != null) switchMediaSource(w, source);
+    });
+  }
+
   void setCardSource(String widgetId, String source) {
     final w0 = allWidgets(p.doc).where((x) => x['id'] == widgetId).firstOrNull;
     if (w0 == null || cardIsHa(w0) == (source == 'ha')) return;
@@ -1299,6 +1309,25 @@ class Designer extends ChangeNotifier {
           }
         }
         break;
+      case 'media':
+        if (action == 'play') {
+          final on = !(s['on'] == true);
+          s['on'] = on;
+          send(w, 'play', on, on ? '1 (Play)' : '0 (Pause)');
+        } else if (action == 'prev' || action == 'next') {
+          send(w, action, true, action == 'prev' ? '1 (Previous)' : '1 (Next)');
+        } else if (action == 'mute') {
+          final m = !(s['mute'] == true);
+          s['mute'] = m;
+          send(w, 'mute', m, m ? '1 (Mute)' : '0 (Unmute)');
+        } else if (action == 'preview') {
+          s['vol'] = (arg as num).round();
+        } else if (action == 'volume') {
+          final v = (arg as num).round();
+          s['vol'] = v;
+          send(w, 'volume', v, '$v %');
+        }
+        break;
       case 'link':
       case 'webview':
         onMessage?.call('The App will open ${w['url'] ?? ''}');
@@ -1351,6 +1380,11 @@ class Designer extends ChangeNotifier {
                 break;
               case 'shutter':
                 if (k == 'status' || k == 'position') s['pos'] = n;
+                break;
+              case 'media':
+                if (k == 'play' || k == 'playSt') s['on'] = (n ?? 0) != 0;
+                if (k == 'mute' || k == 'muteSt') s['mute'] = (n ?? 0) != 0;
+                if ((k == 'volume' || k == 'volumeSt') && n != null) s['vol'] = n.round();
                 break;
               case 'ac':
                 final ac = jsonMap(w['ac']);
