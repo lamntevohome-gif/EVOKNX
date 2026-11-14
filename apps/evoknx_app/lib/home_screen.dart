@@ -955,7 +955,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _header(Json d, AppPalette pal, Json? floor, Json? r, bool multi, {VoidCallback? onBack, String sizeKey = 'titleSize'}) {
     final hide = jsonMap(d['theme'])['hideTitle'] == true && r != null && !_modernMode;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 10, 12, 8),
+      padding: const EdgeInsets.fromLTRB(20, 10, 12, 3),
       child: Row(
         children: [
           if (onBack != null || (_galleryMode && !_gallery)) ...[

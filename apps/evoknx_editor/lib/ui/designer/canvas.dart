@@ -471,7 +471,7 @@ class _Screen extends StatelessWidget {
   Widget _header(Json doc, Json room, Json? floor, bool multi, Json theme, {bool pill = true, bool gear = true, VoidCallback? onBack}) {
     final hide = theme['hideTitle'] == true && dev != 'tabletL' && theme['layout'] != 'modern';
     return Padding(
-      padding: EdgeInsets.fromLTRB(18, dev == 'tabletL' ? 10 : 6, 14, 10),
+      padding: EdgeInsets.fromLTRB(18, dev == 'tabletL' ? 10 : 6, 14, 3),
       child: Row(
         children: [
           if (onBack != null) ...[
