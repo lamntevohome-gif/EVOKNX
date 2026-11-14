@@ -488,132 +488,6 @@ class _GaTableState extends State<GaTable> {
               SearchField(framed: true, onChanged: (v) => setState(() => query = v)),
               EvoDropdown<String>(
                 value: filter,
-                items: [('all', 'All types'), for (final d in domains) (d, '$d (${all.where((e) => e.domain == d).length})')],
-                onChanged: (v) => setState(() => haFilter = v),
-              ),
-            ],
-          ),
-        ),
-        Container(
-          height: 38,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          decoration: BoxDecoration(
-            color: c.panel,
-            border: Border(bottom: BorderSide(color: c.line)),
-          ),
-          child: Row(children: [head('Entity', flex: 5), head('Name', flex: 5), head('Type', w: 140), head('In use', w: 120)]),
-        ),
-        Expanded(
-          child: list.isEmpty
-              ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Text(
-                      all.isEmpty ? 'No entities yet. Connect to Home Assistant and click "Update Entity".' : 'No entities match the filter.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: c.muted),
-                    ),
-                  ),
-                )
-              : ListView.builder(
-                  itemCount: list.length,
-                  itemExtent: 44,
-                  itemBuilder: (context, i) {
-                    final e = list[i];
-                    return Container(
-                      key: ValueKey(e.id),
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      decoration: BoxDecoration(
-                        color: c.panel,
-                        border: Border(bottom: BorderSide(color: c.line)),
-                      ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            flex: 5,
-                            child: Text(
-                              e.id,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontWeight: FontWeight.w600),
-                            ),
-                          ),
-                          Expanded(
-                            flex: 5,
-                            child: Padding(
-                              padding: const EdgeInsets.only(right: 12),
-                              child: Text(e.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-                            ),
-                          ),
-                          SizedBox(
-                            width: 140,
-                            child: Text(e.domain, style: TextStyle(fontSize: 13.5, color: c.muted)),
-                          ),
-                          SizedBox(
-                            width: 120,
-                            child: Text(use[e.id] != null ? '${use[e.id]} components' : '', style: TextStyle(fontSize: 13.5, color: c.muted)),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
-        ),
-      ],
-    );
-  }
-
-  // ------------------------------------------------------------ KNX group addresses
-
-  Widget _gaView(BuildContext context) {
-    final c = context.evo;
-    selected.removeWhere((id) => p.gaById(id) == null);
-    final list = _filtered();
-    final used = gaUsage(p.doc);
-    final mains = _gas.map((g) => dptMain(g['dpt'] as String?)).whereType<int>().toSet().toList()..sort();
-    final nNone = _gas.where((g) => ((g['dpt'] as String?) ?? '').isEmpty).length;
-    final nSel = list.where((g) => selected.contains(g['id'])).length;
-
-    Widget head(String t, {double? w, int flex = 0}) {
-      final txt = Text(
-        t,
-        style: TextStyle(fontSize: 13.5, color: c.muted, fontWeight: FontWeight.w500),
-      );
-      return flex > 0 ? Expanded(flex: flex, child: txt) : SizedBox(width: w, child: txt);
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Container(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-          decoration: BoxDecoration(
-            color: c.panel,
-            border: Border(bottom: BorderSide(color: c.line)),
-          ),
-          child: Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              Text.rich(
-                TextSpan(
-                  children: [
-                    const TextSpan(
-                      text: 'Group address ',
-                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-                    ),
-                    TextSpan(
-                      text: '${_gas.length}',
-                      style: TextStyle(fontSize: 15, color: c.muted),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 6),
-              SearchField(onChanged: (v) => setState(() => query = v)),
-              EvoDropdown<String>(
-                value: filter,
                 items: [
                   ('all', 'All DPT'),
                   ('none', 'No DPT ($nNone)'),
@@ -647,7 +521,6 @@ class _GaTableState extends State<GaTable> {
                 const SizedBox(width: 8),
                 EvoButton(
                   label: 'Assign DPT',
-                  small: true,
                   primary: true,
                   onPressed: bulkDpt.isEmpty
                       ? null
@@ -662,9 +535,9 @@ class _GaTableState extends State<GaTable> {
                         },
                 ),
                 const SizedBox(width: 8),
-                EvoButton(label: 'Delete', icon: Icons.delete_outline, small: true, danger: true, onPressed: () => _delete(Set<String>.from(selected))),
+                EvoButton(label: 'Delete', icon: Icons.delete_outline, danger: true, onPressed: () => _delete(Set<String>.from(selected))),
                 const Spacer(),
-                EvoButton(label: 'Deselect', small: true, onPressed: () => setState(selected.clear)),
+                EvoButton(label: 'Deselect', onPressed: () => setState(selected.clear)),
               ],
             ),
           ),
