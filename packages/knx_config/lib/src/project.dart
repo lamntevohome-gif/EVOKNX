@@ -92,6 +92,7 @@ const Map<String, WidgetTypeDef> kWidgetTypes = {
     SlotDef('modeSt', 'Mode status', [20, 5]),
   ]),
   'camera': WidgetTypeDef('camera', 'Camera', 'camera', 2, 2, []),
+  'text': WidgetTypeDef('text', 'Text', 'mdi:format-text', 2, 1, []),
   'link': WidgetTypeDef('link', 'Open web page', 'link', 2, 2, []),
   'webview': WidgetTypeDef('webview', 'Embedded web page', 'globe', 2, 2, []),
   'group': WidgetTypeDef('group', 'Grid frame', 'layout', 2, 2, []),
@@ -271,19 +272,19 @@ bool slotAccepts(SlotDef slot, Json ga) {
 // ------------------------------------------------------------ factories
 
 Json makeSub(String title, {int cols = 4, int rows = 12}) => {
-  'id': uid('sub_'),
-  'title': title,
-  'layout': {'type': 'grid', 'columns': cols, 'rows': rows},
-  'widgets': <Json>[],
-};
+      'id': uid('sub_'),
+      'title': title,
+      'layout': {'type': 'grid', 'columns': cols, 'rows': rows},
+      'widgets': <Json>[],
+    };
 
 Json makeRoom(String title, {String icon = 'sofa', String? floorId}) => {
-  'id': uid('page_'),
-  'title': title,
-  'icon': icon,
-  'floorId': floorId,
-  'subpages': [makeSub('Page 1')],
-};
+      'id': uid('page_'),
+      'title': title,
+      'icon': icon,
+      'floorId': floorId,
+      'subpages': [makeSub('Page 1')],
+    };
 
 Json makeFloor(String title, {String icon = 'none'}) => {'id': uid('fl_'), 'title': title, 'icon': icon, 'rows': 12, 'cols': 4};
 
@@ -307,6 +308,10 @@ Json makeWidget(String type, int x, int y, [int? w, int? h]) {
   if (type == 'value') wd['format'] = <String, dynamic>{'unit': '', 'decimals': 1};
   if (type == 'button') wd['sendValue'] = '1';
   if (type == 'scene') wd['sendValue'] = '0';
+  if (type == 'text') {
+    wd['txt'] = <String, dynamic>{'content': 'Text', 'size': 20, 'color': '', 'align': 'center', 'valign': 'center', 'bold': false, 'italic': false};
+    wd['style'] = <String, dynamic>{'bg': 'transparent'};
+  }
   if (type == 'link') {
     wd['url'] = '';
     wd['openIn'] = 'inApp';

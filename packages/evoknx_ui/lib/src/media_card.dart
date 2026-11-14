@@ -48,6 +48,7 @@ class MediaCard extends StatefulWidget {
 
 /// The space between the lines of text, and how much higher the volume row is than the row of buttons' margin.
 const double _kLineGap = 5;
+const double _kMinK = 0.6;
 const double _kVolLift = 4;
 
 class _MediaCardState extends State<MediaCard> {
@@ -223,8 +224,8 @@ class _MediaCardState extends State<MediaCard> {
   Widget _body(HaMedia m, BoxConstraints bc, bool demo, bool knx, AppPalette pal) {
     final w = widget.w;
     final bind = jsonMap(w['bind']);
-    final showCover = _opts['cover'] != false;
-    final showVolume = _opts['volume'] != false && (knx ? (bind['volume'] != null || bind['volumeSt'] != null) : m.supports(HaMedia.featVolumeSet));
+    var showCover = _opts['cover'] != false;
+    var showVolume = _opts['volume'] != false && (knx ? (bind['volume'] != null || bind['volumeSt'] != null) : m.supports(HaMedia.featVolumeSet));
     final showControls = _opts['controls'] != false;
     final wide = bc.maxWidth;
     // The picture is small, in the top right corner.
@@ -258,7 +259,25 @@ class _MediaCardState extends State<MediaCard> {
 
     final cardTitle = (w['label'] ?? '').toString().trim();
     // A KNX card has no song: its name is the line of the song and there is no separate title.
-    final showTitle = !knx && cardTitle.isNotEmpty && w['showLabel'] != false;
+    var showTitle = !knx && cardTitle.isNotEmpty && w['showLabel'] != false;
+    var showArtist = !knx && m.artist.isNotEmpty;
+    // A card with few rows is made tidy, like the remote card: what matters least goes first (the artist, the picture, the
+    // display name, the volume) until the rest fits at its smallest.
+    if (bc.maxHeight.isFinite) {
+      final hasBtns = showControls;
+      double least() {
+        final lineCount = (showTitle ? 1 : 0) + 1 + (showArtist ? 1 : 0);
+        final texts = (showTitle ? titleSize * 1.35 : 0) + (knx ? titleSize : songSize) * 1.35 + (showArtist ? detailSize * 1.35 : 0);
+        final top = math.max(texts + _kLineGap * (lineCount - 1), showCover ? 24.0 : 0.0);
+        return top + (showVolume ? 24.0 + (hasBtns ? _kVolLift : 0) : 0) + (hasBtns ? playSize * _kMinK + 4 : 0);
+      }
+
+      if (least() > bc.maxHeight && showArtist) showArtist = false;
+      if (least() > bc.maxHeight && showCover) showCover = false;
+      if (least() > bc.maxHeight && showTitle) showTitle = false;
+      if (least() > bc.maxHeight && showVolume) showVolume = false;
+      if (!showCover) pic = 0;
+    }
     final songText = knx
         ? (cardTitle.isNotEmpty ? cardTitle : 'Media player')
         : (m.title.isNotEmpty ? m.title : (m.off ? 'Off' : (m.available ? 'Nothing playing' : 'Unavailable')));
@@ -276,7 +295,7 @@ class _MediaCardState extends State<MediaCard> {
         overflow: TextOverflow.ellipsis,
         style: TextStyle(fontSize: knx ? titleSize : songSize, fontWeight: showTitle ? FontWeight.w500 : FontWeight.w600, color: ink),
       ),
-      if (!knx && m.artist.isNotEmpty)
+      if (showArtist)
         Text(
           m.artist,
           maxLines: 1,
@@ -308,7 +327,7 @@ class _MediaCardState extends State<MediaCard> {
     // the volume row, then the picture, then the buttons. The width is not touched.
     final hasCtl = showControls;
     if (bc.maxHeight.isFinite) {
-      final textsH = (showTitle ? titleSize * 1.35 : 0) + (knx ? titleSize : songSize) * 1.35 + (!knx && m.artist.isNotEmpty ? detailSize * 1.35 : 0);
+      final textsH = (showTitle ? titleSize * 1.35 : 0) + (knx ? titleSize : songSize) * 1.35 + (showArtist ? detailSize * 1.35 : 0);
       double need(double g, double p, double k) {
         final topH = math.max(textsH + _kLineGap * (lines.length - 1), showCover ? p : 0.0);
         final volH = showVolume ? math.max(volIcon * k + 4, 24.0) : 0.0;
@@ -334,7 +353,7 @@ class _MediaCardState extends State<MediaCard> {
       final g = fit(0, gap, (t) => need(t, pic, 1));
       var p = pic, k = 1.0;
       if (need(g, p, k) > bc.maxHeight && showCover) p = fit(24, pic, (t) => need(g, t, 1));
-      if (need(g, p, k) > bc.maxHeight) k = fit(0.5, 1, (t) => need(g, p, t));
+      if (need(g, p, k) > bc.maxHeight) k = fit(_kMinK, 1, (t) => need(g, p, t));
       gap = g;
       pic = p;
       btnSize *= k;

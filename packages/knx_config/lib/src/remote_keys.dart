@@ -170,7 +170,7 @@ bool switchRemoteSource(Json w, String source) {
 /// The parts of the card that are placed on its grid (the top bar with the title and the power keys is fixed).
 /// "dpad" is the ring (up, down, left, right, OK), "touchpad" is the pad; the others are one key each.
 const List<(String, String)> kRemoteElements = [
-  ('poweron', 'Power on'),
+  ('poweron', 'Power'),
   ('poweroff', 'Power off'),
   ('dpad', 'Ring (up, down, left, right, OK)'),
   ('touchpad', 'Touchpad'),
@@ -362,7 +362,7 @@ List<String> remoteKeysUsed(Json w) {
 
 /// The name of a key as the Editor shows it.
 String remoteKeyLabel(Json w, String key) {
-  if (key == 'poweron') return 'Power on';
+  if (key == 'poweron') return 'Power';
   if (key == 'poweroff') return 'Power off';
   for (final k in kRemoteKeys) {
     if (k.$1 == key) return k.$2;

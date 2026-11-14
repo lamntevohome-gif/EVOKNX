@@ -28,6 +28,12 @@ BoxDecoration remoteKeyDeco(Json w, AppPalette pal, String id, {bool pressed = f
   );
 }
 
+/// An icon or a label inside a key: it shrinks when it is bigger than the key, so it never leaves its cell.
+Widget _fitIn(Widget c) => Padding(
+  padding: const EdgeInsets.all(3),
+  child: FittedBox(fit: BoxFit.scaleDown, child: c),
+);
+
 const kRemoteKeyIcons = <String, IconData>{
   'back': Icons.arrow_back,
   'home': Icons.home_outlined,
@@ -88,7 +94,7 @@ class RemoteKeyFace extends StatelessWidget {
       return Container(
         margin: const EdgeInsets.all(3),
         decoration: remoteKeyDeco(w, p, id, radius: p.radius * 0.5),
-        child: Center(child: _powerFace(w, p, id, z, true, id == 'poweron' ? p.accent : p.muted)),
+        child: Center(child: _fitIn(_powerFace(w, p, id, z, true, id == 'poweron' ? p.accent : p.muted))),
       );
     }
     if (id == 'touchpad') {
@@ -96,9 +102,9 @@ class RemoteKeyFace extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 6),
         decoration: remoteKeyDeco(w, p, id, radius: p.radius * 0.6),
         child: Center(
-          child: remoteKeyIcon(w, id) != null
-              ? iconWidget(remoteKeyIcon(w, id), 28 * z, p.muted)
-              : Icon(Icons.touch_app_outlined, size: 28 * z, color: p.muted),
+          child: _fitIn(
+            remoteKeyIcon(w, id) != null ? iconWidget(remoteKeyIcon(w, id), 28 * z, p.muted) : Icon(Icons.touch_app_outlined, size: 28 * z, color: p.muted),
+          ),
         ),
       );
     }
@@ -129,14 +135,14 @@ class RemoteKeyFace extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.all(3),
       decoration: remoteKeyDeco(w, p, id, radius: p.radius * 0.5),
-      child: Center(child: child),
+      child: Center(child: _fitIn(child)),
     );
   }
 }
 
 /// The default icon of a key as the card draws it (for the window that arranges the keys).
 Widget remoteDefaultIconWidget(Json w, String id, double size, Color color) {
-  if (id == 'poweron' || id == 'poweroff') return iconWidget(id == 'poweron' ? 'mdi:power-on' : 'mdi:power-off', size, color);
+  if (id == 'poweron' || id == 'poweroff') return iconWidget(id == 'poweron' ? 'mdi:power' : 'mdi:power-off', size, color);
   if (id == 'dpad') return Icon(Icons.open_with, size: size, color: color);
   if (id == 'touchpad') return Icon(Icons.touch_app_outlined, size: size, color: color);
   final custom = remoteCustom(w).where((c) => c['id'] == id).firstOrNull;
@@ -146,13 +152,16 @@ Widget remoteDefaultIconWidget(Json w, String id, double size, Color color) {
 
 /// The inside of an On or Off key: only the sign (power-on / power-off), or the icon chosen for it.
 Widget _powerFace(Json w, AppPalette pal, String key, double z, bool on, Color color) =>
-    iconWidget(remoteKeyIcon(w, key) ?? (key == 'poweron' ? 'mdi:power-on' : 'mdi:power-off'), 24 * z, on ? color : pal.line);
+    iconWidget(remoteKeyIcon(w, key) ?? (key == 'poweron' ? 'mdi:power' : 'mdi:power-off'), 24 * z, on ? color : pal.line);
 
 class RemoteCard extends StatefulWidget {
-  const RemoteCard({super.key, required this.w, required this.pal, this.host, this.act});
+  const RemoteCard({super.key, required this.w, required this.pal, this.host, this.act, this.simulate = false});
   final Json w;
   final AppPalette pal;
   final MediaHost? host;
+
+  /// The Editor's test mode without Home Assistant: a key only reports (`act('key', keyId)`) what it would send.
+  final bool simulate;
 
   /// With the source KNX: what a key does (`act('key', keyId)`). Null = the card only shows.
   final void Function(String action, [Object? arg])? act;
@@ -180,7 +189,13 @@ class _RemoteCardState extends State<RemoteCard> {
     super.dispose();
   }
 
+  bool get _sim => widget.simulate && !_knx && widget.host == null;
+
   void _send(String key) {
+    if (_sim) {
+      widget.act?.call('key', key);
+      return;
+    }
     if (_knx) {
       if (widget.act == null) return;
       HapticFeedback.selectionClick();
@@ -222,6 +237,7 @@ class _RemoteCardState extends State<RemoteCard> {
   /// Whether the key can send something: it has a name for the remote (Home Assistant) or an address and a value (KNX).
   bool _has(String key) {
     final w = widget.w;
+    if (_sim) return true;
     if (_knx) {
       final sd = remoteKnxSend(w, key);
       return sd != null && jsonMap(w['bind'])[sd.slot] != null;
@@ -231,7 +247,7 @@ class _RemoteCardState extends State<RemoteCard> {
   }
 
   /// Whether a key of the card works now: not in the design view.
-  bool get _live => _knx ? widget.act != null : widget.host != null;
+  bool get _live => _sim || (_knx ? widget.act != null : widget.host != null);
 
   static const _icons = kRemoteKeyIcons;
 
@@ -305,13 +321,14 @@ class _RemoteCardState extends State<RemoteCard> {
     final on = _has(key) || !_live;
     final pressed = _down == key;
     return Listener(
+      behavior: HitTestBehavior.opaque,
       onPointerDown: _live && _has(key) ? (_) => _press(key) : null,
       onPointerUp: (_) => _release(),
       onPointerCancel: (_) => _release(),
       child: Container(
         margin: const EdgeInsets.all(3),
         decoration: remoteKeyDeco(widget.w, pal, key, pressed: pressed, pressedColor: color, radius: pal.radius * 0.5),
-        child: Center(child: _powerFace(widget.w, pal, key, z, on, color)),
+        child: Center(child: _fitIn(_powerFace(widget.w, pal, key, z, on, color))),
       ),
     );
   }
@@ -376,6 +393,7 @@ class _RemoteCardState extends State<RemoteCard> {
     final label = (c['label'] ?? '').toString().trim();
     final color = on || !_live ? pal.ink : pal.line;
     return Listener(
+      behavior: HitTestBehavior.opaque,
       onPointerDown: _live && on ? (_) => _press(key) : null,
       onPointerUp: (_) => _release(),
       onPointerCancel: (_) => _release(),
@@ -383,22 +401,24 @@ class _RemoteCardState extends State<RemoteCard> {
         margin: const EdgeInsets.all(3),
         decoration: _deco(key, pressed, pal.accent, pal.radius * 0.5),
         child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (icon.isNotEmpty) iconWidget(icon, 22 * z, color),
-              if (label.isNotEmpty)
-                Padding(
-                  padding: EdgeInsets.only(top: icon.isNotEmpty ? 1 : 0),
-                  child: Text(
-                    label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: fs(widget.w, 'labelSize') - 3, color: color),
+          child: _fitIn(
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (icon.isNotEmpty) iconWidget(icon, 22 * z, color),
+                if (label.isNotEmpty)
+                  Padding(
+                    padding: EdgeInsets.only(top: icon.isNotEmpty ? 1 : 0),
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: fs(widget.w, 'labelSize') - 3, color: color),
+                    ),
                   ),
-                ),
-              if (icon.isEmpty && label.isEmpty) Icon(Icons.touch_app_outlined, size: 22 * z, color: color),
-            ],
+                if (icon.isEmpty && label.isEmpty) Icon(Icons.touch_app_outlined, size: 22 * z, color: color),
+              ],
+            ),
           ),
         ),
       ),
@@ -410,6 +430,7 @@ class _RemoteCardState extends State<RemoteCard> {
     final on = _has(key);
     final pressed = _down == key;
     return Listener(
+      behavior: HitTestBehavior.opaque,
       onPointerDown: _live && on ? (_) => _press(key, repeat: repeat) : null,
       onPointerUp: (_) => _release(),
       onPointerCancel: (_) => _release(),
@@ -417,9 +438,11 @@ class _RemoteCardState extends State<RemoteCard> {
         margin: const EdgeInsets.all(3),
         decoration: _deco(key, pressed, pal.accent, pal.radius * 0.5),
         child: Center(
-          child: remoteKeyIcon(widget.w, key) != null
-              ? iconWidget(remoteKeyIcon(widget.w, key), 22 * z, on || !_live ? pal.ink : pal.line)
-              : Icon(icon, size: 22 * z, color: on || !_live ? pal.ink : pal.line),
+          child: _fitIn(
+            remoteKeyIcon(widget.w, key) != null
+                ? iconWidget(remoteKeyIcon(widget.w, key), 22 * z, on || !_live ? pal.ink : pal.line)
+                : Icon(icon, size: 22 * z, color: on || !_live ? pal.ink : pal.line),
+          ),
         ),
       ),
     );
@@ -461,6 +484,7 @@ class _RemoteCardState extends State<RemoteCard> {
   Widget _touchpad(double z) {
     final pal = _pal;
     return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTap: _live && _has('ok') ? () => _send('ok') : null,
       onPanStart: (_) {
         _ax = 0;
@@ -469,7 +493,7 @@ class _RemoteCardState extends State<RemoteCard> {
       onPanUpdate: (d) {
         _ax += d.delta.dx;
         _ay += d.delta.dy;
-        if (_ax.abs() > 30 || _ay.abs() > 30) {
+        if (_ax.abs() > 24 || _ay.abs() > 24) {
           final k = _ax.abs() > _ay.abs() ? (_ax > 0 ? 'right' : 'left') : (_ay > 0 ? 'down' : 'up');
           if (_live && _has(k)) _send(k);
           _ax = 0;
@@ -480,9 +504,11 @@ class _RemoteCardState extends State<RemoteCard> {
         margin: const EdgeInsets.only(bottom: 6),
         decoration: _deco('touchpad', false, pal.accent, pal.radius * 0.6),
         child: Center(
-          child: remoteKeyIcon(widget.w, 'touchpad') != null
-              ? iconWidget(remoteKeyIcon(widget.w, 'touchpad'), 28 * z, pal.muted)
-              : Icon(Icons.touch_app_outlined, size: 28 * z, color: pal.muted),
+          child: _fitIn(
+            remoteKeyIcon(widget.w, 'touchpad') != null
+                ? iconWidget(remoteKeyIcon(widget.w, 'touchpad'), 28 * z, pal.muted)
+                : Icon(Icons.touch_app_outlined, size: 28 * z, color: pal.muted),
+          ),
         ),
       ),
     );
@@ -524,7 +550,7 @@ class _DpadPainter extends CustomPainter {
       final tp = TextPainter(
         text: TextSpan(
           text: String.fromCharCode(icon.codePoint),
-          style: TextStyle(fontFamily: icon.fontFamily, fontSize: r * 0.3 * scale, color: enabled ? pal.ink : pal.line),
+          style: TextStyle(fontFamily: icon.fontFamily, fontSize: r * 0.3 * math.min(scale, 1.6), color: enabled ? pal.ink : pal.line),
         ),
         textDirection: TextDirection.ltr,
       )..layout();
@@ -539,7 +565,7 @@ class _DpadPainter extends CustomPainter {
     final ok = TextPainter(
       text: TextSpan(
         text: 'OK',
-        style: TextStyle(fontSize: r * 0.2 * scale, fontWeight: FontWeight.w600, color: (on['ok'] ?? false) ? pal.ink : pal.line),
+        style: TextStyle(fontSize: r * 0.2 * math.min(scale, 2.0), fontWeight: FontWeight.w600, color: (on['ok'] ?? false) ? pal.ink : pal.line),
       ),
       textDirection: TextDirection.ltr,
     )..layout();

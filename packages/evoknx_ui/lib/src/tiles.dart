@@ -909,6 +909,22 @@ class TileView extends StatelessWidget {
             ),
           ],
         );
+      case 'text':
+        final t = jsonMap(w['txt']);
+        final ha = (t['align'] ?? 'center').toString(), va = (t['valign'] ?? 'center').toString();
+        return Align(
+          alignment: Alignment(ha == 'left' ? -1 : (ha == 'right' ? 1 : 0), va == 'top' ? -1 : (va == 'bottom' ? 1 : 0)),
+          child: Text(
+            (t['content'] ?? '').toString(),
+            textAlign: ha == 'left' ? TextAlign.left : (ha == 'right' ? TextAlign.right : TextAlign.center),
+            style: TextStyle(
+              fontSize: ((t['size'] as num?) ?? 20).toDouble().clamp(8, 200) * EvoScale.k,
+              color: hexColor(t['color']) ?? pal.text,
+              fontWeight: t['bold'] == true ? FontWeight.w700 : FontWeight.w400,
+              fontStyle: t['italic'] == true ? FontStyle.italic : FontStyle.normal,
+            ),
+          ),
+        );
       case 'link':
         final host = Uri.tryParse((w['url'] ?? '').toString())?.host ?? '';
         return _col([_head(pal.muted), _state(host.isEmpty ? 'No web address' : host)]);

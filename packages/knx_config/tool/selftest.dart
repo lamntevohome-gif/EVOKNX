@@ -90,7 +90,8 @@ void main() {
   final kp = zip({
     'knx_master.xml': '<KNX/>',
     'P-0A1B/project.xml': '<KNX><Project><ProjectInformation Name="Nhà anh Nam" GroupAddressStyle="ThreeLevel"/></Project></KNX>',
-    'P-0A1B/0.xml': '<KNX><GroupAddress Id="x" Address="2305" Name="Đèn trần" DatapointType="DPST-1-1"/><GroupAddress Address="6145" Name="Nhiệt độ" DatapointType="DPST-9-1"/></KNX>',
+    'P-0A1B/0.xml':
+        '<KNX><GroupAddress Id="x" Address="2305" Name="Đèn trần" DatapointType="DPST-1-1"/><GroupAddress Address="6145" Name="Nhiệt độ" DatapointType="DPST-9-1"/></KNX>',
   });
   final rk = parseEts(kp, fileName: 'a.knxproj');
   check(rk.projectName == 'Nhà anh Nam' && rk.items.map((e) => e.address).join(',') == '1/1/1,3/0/1', 'knxproj ${rk.items.map((e) => e.address)}');

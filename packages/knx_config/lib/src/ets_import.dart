@@ -147,9 +147,8 @@ List<EtsItem> _parseCsvItems(String text) {
         }
       }
     }
-    final dptCell = iDpt >= 0 && iDpt < cells.length
-        ? cells[iDpt]
-        : cells.firstWhere((c) => RegExp(r'DPS?T-\d', caseSensitive: false).hasMatch(c), orElse: () => '');
+    final dptCell =
+        iDpt >= 0 && iDpt < cells.length ? cells[iDpt] : cells.firstWhere((c) => RegExp(r'DPS?T-\d', caseSensitive: false).hasMatch(c), orElse: () => '');
     out.add(EtsItem(cells[ai], name, normalizeDpt(dptCell)));
   }
   return out;

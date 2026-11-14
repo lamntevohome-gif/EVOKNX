@@ -196,11 +196,12 @@ double fs(Json w, String key) {
 
 List<String> fsKeysFor(String type) => switch (type) {
   'group' => const ['labelSize'],
+  'text' => const <String>[],
   'value' => const ['labelSize', 'iconSize', 'valueSize', 'stateSize'],
   'webview' => const ['labelSize', 'iconSize'],
   'camera' => const ['labelSize', 'iconSize'],
   'media' => const ['labelSize'],
-  'remote' => const ['labelSize'],
+  'remote' => const <String>[],
   'shutter' => const ['labelSize', 'iconSize', 'stateSize', 'btnIcon'],
   'ac' => const ['labelSize', 'iconSize', 'stateSize', 'acBtn', 'acMode'],
   _ => const ['labelSize', 'iconSize', 'stateSize'],
