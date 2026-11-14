@@ -305,6 +305,12 @@ String remoteKeyBg(Json w, String id) {
   return v == 'outline' || v == 'transparent' ? v as String : 'default';
 }
 
+/// The color of the button of a key (a hex color) instead of the usual one; null = the usual one.
+String? remoteKeyColor(Json w, String id) {
+  final v = jsonMap(jsonMap(w['remote'])['kcolor'])[id];
+  return v is String && v.length == 7 && v.startsWith('#') ? v : null;
+}
+
 /// The icon (a key of the icon library, an uploaded image too) chosen for a key instead of its usual one; null = the usual
 /// one. A custom button keeps its icon in its own entry.
 String? remoteKeyIcon(Json w, String id) {

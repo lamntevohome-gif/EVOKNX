@@ -17,6 +17,106 @@ import 'tiles.dart';
 /// platform of the card gives it) or KNX (a key sends a value on its address, or on the one address of all the keys).
 /// The directions and the volume go on while the finger stays down. With no [host] and no [act] (the design view of
 /// the Editor) the card is only shown.
+/// The look of the button of a key: filled (with its own color if it has one), only a border, or nothing.
+BoxDecoration remoteKeyDeco(Json w, AppPalette pal, String id, {bool pressed = false, Color? pressedColor, required double radius}) {
+  final mode = remoteKeyBg(w, id);
+  final own = hexColor(remoteKeyColor(w, id));
+  return BoxDecoration(
+    color: pressed ? (pressedColor ?? pal.accent).withValues(alpha: 0.35) : (mode == 'default' ? (own ?? pal.panel) : Colors.transparent),
+    borderRadius: BorderRadius.circular(radius),
+    border: mode == 'outline' ? Border.all(color: own ?? (pal.edge == Colors.transparent ? pal.line : pal.edge), width: math.max(1.0, pal.border)) : null,
+  );
+}
+
+const _kKeyIcons = <String, IconData>{
+  'back': Icons.arrow_back,
+  'home': Icons.home_outlined,
+  'menu': Icons.menu,
+  'voldown': Icons.volume_down,
+  'mute': Icons.volume_off_outlined,
+  'volup': Icons.volume_up,
+  'prev': Icons.skip_previous,
+  'playpause': Icons.play_arrow,
+  'next': Icons.skip_next,
+};
+
+/// One key drawn as on the card (the ring, the touchpad, a key or a custom button), without any action: the window that
+/// arranges the keys shows the keys with it.
+class RemoteKeyFace extends StatelessWidget {
+  const RemoteKeyFace({super.key, required this.w, required this.pal, required this.id});
+  final Json w;
+  final AppPalette pal;
+  final String id;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = cardPalette(w, pal).$1;
+    final z = remoteScale(w, id) / 100;
+    if (id == 'dpad') {
+      return LayoutBuilder(
+        builder: (context, bc) {
+          final s = math.max(20.0, math.min(bc.maxWidth, bc.maxHeight) - 6);
+          return Center(
+            child: SizedBox(
+              width: s,
+              height: s,
+              child: CustomPaint(
+                painter: _DpadPainter(p, null, z, remoteKeyBg(w, 'dpad'), hexColor(remoteKeyColor(w, 'dpad')), const {
+                  'up': true,
+                  'down': true,
+                  'left': true,
+                  'right': true,
+                  'ok': true,
+                }),
+              ),
+            ),
+          );
+        },
+      );
+    }
+    if (id == 'touchpad') {
+      return Container(
+        margin: const EdgeInsets.only(bottom: 6),
+        decoration: remoteKeyDeco(w, p, id, radius: p.radius * 0.6),
+        child: Center(
+          child: remoteKeyIcon(w, id) != null
+              ? iconWidget(remoteKeyIcon(w, id), 28 * z, p.muted)
+              : Icon(Icons.touch_app_outlined, size: 28 * z, color: p.muted),
+        ),
+      );
+    }
+    final custom = remoteCustom(w).where((c) => c['id'] == id).firstOrNull;
+    final Widget child;
+    if (custom != null) {
+      final icon = (custom['icon'] ?? '').toString();
+      final label = (custom['label'] ?? '').toString().trim();
+      child = Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon.isNotEmpty) iconWidget(icon, 22 * z, p.ink),
+          if (label.isNotEmpty)
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: fs(w, 'labelSize') - 3, color: p.ink),
+            ),
+          if (icon.isEmpty && label.isEmpty) Icon(Icons.touch_app_outlined, size: 22 * z, color: p.ink),
+        ],
+      );
+    } else {
+      child = remoteKeyIcon(w, id) != null
+          ? iconWidget(remoteKeyIcon(w, id), 22 * z, p.ink)
+          : Icon(_kKeyIcons[id] ?? Icons.circle_outlined, size: 22 * z, color: p.ink);
+    }
+    return Container(
+      margin: const EdgeInsets.all(3),
+      decoration: remoteKeyDeco(w, p, id, radius: p.radius * 0.5),
+      child: Center(child: child),
+    );
+  }
+}
+
 class RemoteCard extends StatefulWidget {
   const RemoteCard({super.key, required this.w, required this.pal, this.host, this.act});
   final Json w;
@@ -85,16 +185,8 @@ class _RemoteCardState extends State<RemoteCard> {
     if (_down != null && mounted) setState(() => _down = null);
   }
 
-  /// The look of the button of a key: filled (default), only a border, or nothing.
-  BoxDecoration _deco(String id, bool pressed, Color pressedColor, double radius) {
-    final mode = remoteKeyBg(widget.w, id);
-    final pal = _pal;
-    return BoxDecoration(
-      color: pressed ? pressedColor.withValues(alpha: 0.35) : (mode == 'default' ? pal.panel : Colors.transparent),
-      borderRadius: BorderRadius.circular(radius),
-      border: mode == 'outline' ? Border.all(color: pal.edge == Colors.transparent ? pal.line : pal.edge, width: math.max(1.0, pal.border)) : null,
-    );
-  }
+  BoxDecoration _deco(String id, bool pressed, Color pressedColor, double radius) =>
+      remoteKeyDeco(widget.w, _pal, id, pressed: pressed, pressedColor: pressedColor, radius: radius);
 
   /// Whether the key can send something: it has a name for the remote (Home Assistant) or an address and a value (KNX).
   bool _has(String key) {
@@ -110,17 +202,7 @@ class _RemoteCardState extends State<RemoteCard> {
   /// Whether a key of the card works now: not in the design view.
   bool get _live => _knx ? widget.act != null : widget.host != null;
 
-  static const _icons = <String, IconData>{
-    'back': Icons.arrow_back,
-    'home': Icons.home_outlined,
-    'menu': Icons.menu,
-    'voldown': Icons.volume_down,
-    'mute': Icons.volume_off_outlined,
-    'volup': Icons.volume_up,
-    'prev': Icons.skip_previous,
-    'playpause': Icons.play_arrow,
-    'next': Icons.skip_next,
-  };
+  static const _icons = _kKeyIcons;
 
   @override
   Widget build(BuildContext context) {
@@ -333,7 +415,7 @@ class _RemoteCardState extends State<RemoteCard> {
         onPointerUp: (_) => _release(),
         onPointerCancel: (_) => _release(),
         child: CustomPaint(
-          painter: _DpadPainter(pal, _down, z, remoteKeyBg(widget.w, 'dpad'), {
+          painter: _DpadPainter(pal, _down, z, remoteKeyBg(widget.w, 'dpad'), hexColor(remoteKeyColor(widget.w, 'dpad')), {
             for (final k in const ['up', 'down', 'left', 'right', 'ok']) k: _has(k),
           }),
         ),
@@ -373,19 +455,20 @@ class _RemoteCardState extends State<RemoteCard> {
 }
 
 class _DpadPainter extends CustomPainter {
-  _DpadPainter(this.pal, this.down, this.scale, this.mode, this.on);
+  _DpadPainter(this.pal, this.down, this.scale, this.mode, this.fill, this.on);
   final AppPalette pal;
   final String? down;
   final double scale;
 
   /// 'default' (filled), 'outline' (only the lines) or 'transparent' (no ring, only the signs).
   final String mode;
+  final Color? fill;
   final Map<String, bool> on;
 
   @override
   void paint(Canvas canvas, Size size) {
     final c = size.center(Offset.zero), r = size.width / 2;
-    if (mode == 'default') canvas.drawCircle(c, r, Paint()..color = pal.panel);
+    if (mode == 'default') canvas.drawCircle(c, r, Paint()..color = fill ?? pal.panel);
     // The pressed direction is a quarter of the ring.
     const starts = {'right': -math.pi / 4, 'down': math.pi / 4, 'left': 3 * math.pi / 4, 'up': -3 * math.pi / 4};
     final s = starts[down];
@@ -429,5 +512,5 @@ class _DpadPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_DpadPainter old) => old.down != down || old.pal != pal || old.scale != scale || old.mode != mode;
+  bool shouldRepaint(_DpadPainter old) => old.down != down || old.pal != pal || old.scale != scale || old.mode != mode || old.fill != fill;
 }

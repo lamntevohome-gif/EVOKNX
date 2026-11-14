@@ -409,7 +409,19 @@ class _MediaCardState extends State<MediaCard> {
 
     final hasControls = showControls && (canPlay || canPrev || canNext || canShuffle || canRepeat);
     // The title, the song, the artist and the picture stay at the top; the volume and the buttons stay at the bottom.
-    return Column(
+    // The height the rows need. When the card is lower than that, everything is made smaller to fit, so no button sticks
+    // out of the card.
+    final textsH =
+        (showTitle ? titleSize * 1.4 : 0) +
+        (knx ? titleSize : songSize) * 1.4 +
+        (!knx && m.artist.isNotEmpty ? detailSize * 1.4 : 0) +
+        gap / 2 * (lines.length - 1);
+    final topH = math.max(textsH, showCover ? pic : 0.0);
+    final volH = showVolume ? math.max(volIcon + 6, 32.0) : 0.0;
+    final ctlH = hasControls ? playSize + 8 : 0.0;
+    final needH = topH + volH + ctlH + (showVolume && hasControls ? gap : 0.0) + 4;
+    final availH = bc.maxHeight.isFinite ? bc.maxHeight : needH;
+    final content = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Row(
@@ -431,6 +443,12 @@ class _MediaCardState extends State<MediaCard> {
         if (showVolume && hasControls) SizedBox(height: gap),
         if (hasControls) controls,
       ],
+    );
+    if (availH >= needH) return content;
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      alignment: Alignment.topCenter,
+      child: SizedBox(width: wide, height: needH, child: content),
     );
   }
 
