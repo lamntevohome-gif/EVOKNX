@@ -138,6 +138,48 @@ void main() {
   check(widgetEntity(mp).isEmpty, 'media knx has no entity');
   mp['bind'] = {'play': 'x'};
   check(switchMediaSource(mp, 'ha') && !mediaIsKnx(mp) && jsonMap(mp['bind']).isEmpty, 'media back to ha');
+  // remote control card: layout, hiding, KNX modes
+  final rm = makeWidget('remote', 0, 0);
+  void rset(String k, Object v) => rm['remote'] = <String, dynamic>{...Map<String, dynamic>.from(rm['remote'] as Map), k: v};
+  var its = remoteItems(rm);
+  check(its.first.id == 'dpad' && its.first.c == 0 && its.first.r == 0 && its.first.rh == 3, 'remote: the ring is placed first, 3 x 3');
+  check(!its.any((i) => i.id == 'touchpad') && its.length == 10, 'remote: the touchpad is hidden by default, 10 parts shown');
+  bool overlap(List<RemoteItem> l) {
+    for (var a = 0; a < l.length; a++) {
+      for (var b = a + 1; b < l.length; b++) {
+        if (l[a].c < l[b].c + l[b].cw && l[b].c < l[a].c + l[a].cw && l[a].r < l[b].r + l[b].rh && l[b].r < l[a].r + l[a].rh) return true;
+      }
+    }
+    return false;
+  }
+
+  check(!overlap(its) && remoteRows(its) == 6, 'remote: no overlap, 6 rows');
+  rset('hide', {'back': true});
+  rset('custom', [
+    {'id': 'rc_1', 'label': 'Netflix', 'icon': '', 'cmd': 'NETFLIX'}
+  ]);
+  its = remoteItems(rm);
+  check(!its.any((i) => i.id == 'back') && its.any((i) => i.id == 'rc_1') && !overlap(its), 'remote: a hidden key is left out, a custom button is placed');
+  rset('layout', {
+    'rc_1': {'c': 0, 'r': 0}
+  });
+  its = remoteItems(rm);
+  check(its.firstWhere((i) => i.id == 'rc_1').r == 0 && !overlap(its), 'remote: a dragged part keeps its cell, the ring moves out of its way');
+  check(remoteCommand(rm, 'rc_1') == 'NETFLIX' && remoteCall(rm, 'poweron') == null, 'remote: custom key name; no call without a remote');
+  rset('entity', 'remote.tv');
+  check(remoteCall(rm, 'poweron')!.service == 'remote.turn_on' && remoteCall(rm, 'rc_1')!.data['command'] == 'NETFLIX',
+      'remote: power on and the custom key call the remote');
+  check(slotsFor(rm).isEmpty && switchRemoteSource(rm, 'knx') && remoteIsKnx(rm), 'remote: KNX gives address fields');
+  check(slotsFor(rm).any((s) => s.key == 'rk_up') && slotsFor(rm).any((s) => s.key == 'rk_rc_1') && slotsFor(rm).any((s) => s.key == 'rk_poweron'),
+      'remote: one address for each key');
+  check(remoteKnxSend(rm, 'up')!.slot == 'rk_up' && remoteKnxSend(rm, 'up')!.value == '1', 'remote: each key sends 1 on its address');
+  rset('knxMode', 'single');
+  check(
+      slotsFor(rm).length == 1 && slotsFor(rm).first.key == 'rk_all' && remoteKnxSend(rm, 'down')!.slot == 'rk_all' && remoteKnxSend(rm, 'down')!.value == '4',
+      'remote: one address for all, the number of the key');
+  rset('values', {'down': '77'});
+  check(remoteKnxSend(rm, 'down')!.value == '77', 'remote: own value');
+  check(widgetEntity(rm).isEmpty && remoteProblem(rm) == null, 'remote: KNX has no entity and no problem');
   stdout.writeln('knx_config selftest: $_p passed, $_f failed');
   exit(_f == 0 ? 0 : 1);
 }

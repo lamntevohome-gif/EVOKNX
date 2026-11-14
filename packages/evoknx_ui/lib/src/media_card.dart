@@ -134,6 +134,10 @@ class _MediaCardState extends State<MediaCard> {
           act('mute');
         case 'volume_set':
           act('volume', ((data['volume_level'] as num) * 100).round());
+        case 'shuffle_set':
+          act('shuffle');
+        case 'repeat_set':
+          act('repeat');
       }
       return;
     }
@@ -163,7 +167,7 @@ class _MediaCardState extends State<MediaCard> {
     final media = m;
     if (media != null && host != null && !knx) _loadCover(media);
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
       decoration: raisedDecoration(
         pal,
         pal.fill(pal.tile),
@@ -192,6 +196,8 @@ class _MediaCardState extends State<MediaCard> {
       HaEntity('media_player.knx', s['on'] == true ? 'playing' : 'paused', {
         if (vol != null) 'volume_level': (vol / 100).clamp(0.0, 1.0),
         'is_volume_muted': s['mute'] == true,
+        'shuffle': s['shuffle'] == true,
+        'repeat': s['repeat'] == true ? 'all' : 'off',
       }),
     );
   }
@@ -213,33 +219,27 @@ class _MediaCardState extends State<MediaCard> {
     final showCover = _opts['cover'] != false;
     final showVolume = _opts['volume'] != false && (knx ? (bind['volume'] != null || bind['volumeSt'] != null) : m.supports(HaMedia.featVolumeSet));
     final showControls = _opts['controls'] != false;
-    final h = bc.maxHeight, wide = bc.maxWidth;
-    // The cover is a square as high as the card, but not more than 42% of its width; "Picture size" makes it smaller.
-    var cover = 0.0;
-    if (showCover) {
-      cover = h.isFinite ? h : 96.0;
-      if (cover > wide * 0.42) cover = wide * 0.42;
-      if (cover < 36) cover = 36;
-      cover = math.max(24.0, cover * ((_size('coverSize') ?? 100) / 100).clamp(0.2, 1.0));
-    }
+    final wide = bc.maxWidth;
+    // The picture is small, in the top right corner.
+    final pic = showCover ? (_size('picSize') ?? 64.0).clamp(24.0, math.max(24.0, math.min(wide * 0.4, 200.0))).toDouble() : 0.0;
     final labelSize = fs(w, 'labelSize');
     final dim = !m.available || m.off;
     final ink = dim ? pal.muted : pal.ink;
     final playing = m.playing;
 
-    // On a narrow card the buttons are smaller and closer, and the volume slider takes what is left.
-    final infoW = wide - (showCover ? cover + 12 : 0);
-    final compact = infoW < 300;
-    final pad = compact ? 8.0 : 14.0;
+    // On a narrow card the buttons are smaller and closer.
+    final compact = wide < 300;
+    final pad = compact ? 6.0 : 10.0;
     final btnSize = _size('btnSize') ?? (compact ? 22.0 : 26.0);
-    Widget btn(IconData icon, VoidCallback? onTap, {double? size, bool main = false}) {
+    final playSize = _size('playSize') ?? btnSize * 34 / 26;
+    Widget btn(IconData icon, VoidCallback? onTap, {double? size, Color? color}) {
       final z = size ?? btnSize;
       return InkResponse(
         onTap: demo ? null : onTap,
         radius: z,
         child: Padding(
           padding: EdgeInsets.symmetric(horizontal: pad, vertical: 2),
-          child: Icon(icon, size: z, color: onTap == null && !demo ? pal.line : (main ? pal.accent : pal.ink)),
+          child: Icon(icon, size: z, color: color ?? (onTap == null && !demo ? pal.line : pal.ink)),
         ),
       );
     }
@@ -251,39 +251,31 @@ class _MediaCardState extends State<MediaCard> {
 
     final cardTitle = (w['label'] ?? '').toString().trim();
     // A KNX card has no song: its name is the line of the song and there is no separate title.
-    final cardTitleW = knx || cardTitle.isEmpty || w['showLabel'] == false
-        ? null
-        : Text(
-            cardTitle,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(fontSize: titleSize, fontWeight: FontWeight.w400, color: ink, height: 1.2),
-          );
+    final showTitle = !knx && cardTitle.isNotEmpty && w['showLabel'] != false;
     final songText = knx
         ? (cardTitle.isNotEmpty ? cardTitle : 'Media player')
         : (m.title.isNotEmpty ? m.title : (m.off ? 'Off' : (m.available ? 'Nothing playing' : 'Unavailable')));
-    final song = Text(
-      songText,
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
-      style: TextStyle(fontSize: knx ? titleSize : songSize, fontWeight: cardTitleW == null ? FontWeight.w600 : FontWeight.w500, color: ink),
-    );
-    Widget small(String t) => Text(
-      t,
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
-      style: TextStyle(fontSize: detailSize, color: pal.muted),
-    );
-    // Artist and album on their own lines when the card is high enough, otherwise on one line.
-    final tall = h.isFinite && h >= 120;
-    final details = <Widget>[
-      if (knx)
-        ...const <Widget>[]
-      else if (tall) ...[
-        if (m.artist.isNotEmpty) small(m.artist),
-        if (m.album.isNotEmpty) small(m.album),
-      ] else if (m.subtitle.isNotEmpty)
-        small(m.subtitle),
+    final lines = <Widget>[
+      if (showTitle)
+        Text(
+          cardTitle,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(fontSize: titleSize, fontWeight: FontWeight.w400, color: ink, height: 1.2),
+        ),
+      Text(
+        songText,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(fontSize: knx ? titleSize : songSize, fontWeight: showTitle ? FontWeight.w500 : FontWeight.w600, color: ink),
+      ),
+      if (!knx && m.artist.isNotEmpty)
+        Text(
+          m.artist,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(fontSize: detailSize, color: pal.muted),
+        ),
     ];
 
     final thin = SliderTheme.of(context).copyWith(
@@ -291,7 +283,10 @@ class _MediaCardState extends State<MediaCard> {
       thumbShape: RoundSliderThumbShape(enabledThumbRadius: math.max(6.0, (_size('volThick') ?? 3) + 3)),
       overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
       activeTrackColor: pal.accent,
-      inactiveTrackColor: pal.line,
+      // The part not dragged yet must show on the card: the muted color, softened.
+      inactiveTrackColor: pal.muted.withAlpha(110),
+      disabledActiveTrackColor: pal.accent.withAlpha(150),
+      disabledInactiveTrackColor: pal.muted.withAlpha(70),
       thumbColor: pal.accent,
     );
 
@@ -332,38 +327,45 @@ class _MediaCardState extends State<MediaCard> {
     final canPlay = !knx || bind['play'] != null;
     final canPrev = knx ? bind['prev'] != null : m.supports(HaMedia.featPrevious);
     final canNext = knx ? bind['next'] != null : m.supports(HaMedia.featNext);
-    final info = Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+    // Shuffle and repeat are off unless ticked in the settings; the card shows them only if the player (or the address) has them.
+    final canShuffle = _opts['shuffle'] == true && (knx ? bind['shuffle'] != null : m.supports(HaMedia.featShuffle));
+    final canRepeat = _opts['repeat'] == true && (knx ? bind['repeat'] != null : m.supports(HaMedia.featRepeat));
+    final repeatOn = m.repeat != 'off';
+    final controls = Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
-        if (cardTitleW != null) ...[cardTitleW, const SizedBox(height: 2)],
-        song,
-        ...details.map((e) => Padding(padding: const EdgeInsets.only(top: 1), child: e)),
-        if (showVolume) ...[const SizedBox(height: 2), volume],
-        if (showControls && (canPlay || canPrev || canNext)) ...[
-          const SizedBox(height: 2),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              if (canPrev) btn(Icons.skip_previous, () => _call('media_previous_track', {})),
-              if (canPlay)
-                btn(
-                  playing ? Icons.pause_circle : Icons.play_circle,
-                  () => _call(playing ? 'media_pause' : 'media_play', {}),
-                  size: btnSize * 34 / 26,
-                  main: true,
-                ),
-              if (canNext) btn(Icons.skip_next, () => _call('media_next_track', {})),
-            ],
+        if (canShuffle)
+          btn(Icons.shuffle, () => _call('shuffle_set', {'shuffle': !m.shuffle}), size: btnSize * 0.85, color: m.shuffle ? pal.accent : pal.muted),
+        if (canPrev) btn(Icons.skip_previous, () => _call('media_previous_track', {})),
+        if (canPlay)
+          btn(playing ? Icons.pause_circle : Icons.play_circle, () => _call(playing ? 'media_pause' : 'media_play', {}), size: playSize, color: pal.accent),
+        if (canNext) btn(Icons.skip_next, () => _call('media_next_track', {})),
+        if (canRepeat)
+          btn(
+            m.repeat == 'one' ? Icons.repeat_one : Icons.repeat,
+            () => _call('repeat_set', {'repeat': m.repeat == 'off' ? 'all' : (m.repeat == 'all' ? 'one' : 'off')}),
+            size: btnSize * 0.85,
+            color: repeatOn ? pal.accent : pal.muted,
           ),
-        ],
       ],
     );
 
-    return Row(
+    return Stack(
       children: [
-        if (showCover) ...[SizedBox(width: cover, height: cover, child: _coverImage(m, cover, demo, knx)), const SizedBox(width: 12)],
-        Expanded(child: info),
+        Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // The texts stay out from under the picture.
+            Padding(
+              padding: EdgeInsets.only(right: showCover ? pic + 8 : 0),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: lines),
+            ),
+            if (showVolume) ...[const SizedBox(height: 4), volume],
+            if (showControls && (canPlay || canPrev || canNext || canShuffle || canRepeat)) ...[const SizedBox(height: 2), controls],
+          ],
+        ),
+        if (showCover) Positioned(top: 0, right: 0, width: pic, height: pic, child: _coverImage(m, pic, demo, knx)),
       ],
     );
   }
@@ -374,7 +376,7 @@ class _MediaCardState extends State<MediaCard> {
     final pal = widget.pal;
     final bytes = _cover;
     return ClipRRect(
-      borderRadius: BorderRadius.circular(pal.radius * 0.6),
+      borderRadius: BorderRadius.circular(pal.radius * 0.5),
       child: !knx && bytes != null && !demo
           ? Image.memory(bytes, fit: BoxFit.cover, gaplessPlayback: true, errorBuilder: (_, __, ___) => _noCover(m))
           : _noCover(m),

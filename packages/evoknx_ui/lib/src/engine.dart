@@ -187,6 +187,19 @@ class CardEngine extends ChangeNotifier {
           }
         }
         break;
+      case 'remote':
+        // A remote control card with KNX addresses: a key sends its value on its own address, or on the one address.
+        if (action == 'key') {
+          final sd = remoteKnxSend(w, arg as String);
+          if (sd == null) {
+            onMessage?.call('${w['label'] ?? ''}: ${remoteKeyLabel(w, arg).toLowerCase()} has no value to send');
+          } else if (gaOf(w, sd.slot) == null) {
+            send(w, sd.slot, 1);
+          } else {
+            send(w, sd.slot, (gaOf(w, sd.slot)?['dpt'] ?? '').toString().startsWith('16') ? sd.value : (num.tryParse(sd.value.replaceAll(',', '.')) ?? 1));
+          }
+        }
+        break;
       case 'media':
         // A media player card with KNX addresses: play/pause and mute are toggles, volume is 0–100 %.
         if (action == 'play') {
@@ -199,12 +212,16 @@ class CardEngine extends ChangeNotifier {
           final m = !(s['mute'] == true);
           s['mute'] = m;
           send(w, 'mute', m);
+        } else if (action == 'shuffle' || action == 'repeat') {
+          final on = !(s[action] == true);
+          s[action] = on;
+          send(w, action, on);
         } else if (action == 'preview') {
           s['vol'] = (arg as num).round();
         } else if (action == 'volume') {
           final v = (arg as num).round();
           s['vol'] = v;
-          send(w, 'volume', v);
+          send(w, 'volume', (v * mediaVolMax(w) / 100).round());
         }
         break;
       case 'link':
@@ -255,7 +272,9 @@ class CardEngine extends ChangeNotifier {
           case 'media':
             if (k == 'play' || k == 'playSt') s['on'] = (n ?? 0) != 0;
             if (k == 'mute' || k == 'muteSt') s['mute'] = (n ?? 0) != 0;
-            if ((k == 'volume' || k == 'volumeSt') && n != null) s['vol'] = n.round();
+            if (k == 'shuffle' || k == 'shuffleSt') s['shuffle'] = (n ?? 0) != 0;
+            if (k == 'repeat' || k == 'repeatSt') s['repeat'] = (n ?? 0) != 0;
+            if ((k == 'volume' || k == 'volumeSt') && n != null) s['vol'] = (n * 100 / mediaVolMax(w)).round();
             break;
           case 'ac':
             final ac = jsonMap(w['ac']);
@@ -304,8 +323,22 @@ class CardEngine extends ChangeNotifier {
   /// Addresses to read when a page opens: the status address of each card,
   /// or its main address when it has no status address.
   List<Json> readsFor(Json sub) {
-    const status = {'status', 'ctStatus', 'rgbStatus', 'powerSt', 'setpointSt', 'modeSt', 'fanSt', 'current', 'playSt', 'muteSt', 'volumeSt'};
-    const main = {'write', 'value', 'position', 'setpoint', 'power', 'mode', 'fan', 'play', 'mute', 'volume'};
+    const status = {
+      'status',
+      'ctStatus',
+      'rgbStatus',
+      'powerSt',
+      'setpointSt',
+      'modeSt',
+      'fanSt',
+      'current',
+      'playSt',
+      'muteSt',
+      'volumeSt',
+      'shuffleSt',
+      'repeatSt',
+    };
+    const main = {'write', 'value', 'position', 'setpoint', 'power', 'mode', 'fan', 'play', 'mute', 'volume', 'shuffle', 'repeat'};
     final out = <Json>[];
     final seen = <String>{};
     for (final w in cardsOf(sub)) {

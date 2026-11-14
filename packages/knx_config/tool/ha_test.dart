@@ -322,53 +322,55 @@ Future<void> main() async {
   check(haCommand(mp, 'onoff', true)!.domain == 'media_player' && haCommand(ent('automation.a', 'on'), 'scene', 1)!.service == 'trigger',
       'command: media player power, automation trigger');
 
-  // ---- rooms
+  // ---- virtual addresses. The Editor no longer makes them (a card follows an entity directly), but a project made with
+  // the old Extensions tab still has them and the bridge still runs them: they are made here by hand.
   final doc = <String, dynamic>{'groupAddresses': <dynamic>[]};
-  check(haValidateMain(doc, 31) != null, 'room: main group 31 is refused (KNX range)');
-  check(haValidateMain(doc, 1000) != null, 'room: main group above 999 is refused');
-  check(haNextMain(doc) == 32, 'room: the first free main group is 32');
-  final room1 = addHaRoom(doc, 'Living room', 40);
-  check(haValidateMain(doc, 40) != null, 'room: the same main group twice is refused');
-  check(haValidateMain(doc, 40, exceptRoom: room1['id'] as String) == null, 'room: its own main group is fine when editing it');
-  final room2 = addHaRoom(doc, 'Bedroom', 41);
-  check(haRooms(doc).length == 2 && haNextMain(doc) == 42, 'room: two rooms, next main group 42');
-  renameHaRoom(doc, room1['id'] as String, '  Khách  ');
-  check(haRoomById(doc, room1['id'] as String)!['name'] == 'Khách', 'room: rename');
+  var seq = 0;
+  List<Json> addVirtual(HaEntity e, List<String> keys) {
+    final out = <Json>[];
+    for (final key in keys) {
+      final a = haAttr(key)!;
+      for (final role in ['cmd', 'status']) {
+        if (role == 'cmd' ? !a.cmd : (!a.status || const ['scene', 'script', 'automation'].contains(e.domain))) continue;
+        seq++;
+        final g = <String, dynamic>{
+          'id': 'ga_t$seq',
+          'address': '40/${seq ~/ 200}/${seq % 200 + 1}',
+          'name': '${e.id} · ${a.label} ($role)',
+          'dpt': a.dpt,
+          'ha': {'entity': e.id, 'attr': key, 'role': role},
+        };
+        (doc['groupAddresses'] as List).add(g);
+        out.add(g);
+      }
+    }
+    return out;
+  }
 
-  // ---- addresses: main/mid/sub, status main/mid/sub+100, function types at mid + 10 * t
   final light = ent('light.den1', 'on', {
     'friendly_name': 'Đèn 1',
     'brightness': 128,
     'supported_color_modes': ['brightness']
   });
-  check(haSuggest(light).map((a) => a.key).join(',') == 'onoff,brightness', 'suggest: dimmable light');
-  final added = addHaEntity(doc, light, ['onoff', 'brightness'], roomId: room1['id'] as String);
-  final addrs = added.map((g) => g['address']).join(' ');
-  check(addrs == '40/2/1 40/2/101 40/12/1 40/12/101', 'addresses: dimmable light = kind 2 (40/2/1 40/2/101), brightness +10 (40/12/1 40/12/101); got $addrs');
-  addHaEntity(doc, ent('cover.rem1', 'open', {'friendly_name': 'Rèm 1'}), ['position'], roomId: room1['id'] as String);
-  check((doc['groupAddresses'] as List).any((g) => g['address'] == '40/23/1') && (doc['groupAddresses'] as List).any((g) => g['address'] == '40/23/101'),
-      'addresses: cover position = kind 3 + 20 (40/23/1 and 40/23/101)');
-  addHaEntity(doc, light, ['colortemp'], roomId: room1['id'] as String);
-  check((doc['groupAddresses'] as List).any((g) => g['address'] == '40/22/1'), 'addresses: an entity keeps its number (color temperature 40/22/1)');
-  final ac = ent('climate.ac', 'cool', {'friendly_name': 'Air conditioner'});
-  addHaEntity(doc, ac, ['onoff', 'setpoint', 'current', 'mode'], roomId: room2['id'] as String);
-  addHaEntity(doc, ent('sensor.t', '23.4', {'friendly_name': 'Temperature'}), ['sensor'], roomId: room2['id'] as String);
-  check(added.every((g) => g['dpt'] != null && isHaAddress(g) && g['ha']['room'] == room1['id'] && g['ha']['kind'] == 2),
-      'addresses: have a DPT, the ha link, their room and kind');
-  addHaEntity(doc, ent('light.den2', 'on', {'friendly_name': 'Đèn 2', 'brightness': 1}), ['onoff'], roomId: room1['id'] as String);
-  addHaEntity(doc, ent('switch.quat', 'on', {'friendly_name': 'Fan'}), ['onoff'], roomId: room1['id'] as String);
-  addHaEntity(doc, ent('cover.rem2', 'open', {'friendly_name': 'Rèm 2'}), ['move', 'stop'], roomId: room1['id'] as String);
-  final tv = ent('media_player.tv', 'playing', {'friendly_name': 'TV'});
-  check(haKind(tv) == 5 && haSuggest(tv).map((a) => a.key).join(',') == 'onoff,playpause,mstop,prev,next,volume,mute,playing',
-      'media player: kind 5 and its functions');
-  addHaEntity(doc, tv, ['onoff', 'playpause', 'volume', 'mute', 'playing'], roomId: room1['id'] as String);
+  final added = addVirtual(light, ['onoff', 'brightness']);
+  check(added.length == 4 && added.every((g) => g['dpt'] != null && isHaAddress(g)),
+      'virtual addresses: a dimmable light has a command and a status for each function');
+  addVirtual(ent('cover.rem1', 'open', {'friendly_name': 'Rèm 1'}), ['position']);
+  addVirtual(light, ['colortemp']);
+  addVirtual(ent('climate.ac', 'cool', {'friendly_name': 'Air conditioner'}), ['onoff', 'setpoint', 'current', 'mode']);
+  addVirtual(ent('sensor.t', '23.4', {'friendly_name': 'Temperature'}), ['sensor']);
+  addVirtual(ent('light.den2', 'on', {'friendly_name': 'Đèn 2', 'brightness': 1}), ['onoff']);
+  addVirtual(ent('switch.quat', 'on', {'friendly_name': 'Fan'}), ['onoff']);
+  addVirtual(ent('cover.rem2', 'open', {'friendly_name': 'Rèm 2'}), ['move', 'stop']);
+  addVirtual(ent('media_player.tv', 'playing', {'friendly_name': 'TV'}), ['onoff', 'playpause', 'volume', 'mute', 'playing']);
+
   // ---- a card follows an entity of Home Assistant (nothing is added to the project)
   final cdoc = newProject('c');
   final cw = makeWidget('switch', 0, 0);
   cw['bind'] = {'write': 'ga_x', 'status': 'ga_y'};
   check(setCardEntity(cw, 'light.den1') == null && cardEntity(cw) == 'light.den1' && cw['source'] == 'ha' && jsonMap(cw['bind']).isEmpty,
       'card entity: a switch takes a light and forgets its KNX addresses');
-  check(jsonList(cdoc['groupAddresses']).isEmpty && haRooms(cdoc).isEmpty, 'card entity: nothing is added to the project or the Extensions tab');
+  check(jsonList(cdoc["groupAddresses"]).isEmpty, "card entity: nothing is added to the project");
   check(setCardEntity(makeWidget('switch', 0, 0), 'sensor.t') != null && setCardEntity(makeWidget('switch', 0, 0), 'oops') != null,
       'card entity: a sensor does not fit a switch; a wrong name is refused');
   final cv = makeWidget('value', 0, 0);
@@ -662,10 +664,7 @@ Future<void> main() async {
     'source_list': ['HDMI 1', 'HDMI 2'],
     'sound_mode_list': ['Movie']
   });
-  check(haSuggest(tvs).map((a) => a.key).join(',') == 'onoff,playpause,mstop,prev,next,volume,mute,playing,srctext,soundtext',
-      'media player with sources: the text source and sound mode are offered');
   final rem = ent('remote.tv', 'on', {'friendly_name': 'TV remote'});
-  check(haKind(rem) == 7 && haSuggest(rem).map((a) => a.key).join(',') == 'onoff,cmdtext,acttext', 'remote: kind 7 and its functions');
   final cmd = haCommand(rem, 'cmdtext', 'DPAD_UP')!;
   check(cmd.domain == 'remote' && cmd.service == 'send_command' && cmd.data['command'] == 'DPAD_UP', 'send command: the text is the command');
   check(haCommand(tvs, 'srctext', ' HDMI 2 ')!.data['source'] == 'HDMI 2' && haCommand(tvs, 'soundtext', 'Movie')!.service == 'select_sound_mode',
@@ -674,42 +673,8 @@ Future<void> main() async {
       'activity; an empty text does nothing');
   check(haCommand(rem, 'onoff', true)!.domain == 'remote' && haCommand(rem, 'onoff', false)!.service == 'turn_off', 'remote on/off');
   check(haAttr('cmdtext')!.dpt == '16.000' && !haAttr('cmdtext')!.status, 'text commands are text addresses without a status');
-  addHaEntity(doc, rem, ['onoff', 'cmdtext'], roomId: room1['id'] as String);
-  addHaEntity(doc, tvs, ['srctext', 'soundtext'], roomId: room1['id'] as String);
-  final textAddr = (doc['groupAddresses'] as List).map((g) => g['address']).toSet();
-  check(textAddr.containsAll(['40/7/1', '40/17/1', '40/85/2', '40/95/2']), 'addresses: remote 40/7/1 and 40/17/1, source 40/85/2 and sound mode 40/95/2');
-  final all = (doc['groupAddresses'] as List).map((g) => g['address']).toSet();
-  check(
-    all.containsAll(['40/2/2', '40/1/1', '40/3/2', '40/13/2', '40/5/1', '40/15/1', '40/55/1', '40/55/101', '40/65/1', '40/65/101', '40/75/101']),
-    'addresses: numbers count per kind (second dim light 40/2/2, switch 40/1/1, second cover 40/3/2), media player 40/5/1, 40/15/1, volume 40/55/1, mute 40/65/1, playing 40/75/101',
-  );
-  check(haKind(ent('scene.a', 'scening')) == 0 && haKind(ent('script.a', 'off')) == 0 && haKind(ent('automation.a', 'on')) == 0,
-      'kind 0: scene, script, automation');
-  check(
-      haKind(ent('light.x', 'on', {
-                'supported_color_modes': ['onoff']
-              })) ==
-              1 &&
-          haKind(ent('switch.x', 'on')) == 1,
-      'kind 1: switch and light without dimming');
-  check(
-      haKind(ent('sensor.x', '1')) == 4 &&
-          haKind(ent('binary_sensor.x', 'on')) == 4 &&
-          haKind(ent('climate.x', 'off')) == 6 &&
-          haKind(ent('cover.x', 'open')) == 3,
-      'kinds 4, 6, 3');
-  try {
-    addHaEntity(doc, light, ['onoff'], roomId: 'khong-co');
-    check(true, 'entity: stays in its first room');
-  } on StateError {
-    check(false, 'entity: stays in its first room');
-  }
-  try {
-    addHaEntity(doc, ent('light.moi', 'on'), ['onoff'], roomId: 'khong-co');
-    check(false, 'entity: unknown room is refused');
-  } on StateError catch (e) {
-    check(e.message.contains('room'), 'entity: unknown room is refused');
-  }
+  addVirtual(rem, ['onoff', 'cmdtext']);
+  addVirtual(tvs, ['srctext', 'soundtext']);
 
   String addr(String entity, String attr, String role) {
     for (final g in doc['groupAddresses'] as List) {
@@ -719,131 +684,21 @@ Future<void> main() async {
     return '';
   }
 
-  check(
-      addr('climate.ac', 'setpoint', 'cmd') == '41/16/1' &&
-          addr('climate.ac', 'current', 'status') == '41/26/101' &&
-          addr('climate.ac', 'mode', 'cmd') == '41/36/1',
-      'addresses: climate = kind 6 (setpoint 41/16/1, room temperature 41/26/101, mode 41/36/1)');
-  check(addr('sensor.t', 'sensor', 'status') == '41/4/101', 'addresses: sensor = kind 4, status 41/4/101');
-
   Json ga(String address) => (doc['groupAddresses'] as List).firstWhere((g) => g['address'] == address) as Json;
 
   // ---- scene, script, automation: 1 bit like a light
   final sc = ent('scene.chieu_phim', 'scening', {'friendly_name': 'Chiếu phim'});
   final sr = ent('script.tiep_khach', 'off', {'friendly_name': 'Tiếp khách'});
   final au = ent('automation.movie', 'on', {'friendly_name': 'Movie'});
-  check(
-      haSuggest(sc).map((a) => a.key).join() == 'onoff' &&
-          haSuggest(sr).map((a) => a.key).join() == 'onoff' &&
-          haSuggest(au).map((a) => a.key).join() == 'onoff',
-      'scene/script/automation: one function, on/off (1 bit)');
   check(haAttr('onoff')!.dpt == '1.001', 'scene/script/automation: DPT 1.001');
   check(haCommand(sc, 'onoff', true)!.service == 'turn_on' && haCommand(sc, 'onoff', true)!.domain == 'scene' && haCommand(sc, 'onoff', false)!.isNone,
       'scene: 1 activates, 0 does nothing');
   check(haCommand(sr, 'onoff', true)!.service == 'turn_on' && haCommand(sr, 'onoff', false)!.service == 'turn_off', 'script: 1 runs, 0 stops');
   check(haCommand(au, 'onoff', true)!.service == 'trigger' && haCommand(au, 'onoff', false)!.isNone, 'automation: 1 triggers, 0 does nothing');
-  final aSc = addHaEntity(doc, sc, ['onoff'], roomId: room1['id'] as String);
-  final aSr = addHaEntity(doc, sr, ['onoff'], roomId: room1['id'] as String);
-  final aAu = addHaEntity(doc, au, ['onoff'], roomId: room1['id'] as String);
-  check(aSc.length == 1 && aSc.first['ha']['role'] == 'cmd' && aSc.first['address'] == '40/0/1', 'scene: only a command address (40/0/1)');
-  check(aSr.length == 1 && aSr.first['ha']['role'] == 'cmd' && aSr.first['address'] == '40/0/2', 'script: only a command address (40/0/2), no status');
-  check(aAu.length == 1 && aAu.first['ha']['role'] == 'cmd' && aAu.first['address'] == '40/0/3',
-      'automation: only a command address, numbered after the script (40/0/3)');
+  final aSc = addVirtual(sc, ['onoff']), aSr = addVirtual(sr, ['onoff']), aAu = addVirtual(au, ['onoff']);
+  check(aSc.length == 1 && aSc.first['ha']['role'] == 'cmd' && aSr.length == 1 && aAu.length == 1,
+      'scene, script, automation: only a command address, no status');
   check(aSc.first['dpt'] == '1.001', 'scene: DPT 1.001');
-
-  // ---- manual addresses
-  final plan = haPlanAddresses(doc, ent('light.moi', 'on', {'brightness': 1}), ['onoff', 'brightness'], room1['id'] as String);
-  check(plan['onoff|cmd'] == '40/2/3' && plan['onoff|status'] == '40/2/103' && plan['brightness|cmd'] == '40/12/3',
-      'plan: the rule gives 40/2/3, 40/2/103, 40/12/3 (nothing is added)');
-  check(!(doc['groupAddresses'] as List).any((g) => g['ha'] is Map && g['ha']['entity'] == 'light.moi'), 'plan: changes nothing');
-  final typed = addHaEntity(doc, ent('light.tay', 'on', {'friendly_name': 'Đèn tay', 'brightness': 1}), ['onoff'],
-      roomId: room1['id'] as String, addresses: {'onoff|cmd': '45/7/9', 'onoff|status': '045/07/109'});
-  check(typed.map((g) => g['address']).join(' ') == '45/7/9 45/7/109', 'manual: typed addresses are used (and tidied)');
-  try {
-    addHaEntity(doc, ent('light.tay2', 'on', {'brightness': 1}), ['onoff'],
-        roomId: room1['id'] as String, addresses: {'onoff|cmd': '45/7/9', 'onoff|status': '45/7/110'});
-    check(false, 'manual: a used address is refused');
-  } on StateError catch (x) {
-    check(x.message.contains('45/7/9'), 'manual: a used address is refused');
-  }
-
-  // ---- rename keeps the entity id
-  renameHaEntity(doc, 'light.den1', 'Table lamp');
-  final onoff = ga(addr('light.den1', 'onoff', 'cmd'));
-  check(onoff['name'] == 'Table lamp · On/Off (command)' && onoff['ha']['entity'] == 'light.den1' && onoff['ha']['title'] == 'Table lamp',
-      'rename: new name, same HA entity id');
-
-  // ---- point an item at another entity
-  check(haChangeEntityId(doc, 'light.den1', 'Light') != null, 'entity id: a bad format is refused');
-  check(haChangeEntityId(doc, 'light.den1', 'switch.den1') != null, 'entity id: another type is refused');
-  check(haChangeEntityId(doc, 'light.den1', 'light.den2') != null, 'entity id: an id already in the project is refused');
-  check(haChangeEntityId(doc, 'light.den1', 'light.den_moi') == null, 'entity id: a free id of the same type is accepted');
-  check(addr('light.den_moi', 'onoff', 'cmd') == '40/2/1' && addr('light.den1', 'onoff', 'cmd').isEmpty, 'entity id: addresses stay, only the entity changes');
-  check(haChangeEntityId(doc, 'light.den_moi', 'light.den1') == null && addr('light.den1', 'onoff', 'cmd') == '40/2/1', 'entity id: changed back');
-
-  // ---- edit an address
-  check(haValidateAddress(doc, 'abc') != null, 'edit address: bad format is refused');
-  check(haValidateAddress(doc, '31/0/1') != null, 'edit address: main group 31 is refused');
-  check(haValidateAddress(doc, addr('light.den1', 'brightness', 'cmd'), exceptId: 'khac') != null, 'edit address: a used address is refused');
-  check(haValidateAddress(doc, '45/3/7', exceptId: onoff['id'] as String) == null, 'edit address: a free address is accepted');
-  haSetAddress(doc, onoff['id'] as String, '45/3/7');
-  check(onoff['address'] == '45/3/7' && addr('light.den1', 'onoff', 'cmd') == '45/3/7', 'edit address: applied');
-  haSetAddress(doc, onoff['id'] as String, '40/0/1');
-
-  // ---- re-addressing a room puts every address back on the rule and keeps the links
-  final ra = jsonDecode(jsonEncode(doc)) as Map<String, dynamic>;
-  final raRoom = haRooms(ra).first['id'] as String;
-  for (final g in ra['groupAddresses'] as List) {
-    if (g['ha'] is Map && g['ha']['room'] == raRoom) g['address'] = '${g['address']}'.replaceFirst('40/', '44/');
-  }
-  final raCount = (ra['groupAddresses'] as List).length;
-  check(readdressHaRoom(ra, raRoom) > 0, 'readdress: changes the addresses that were moved');
-  check((ra['groupAddresses'] as List).every((g) => g['ha'] is! Map || g['ha']['room'] != raRoom || '${g['address']}'.startsWith('40/')),
-      'readdress: back to the room main group');
-  check(readdressHaRoom(ra, raRoom) == 0, 'readdress: a second run changes nothing');
-  check((ra['groupAddresses'] as List).length == raCount, 'readdress: no address lost');
-
-  // ---- moving a room changes its main group everywhere
-  check(moveHaRoom(doc, room2['id'] as String, 31) != null, 'move room: 31 is refused');
-  check(moveHaRoom(doc, room2['id'] as String, 40) != null, 'move room: a main group of another room is refused');
-  check(moveHaRoom(doc, room2['id'] as String, 50) == null, 'move room: to 50');
-  check(addr('climate.ac', 'setpoint', 'cmd').startsWith('50/') && addr('sensor.t', 'sensor', 'status').startsWith('50/'), 'move room: addresses follow');
-  check(haRoomById(doc, room2['id'] as String)!['main'] == 50, 'move room: main group stored');
-  moveHaRoom(doc, room2['id'] as String, 41);
-
-  // ---- removing an entity or a room unlinks its cards
-  doc['pages'] = [
-    {
-      'id': 'r1',
-      'subpages': [
-        {
-          'id': 's1',
-          'widgets': [
-            {
-              'id': 'w1',
-              'type': 'switch',
-              'bind': {'write': onoff['id'], 'status': 'zzz'}
-            },
-            {
-              'id': 'w2',
-              'type': 'value',
-              'bind': {'status': ga(addr('sensor.t', 'sensor', 'status'))['id']}
-            },
-          ],
-        },
-      ],
-    },
-  ];
-  check(haEntityUses(doc, 'light.den1') == 1, 'remove: counts the cards that use the entity');
-  final copy = jsonDecode(jsonEncode(doc)) as Map<String, dynamic>;
-  check(removeHaEntity(copy, 'light.den1') == 1, 'remove entity: unlinks the card slot');
-  check(!(copy['groupAddresses'] as List).any((g) => g['ha'] is Map && g['ha']['entity'] == 'light.den1'), 'remove entity: addresses gone');
-  check((copy['groupAddresses'] as List).any((g) => g['ha'] is Map && g['ha']['entity'] == 'cover.rem1'), 'remove entity: other entities stay');
-  final copy2 = jsonDecode(jsonEncode(doc)) as Map<String, dynamic>;
-  check(removeHaRoom(copy2, room2['id'] as String) == 1, 'remove room: unlinks the card of its sensor');
-  check(haRooms(copy2).length == 1 && !(copy2['groupAddresses'] as List).any((g) => g['ha'] is Map && g['ha']['room'] == room2['id']),
-      'remove room: the room and its entities are gone');
-  check((copy2['groupAddresses'] as List).any((g) => g['ha'] is Map && g['ha']['entity'] == 'light.den1'), 'remove room: other rooms stay');
 
   // ---- an ETS import (even "replace") keeps the virtual addresses
   final etsDoc = jsonDecode(jsonEncode(doc)) as Map<String, dynamic>;

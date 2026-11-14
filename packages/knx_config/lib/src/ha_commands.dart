@@ -65,58 +65,89 @@ const List<HaCommand> kMediaCommands = [
   HaCommand('stop', 'Stop', 'media_player.media_stop', features: [4096]),
   HaCommand('next', 'Next track', 'media_player.media_next_track', features: [32]),
   HaCommand('previous', 'Previous track', 'media_player.media_previous_track', features: [16]),
-  HaCommand('volume_set', 'Set the volume', 'media_player.volume_set', features: [
-    4
-  ], params: [
-    HaParam('volume_level', 'Volume (%)', kind: 'number', required: true, scale: 0.01, min: 0, max: 100, hint: '0–100'),
-  ]),
+  HaCommand(
+    'volume_set',
+    'Set the volume',
+    'media_player.volume_set',
+    features: [4],
+    params: [HaParam('volume_level', 'Volume (%)', kind: 'number', required: true, scale: 0.01, min: 0, max: 100, hint: '0–100')],
+  ),
   HaCommand('volume_up', 'Volume up', 'media_player.volume_up', features: [4, 1024]),
   HaCommand('volume_down', 'Volume down', 'media_player.volume_down', features: [4, 1024]),
   HaCommand('mute', 'Mute', 'media_player.volume_mute', features: [8], fixed: {'is_volume_muted': true}),
   HaCommand('unmute', 'Unmute', 'media_player.volume_mute', features: [8], fixed: {'is_volume_muted': false}),
-  HaCommand('seek', 'Seek', 'media_player.media_seek', features: [
-    2
-  ], params: [
-    HaParam('seek_position', 'Position (seconds)', kind: 'number', required: true, min: 0),
-  ]),
-  HaCommand('select_source', 'Select source', 'media_player.select_source', features: [
-    2048
-  ], params: [
-    HaParam('source', 'Source', required: true, suggest: 'source_list', hint: 'HDMI 2'),
-  ]),
-  HaCommand('select_sound_mode', 'Select sound mode', 'media_player.select_sound_mode', features: [
-    65536
-  ], params: [
-    HaParam('sound_mode', 'Sound mode', required: true, suggest: 'sound_mode_list', hint: 'Movie'),
-  ]),
+  HaCommand(
+    'seek',
+    'Seek',
+    'media_player.media_seek',
+    features: [2],
+    params: [HaParam('seek_position', 'Position (seconds)', kind: 'number', required: true, min: 0)],
+  ),
+  HaCommand(
+    'select_source',
+    'Select source',
+    'media_player.select_source',
+    features: [2048],
+    params: [HaParam('source', 'Source', required: true, suggest: 'source_list', hint: 'HDMI 2')],
+  ),
+  HaCommand(
+    'select_sound_mode',
+    'Select sound mode',
+    'media_player.select_sound_mode',
+    features: [65536],
+    params: [HaParam('sound_mode', 'Sound mode', required: true, suggest: 'sound_mode_list', hint: 'Movie')],
+  ),
   HaCommand('shuffle_on', 'Shuffle on', 'media_player.shuffle_set', features: [32768], fixed: {'shuffle': true}),
   HaCommand('shuffle_off', 'Shuffle off', 'media_player.shuffle_set', features: [32768], fixed: {'shuffle': false}),
-  HaCommand('repeat', 'Set repeat', 'media_player.repeat_set', features: [
-    262144
-  ], params: [
-    HaParam('repeat', 'Repeat', kind: 'choice', required: true, options: ['off', 'all', 'one'], initial: 'all'),
-  ]),
-  HaCommand('play_media', 'Play media', 'media_player.play_media', features: [
-    512
-  ], params: [
-    HaParam('media_content_id', 'Content (address, name or code)', required: true),
-    HaParam('media_content_type', 'Type',
-        kind: 'choice', required: true, options: ['music', 'playlist', 'channel', 'url', 'video', 'tvshow', 'episode', 'app'], initial: 'music'),
-  ]),
+  HaCommand(
+    'repeat',
+    'Set repeat',
+    'media_player.repeat_set',
+    features: [262144],
+    params: [
+      HaParam('repeat', 'Repeat', kind: 'choice', required: true, options: ['off', 'all', 'one'], initial: 'all'),
+    ],
+  ),
+  HaCommand(
+    'play_media',
+    'Play media',
+    'media_player.play_media',
+    features: [512],
+    params: [
+      HaParam('media_content_id', 'Content (address, name or code)', required: true),
+      HaParam(
+        'media_content_type',
+        'Type',
+        kind: 'choice',
+        required: true,
+        options: ['music', 'playlist', 'channel', 'url', 'video', 'tvshow', 'episode', 'app'],
+        initial: 'music',
+      ),
+    ],
+  ),
   HaCommand('clear_playlist', 'Clear the playlist', 'media_player.clear_playlist', features: [8192]),
 ];
 
 const List<HaCommand> kRemoteCommands = [
-  HaCommand('send_command', 'Send a command (key)', 'remote.send_command', params: [
-    HaParam('command', 'Command (key)', required: true, hint: 'DPAD_UP'),
-    HaParam('device', 'Device (if the remote has several)'),
-    HaParam('num_repeats', 'Repeats', kind: 'int', min: 1, max: 100, hint: '1'),
-    HaParam('delay_secs', 'Delay between repeats (seconds)', kind: 'number', min: 0),
-    HaParam('hold_secs', 'Hold time (seconds)', kind: 'number', min: 0),
-  ]),
-  HaCommand('start_activity', 'Start an activity', 'remote.turn_on', needs: 'activity', params: [
-    HaParam('activity', 'Activity', required: true, suggest: 'activity_list'),
-  ]),
+  HaCommand(
+    'send_command',
+    'Send a command (key)',
+    'remote.send_command',
+    params: [
+      HaParam('command', 'Command (key)', required: true, hint: 'DPAD_UP'),
+      HaParam('device', 'Device (if the remote has several)'),
+      HaParam('num_repeats', 'Repeats', kind: 'int', min: 1, max: 100, hint: '1'),
+      HaParam('delay_secs', 'Delay between repeats (seconds)', kind: 'number', min: 0),
+      HaParam('hold_secs', 'Hold time (seconds)', kind: 'number', min: 0),
+    ],
+  ),
+  HaCommand(
+    'start_activity',
+    'Start an activity',
+    'remote.turn_on',
+    needs: 'activity',
+    params: [HaParam('activity', 'Activity', required: true, suggest: 'activity_list')],
+  ),
   HaCommand('turn_on', 'Turn on', 'remote.turn_on'),
   HaCommand('turn_off', 'Turn off', 'remote.turn_off'),
   HaCommand('toggle', 'Turn on or off', 'remote.toggle'),

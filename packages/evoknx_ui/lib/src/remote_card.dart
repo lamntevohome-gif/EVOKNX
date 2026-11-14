@@ -5,20 +5,26 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:knx_config/knx_config.dart';
 
+import 'icons.dart';
 import 'look.dart';
 import 'media_card.dart' show MediaHost;
 import 'model.dart';
 import 'tiles.dart';
 
-/// The remote control card: a ring with the four directions and OK, a row of Back, Home and Menu, the volume, the
-/// transport buttons and (when it is turned on) a touchpad. A key sends the `remote.send_command` of Home Assistant
-/// with the name that the platform of the card gives it; the directions and the volume go on while the finger stays
-/// down. With no [host] (the design view of the Editor) the card is only shown.
+/// The remote control card: a top bar with the title and the power on and off keys, and under it the parts the card shows
+/// (a ring with the four directions and OK, single keys, a touchpad, custom buttons), each in its cell of a grid that
+/// the Editor lays out. The source is Home Assistant (a key sends the `remote.send_command` with the name that the
+/// platform of the card gives it) or KNX (a key sends a value on its address, or on the one address of all the keys).
+/// The directions and the volume go on while the finger stays down. With no [host] and no [act] (the design view of
+/// the Editor) the card is only shown.
 class RemoteCard extends StatefulWidget {
-  const RemoteCard({super.key, required this.w, required this.pal, this.host});
+  const RemoteCard({super.key, required this.w, required this.pal, this.host, this.act});
   final Json w;
   final AppPalette pal;
   final MediaHost? host;
+
+  /// With the source KNX: what a key does (`act('key', keyId)`). Null = the card only shows.
+  final void Function(String action, [Object? arg])? act;
 
   @override
   State<RemoteCard> createState() => _RemoteCardState();
@@ -30,6 +36,7 @@ class _RemoteCardState extends State<RemoteCard> {
   double _ax = 0, _ay = 0;
 
   Json get _r => remoteSettings(widget.w);
+  bool get _knx => remoteIsKnx(widget.w);
 
   @override
   void dispose() {
@@ -39,6 +46,12 @@ class _RemoteCardState extends State<RemoteCard> {
   }
 
   void _send(String key) {
+    if (_knx) {
+      if (widget.act == null) return;
+      HapticFeedback.selectionClick();
+      widget.act!('key', key);
+      return;
+    }
     final c = remoteCall(widget.w, key);
     final host = widget.host;
     if (host == null || c == null) return;
@@ -68,20 +81,48 @@ class _RemoteCardState extends State<RemoteCard> {
     if (_down != null && mounted) setState(() => _down = null);
   }
 
-  bool _has(String key) => remoteCommand(widget.w, key).isNotEmpty;
+  /// Whether the key can send something: it has a name for the remote (Home Assistant) or an address and a value (KNX).
+  bool _has(String key) {
+    final w = widget.w;
+    if (_knx) {
+      final sd = remoteKnxSend(w, key);
+      return sd != null && jsonMap(w['bind'])[sd.slot] != null;
+    }
+    if (key == 'poweron' || key == 'poweroff') return (_r['entity'] as String).isNotEmpty;
+    return remoteCommand(w, key).isNotEmpty;
+  }
+
+  /// Whether a key of the card works now: not in the design view.
+  bool get _live => _knx ? widget.act != null : widget.host != null;
+
+  static const _icons = <String, IconData>{
+    'back': Icons.arrow_back,
+    'home': Icons.home_outlined,
+    'menu': Icons.menu,
+    'voldown': Icons.volume_down,
+    'mute': Icons.volume_off_outlined,
+    'volup': Icons.volume_up,
+    'prev': Icons.skip_previous,
+    'playpause': Icons.play_arrow,
+    'next': Icons.skip_next,
+  };
 
   @override
   Widget build(BuildContext context) {
-    final pal = widget.pal, host = widget.host;
+    final pal = widget.pal, host = widget.host, w = widget.w;
     final r = _r;
     String? note;
-    if (host != null) {
+    if (!_knx && host != null) {
       if ((r['entity'] as String).isEmpty) {
         note = 'Choose the remote in the settings of the card.';
       } else if (!host.connected) {
         note = 'Waiting for Home Assistant…';
       }
     }
+    final title = (w['label'] ?? '').toString().trim();
+    final showTitle = remoteShowTop(w, 'Title') && title.isNotEmpty && w['showLabel'] != false;
+    final showOn = remoteShowTop(w, 'PowerOn'), showOff = remoteShowTop(w, 'PowerOff');
+    final top = showTitle || showOn || showOff;
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: raisedDecoration(
@@ -97,50 +138,152 @@ class _RemoteCardState extends State<RemoteCard> {
               child: Text(
                 note,
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: fs(widget.w, 'labelSize') - 1, color: pal.muted),
+                style: TextStyle(fontSize: fs(w, 'labelSize') - 1, color: pal.muted),
               ),
             )
           : Column(
               children: [
-                if (r['touchpad'] == true) Expanded(flex: 4, child: _touchpad()),
-                if (r['dpad'] == true)
-                  Expanded(
-                    flex: 8,
-                    child: LayoutBuilder(builder: (context, bc) => Center(child: _dpad(math.min(bc.maxWidth, bc.maxHeight)))),
+                if (top)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: showTitle
+                              ? Text(
+                                  title,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(fontSize: fs(w, 'labelSize'), fontWeight: FontWeight.w600, color: pal.ink),
+                                )
+                              : const SizedBox.shrink(),
+                        ),
+                        if (showOn) _powerKey('poweron', 'On', pal.accent),
+                        if (showOn && showOff) const SizedBox(width: 6),
+                        if (showOff) _powerKey('poweroff', 'Off', pal.muted),
+                      ],
+                    ),
                   ),
-                if (r['nav'] == true)
-                  Expanded(flex: 2, child: _row([('back', Icons.arrow_back, false), ('home', Icons.home_outlined, false), ('menu', Icons.menu, false)])),
-                if (r['volume'] == true)
-                  Expanded(
-                    flex: 2,
-                    child: _row([('voldown', Icons.volume_down, true), ('mute', Icons.volume_off_outlined, false), ('volup', Icons.volume_up, true)]),
-                  ),
-                if (r['transport'] == true)
-                  Expanded(
-                    flex: 2,
-                    child: _row([('prev', Icons.skip_previous, false), ('playpause', Icons.play_arrow, false), ('next', Icons.skip_next, false)]),
-                  ),
+                Expanded(child: LayoutBuilder(builder: (context, bc) => _grid(bc))),
               ],
             ),
     );
   }
 
-  Widget _row(List<(String, IconData, bool)> keys) => Row(
-    children: [for (final k in keys) Expanded(child: _keyButton(k.$1, k.$2, repeat: k.$3))],
-  );
+  Widget _powerKey(String key, String text, Color color) {
+    final pal = widget.pal;
+    final on = _has(key) || !_live;
+    final pressed = _down == key;
+    return Listener(
+      onPointerDown: _live && _has(key) ? (_) => _press(key) : null,
+      onPointerUp: (_) => _release(),
+      onPointerCancel: (_) => _release(),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(color: pressed ? color.withValues(alpha: 0.35) : pal.panel, borderRadius: BorderRadius.circular(pal.radius * 0.5)),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.power_settings_new, size: 16, color: on ? color : pal.line),
+            const SizedBox(width: 3),
+            Text(
+              text,
+              style: TextStyle(fontSize: fs(widget.w, 'labelSize') - 3, fontWeight: FontWeight.w600, color: on ? pal.ink : pal.line),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// The parts, each in its cell.
+  Widget _grid(BoxConstraints bc) {
+    final w = widget.w;
+    final items = remoteItems(w);
+    if (items.isEmpty) {
+      return Center(
+        child: Text(
+          'Nothing to show: turn on some keys in the settings.',
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 12, color: widget.pal.muted),
+        ),
+      );
+    }
+    final cols = remoteCols(w), rows = remoteRows(items);
+    final cw = bc.maxWidth / cols;
+    // A cell is not much higher than wide, so a tall card does not make huge keys.
+    final ch = math.min(bc.maxHeight.isFinite ? bc.maxHeight / rows : cw, cw * 1.1);
+    return Center(
+      child: SizedBox(
+        width: bc.maxWidth,
+        height: ch * rows,
+        child: Stack(
+          children: [for (final i in items) Positioned(left: i.c * cw, top: i.r * ch, width: i.cw * cw, height: i.rh * ch, child: _part(i))],
+        ),
+      ),
+    );
+  }
+
+  Widget _part(RemoteItem i) {
+    if (i.id == 'dpad') {
+      return LayoutBuilder(builder: (context, bc) => Center(child: _dpad(math.max(20.0, math.min(bc.maxWidth, bc.maxHeight) - 6))));
+    }
+    if (i.id == 'touchpad') return _touchpad();
+    final custom = remoteCustom(widget.w).where((c) => c['id'] == i.id).firstOrNull;
+    if (custom != null) return _customButton(custom);
+    return _keyButton(i.id, _icons[i.id] ?? Icons.circle_outlined, repeat: i.id == 'voldown' || i.id == 'volup');
+  }
+
+  Widget _customButton(Json c) {
+    final pal = widget.pal;
+    final key = (c['id'] ?? '').toString();
+    final on = _has(key);
+    final pressed = _down == key;
+    final icon = (c['icon'] ?? '').toString();
+    final label = (c['label'] ?? '').toString().trim();
+    final color = on || !_live ? pal.ink : pal.line;
+    return Listener(
+      onPointerDown: _live && on ? (_) => _press(key) : null,
+      onPointerUp: (_) => _release(),
+      onPointerCancel: (_) => _release(),
+      child: Container(
+        margin: const EdgeInsets.all(3),
+        decoration: BoxDecoration(color: pressed ? pal.accent.withValues(alpha: 0.35) : pal.panel, borderRadius: BorderRadius.circular(pal.radius * 0.5)),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (icon.isNotEmpty) iconWidget(icon, 22, color),
+              if (label.isNotEmpty)
+                Padding(
+                  padding: EdgeInsets.only(top: icon.isNotEmpty ? 1 : 0),
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: fs(widget.w, 'labelSize') - 3, color: color),
+                  ),
+                ),
+              if (icon.isEmpty && label.isEmpty) Icon(Icons.touch_app_outlined, size: 22, color: color),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   Widget _keyButton(String key, IconData icon, {bool repeat = false}) {
     final pal = widget.pal;
     final on = _has(key);
     final pressed = _down == key;
     return Listener(
-      onPointerDown: on ? (_) => _press(key, repeat: repeat) : null,
+      onPointerDown: _live && on ? (_) => _press(key, repeat: repeat) : null,
       onPointerUp: (_) => _release(),
       onPointerCancel: (_) => _release(),
       child: Container(
         margin: const EdgeInsets.all(3),
         decoration: BoxDecoration(color: pressed ? pal.accent.withValues(alpha: 0.35) : pal.panel, borderRadius: BorderRadius.circular(pal.radius * 0.5)),
-        child: Center(child: Icon(icon, size: 22, color: on ? pal.ink : pal.line)),
+        child: Center(child: Icon(icon, size: 22, color: on || !_live ? pal.ink : pal.line)),
       ),
     );
   }
@@ -165,7 +308,7 @@ class _RemoteCardState extends State<RemoteCard> {
       child: Listener(
         onPointerDown: (e) {
           final k = _dpadKey(e.localPosition, s);
-          if (k != null && _has(k)) _press(k, repeat: k != 'ok');
+          if (k != null && _live && _has(k)) _press(k, repeat: k != 'ok');
         },
         onPointerUp: (_) => _release(),
         onPointerCancel: (_) => _release(),
@@ -181,7 +324,7 @@ class _RemoteCardState extends State<RemoteCard> {
   Widget _touchpad() {
     final pal = widget.pal;
     return GestureDetector(
-      onTap: _has('ok') ? () => _send('ok') : null,
+      onTap: _live && _has('ok') ? () => _send('ok') : null,
       onPanStart: (_) {
         _ax = 0;
         _ay = 0;
@@ -191,7 +334,7 @@ class _RemoteCardState extends State<RemoteCard> {
         _ay += d.delta.dy;
         if (_ax.abs() > 30 || _ay.abs() > 30) {
           final k = _ax.abs() > _ay.abs() ? (_ax > 0 ? 'right' : 'left') : (_ay > 0 ? 'down' : 'up');
-          if (_has(k)) _send(k);
+          if (_live && _has(k)) _send(k);
           _ax = 0;
           _ay = 0;
         }

@@ -36,12 +36,12 @@ Json? _byId(List<Json> l, String? id) {
 Json makeScript([String title = 'New script']) => {'id': uid('script_'), 'title': title, 'steps': <Json>[]};
 
 Json makeStep(String type) => switch (type) {
-      'write' => {'type': 'write', 'ga': null, 'value': '1'},
-      'ha' => {'type': 'ha', 'service': '', 'entity': '', 'data': ''},
-      'wait' => {'type': 'wait', 'seconds': 1.0},
-      'goto' => {'type': 'goto', 'kind': '', 'id': ''},
-      _ => {'type': 'message', 'text': ''},
-    };
+  'write' => {'type': 'write', 'ga': null, 'value': '1'},
+  'ha' => {'type': 'ha', 'service': '', 'entity': '', 'data': ''},
+  'wait' => {'type': 'wait', 'seconds': 1.0},
+  'goto' => {'type': 'goto', 'kind': '', 'id': ''},
+  _ => {'type': 'message', 'text': ''},
+};
 
 /// What a Write step sends: the text as it is for a text address (DPT 16), a number for any other address.
 Object scriptValue(Json? ga, String raw) {
@@ -179,8 +179,9 @@ List<String> scriptProblems(Json doc) {
           if (scriptData((st['data'] ?? '').toString()).$2 != null) out.add('${where}the data is not valid JSON.');
         case 'goto':
           final kind = (st['kind'] ?? '').toString();
-          final ok =
-              kind == 'floor' ? floorIds.contains(st['id']) : (kind == 'room' ? roomIds.contains(st['id']) : (kind == 'page' && pageIds.contains(st['id'])));
+          final ok = kind == 'floor'
+              ? floorIds.contains(st['id'])
+              : (kind == 'room' ? roomIds.contains(st['id']) : (kind == 'page' && pageIds.contains(st['id'])));
           if (!ok) out.add('${where}the target ${kind.isEmpty ? 'floor, room or page' : kind} does not exist. Please check.');
       }
     }

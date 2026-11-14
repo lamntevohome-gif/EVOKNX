@@ -6,6 +6,7 @@ import 'dart:math';
 import 'package:knx_core/knx_core.dart';
 
 import 'ets_import.dart';
+import 'remote_keys.dart';
 
 typedef Json = Map<String, dynamic>;
 
@@ -49,33 +50,21 @@ const Map<String, WidgetTypeDef> kWidgetTypes = {
     SlotDef('value', 'Brightness value', [5], required: true),
     SlotDef('status', 'Brightness status', [5], recommended: true),
   ]),
-  'value': WidgetTypeDef('value', 'Value', 'thermo', 2, 2, [
-    SlotDef('status', 'Status address', [5, 6, 7, 8, 9, 12, 13, 14], required: true),
-  ]),
-  'button': WidgetTypeDef('button', 'Push button', 'button', 2, 2, [
-    SlotDef('write', 'Write address', [1, 5, 17], required: true),
-  ]),
   'shutter': WidgetTypeDef('shutter', 'Blind', 'blind', 2, 2, [
     SlotDef('upDown', 'Up/down', [1], required: true),
     SlotDef('stop', 'Stop', [1]),
     SlotDef('position', 'Position', [5]),
     SlotDef('status', 'Position status', [5], recommended: true),
   ]),
+  'value': WidgetTypeDef('value', 'Value', 'thermo', 2, 2, [
+    SlotDef('status', 'Status address', [5, 6, 7, 8, 9, 12, 13, 14], required: true),
+  ]),
+  'button': WidgetTypeDef('button', 'Push button', 'button', 2, 2, [
+    SlotDef('write', 'Write address', [1, 5, 17], required: true),
+  ]),
   'scene': WidgetTypeDef('scene', 'Scene', 'star', 2, 2, [
     SlotDef('write', 'Write address', [1, 5, 17, 18], required: true),
   ]),
-  'link': WidgetTypeDef('link', 'Open web page', 'link', 2, 2, []),
-  'webview': WidgetTypeDef('webview', 'Embedded web page', 'globe', 2, 2, []),
-  'ac': WidgetTypeDef('ac', 'Air conditioner', 'snow', 2, 2, [
-    SlotDef('power', 'On/Off', [1], required: true),
-    SlotDef('powerSt', 'On/off status', [1], recommended: true),
-    SlotDef('setpoint', 'Setpoint', [9], required: true),
-    SlotDef('setpointSt', 'Setpoint status', [9], recommended: true),
-    SlotDef('current', 'Room temperature', [9]),
-    SlotDef('mode', 'Mode', [20, 5]),
-    SlotDef('modeSt', 'Mode status', [20, 5]),
-  ]),
-  'camera': WidgetTypeDef('camera', 'Camera', 'camera', 2, 2, []),
   // The addresses of a media player card exist only when its source is KNX (see slotsFor); with the source HA the card
   // follows a media player of Home Assistant.
   'media': WidgetTypeDef('media', 'Media player', 'mdi:music', 4, 2, [
@@ -87,8 +76,24 @@ const Map<String, WidgetTypeDef> kWidgetTypes = {
     SlotDef('muteSt', 'Mute status', [1]),
     SlotDef('volume', 'Volume', [5]),
     SlotDef('volumeSt', 'Volume status', [5]),
+    SlotDef('shuffle', 'Shuffle', [1]),
+    SlotDef('shuffleSt', 'Shuffle status', [1]),
+    SlotDef('repeat', 'Repeat', [1]),
+    SlotDef('repeatSt', 'Repeat status', [1]),
   ]),
   'remote': WidgetTypeDef('remote', 'Remote control', 'mdi:remote', 4, 4, []),
+  'ac': WidgetTypeDef('ac', 'Air conditioner', 'snow', 2, 2, [
+    SlotDef('power', 'On/Off', [1], required: true),
+    SlotDef('powerSt', 'On/off status', [1], recommended: true),
+    SlotDef('setpoint', 'Setpoint', [9], required: true),
+    SlotDef('setpointSt', 'Setpoint status', [9], recommended: true),
+    SlotDef('current', 'Room temperature', [9]),
+    SlotDef('mode', 'Mode', [20, 5]),
+    SlotDef('modeSt', 'Mode status', [20, 5]),
+  ]),
+  'camera': WidgetTypeDef('camera', 'Camera', 'camera', 2, 2, []),
+  'link': WidgetTypeDef('link', 'Open web page', 'link', 2, 2, []),
+  'webview': WidgetTypeDef('webview', 'Embedded web page', 'globe', 2, 2, []),
   'group': WidgetTypeDef('group', 'Grid frame', 'layout', 2, 2, []),
 };
 
@@ -190,14 +195,30 @@ const List<AcMode> kAcModes = [
 /// A media player card whose source is KNX (its own addresses) and not a media player of Home Assistant.
 bool mediaIsKnx(Json w) => w['type'] == 'media' && w['source'] == 'knx';
 
+/// The highest value of the volume address of a KNX media player card: 100 (percent, DPT 5.001) or 255 (a byte, DPT 5.010).
+int mediaVolMax(Json w) => jsonMap(w['media'])['volMax'] == 255 ? 255 : 100;
+
 /// Slots of a widget, including dynamic ones (dimmer features, shutter
 /// options, AC per-mode addresses). Mirrors the web editor.
 List<SlotDef> slotsFor(Json w) {
   final t = kWidgetTypes[w['type']];
   final base = t?.slots ?? const <SlotDef>[];
   switch (w['type']) {
+    case 'remote':
+      {
+        if (!remoteIsKnx(w)) return const <SlotDef>[];
+        // KNX: an address for each key, or one address for all of them.
+        const dpts = [1, 2, 3, 5, 6, 7, 8, 9, 12, 13, 14, 16, 17, 18, 20];
+        if (remoteKnxMode(w) == 'single') return const [SlotDef('rk_all', 'Address (all the keys)', dpts, required: true)];
+        return [for (final k in remoteKeysUsed(w)) SlotDef('rk_$k', remoteKeyLabel(w, k), dpts)];
+      }
     case 'media':
-      return mediaIsKnx(w) ? base : const <SlotDef>[];
+      if (!mediaIsKnx(w)) return const <SlotDef>[];
+      final mo = jsonMap(w['media']);
+      return [
+        for (final s in base)
+          if ((!s.key.startsWith('shuffle') || mo['shuffle'] == true) && (!s.key.startsWith('repeat') || mo['repeat'] == true)) s,
+      ];
     case 'shutter':
       var out = w['showStop'] == false ? base.where((s) => s.key != 'stop').toList() : List<SlotDef>.from(base);
       final ctrl = (w['shCtrl'] ?? 'buttons') as String;
@@ -211,11 +232,11 @@ List<SlotDef> slotsFor(Json w) {
         ...base,
         if (f['tw'] == true) ...const [
           SlotDef('ctWrite', 'Color temperature', [7], required: true),
-          SlotDef('ctStatus', 'Color temperature status', [7], recommended: true)
+          SlotDef('ctStatus', 'Color temperature status', [7], recommended: true),
         ],
         if (f['rgb'] == true) ...const [
           SlotDef('rgbWrite', 'RGB color', [232, 251], required: true),
-          SlotDef('rgbStatus', 'RGB color status', [232, 251], recommended: true)
+          SlotDef('rgbStatus', 'RGB color status', [232, 251], recommended: true),
         ],
       ];
     case 'ac':
@@ -223,7 +244,7 @@ List<SlotDef> slotsFor(Json w) {
       final fanSlots = jsonMap(ac['fan'])['enabled'] == true
           ? const [
               SlotDef('fan', 'Fan speed', [5, 20], required: true),
-              SlotDef('fanSt', 'Fan speed status', [5, 20], recommended: true)
+              SlotDef('fanSt', 'Fan speed status', [5, 20], recommended: true),
             ]
           : const <SlotDef>[];
       if (ac['modeAddr'] != 'separate') return [...base, ...fanSlots];
@@ -250,19 +271,19 @@ bool slotAccepts(SlotDef slot, Json ga) {
 // ------------------------------------------------------------ factories
 
 Json makeSub(String title, {int cols = 4, int rows = 12}) => {
-      'id': uid('sub_'),
-      'title': title,
-      'layout': {'type': 'grid', 'columns': cols, 'rows': rows},
-      'widgets': <Json>[],
-    };
+  'id': uid('sub_'),
+  'title': title,
+  'layout': {'type': 'grid', 'columns': cols, 'rows': rows},
+  'widgets': <Json>[],
+};
 
 Json makeRoom(String title, {String icon = 'sofa', String? floorId}) => {
-      'id': uid('page_'),
-      'title': title,
-      'icon': icon,
-      'floorId': floorId,
-      'subpages': [makeSub('Page 1')],
-    };
+  'id': uid('page_'),
+  'title': title,
+  'icon': icon,
+  'floorId': floorId,
+  'subpages': [makeSub('Page 1')],
+};
 
 Json makeFloor(String title, {String icon = 'none'}) => {'id': uid('fl_'), 'title': title, 'icon': icon, 'rows': 12, 'cols': 4};
 
@@ -309,7 +330,7 @@ Json makeWidget(String type, int x, int y, [int? w, int? h]) {
   }
   if (type == 'remote') {
     // The remote of Home Assistant that the card controls, the platform whose key names are used, and what is shown.
-    wd['remote'] = {'entity': '', 'preset': 'Android TV', 'device': '', 'dpad': true, 'nav': true, 'volume': true, 'transport': true, 'touchpad': false};
+    wd['remote'] = {'entity': '', 'preset': 'Android TV', 'device': ''};
   }
   if (type == 'media') {
     // The entity of Home Assistant that the card shows and controls; what is shown.
@@ -336,7 +357,7 @@ Json newProject(String name) {
     'activeDev': 'mobile',
     'project': {'id': uid('p_'), 'name': name.trim().isEmpty ? 'New project' : name.trim(), 'revision': 0, 'updatedAt': null},
     'connections': [
-      {'id': 'main', 'name': 'Connection 1', 'type': 'tunneling', 'host': '192.168.1.50', 'port': 3671, 'natMode': false}
+      {'id': 'main', 'name': 'Connection 1', 'type': 'tunneling', 'host': '192.168.1.50', 'port': 3671, 'natMode': false},
     ],
     'groupAddresses': <Json>[],
     'theme': {'mode': 'light', 'accent': '#1E7F57', 'colorOn': '#EE9B2A', 'colorOff': '#8A938F'},
@@ -365,8 +386,8 @@ Json migrate(Json o) {
           'id': uid('sub_'),
           'title': 'Page 1',
           'layout': r['layout'] ?? {'type': 'grid', 'columns': 4},
-          'widgets': r['widgets'] ?? <Json>[]
-        }
+          'widgets': r['widgets'] ?? <Json>[],
+        },
       ];
       r.remove('layout');
       r.remove('widgets');
@@ -452,7 +473,7 @@ ImportStats importStats(Json doc, List<EtsItem> items) {
   // Virtual Home Assistant addresses are not in ETS and are never removed by an import.
   final gas = [
     for (final g in jsonList(doc['groupAddresses']))
-      if (g['ha'] is! Map) g
+      if (g['ha'] is! Map) g,
   ];
   final cur = gas.map((g) => g['address'] as String).toSet();
   final fresh = items.where((i) => !cur.contains(i.address)).length;
@@ -553,7 +574,7 @@ bool isFree(Json box, int x, int y, int w, int h, [String? except]) {
 const Map<String, List<int>> kDeviceDefaults = {
   'mobile': [12, 4],
   'tabletP': [16, 6],
-  'tabletL': [10, 8]
+  'tabletL': [10, 8],
 };
 
 /// Exports a normalized copy with layouts for every enabled device.

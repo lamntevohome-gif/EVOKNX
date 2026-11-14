@@ -1,5 +1,6 @@
 import 'ha.dart';
 import 'project.dart';
+import 'remote_keys.dart';
 
 /// One address field of a card and the function of the entity that it follows (the function and "cmd" for its command
 /// address or "status" for its status address).
@@ -28,42 +29,39 @@ const Map<String, CardEntityDef> kCardEntity = {
   'switch': CardEntityDef(['light', 'switch', 'fan', 'input_boolean', 'automation', 'script', 'scene'], {'write': _onoffCmd, 'status': _onoffSt}),
   'button': CardEntityDef(['scene', 'script', 'automation', 'light', 'switch', 'fan', 'input_boolean', 'media_player', 'remote'], {'write': _onoffCmd}),
   'scene': CardEntityDef(['scene', 'script', 'automation'], {'write': _onoffCmd}),
-  'value': CardEntityDef([
-    'sensor',
-    'binary_sensor'
-  ], {
-    'status': CardSlot('sensor', 'status')
-  }, byDomain: {
-    'binary_sensor': {'status': CardSlot('binary', 'status')},
-  }),
-  'dimmer': CardEntityDef([
-    'light'
-  ], {
-    'write': _onoffCmd,
-    'value': CardSlot('brightness', 'cmd'),
-    'status': CardSlot('brightness', 'status'),
-    'ctWrite': CardSlot('colortemp', 'cmd'),
-    'ctStatus': CardSlot('colortemp', 'status'),
-  }),
-  'shutter': CardEntityDef([
-    'cover'
-  ], {
-    'upDown': CardSlot('move', 'cmd'),
-    'stop': CardSlot('stop', 'cmd'),
-    'position': CardSlot('position', 'cmd'),
-    'status': CardSlot('position', 'status'),
-  }),
-  'ac': CardEntityDef([
-    'climate'
-  ], {
-    'power': _onoffCmd,
-    'powerSt': _onoffSt,
-    'setpoint': CardSlot('setpoint', 'cmd'),
-    'setpointSt': CardSlot('setpoint', 'status'),
-    'current': CardSlot('current', 'status'),
-    'mode': CardSlot('mode', 'cmd'),
-    'modeSt': CardSlot('mode', 'status'),
-  }),
+  'value': CardEntityDef(
+    ['sensor', 'binary_sensor'],
+    {'status': CardSlot('sensor', 'status')},
+    byDomain: {
+      'binary_sensor': {'status': CardSlot('binary', 'status')},
+    },
+  ),
+  'dimmer': CardEntityDef(
+    ['light'],
+    {
+      'write': _onoffCmd,
+      'value': CardSlot('brightness', 'cmd'),
+      'status': CardSlot('brightness', 'status'),
+      'ctWrite': CardSlot('colortemp', 'cmd'),
+      'ctStatus': CardSlot('colortemp', 'status'),
+    },
+  ),
+  'shutter': CardEntityDef(
+    ['cover'],
+    {'upDown': CardSlot('move', 'cmd'), 'stop': CardSlot('stop', 'cmd'), 'position': CardSlot('position', 'cmd'), 'status': CardSlot('position', 'status')},
+  ),
+  'ac': CardEntityDef(
+    ['climate'],
+    {
+      'power': _onoffCmd,
+      'powerSt': _onoffSt,
+      'setpoint': CardSlot('setpoint', 'cmd'),
+      'setpointSt': CardSlot('setpoint', 'status'),
+      'current': CardSlot('current', 'status'),
+      'mode': CardSlot('mode', 'cmd'),
+      'modeSt': CardSlot('mode', 'status'),
+    },
+  ),
 };
 
 final _entityId = RegExp(r'^[a-z0-9_]+\.[a-z0-9_]+$');
@@ -71,7 +69,7 @@ final _entityId = RegExp(r'^[a-z0-9_]+\.[a-z0-9_]+$');
 /// The entity of Home Assistant that a card refers to, whatever the kind of card ('' = none): the entity it follows, the
 /// media player of a media player card, the remote of a remote control card.
 String widgetEntity(Json w) {
-  if (mediaIsKnx(w)) return '';
+  if (mediaIsKnx(w) || remoteIsKnx(w)) return '';
   final e = cardEntity(w);
   if (e.isNotEmpty) return e;
   if (w['type'] == 'media') return (jsonMap(w['media'])['entity'] ?? '').toString().trim();

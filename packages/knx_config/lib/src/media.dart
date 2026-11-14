@@ -1,6 +1,7 @@
 import 'card_entity.dart';
 import 'ha.dart';
 import 'project.dart';
+import 'remote_keys.dart';
 
 /// What a media player of Home Assistant says about itself (title, artist, cover, volume, position…),
 /// read from the state and the attributes of its entity.
@@ -10,6 +11,7 @@ class HaMedia {
 
   // The features of a media player (`supported_features` is a sum of these).
   static const featPause = 1, featSeek = 2, featVolumeSet = 4, featVolumeMute = 8, featPrevious = 16, featNext = 32;
+  static const featShuffle = 32768, featRepeat = 262144;
   static const featTurnOn = 128, featTurnOff = 256, featSelectSource = 2048, featStop = 4096, featPlay = 16384;
 
   String _s(String k) => (e.attributes[k] ?? '').toString().trim();
@@ -54,6 +56,10 @@ class HaMedia {
     return v < 0 ? 0 : v;
   }
 
+  /// Shuffle on or off, and the repeat mode ('off', 'all' or 'one').
+  bool get shuffle => e.attributes['shuffle'] == true;
+  String get repeat => _s('repeat').isEmpty ? 'off' : _s('repeat');
+
   /// The volume, 0 to 1 (null when the player does not tell).
   double? get volume => _n('volume_level');
   bool get muted => e.attributes['is_volume_muted'] == true;
@@ -80,5 +86,5 @@ bool haNeeded(Json doc) {
   for (final s in jsonList(doc['scripts'])) {
     if (jsonList(s['steps']).any((st) => st['type'] == 'ha')) return true;
   }
-  return allWidgets(doc).any((w) => (w['type'] == 'media' && !mediaIsKnx(w)) || w['type'] == 'remote' || cardEntity(w).isNotEmpty);
+  return allWidgets(doc).any((w) => (w['type'] == 'media' && !mediaIsKnx(w)) || (w['type'] == 'remote' && !remoteIsKnx(w)) || cardEntity(w).isNotEmpty);
 }

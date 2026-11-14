@@ -147,8 +147,9 @@ List<EtsItem> _parseCsvItems(String text) {
         }
       }
     }
-    final dptCell =
-        iDpt >= 0 && iDpt < cells.length ? cells[iDpt] : cells.firstWhere((c) => RegExp(r'DPS?T-\d', caseSensitive: false).hasMatch(c), orElse: () => '');
+    final dptCell = iDpt >= 0 && iDpt < cells.length
+        ? cells[iDpt]
+        : cells.firstWhere((c) => RegExp(r'DPS?T-\d', caseSensitive: false).hasMatch(c), orElse: () => '');
     out.add(EtsItem(cells[ai], name, normalizeDpt(dptCell)));
   }
   return out;
@@ -177,7 +178,7 @@ EtsResult parseEts(Uint8List bytes, {String fileName = '', String? password}) {
 /// "21.project.ets.knx.org", 65536 rounds, 32 bytes)).
 Uint8List _ets6Password(String password) {
   final utf16 = Uint8List.fromList([
-    for (final c in password.codeUnits) ...[c & 0xFF, c >> 8]
+    for (final c in password.codeUnits) ...[c & 0xFF, c >> 8],
   ]);
   final key = pbkdf2(Sha256.new, utf16, Uint8List.fromList(utf8.encode('21.project.ets.knx.org')), 65536, 32);
   return Uint8List.fromList(utf8.encode(base64.encode(key)));

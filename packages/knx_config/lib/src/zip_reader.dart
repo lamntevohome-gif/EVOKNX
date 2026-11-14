@@ -19,9 +19,7 @@ class ZipReader {
   final Uint8List? _pwd;
   final Map<String, _Entry> _entries = {};
 
-  ZipReader(Uint8List bytes, {Uint8List? password})
-      : _b = bytes,
-        _pwd = password {
+  ZipReader(Uint8List bytes, {Uint8List? password}) : _b = bytes, _pwd = password {
     final bd = ByteData.sublistView(_b);
     var eocd = -1;
     for (var i = _b.length - 22; i >= 0 && i >= _b.length - 65557; i--) {
@@ -163,7 +161,12 @@ class ZipReader {
 
   /// WinZip AES: salt | 2-byte check | AES-CTR data | 10-byte HMAC-SHA1.
   Uint8List _decryptAes(Uint8List d, int strength) {
-    final keyLen = switch (strength) { 1 => 16, 2 => 24, 3 => 32, _ => throw const FormatException('This ZIP encryption type is not supported.') };
+    final keyLen = switch (strength) {
+      1 => 16,
+      2 => 24,
+      3 => 32,
+      _ => throw const FormatException('This ZIP encryption type is not supported.'),
+    };
     final saltLen = keyLen ~/ 2;
     if (d.length < saltLen + 12) throw const FormatException('The encrypted data is corrupted.');
     final salt = d.sublist(0, saltLen);

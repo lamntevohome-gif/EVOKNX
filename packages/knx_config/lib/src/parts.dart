@@ -90,16 +90,17 @@ Json? makePart(Json doc, String kind, String id) {
 
 /// Result of [applyPart].
 class PartResult {
-  PartResult(
-      {this.error,
-      this.floors = 0,
-      this.rooms = 0,
-      this.pages = 0,
-      this.widgets = 0,
-      this.newAddresses = 0,
-      this.reusedAddresses = 0,
-      this.icons = 0,
-      this.firstId});
+  PartResult({
+    this.error,
+    this.floors = 0,
+    this.rooms = 0,
+    this.pages = 0,
+    this.widgets = 0,
+    this.newAddresses = 0,
+    this.reusedAddresses = 0,
+    this.icons = 0,
+    this.firstId,
+  });
   final String? error;
   final int floors, rooms, pages, widgets, newAddresses, reusedAddresses, icons;
 
