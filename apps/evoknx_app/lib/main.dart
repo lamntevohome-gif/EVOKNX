@@ -21,6 +21,7 @@ Future<void> main() async {
   // Camera cards play real video in the App (the Editor only shows the address).
   EvoHooks.camera = (context, cam) => LiveCamera(key: ValueKey(cameraUrl(cam)), cam: cam);
   await Mdi.load();
+  await ColorIcons.load();
   final store = AppStore();
   await store.load();
   SystemChrome.setPreferredOrientations(DeviceOrientation.values);

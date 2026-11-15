@@ -83,7 +83,7 @@ class _IconPickerDialogState extends State<_IconPickerDialog> {
 
   Designer get d => widget.d;
 
-  List<(String, String)> get _tabs => const [('suggest', 'Suggestions'), ('mdi', 'MDI library'), ('custom', 'Custom icon')];
+  List<(String, String)> get _tabs => const [('suggest', 'Suggestions'), ('mdi', 'MDI library'), ('color', 'Color icons'), ('custom', 'Custom icon')];
 
   /// Common MDI icons for this place (cards, rooms or floors).
   List<(String, String)> get _suggest {
@@ -103,7 +103,9 @@ class _IconPickerDialogState extends State<_IconPickerDialog> {
   void initState() {
     super.initState();
     final cur = mdiKeyOf(widget.current);
-    if (isCustomIcon(cur)) {
+    if (cur != null && cur.startsWith('fe:')) {
+      tab = 'color';
+    } else if (isCustomIcon(cur)) {
       tab = 'custom';
     } else if (cur != null && cur.startsWith('mdi:') && !_suggest.any((x) => x.$1 == cur)) {
       tab = 'mdi';
@@ -126,6 +128,8 @@ class _IconPickerDialogState extends State<_IconPickerDialog> {
           if ((fold(i.$2).contains(fq) || (i.$1 == kNoIcon && 'none'.contains(fq))) && seen.add(i.$1)) i,
         for (final m in Mdi.search(fq))
           if (seen.add(m.key)) (m.key, m.name),
+        for (final e in ColorIcons.search(fq))
+          if (seen.add(e.key)) (e.key, e.label),
       ];
     } else {
       base = _group(tab);
@@ -136,6 +140,7 @@ class _IconPickerDialogState extends State<_IconPickerDialog> {
   List<(String, String)> _group(String g) => switch (g) {
     'suggest' => [(kNoIcon, 'None'), ..._suggest],
     'mdi' => [for (final m in Mdi.search('', tag: mdiTag < 0 ? null : mdiTag)) (m.key, m.name)],
+    'color' => [for (final e in ColorIcons.all) (e.key, e.label)],
     _ => [for (final c in customIcons) (c.id, c.name)],
   };
 
@@ -336,6 +341,14 @@ class _IconPickerDialogState extends State<_IconPickerDialog> {
                       ),
                     ),
                   ],
+                ),
+              ),
+            if (tab == 'color' && !searching)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Text(
+                  'Fluent Emoji · Microsoft (MIT). These icons keep their own colors; the On / Off color of a card does not change them.',
+                  style: TextStyle(fontSize: 14, color: c.muted),
                 ),
               ),
             if (tab == 'custom' && !searching)

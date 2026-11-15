@@ -15,6 +15,7 @@ Future<void> main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
   await appSettings.load();
   await Mdi.load();
+  await ColorIcons.load();
   await cardLibrary.load();
   final project = ProjectController();
   // A project file passed on the command line (double-click on a .evoknx
