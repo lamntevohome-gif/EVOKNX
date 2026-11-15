@@ -5,6 +5,7 @@ library evoknx_ui;
 export 'src/engine.dart';
 export 'src/icons.dart';
 export 'src/ios_controls.dart';
+export 'src/nav_pill.dart';
 export 'src/gallery.dart';
 export 'src/i18n.dart';
 export 'src/look.dart';
