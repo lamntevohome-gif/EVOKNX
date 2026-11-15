@@ -943,7 +943,24 @@ class TileView extends StatelessWidget {
               final stateLine = _state(on ? textOn : textOff, color: on ? colorOn : null);
               final hasIcon = !isNoIcon(w['icon'] as String?);
               if (bc.maxHeight < 84) {
-                return _col([_head(on ? colorOn : pal.muted, trailing: _led(on, colorOn, scale: 0.7)), stateLine]);
+                // Low card: icon, name with the state under it, and the switch, all centred on one row.
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    if (hasIcon) ...[_icon(on ? colorOn : pal.muted), const SizedBox(width: 8)],
+                    Expanded(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _label(),
+                          if (bc.maxHeight >= 44) ...[const SizedBox(height: 1), stateLine],
+                        ],
+                      ),
+                    ),
+                    _led(on, colorOn, scale: 0.7),
+                  ],
+                );
               }
               return _col([
                 Row(children: [if (hasIcon) _icon(on ? colorOn : pal.muted), const Spacer(), _led(on, colorOn)]),
