@@ -171,6 +171,56 @@ class _DimmerSheet extends StatelessWidget {
   }
 }
 
+/// Position slider of a blind that has one next to its buttons.
+void showShutterSheet(BuildContext context, CardEngine engine, Json w, AppPalette pal) {
+  final curtain = w['shStyle'] == 'curtain';
+  showModalBottomSheet<void>(
+    context: context,
+    backgroundColor: pal.panel,
+    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(22))),
+    builder: (c) => SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 18, 24, 20),
+        child: ListenableBuilder(
+          listenable: engine,
+          builder: (context, _) {
+            final p = ((engine.st(w['id'] as String)['pos'] as num?) ?? 0).toDouble().clamp(0.0, 100.0);
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        (w['label'] ?? '').toString(),
+                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600, color: pal.ink),
+                      ),
+                    ),
+                    Text(
+                      curtain ? 'Open ${100 - p.round()}%' : 'Close ${p.round()}%',
+                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600, color: pal.accent),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Slider(
+                  value: curtain ? 100 - p : p,
+                  max: 100,
+                  divisions: 100,
+                  activeColor: pal.accent,
+                  onChanged: (v) => engine.act(w, 'preview', (curtain ? 100 - v : v).round()),
+                  onChangeEnd: (v) => engine.act(w, 'set', (curtain ? 100 - v : v).round()),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    ),
+  );
+}
+
 /// The air conditioner's modes and fan speeds (simple card).
 void showAcControls(BuildContext context, CardEngine engine, Json w, AppPalette pal, List<Json> gas) {
   // Simple card: the popup also holds the temperature slider.

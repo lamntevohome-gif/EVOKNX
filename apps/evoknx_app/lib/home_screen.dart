@@ -1489,6 +1489,10 @@ class _HomeScreenState extends State<HomeScreen> {
       showDimmerSheet(context, engine, w, store.palette);
       return;
     }
+    if (action == 'tune' && type == 'shutter') {
+      showShutterSheet(context, engine, w, store.palette);
+      return;
+    }
     if (action == 'popup' && type == 'ac') {
       showAcControls(context, engine, w, store.palette, jsonList(doc['groupAddresses']));
       return;

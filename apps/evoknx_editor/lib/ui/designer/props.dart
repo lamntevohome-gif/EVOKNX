@@ -719,6 +719,7 @@ class _WidgetPropsState extends State<_WidgetProps> {
               ),
             ),
             _Check('Show stop button', w['showStop'] != false, (v) => set('showStop', v)),
+            _Check('Show status', w['showState'] != false, (v) => set('showState', v)),
             _Check('Reverse up/down (send 1 for up, 0 for down)', w['udInvert'] == true, (v) => set('udInvert', v)),
           ]),
         ];
