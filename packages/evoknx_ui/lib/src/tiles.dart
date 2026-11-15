@@ -949,7 +949,8 @@ class TileView extends StatelessWidget {
             builder: (context, bc) {
               final stateLine = _state(on ? textOn : textOff, color: on ? colorOn : null);
               final hasIcon = !isNoIcon(w['icon'] as String?);
-              if (bc.maxHeight < 68) {
+              // Without a state line the stacked layout needs less height.
+              if (bc.maxHeight < (showSt ? 68 : 56)) {
                 // Low card: icon, name with the state under it, and the switch, all centred on one row.
                 return Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
