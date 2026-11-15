@@ -1692,7 +1692,7 @@ class _FloorProps extends StatelessWidget {
       fn(t);
       doc['theme'] = t;
     }, coalesce: coalesce);
-    final bgSection = theme['layout'] == 'modern'
+    final bgSection = theme['layout'] == 'modern' && f['special'] != null
         ? _PageBgSettings(
             holder: theme,
             edit: editTheme,
@@ -1759,9 +1759,8 @@ class _AreaProps extends StatelessWidget {
           FieldLabel(
             'Area name',
             SyncedField(
-              value: (theme['areaName'] ?? '').toString(),
-              hint: 'Area',
-              onChanged: (v) => editTheme((x) => v.trim().isEmpty ? x.remove('areaName') : x['areaName'] = v, coalesce: 'areaname'),
+              value: (theme['areaName'] ?? 'Area').toString(),
+              onChanged: (v) => editTheme((x) => x['areaName'] = v, coalesce: 'areaname'),
             ),
           ),
           _lockField(

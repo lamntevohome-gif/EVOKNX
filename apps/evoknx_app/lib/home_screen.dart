@@ -788,11 +788,12 @@ class _HomeScreenState extends State<HomeScreen> {
     // The Area screen, Home and Security can have a background of their own (a page's own one wins).
     final theme = jsonMap(d['theme']);
     final special = floorsOf(d).where((f) => f['id'] == floorId).firstOrNull?['special'];
+    // A room takes the background of its floor's section; a list (floors, or the rooms of Home or Security) the one of the tab.
     final screenBg = _tab == 3
         ? null
-        : !onPage
-        ? theme['bgArea']
-        : (special == 'home' ? theme['bgHome'] : (special == 'security' ? theme['bgSecurity'] : theme['bgArea']));
+        : onPage
+        ? (special == 'home' ? theme['bgHome'] : (special == 'security' ? theme['bgSecurity'] : theme['bgArea']))
+        : (_tab == 0 ? theme['bgHome'] : (_tab == 2 ? theme['bgSecurity'] : theme['bgArea']));
     final bg = pageBackground(s, pal0, fallback: screenBg is Map ? jsonMap(screenBg) : null);
     final pal = pal0.copyWith(onScreenInk: bg?.ink, onScreenMuted: bg?.muted);
     final r = room;
@@ -1173,7 +1174,7 @@ class _HomeScreenState extends State<HomeScreen> {
       child: SizedBox(
         width: 44,
         height: 44,
-        child: Icon(icon, size: size, color: pal.ink),
+        child: Icon(icon, size: size, color: pal.sInk),
       ),
     ),
   );

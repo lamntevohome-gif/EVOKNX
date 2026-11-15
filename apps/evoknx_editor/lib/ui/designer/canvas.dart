@@ -42,16 +42,20 @@ class DesignCanvas extends StatelessWidget {
     ScreenBg? pageBg;
     // Back on the Overview, the page that was open last keeps its background so it can be tuned.
     final ov = d.view == 'overview';
-    final lastRoom = ov && d.lastView == 'room' && byId(jsonList(doc['pages']), d.roomId) != null;
-    if (d.view == 'room' || lastRoom) {
-      final fb = !modernBg ? null : (special == 'home' ? th['bgHome'] : (special == 'security' ? th['bgSecurity'] : th['bgArea']));
-      pageBg = pageBackground(d.sub, bg, th, fallback: fb is Map ? jsonMap(fb) : null, keyId: '${special ?? 'area'}');
-    } else if (modernBg &&
-        (d.view == 'floors' ||
-            (d.view == 'floor' && special == null) ||
-            (ov && !lastRoom && special == null && d.floorId != null && (d.lastView == 'floor' || d.lastView == 'floors'))) &&
-        th['bgArea'] is Map) {
-      pageBg = pageBackground(null, bg, th, fallback: jsonMap(th['bgArea']), keyId: 'area');
+    final shown = ov ? d.lastView : d.view;
+    // The background of the section (Area, Home or Security) that the shown screen belongs to.
+    Json? sectionBg(String? sp) {
+      final b = sp == 'home' ? th['bgHome'] : (sp == 'security' ? th['bgSecurity'] : th['bgArea']);
+      return b is Map ? jsonMap(b) : null;
+    }
+
+    if (shown == 'room' && (!ov || byId(jsonList(doc['pages']), d.roomId) != null)) {
+      pageBg = pageBackground(d.sub, bg, th, fallback: modernBg ? sectionBg(special as String?) : null, keyId: '${special ?? 'area'}');
+    } else if (modernBg && (shown == 'floors' || shown == 'floor') && (!ov || d.floorId != null)) {
+      // The list of floors (Area), or the list of rooms of Home or Security.
+      final sp = shown == 'floors' ? null : special as String?;
+      final fb = sectionBg(sp);
+      if (fb != null) pageBg = pageBackground(null, bg, th, fallback: fb, keyId: sp ?? 'area');
     }
     final pal = base.copyWith(
       onScreenInk: (pageBg ?? bg).ink,
@@ -502,7 +506,7 @@ class _Screen extends StatelessWidget {
     child: MouseRegion(cursor: SystemMouseCursors.click, child: _gearIcon()),
   );
 
-  Widget _gearIcon() => SizedBox(width: 32, height: 32, child: Icon(Icons.settings_outlined, size: 20, color: pal.ink));
+  Widget _gearIcon() => SizedBox(width: 32, height: 32, child: Icon(Icons.settings_outlined, size: 20, color: pal.sInk));
 
   Widget _header(Json doc, Json room, Json? floor, bool multi, Json theme, {bool pill = true, bool gear = true, VoidCallback? onBack}) {
     final hide = theme['hideTitle'] == true && dev != 'tabletL' && theme['layout'] != 'modern';
@@ -518,7 +522,7 @@ class _Screen extends StatelessWidget {
                 child: SizedBox(
                   width: 36,
                   height: 36,
-                  child: Icon(onBack != null ? Icons.chevron_left : Icons.grid_view, size: onBack != null ? 30 : 19, color: pal.ink),
+                  child: Icon(onBack != null ? Icons.chevron_left : Icons.grid_view, size: onBack != null ? 30 : 19, color: pal.sInk),
                 ),
               ),
             ),
