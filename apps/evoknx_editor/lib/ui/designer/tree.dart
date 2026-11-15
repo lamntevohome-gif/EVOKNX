@@ -54,19 +54,8 @@ class StructureTree extends StatelessWidget {
     if (v != null) await items[v].$3?.call();
   }
 
-  Future<bool> _confirm(BuildContext context, String title, String text, String yes) async =>
-      await showDialog<bool>(
-        context: context,
-        builder: (c) => AlertDialog(
-          title: Text(title),
-          content: SizedBox(width: 380, child: Text(text)),
-          actions: [
-            EvoButton(label: 'Cancel', onPressed: () => Navigator.pop(c, false)),
-            EvoButton(label: yes, danger: true, onPressed: () => Navigator.pop(c, true)),
-          ],
-        ),
-      ) ==
-      true;
+  Future<bool> _confirm(BuildContext context, String title, String text, String yes) =>
+      confirmDialog(context, title: title, text: text, yes: yes, danger: true);
 
   @override
   Widget build(BuildContext context) {
@@ -430,22 +419,14 @@ Future<void> deleteTreeSelection(BuildContext context, Designer d) async {
     if (plan.rooms.isNotEmpty) '${plan.rooms.length} rooms',
     if (nSubs > 0) '$nSubs ${nSubs == 1 ? 'page' : 'pages'}',
   ];
-  final ok = await showDialog<bool>(
-    context: context,
-    builder: (c) => AlertDialog(
-      title: Text('Delete ${parts.join(', ')}?'),
-      content: SizedBox(
-        width: 400,
-        child: Text(
-          '${plan.cards > 0 ? 'Includes ${plan.cards} cards inside, which are deleted too. ' : ''}Can be undone with Ctrl+Z.${plan.notes.isEmpty ? '' : '\n\n${plan.notes.join('\n')}'}',
-        ),
-      ),
-      actions: [
-        EvoButton(label: 'Cancel', onPressed: () => Navigator.pop(c, false)),
-        EvoButton(label: 'Delete', danger: true, onPressed: () => Navigator.pop(c, true)),
-      ],
-    ),
+  final ok = await confirmDialog(
+    context,
+    title: 'Delete ${parts.join(', ')}?',
+    text:
+        '${plan.cards > 0 ? 'Includes ${plan.cards} cards inside, which are deleted too. ' : ''}Can be undone with Ctrl+Z.${plan.notes.isEmpty ? '' : '\n\n${plan.notes.join('\n')}'}',
+    yes: 'Delete',
+    danger: true,
   );
-  if (ok != true || !context.mounted) return;
+  if (!ok || !context.mounted) return;
   toast(context, d.deleteTreeItems(keys));
 }

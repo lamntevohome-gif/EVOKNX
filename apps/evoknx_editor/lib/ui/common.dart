@@ -10,6 +10,22 @@ void toast(BuildContext context, String message) {
     ..showSnackBar(SnackBar(content: Text(message), duration: const Duration(seconds: 3)));
 }
 
+/// One look for every yes/no question of the Editor: a title, an optional text, the "no" button (Cancel by default) and the
+/// button that confirms. Closing the dialog is the same as "no".
+Future<bool> confirmDialog(BuildContext context, {required String title, String? text, required String yes, String no = 'Cancel', bool danger = false}) async =>
+    await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: Text(title),
+        content: text == null ? null : SizedBox(width: 380, child: Text(text)),
+        actions: [
+          EvoButton(label: no, onPressed: () => Navigator.pop(c, false)),
+          EvoButton(label: yes, danger: danger, primary: !danger, onPressed: () => Navigator.pop(c, true)),
+        ],
+      ),
+    ) ==
+    true;
+
 /// Compact button: primary (blue fill), secondary (hairline border),
 /// danger (red text) or icon-only (no border, grey on hover).
 class EvoButton extends StatelessWidget {

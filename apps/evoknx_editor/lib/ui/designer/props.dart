@@ -322,30 +322,6 @@ class _WidgetPropsState extends State<_WidgetProps> {
             ),
           ),
           if (type != 'group') FieldLabel('Icon', IconField(d: d, value: w['icon'] as String?, scope: IconScope.widget, onChanged: (v) => set('icon', v))),
-          if (type != 'group')
-            FieldLabel(
-              'Card background',
-              _BgPicker(
-                value: (type == 'group' ? w['gbg'] : jsonMap(w['style'])['bg']) as String?,
-                onChanged: (v) => d.editWidget(id, (x) {
-                  if (type == 'group') {
-                    if (v == null) {
-                      x.remove('gbg');
-                    } else {
-                      x['gbg'] = v;
-                    }
-                  } else {
-                    final m = jsonMap(x['style']);
-                    if (v == null) {
-                      m.remove('bg');
-                    } else {
-                      m['bg'] = v;
-                    }
-                    x['style'] = m;
-                  }
-                }, coalesce: 'bg-$id'),
-              ),
-            ),
           Row(
             children: [
               Expanded(
@@ -366,26 +342,6 @@ class _WidgetPropsState extends State<_WidgetProps> {
           if (inGroup) Hint('Inside the grid frame “${box['label'] ?? ''}”: the position is counted on the frame\'s grid.'),
         ]),
         ..._typeSpecific(context, type),
-        if (fsKeysFor(type).isNotEmpty)
-          _Section('Font size', [
-            for (final k in fsKeysFor(type))
-              StepRow(
-                label: kFs[k]!.name,
-                value: fs(w, k).toInt(),
-                min: kFs[k]!.min,
-                max: kFs[k]!.max,
-                onChanged: (v) => d.editWidget(id, (o) {
-                  final t = jsonMap(o['text']);
-                  t[k] = v;
-                  o['text'] = t;
-                }, coalesce: 'fs-$id-$k'),
-              ),
-            if (text.isNotEmpty)
-              Align(
-                alignment: Alignment.centerLeft,
-                child: TextButton(onPressed: () => set('text', <String, dynamic>{}), child: const Text('Default size')),
-              ),
-          ]),
         if (slotsFor(w).isNotEmpty)
           _Section('', [
             if (canEntity) _SourceSwitch(d: d, w: w),
@@ -418,9 +374,97 @@ class _WidgetPropsState extends State<_WidgetProps> {
                   ),
                 ),
           ]),
+        if (type != 'group' || fsKeysFor(type).isNotEmpty)
+          _Section(
+            'Style',
+            [
+              if (type != 'group')
+                FieldLabel(
+                  'Card background',
+                  _BgPicker(
+                    value: (type == 'group' ? w['gbg'] : jsonMap(w['style'])['bg']) as String?,
+                    onChanged: (v) => d.editWidget(id, (x) {
+                      if (type == 'group') {
+                        if (v == null) {
+                          x.remove('gbg');
+                        } else {
+                          x['gbg'] = v;
+                        }
+                      } else {
+                        final m = jsonMap(x['style']);
+                        if (v == null) {
+                          m.remove('bg');
+                        } else {
+                          m['bg'] = v;
+                        }
+                        x['style'] = m;
+                      }
+                    }, coalesce: 'bg-$id'),
+                  ),
+                ),
+              if (type == 'switch' || type == 'dimmer' || type == 'ac')
+                _ThemeColorField(
+                  label: 'Color when on',
+                  stored: jsonMap(w['style'])['colorOn']?.toString(),
+                  themeColor: themePal.led,
+                  legacy: '#EE9B2A',
+                  onChanged: (v) => setStyleKey('colorOn', v, co: 'con-$id'),
+                ),
+              if (type == 'switch' || type == 'dimmer')
+                _ThemeColorField(
+                  label: 'Color when off',
+                  stored: jsonMap(w['style'])['colorOff']?.toString(),
+                  themeColor: themePal.muted,
+                  onChanged: (v) => setStyleKey('colorOff', v, co: 'coff-$id'),
+                ),
+              for (final k in fsKeysFor(type))
+                StepRow(
+                  label: kFs[k]!.name,
+                  value: fs(w, k).toInt(),
+                  min: kFs[k]!.min,
+                  max: kFs[k]!.max,
+                  onChanged: (v) => d.editWidget(id, (o) {
+                    final t = jsonMap(o['text']);
+                    t[k] = v;
+                    o['text'] = t;
+                  }, coalesce: 'fs-$id-$k'),
+                ),
+            ],
+            trailing:
+                (jsonMap(w['style'])['bg'] != null ||
+                    _ownColor(w['style'], 'colorOn', legacy: '#EE9B2A') ||
+                    _ownColor(w['style'], 'colorOff') ||
+                    text.isNotEmpty)
+                ? EvoButton(
+                    label: 'Reset to theme',
+                    small: true,
+                    onPressed: () => d.editWidget(id, (x) {
+                      final m = jsonMap(x['style']);
+                      m.remove('bg');
+                      m.remove('colorOn');
+                      m.remove('colorOff');
+                      x['style'] = m;
+                      x.remove('text');
+                    }),
+                  )
+                : null,
+          ),
       ],
     );
   }
+
+  /// The palette of the theme that the card is drawn with here (the colors a card follows until one is set).
+  AppPalette get themePal => AppPalette.of(d.previewTheme ?? themeKey(jsonMap(d.doc['theme'])['mode']));
+
+  void setStyleKey(String k, String? v, {String? co}) => d.editWidget(id, (x) {
+    final m = jsonMap(x['style']);
+    if (v == null) {
+      m.remove(k);
+    } else {
+      m[k] = v;
+    }
+    x['style'] = m;
+  }, coalesce: co);
 
   List<Widget> _typeSpecific(BuildContext context, String type) {
     switch (type) {
@@ -543,9 +587,9 @@ class _WidgetPropsState extends State<_WidgetProps> {
         }, coalesce: co);
         final simple = w['look'] == 'simple';
         return [
-          _Section('Display style', [
+          _Section('Display', [
             FieldLabel(
-              'Card style',
+              'Look',
               Seg<String>(
                 items: const [('full', 'Full'), ('simple', 'Simple')],
                 value: w['look'] == 'simple' ? 'simple' : 'full',
@@ -570,21 +614,7 @@ class _WidgetPropsState extends State<_WidgetProps> {
                 ),
               ),
           ]),
-          _Section('Color and status', [
-            FieldLabel(
-              'Color when on',
-              ColorPicker(
-                value: (st['colorOn'] ?? '#EE9B2A').toString(),
-                onChanged: (v) => setStyle('colorOn', v, co: 'con-$id'),
-              ),
-            ),
-            FieldLabel(
-              'Color when off',
-              ColorPicker(
-                value: (st['colorOff'] ?? '#8A938F').toString(),
-                onChanged: (v) => setStyle('colorOff', v, co: 'coff-$id'),
-              ),
-            ),
+          _Section('Status text', [
             Row(
               children: [
                 Expanded(
@@ -722,9 +752,9 @@ class _WidgetPropsState extends State<_WidgetProps> {
           x['ac'] = m;
         });
         return [
-          _Section('Display style', [
+          _Section('Display', [
             FieldLabel(
-              'Card style',
+              'Look',
               Seg<String>(
                 items: const [('full', 'Full'), ('simple', 'Simple')],
                 value: w['look'] == 'simple' ? 'simple' : 'full',
@@ -735,17 +765,6 @@ class _WidgetPropsState extends State<_WidgetProps> {
               w['look'] == 'simple'
                   ? 'Icon, name and status (Cool - 25°C). The control button opens the temperature slider, mode and fan speed. The card lights up while the unit is running.'
                   : 'Icon, name, status and temperature slider. The control button selects the mode and fan speed. Tap the card to switch it on/off. The card lights up while the unit is running.',
-            ),
-            FieldLabel(
-              'Color when on',
-              ColorPicker(
-                value: (jsonMap(w['style'])['colorOn'] ?? '#EE9B2A').toString(),
-                onChanged: (v) => d.editWidget(id, (x) {
-                  final m = jsonMap(x['style']);
-                  m['colorOn'] = v;
-                  x['style'] = m;
-                }, coalesce: 'con-$id'),
-              ),
             ),
             FieldLabel(
               'Control button icon',
@@ -976,7 +995,7 @@ class _WidgetPropsState extends State<_WidgetProps> {
             _TextSendInfo(d: d, w: w, raw: sceneSendValue(w)),
             Hint('Value sent to the write address when pressed, like a push button. For a KNX scene address (DPT 17.001), scene 1 = 0, scene 2 = 1…'),
             FieldLabel(
-              'Display style',
+              'Look',
               Seg<String>(items: const [('card', 'Standard card'), ('image', 'Image')], value: sImg ? 'image' : 'card', onChanged: (v) => set('btnStyle', v)),
             ),
           ]),
@@ -1131,7 +1150,7 @@ class _WidgetPropsState extends State<_WidgetProps> {
               style: TextStyle(fontSize: 14, color: context.evo.warn),
             ),
           ]),
-          _Section('Display style', [
+          _Section('Display', [
             Seg<String>(
               items: const [('live', 'Always visible'), ('button', 'Popup button')],
               value: cam['view'] == 'button' ? 'button' : 'live',
@@ -1166,7 +1185,7 @@ class _WidgetPropsState extends State<_WidgetProps> {
               _TextSendInfo(d: d, w: w, raw: (w['sendValue'] ?? '1').toString()),
             ],
             FieldLabel(
-              'Display style',
+              'Look',
               Seg<String>(
                 items: const [('card', 'Standard card'), ('image', 'Image')],
                 value: imgStyle ? 'image' : 'card',
@@ -1183,7 +1202,7 @@ class _WidgetPropsState extends State<_WidgetProps> {
         return [
           _Section('Show value', [
             FieldLabel(
-              'Card style',
+              'Look',
               Seg<String>(
                 items: const [('state', 'Full'), ('number', 'Simple')],
                 value: stateStyle ? 'state' : 'number',
@@ -1502,18 +1521,14 @@ class _RoomProps extends StatelessWidget {
               small: true,
               danger: true,
               onPressed: () async {
-                final ok = await showDialog<bool>(
-                  context: context,
-                  builder: (c) => AlertDialog(
-                    title: Text('Delete the room “${r['title']}”?'),
-                    content: const Text('All pages and components in the room will be deleted. You can undo (Ctrl+Z).'),
-                    actions: [
-                      TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancel')),
-                      FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('Delete room')),
-                    ],
-                  ),
+                final ok = await confirmDialog(
+                  context,
+                  title: 'Delete the room “${r['title']}”?',
+                  text: 'All pages and components in the room will be deleted. You can undo (Ctrl+Z).',
+                  yes: 'Delete room',
+                  danger: true,
                 );
-                if (ok == true) d.deleteRoom();
+                if (ok) d.deleteRoom();
               },
             ),
           ),
@@ -1533,92 +1548,6 @@ class _RoomProps extends StatelessWidget {
                 (s['lock'] ?? '').toString(),
                 (v) => d.editSub((x) => v.isEmpty ? x.remove('lock') : x['lock'] = v, coalesce: 'lock-${s['id']}'),
               ),
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: [
-                  EvoButton(
-                    label: 'Import card',
-                    icon: Icons.file_download_outlined,
-                    small: true,
-
-                    onPressed: () => importPart(context, d, only: 'card'),
-                  ),
-                  EvoButton(
-                    label: 'Export page',
-                    icon: Icons.file_upload_outlined,
-                    small: true,
-
-                    onPressed: () => exportPart(context, d, 'page', s['id'] as String),
-                  ),
-                ],
-              ),
-              Row(
-                children: [
-                  Expanded(
-                    child: FieldLabel(
-                      'Rows',
-                      EvoDropdown<int>(
-                        value: rows(s),
-                        items: [for (var i = devRange(d.doc)[0]; i <= devRange(d.doc)[1]; i++) (i, '$i')],
-                        onChanged: (v) {
-                          final m = d.rowsBlocker(s, v);
-                          if (m != null) {
-                            toast(context, m);
-                            return;
-                          }
-                          d.editSub((x) => jsonMap(x['layout'])['rows'] = v);
-                        },
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: FieldLabel(
-                      'Columns',
-                      EvoDropdown<int>(
-                        value: cols(s),
-                        items: [for (var i = devRange(d.doc)[2]; i <= devRange(d.doc)[3]; i++) (i, '$i')],
-                        onChanged: (v) {
-                          final m = d.colsBlocker(s, v);
-                          if (m != null) {
-                            toast(context, m);
-                            return;
-                          }
-                          d.editSub((x) => Designer.repackCols(x, v));
-                        },
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              if (kEnablePageScroll && (d.doc['activeDev'] ?? 'mobile') == 'mobile') ...[
-                Row(
-                  children: [
-                    Checkbox(
-                      value: s['scroll'] == true,
-                      onChanged: (v) => d.editSub((x) {
-                        x['scroll'] = v == true;
-                        if (v == true && x['scrollRows'] == null) x['scrollRows'] = rows(x) * 2;
-                      }),
-                    ),
-                    const Expanded(child: Text('Allow vertical scrolling when the content is taller than the screen (phones only)')),
-                  ],
-                ),
-                if (s['scroll'] == true) ...[
-                  FieldLabel(
-                    'Total rows of the page (the screen shows ${rows(s)} rows)',
-                    EvoDropdown<int>(
-                      value: pageRows(s, d.doc).clamp(rows(s) + 1, 60),
-                      items: [for (var i = rows(s) + 1; i <= 60; i++) (i, '$i rows')],
-                      onChanged: (v) => d.editSub((x) => x['scrollRows'] = v),
-                    ),
-                  ),
-                  Hint(
-                    'The user scrolls up and down on this page and still swipes sideways to change pages. Cards with a horizontal slider (dimmer, blind) work normally; avoid a vertical slider. The tablet layout is always fixed.',
-                  ),
-                ],
-              ],
             ],
             trailing: subs.length > 1
                 ? EvoButton(
@@ -1633,7 +1562,106 @@ class _RoomProps extends StatelessWidget {
                   )
                 : null,
           ),
-        if (!d.roomFocus && s != null) _PageBgSettings(holder: s, edit: d.editSub),
+        if (!d.roomFocus && s != null)
+          _Section('Layout', [
+            Row(
+              children: [
+                Expanded(
+                  child: FieldLabel(
+                    'Rows',
+                    EvoDropdown<int>(
+                      value: rows(s),
+                      items: [for (var i = devRange(d.doc)[0]; i <= devRange(d.doc)[1]; i++) (i, '$i')],
+                      onChanged: (v) {
+                        final m = d.rowsBlocker(s, v);
+                        if (m != null) {
+                          toast(context, m);
+                          return;
+                        }
+                        d.editSub((x) => jsonMap(x['layout'])['rows'] = v);
+                      },
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: FieldLabel(
+                    'Columns',
+                    EvoDropdown<int>(
+                      value: cols(s),
+                      items: [for (var i = devRange(d.doc)[2]; i <= devRange(d.doc)[3]; i++) (i, '$i')],
+                      onChanged: (v) {
+                        final m = d.colsBlocker(s, v);
+                        if (m != null) {
+                          toast(context, m);
+                          return;
+                        }
+                        d.editSub((x) => Designer.repackCols(x, v));
+                      },
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            if (kEnablePageScroll && (d.doc['activeDev'] ?? 'mobile') == 'mobile') ...[
+              Row(
+                children: [
+                  Checkbox(
+                    value: s['scroll'] == true,
+                    onChanged: (v) => d.editSub((x) {
+                      x['scroll'] = v == true;
+                      if (v == true && x['scrollRows'] == null) x['scrollRows'] = rows(x) * 2;
+                    }),
+                  ),
+                  const Expanded(child: Text('Allow vertical scrolling when the content is taller than the screen (phones only)')),
+                ],
+              ),
+              if (s['scroll'] == true) ...[
+                FieldLabel(
+                  'Total rows of the page (the screen shows ${rows(s)} rows)',
+                  EvoDropdown<int>(
+                    value: pageRows(s, d.doc).clamp(rows(s) + 1, 60),
+                    items: [for (var i = rows(s) + 1; i <= 60; i++) (i, '$i rows')],
+                    onChanged: (v) => d.editSub((x) => x['scrollRows'] = v),
+                  ),
+                ),
+                Hint(
+                  'The user scrolls up and down on this page and still swipes sideways to change pages. Cards with a horizontal slider (dimmer, blind) work normally; avoid a vertical slider. The tablet layout is always fixed.',
+                ),
+              ],
+            ],
+          ]),
+        if (!d.roomFocus && s != null)
+          _PageBgSettings(
+            holder: s,
+            edit: d.editSub,
+            followName: jsonMap(d.doc['theme'])['layout'] == 'modern'
+                ? (d.floor?['special'] == 'home' ? 'Home' : (d.floor?['special'] == 'security' ? 'Security' : 'Area'))
+                : null,
+          ),
+        if (!d.roomFocus && s != null)
+          _Section('Actions', [
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                EvoButton(
+                  label: 'Import card',
+                  icon: Icons.file_download_outlined,
+                  small: true,
+
+                  onPressed: () => importPart(context, d, only: 'card'),
+                ),
+                EvoButton(
+                  label: 'Export page',
+                  icon: Icons.file_upload_outlined,
+                  small: true,
+
+                  onPressed: () => exportPart(context, d, 'page', s['id'] as String),
+                ),
+              ],
+            ),
+          ]),
         Hint(
           'Drag a component from the toolbar into an empty cell, or click an empty cell and then a component. Click a component to edit its name, size and group addresses.',
         ),
@@ -1664,32 +1692,48 @@ class _FloorProps extends StatelessWidget {
       fn(t);
       doc['theme'] = t;
     }, coalesce: coalesce);
-    final bgSection = theme['layout'] == 'modern' ? _PageBgSettings(holder: theme, edit: editTheme, field: bgField, title: bgTitle) : null;
-    final section = _Section('Floor', [
-      FieldLabel(
-        'Floor name',
-        SyncedField(
-          value: (f['title'] ?? '').toString(),
-          onChanged: (v) => editFloor((x) => x['title'] = v, coalesce: 'ft-$fid'),
-        ),
-      ),
-      _lockField(context, (f['lock'] ?? '').toString(), (v) => editFloor((x) => v.isEmpty ? x.remove('lock') : x['lock'] = v, coalesce: 'lock-${f['id']}')),
-      Wrap(
-        spacing: 6,
-        runSpacing: 6,
-        children: [
-          EvoButton(label: 'Add room', icon: Icons.add, small: true, onPressed: () => d.addRoom(fid)),
-          EvoButton(
-            label: 'Import room',
-            icon: Icons.file_download_outlined,
-            small: true,
-
-            onPressed: () => importPart(context, d, only: 'room'),
+    final bgSection = theme['layout'] == 'modern'
+        ? _PageBgSettings(
+            holder: theme,
+            edit: editTheme,
+            field: bgField,
+            title: bgTitle,
+            d: d,
+            section: f['special'] == 'home' ? 'home' : (f['special'] == 'security' ? 'security' : 'area'),
+          )
+        : null;
+    final isSpecial = f['special'] != null;
+    final section = _Section(
+      f['special'] == 'home' ? 'Home' : (f['special'] == 'security' ? 'Security' : 'Floor'),
+      [
+        FieldLabel(
+          isSpecial ? 'Name' : 'Floor name',
+          SyncedField(
+            value: (f['title'] ?? '').toString(),
+            onChanged: (v) => editFloor((x) => x['title'] = v, coalesce: 'ft-$fid'),
           ),
-          EvoButton(label: 'Export floor', icon: Icons.file_upload_outlined, small: true, onPressed: () => exportPart(context, d, 'floor', fid)),
-        ],
-      ),
-    ], trailing: EvoButton(label: 'Delete floor', icon: Icons.delete_outline, small: true, danger: true, onPressed: () => deleteTreeSelection(context, d)));
+        ),
+        _lockField(context, (f['lock'] ?? '').toString(), (v) => editFloor((x) => v.isEmpty ? x.remove('lock') : x['lock'] = v, coalesce: 'lock-${f['id']}')),
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: [
+            EvoButton(label: 'Add room', icon: Icons.add, small: true, onPressed: () => d.addRoom(fid)),
+            EvoButton(
+              label: 'Import room',
+              icon: Icons.file_download_outlined,
+              small: true,
+
+              onPressed: () => importPart(context, d, only: 'room'),
+            ),
+            EvoButton(label: 'Export floor', icon: Icons.file_upload_outlined, small: true, onPressed: () => exportPart(context, d, 'floor', fid)),
+          ],
+        ),
+      ],
+      trailing: isSpecial
+          ? null
+          : EvoButton(label: 'Delete floor', icon: Icons.delete_outline, small: true, danger: true, onPressed: () => deleteTreeSelection(context, d)),
+    );
     return bgSection == null ? section : Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [section, bgSection]);
   }
 }
@@ -1739,7 +1783,7 @@ class _AreaProps extends StatelessWidget {
             ],
           ),
         ]),
-        _PageBgSettings(holder: theme, edit: editTheme, field: 'bgArea', title: 'Area background'),
+        _PageBgSettings(holder: theme, edit: editTheme, field: 'bgArea', title: 'Area background', d: d, section: 'area'),
       ],
     );
   }
@@ -1747,9 +1791,19 @@ class _AreaProps extends StatelessWidget {
 
 // ------------------------------------------------------------------ overview
 
-class _OverviewProps extends StatelessWidget {
+/// Which tab of the Overview was open last (kept while the panel is rebuilt).
+String _overviewTab = 'project';
+
+class _OverviewProps extends StatefulWidget {
   const _OverviewProps({required this.d});
   final Designer d;
+
+  @override
+  State<_OverviewProps> createState() => _OverviewPropsState();
+}
+
+class _OverviewPropsState extends State<_OverviewProps> {
+  Designer get d => widget.d;
 
   @override
   Widget build(BuildContext context) {
@@ -1760,9 +1814,9 @@ class _OverviewProps extends StatelessWidget {
       doc['theme'] = t;
     }, coalesce: coalesce);
     final modern = theme['layout'] == 'modern';
-    // The iOS theme fixes the corners, border, shadow and lift: those rows are dimmed and cannot be changed.
+    // The iOS theme sets the corners, border, shadow and lift itself: those rows are not shown.
     final iosTheme = AppPalette.of(d.previewTheme ?? themeKey(theme['mode'])).ios;
-    Widget fixedIos(Widget row) => iosTheme ? Opacity(opacity: 0.4, child: IgnorePointer(child: row)) : row;
+    Widget fixedIos(Widget row) => row;
     // A text size of the App (the Overview shows only the ones that the chosen layout uses).
     Widget tfsRow(String key) {
       final t = kTfs.firstWhere((x) => x.key == key);
@@ -1775,6 +1829,26 @@ class _OverviewProps extends StatelessWidget {
       );
     }
 
+    // One line per section background: the kind of background, and a tap goes to the section where it is set.
+    Widget bgRow(String label, String field, VoidCallback go) {
+      final mode = (jsonMap(theme[field])['mode'] ?? 'default').toString();
+      final c = context.evo;
+      return InkWell(
+        onTap: go,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Row(
+            children: [
+              Expanded(child: Text(label, style: const TextStyle(fontSize: 13))),
+              Text(mode == 'color' ? 'Color' : (mode == 'image' ? 'Image' : 'Default'), style: TextStyle(fontSize: 13, color: c.muted)),
+              Icon(Icons.chevron_right, size: 18, color: c.muted),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final tab = _overviewTab;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -1785,161 +1859,189 @@ class _OverviewProps extends StatelessWidget {
             const Text('Overview', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
           ],
         ),
-        const SizedBox(height: 16),
-        _Section('Devices used', [
-          for (final dv in const [('mobile', 'Mobile', '12 × 4'), ('tabletP', 'Tablet (portrait)', '16 × 6'), ('tabletL', 'Tablet (landscape)', '10 × 8')])
-            _Check('${dv.$2}   (${dv.$3})', dv.$1 == 'mobile' ? jsonMap(d.doc['devices'])['mobile'] != false : jsonMap(d.doc['devices'])[dv.$1] == true, (v) {
-              final devs = jsonMap(d.doc['devices']);
-              final on = ['mobile', 'tabletP', 'tabletL'].where((k) => k == 'mobile' ? devs['mobile'] != false : devs[k] == true).toList();
-              if (!v && on.length <= 1) {
-                toast(context, 'At least one device is required.');
-                return;
-              }
-              d.p.mutate((doc) {
-                final m = jsonMap(doc['devices']);
-                m[dv.$1] = v;
-                doc['devices'] = m;
-                if (!v && doc['activeDev'] == dv.$1) {
-                  swapDevice(doc, on.firstWhere((k) => k != dv.$1));
+        const SizedBox(height: 12),
+        Seg<String>(expand: true, items: const [('project', 'Project'), ('look', 'Look')], value: tab, onChanged: (v) => setState(() => _overviewTab = v)),
+        const SizedBox(height: 8),
+        if (tab == 'project') ...[
+          _Section('Devices used', [
+            for (final dv in const [('mobile', 'Mobile', '12 × 4'), ('tabletP', 'Tablet (portrait)', '16 × 6'), ('tabletL', 'Tablet (landscape)', '10 × 8')])
+              _Check('${dv.$2}   (${dv.$3})', dv.$1 == 'mobile' ? jsonMap(d.doc['devices'])['mobile'] != false : jsonMap(d.doc['devices'])[dv.$1] == true, (v) {
+                final devs = jsonMap(d.doc['devices']);
+                final on = ['mobile', 'tabletP', 'tabletL'].where((k) => k == 'mobile' ? devs['mobile'] != false : devs[k] == true).toList();
+                if (!v && on.length <= 1) {
+                  toast(context, 'At least one device is required.');
+                  return;
                 }
-              });
-            }),
-        ]),
-        _Section('Layout', [
-          FieldLabel(
-            'Layout',
-            Seg<String>(
-              items: const [('basic', 'Basic'), ('modern', 'Modern')],
-              value: theme['layout'] == 'modern' ? 'modern' : 'basic',
-              onChanged: (v) {
                 d.p.mutate((doc) {
-                  final t = jsonMap(doc['theme']);
-                  if (v == 'modern') {
-                    t['layout'] = 'modern';
-                    ensureModernPages(doc);
-                  } else {
-                    t.remove('layout');
+                  final m = jsonMap(doc['devices']);
+                  m[dv.$1] = v;
+                  doc['devices'] = m;
+                  if (!v && doc['activeDev'] == dv.$1) {
+                    swapDevice(doc, on.firstWhere((k) => k != dv.$1));
                   }
-                  doc['theme'] = t;
                 });
-                if (v == 'modern') d.selectSpecial('home');
-              },
+              }),
+          ]),
+          _Section('Layout', [
+            FieldLabel(
+              'Layout',
+              Seg<String>(
+                items: const [('basic', 'Basic'), ('modern', 'Modern')],
+                value: theme['layout'] == 'modern' ? 'modern' : 'basic',
+                onChanged: (v) {
+                  d.p.mutate((doc) {
+                    final t = jsonMap(doc['theme']);
+                    if (v == 'modern') {
+                      t['layout'] = 'modern';
+                      ensureModernPages(doc);
+                    } else {
+                      t.remove('layout');
+                    }
+                    doc['theme'] = t;
+                  });
+                  if (v == 'modern') d.selectSpecial('home');
+                },
+              ),
             ),
-          ),
-          const Padding(
-            padding: EdgeInsets.only(bottom: 8),
-            child: Hint(
-              'Basic: the floor bar and the room bar as before. Modern: the App has three sections, Home, Area and Security; Home and Security are two separate card pages (shown as two floors in the Structure column), and Area opens the floor gallery and then the room gallery.',
+            const Padding(
+              padding: EdgeInsets.only(bottom: 8),
+              child: Hint(
+                'Basic: the floor bar and the room bar as before. Modern: the App has three sections, Home, Area and Security; Home and Security are two separate card pages (shown as two floors in the Structure column), and Area opens the floor gallery and then the room gallery.',
+              ),
             ),
-          ),
-        ]),
-        _SplashSettings(d: d),
-        _Section('Card style (all cards)', [
-          if (iosTheme) const Hint('The iOS theme sets the corners, border, shadow and lift itself, so those rows are dimmed.'),
-          fixedIos(
+          ]),
+          _SplashSettings(d: d),
+        ] else ...[
+          _Section('Theme', [
+            FieldLabel(
+              'Default theme',
+              EvoDropdown<String>(value: themeKey(theme['mode']), items: kAppThemes, onChanged: (v) => editTheme((x) => x['mode'] = v)),
+            ),
+          ]),
+          if (iosTheme)
+            _Section('Card style', [
+              const Hint('The iOS theme sets the corners, border, shadow and lift itself: rounded corners, no border, a soft shadow, flat.'),
+              StepRow(
+                label: 'Background opacity',
+                unit: '%',
+                step: 5,
+                value: ((theme['cardOpacity'] as num?) ?? 100).toInt(),
+                min: 0,
+                max: 100,
+                onChanged: (v) => editTheme((x) => x['cardOpacity'] = v, coalesce: 'cop'),
+              ),
+            ])
+          else ...[
+            _Section('Card shape', [
+              fixedIos(
+                StepRow(
+                  label: 'Corner radius',
+                  value: ((theme['cardRadius'] as num?) ?? 12).toInt(),
+                  min: 0,
+                  max: 32,
+                  onChanged: (v) => editTheme((x) => x['cardRadius'] = v, coalesce: 'crad'),
+                ),
+              ),
+              fixedIos(
+                StepRow(
+                  label: 'Border thickness',
+                  value: ((theme['cardBorder'] as num?) ?? 1).toInt(),
+                  min: 0,
+                  max: 4,
+                  onChanged: (v) => editTheme((x) => x['cardBorder'] = v, coalesce: 'cbor'),
+                ),
+              ),
+              fixedIos(
+                StepRow(
+                  label: 'Border opacity',
+                  unit: '%',
+                  step: 5,
+                  value: ((theme['cardEdge'] as num?) ?? 100).toInt(),
+                  min: 0,
+                  max: 100,
+                  onChanged: (v) => editTheme((x) => x['cardEdge'] = v, coalesce: 'cedge'),
+                ),
+              ),
+              Hint('Default: corner 12, border 1, border 100% opaque. Applies to all cards and grid frames.'),
+            ]),
+            _Section('Card surface', [
+              StepRow(
+                label: 'Background opacity',
+                unit: '%',
+                step: 5,
+                value: ((theme['cardOpacity'] as num?) ?? 100).toInt(),
+                min: 0,
+                max: 100,
+                onChanged: (v) => editTheme((x) => x['cardOpacity'] = v, coalesce: 'cop'),
+              ),
+              fixedIos(
+                StepRow(
+                  label: 'Shadow',
+                  unit: '',
+                  value: ((theme['cardShadow'] as num?) ?? 0).toInt(),
+                  min: 0,
+                  max: 20,
+                  onChanged: (v) => editTheme((x) => x['cardShadow'] = v, coalesce: 'cshd'),
+                ),
+              ),
+              fixedIos(
+                StepRow(
+                  label: 'Lift',
+                  unit: '%',
+                  step: 10,
+                  value: ((theme['btnRaise'] as num?) ?? 60).toInt(),
+                  min: 0,
+                  max: 100,
+                  onChanged: (v) => editTheme((x) => x['btnRaise'] = v, coalesce: 'braise'),
+                ),
+              ),
+              Hint(
+                'Default: background 100% opaque, no shadow, lift 60%. Lift is the bevel and small drop shadow of the cards, grid frames and control buttons (0% is flat); Shadow is an extra, larger layer.',
+              ),
+            ]),
+            const Hint('Users who choose an iOS theme in the App get the iOS card style (rounded corners, no border, flat), whatever is set here.'),
+          ],
+          _Section('Text sizes', [
+            tfsRow('titleSize'),
+            tfsRow('pageTitle'),
+            if (modern) ...[
+              tfsRow('navBar'),
+              tfsRow('areaTitle'),
+              tfsRow('areaFloor'),
+              tfsRow('crumb'),
+              tfsRow('galleryTitle'),
+              tfsRow('galleryIcon'),
+            ] else ...[
+              tfsRow('roomBar'),
+              tfsRow('floorBar'),
+              tfsRow('crumb'),
+              CheckboxListTile(
+                value: theme['hideTitle'] == true,
+                onChanged: (v) => editTheme((x) => x['hideTitle'] = v ?? false),
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                controlAffinity: ListTileControlAffinity.leading,
+                title: const Text('Hide the room title (use the room bar as the title)'),
+              ),
+            ],
             StepRow(
-              label: 'Corner radius',
-              value: ((theme['cardRadius'] as num?) ?? 12).toInt(),
-              min: 0,
-              max: 32,
-              onChanged: (v) => editTheme((x) => x['cardRadius'] = v, coalesce: 'crad'),
-            ),
-          ),
-          fixedIos(
-            StepRow(
-              label: 'Border thickness',
-              value: ((theme['cardBorder'] as num?) ?? 1).toInt(),
-              min: 0,
-              max: 4,
-              onChanged: (v) => editTheme((x) => x['cardBorder'] = v, coalesce: 'cbor'),
-            ),
-          ),
-          StepRow(
-            label: 'Background opacity',
-            unit: '%',
-            step: 5,
-            value: ((theme['cardOpacity'] as num?) ?? 100).toInt(),
-            min: 0,
-            max: 100,
-            onChanged: (v) => editTheme((x) => x['cardOpacity'] = v, coalesce: 'cop'),
-          ),
-          fixedIos(
-            StepRow(
-              label: 'Border opacity',
+              label: 'Display scale on tablet',
               unit: '%',
               step: 5,
-              value: ((theme['cardEdge'] as num?) ?? 100).toInt(),
-              min: 0,
-              max: 100,
-              onChanged: (v) => editTheme((x) => x['cardEdge'] = v, coalesce: 'cedge'),
-            ),
-          ),
-          fixedIos(
-            StepRow(
-              label: 'Shadow',
-              unit: '',
-              value: ((theme['cardShadow'] as num?) ?? 0).toInt(),
-              min: 0,
-              max: 20,
-              onChanged: (v) => editTheme((x) => x['cardShadow'] = v, coalesce: 'cshd'),
-            ),
-          ),
-          Hint('Default: corner 12, border 1, background and border 100% opaque, no shadow. Applies to all cards and grid frames.'),
-          fixedIos(
-            StepRow(
-              label: 'Lift',
-              unit: '%',
-              step: 10,
-              value: ((theme['btnRaise'] as num?) ?? 60).toInt(),
-              min: 0,
-              max: 100,
-              onChanged: (v) => editTheme((x) => x['btnRaise'] = v, coalesce: 'braise'),
-            ),
-          ),
-          Hint(
-            'Lift of all cards, grid frames and control buttons (with a small drop shadow underneath). 0% is flat, default 60%. "Shadow" above is an extra, larger shadow layer.',
-          ),
-        ]),
-        _Section('App appearance', [
-          StepRow(
-            label: 'Display scale on tablet',
-            unit: '%',
-            step: 5,
-            value: ((theme['tabletScale'] as num?) ?? 120).toInt(),
-            min: 100,
-            max: 150,
-            onChanged: (v) => editTheme((x) => x['tabletScale'] = v, coalesce: 'tscale'),
-          ),
-          FieldLabel(
-            'Default theme',
-            EvoDropdown<String>(value: themeKey(theme['mode']), items: kAppThemes, onChanged: (v) => editTheme((x) => x['mode'] = v)),
-          ),
-          tfsRow('titleSize'),
-          tfsRow('pageTitle'),
-        ]),
-        if (modern) ...[
-          _Section('Modern layout', [
-            tfsRow('navBar'),
-            tfsRow('areaTitle'),
-            tfsRow('areaFloor'),
-            tfsRow('crumb'),
-            tfsRow('galleryTitle'),
-            tfsRow('galleryIcon'),
-          ]),
-        ] else
-          _Section('Basic layout', [
-            tfsRow('roomBar'),
-            tfsRow('floorBar'),
-            tfsRow('crumb'),
-            CheckboxListTile(
-              value: theme['hideTitle'] == true,
-              onChanged: (v) => editTheme((x) => x['hideTitle'] = v ?? false),
-              dense: true,
-              contentPadding: EdgeInsets.zero,
-              controlAffinity: ListTileControlAffinity.leading,
-              title: const Text('Hide the room title (use the room bar as the title)'),
+              value: ((theme['tabletScale'] as num?) ?? 120).toInt(),
+              min: 100,
+              max: 150,
+              onChanged: (v) => editTheme((x) => x['tabletScale'] = v, coalesce: 'tscale'),
             ),
           ]),
+          if (modern)
+            _Section('Backgrounds', [
+              const Hint('Set in each section. Tap a row to go there.'),
+              bgRow('Home', 'bgHome', () => d.selectSpecial('home')),
+              bgRow('Area', 'bgArea', d.floorsGallery),
+              bgRow('Security', 'bgSecurity', () => d.selectSpecial('security')),
+            ]),
+        ],
       ],
     );
   }
@@ -2426,12 +2528,31 @@ class _SecretFieldState extends State<_SecretField> {
 /// A background (follows the overview, a color with opacity, or an image with darkening and opacity), kept in the
 /// field [field] of [holder]: a page ("bg") or the theme ("bgArea", "bgHome", "bgSecurity").
 class _PageBgSettings extends StatelessWidget {
-  const _PageBgSettings({required this.holder, required this.edit, this.field = 'bg', this.title = 'Background of this page'});
+  const _PageBgSettings({
+    required this.holder,
+    required this.edit,
+    this.field = 'bg',
+    this.title = 'Background of this page',
+    this.d,
+    this.section,
+    this.followName,
+  });
   final Json holder;
   final void Function(void Function(Json x) fn, {String? coalesce}) edit;
   final String field, title;
 
-  void _set(Map<String, Object?> kv, {String? co}) => edit((x) {
+  /// For the background of a section (Home, Security or Area): [section] says which one, and changing the background asks
+  /// whether the pages of that section that have a background of their own should use it too.
+  final Designer? d;
+  final String? section;
+
+  /// For a page in the Modern layout: the section whose background it follows (Home, Security or Area).
+  final String? followName;
+
+  /// The last answer to "Apply to all pages?" for each field, kept a short while so tuning a color does not ask again and again.
+  static final Map<String, (DateTime, bool)> _lastAnswer = {};
+
+  static void _merge(Json x, String field, Map<String, Object?> kv) {
     final b = jsonMap(x[field]);
     kv.forEach((k, v) {
       if (v == null) {
@@ -2445,7 +2566,64 @@ class _PageBgSettings extends StatelessWidget {
     } else {
       x[field] = b;
     }
-  }, coalesce: co);
+  }
+
+  void _set(Map<String, Object?> kv, {String? co}) => edit((x) => _merge(x, field, kv), coalesce: co);
+
+  /// The pages (inside the rooms) of the section.
+  List<Json> _pagesOf(Json doc) {
+    final floors = switch (section) {
+      'home' => floorsOf(doc).where((f) => f['special'] == 'home'),
+      'security' => floorsOf(doc).where((f) => f['special'] == 'security'),
+      _ => normalFloorsOf(doc),
+    };
+    return [
+      for (final f in floors)
+        for (final r in roomsOf(doc, f['id'] as String?)) ...subsOf(r),
+    ];
+  }
+
+  /// A change of the background of a section: asks "Apply to all pages?". Yes: the pages of the section lose their own
+  /// background (one step, Ctrl+Z brings it back). No: only the background of the section changes.
+  Future<void> _change(BuildContext context, Map<String, Object?> kv, {String? co, bool tuning = false}) async {
+    final dd = d;
+    if (dd == null || section == null) {
+      _set(kv, co: co);
+      return;
+    }
+    final doc = dd.doc;
+    if (!_pagesOf(doc).any((s) => jsonMap(s['bg'])['mode'] == 'color' || jsonMap(s['bg'])['mode'] == 'image')) {
+      _set(kv, co: co);
+      return;
+    }
+    var all = false;
+    final last = _lastAnswer[field];
+    if (tuning && last != null && DateTime.now().difference(last.$1).inSeconds < 20) {
+      all = last.$2;
+    } else {
+      final r = await confirmDialog(
+        context,
+        title: 'Apply to all pages?',
+        text: 'Pages that have a background of their own will use this one. Choose "Only here" to keep them as they are.',
+        yes: 'Apply to all',
+        no: 'Only here',
+      );
+      all = r;
+      _lastAnswer[field] = (DateTime.now(), all);
+    }
+    if (!all) {
+      _set(kv, co: co);
+      return;
+    }
+    dd.p.mutate((doc) {
+      final t = jsonMap(doc['theme']);
+      _merge(t, field, kv);
+      doc['theme'] = t;
+      for (final s in _pagesOf(doc)) {
+        s.remove('bg');
+      }
+    });
+  }
 
   Future<void> _pick(BuildContext context) async {
     final f = await openFile(
@@ -2473,7 +2651,7 @@ class _PageBgSettings extends StatelessWidget {
       return;
     }
     final png = f.name.toLowerCase().endsWith('.png');
-    _set({'mode': 'image', 'image': 'data:image/${png ? 'png' : 'jpeg'};base64,${base64Encode(bytes)}'});
+    await _change(context, {'mode': 'image', 'image': 'data:image/${png ? 'png' : 'jpeg'};base64,${base64Encode(bytes)}'});
   }
 
   @override
@@ -2488,15 +2666,16 @@ class _PageBgSettings extends StatelessWidget {
     return _Section(title, [
       Seg<String>(
         expand: true,
-        items: const [('default', 'Default'), ('color', 'Color'), ('image', 'Image')],
+        items: [('default', followName == null ? 'Default' : 'Follow'), ('color', 'Color'), ('image', 'Image')],
         value: mode,
-        onChanged: (v) => _set({'mode': v, if (v == 'color' && b['color'] == null) 'color': '#E3F1E9'}),
+        onChanged: (v) => _change(context, {'mode': v, if (v == 'color' && b['color'] == null) 'color': '#E3F1E9'}),
       ),
+      if (mode == 'default' && followName != null) Hint('This page uses the $followName background. Choose Color or Image to give it a background of its own.'),
       if (mode == 'color')
         ColorPicker(
           value: (b['color'] ?? '#E3F1E9').toString(),
           swatches: _kBgSwatches,
-          onChanged: (v) => _set({'color': v}, co: 'pbgc'),
+          onChanged: (v) => _change(context, {'color': v}, co: 'pbgc', tuning: true),
         ),
       if (mode == 'image')
         Row(
@@ -2810,9 +2989,50 @@ Widget _lockField(BuildContext context, String value, ValueChanged<String> onCha
           child: Text('The code must have exactly 4 digits.', style: TextStyle(fontSize: 12, color: context.evo.warn)),
         )
       else
-        const Hint('Leave empty for no lock. The App asks for this code when it opens this; it stays open while the App runs in the background.'),
+        const Hint('Leave empty for no lock. The App asks for this code when it opens this.'),
     ],
   );
+}
+
+/// True when the style holds a color of its own for [key] (the [legacy] default stored by older cards means "follow the theme").
+bool _ownColor(Object? style, String key, {String? legacy}) {
+  final v = jsonMap(style)[key]?.toString();
+  return v != null && _hex(v) != null && v.toUpperCase() != legacy;
+}
+
+String _hexOf(Color c) => '#${(c.toARGB32() & 0xFFFFFF).toRadixString(16).padLeft(6, '0').toUpperCase()}';
+
+/// A color of a card that follows the theme until one is chosen: it shows the color the theme gives, and "Follow theme" goes
+/// back to it.
+class _ThemeColorField extends StatelessWidget {
+  const _ThemeColorField({required this.label, required this.stored, required this.themeColor, required this.onChanged, this.legacy});
+  final String label;
+  final String? stored;
+  final Color themeColor;
+  final String? legacy;
+  final ValueChanged<String?> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final own = _ownColor({'k': stored}, 'k', legacy: legacy);
+    return FieldLabel(
+      label,
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ColorPicker(value: own ? stored! : _hexOf(themeColor), onChanged: onChanged),
+          const SizedBox(height: 4),
+          if (own)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: EvoButton(label: 'Follow theme', small: true, onPressed: () => onChanged(null)),
+            )
+          else
+            Text('Follows the theme', style: TextStyle(fontSize: 12, color: context.evo.muted)),
+        ],
+      ),
+    );
+  }
 }
 
 /// What a scene card or a push button does after it is pressed: open a floor, a room or a page.

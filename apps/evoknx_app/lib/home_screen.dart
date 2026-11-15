@@ -792,7 +792,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ? null
         : !onPage
         ? theme['bgArea']
-        : (special == 'home' ? theme['bgHome'] : (special == 'security' ? theme['bgSecurity'] : null));
+        : (special == 'home' ? theme['bgHome'] : (special == 'security' ? theme['bgSecurity'] : theme['bgArea']));
     final bg = pageBackground(s, pal0, fallback: screenBg is Map ? jsonMap(screenBg) : null);
     final pal = pal0.copyWith(onScreenInk: bg?.ink, onScreenMuted: bg?.muted);
     final r = room;

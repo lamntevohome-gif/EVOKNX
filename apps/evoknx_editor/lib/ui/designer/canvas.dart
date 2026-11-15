@@ -44,8 +44,8 @@ class DesignCanvas extends StatelessWidget {
     final ov = d.view == 'overview';
     final lastRoom = ov && d.lastView == 'room' && byId(jsonList(doc['pages']), d.roomId) != null;
     if (d.view == 'room' || lastRoom) {
-      final fb = !modernBg ? null : (special == 'home' ? th['bgHome'] : (special == 'security' ? th['bgSecurity'] : null));
-      pageBg = pageBackground(d.sub, bg, th, fallback: fb is Map ? jsonMap(fb) : null, keyId: '$special');
+      final fb = !modernBg ? null : (special == 'home' ? th['bgHome'] : (special == 'security' ? th['bgSecurity'] : th['bgArea']));
+      pageBg = pageBackground(d.sub, bg, th, fallback: fb is Map ? jsonMap(fb) : null, keyId: '${special ?? 'area'}');
     } else if (modernBg &&
         (d.view == 'floors' ||
             (d.view == 'floor' && special == null) ||
