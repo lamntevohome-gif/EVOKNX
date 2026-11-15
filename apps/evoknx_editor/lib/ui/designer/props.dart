@@ -615,6 +615,7 @@ class _WidgetPropsState extends State<_WidgetProps> {
               ),
           ]),
           _Section('Status text', [
+            if (!simple) _Check('Show status', w['showState'] != false, (v) => set('showState', v)),
             Row(
               children: [
                 Expanded(
