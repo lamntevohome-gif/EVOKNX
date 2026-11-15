@@ -7,6 +7,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:knx_config/knx_config.dart';
 
 import 'icons.dart';
+import 'ios_controls.dart';
 import 'look.dart';
 import 'model.dart';
 
@@ -17,6 +18,7 @@ const List<(String, List<(String, String)>)> kAppThemeGroups = [
   ('Light', [('l1', 'Glacier Blue'), ('l2', 'Fresh Green'), ('l3', 'Sand Beige')]),
   ('Neutral', [('g1', 'Slate Gray'), ('g2', 'Graphite Gray'), ('g3', 'Neutral Gray')]),
   ('Dark', [('d1', 'Deep Blue'), ('d2', 'Forest Green'), ('d3', 'Warm Amber')]),
+  ('iOS', [('i1', 'iOS Light'), ('i2', 'iOS Dark')]),
 ];
 
 /// Flat list for drop-downs: (key, "Sáng · Glacier Blue").
@@ -30,6 +32,8 @@ const List<(String, String)> kAppThemes = [
   ('d1', 'Dark · Deep Blue'),
   ('d2', 'Dark · Forest Green'),
   ('d3', 'Dark · Warm Amber'),
+  ('i1', 'iOS · Light'),
+  ('i2', 'iOS · Dark'),
 ];
 
 /// A valid theme key. The five older themes become the nearest new one.
@@ -42,6 +46,7 @@ String themeKey(Object? mode) {
 /// The color a lit card (switch, dimmer, AC that is on) glows in, or null.
 /// The grid draws it in the shadow layer under the cards.
 Color? tileGlowColor(Json w, AppPalette pal, Map<String, dynamic> sim) {
+  if (pal.ios) return null;
   final type = w['type'];
   final on = type == 'switch' || type == 'ac' ? sim['on'] == true : (type == 'dimmer' ? ((sim['val'] as num?) ?? 0) > 0 : false);
   if (!on) return null;
@@ -65,6 +70,9 @@ class AppPalette {
   /// Card background while on, and the floor / room buttons (idle, selected,
   /// text on the selected one). Null = derived from the other colors.
   final Color? tileOn, chip, chipOn, chipOnText;
+
+  /// The iOS themes: wide switch and slider, no borders, round cards. [iosOn] is the palette of a lit card (white).
+  final bool ios, iosOn;
   Color get chipFill => chip ?? panel;
   Color get chipSel => chipOn ?? ink;
   Color get onChipSel => chipOnText ?? screen;
@@ -127,6 +135,8 @@ class AppPalette {
     this.edgeOpacity = 1,
     this.shadowCap = 15,
     this.lift = 1.6,
+    this.ios = false,
+    this.iosOn = false,
     this.tileOn,
     this.chip,
     this.chipOn,
@@ -163,8 +173,12 @@ class AppPalette {
     double? edgeOpacity,
     double? shadowCap,
     double? lift,
+    Color? tileOn,
+    bool? iosOn,
   }) => AppPalette(
-    tileOn: tileOn,
+    ios: ios,
+    iosOn: iosOn ?? this.iosOn,
+    tileOn: tileOn ?? this.tileOn,
     chip: chip,
     chipOn: chipOn,
     chipOnText: chipOnText,
@@ -183,13 +197,13 @@ class AppPalette {
     danger: danger,
     onScreenInk: onScreenInk ?? this.onScreenInk,
     onScreenMuted: onScreenMuted ?? this.onScreenMuted,
-    radius: radius ?? this.radius,
-    border: border ?? this.border,
-    shadow: shadow ?? this.shadow,
+    radius: ios ? max(radius ?? this.radius, 22.0) : (radius ?? this.radius),
+    border: ios ? 0.0 : (border ?? this.border),
+    shadow: ios ? max(shadow ?? this.shadow, 3.0) : (shadow ?? this.shadow),
     tileOpacity: tileOpacity ?? this.tileOpacity,
     edgeOpacity: edgeOpacity ?? this.edgeOpacity,
     shadowCap: shadowCap ?? this.shadowCap,
-    lift: lift ?? this.lift,
+    lift: ios ? 0.0 : (lift ?? this.lift),
   );
 
   /// Palette for a card with a custom background: readable text on dark colors.
@@ -223,6 +237,8 @@ class AppPalette {
     'd1' => d1,
     'd2' => d2,
     'd3' => d3,
+    'i1' => i1,
+    'i2' => i2,
     _ => l1,
   };
 
@@ -388,6 +404,67 @@ class AppPalette {
     on: 0xF2B65C,
     onText: 0x2A1B08,
   );
+
+  // ---- iOS (Apple system colors, iOS 26)
+  static const AppPalette i1 = AppPalette(
+    ios: true,
+    radius: 22,
+    border: 0,
+    shadow: 3,
+    lift: 0,
+    screen: Color(0xFFF2F2F7),
+    tile: Color(0xFFE3E3E8),
+    tileEdge: Color(0x00000000),
+    tileOn: Color(0xFFFFFFFF),
+    panel: Color(0xFFE5E5EA),
+    ink: Color(0xFF000000),
+    muted: Color(0xFF6C6C70),
+    line: Color(0xFFD1D1D6),
+    lineStrong: Color(0xFFAEAEB2),
+    accent: Color(0xFF0088FF),
+    accentSoft: Color(0xFFFFFFFF),
+    led: Color(0xFFFF8D28),
+    ledSoft: Color(0xFFFFF1E0),
+    danger: Color(0xFFFF383C),
+    chip: Color(0xFFE5E5EA),
+    chipOn: Color(0xFF0088FF),
+    chipOnText: Color(0xFFFFFFFF),
+  );
+  static const AppPalette i2 = AppPalette(
+    ios: true,
+    radius: 22,
+    border: 0,
+    shadow: 3,
+    lift: 0,
+    screen: Color(0xFF000000),
+    tile: Color(0xFF1C1C1E),
+    tileEdge: Color(0x00000000),
+    tileOn: Color(0xFFFFFFFF),
+    panel: Color(0xFF2C2C2E),
+    ink: Color(0xFFFFFFFF),
+    muted: Color(0xFF8E8E93),
+    line: Color(0xFF38383A),
+    lineStrong: Color(0xFF48484A),
+    accent: Color(0xFF0091FF),
+    accentSoft: Color(0xFF1B2A40),
+    led: Color(0xFFFF9230),
+    ledSoft: Color(0xFF3A2A18),
+    danger: Color(0xFFFF4245),
+    chip: Color(0xFF2C2C2E),
+    chipOn: Color(0xFF0091FF),
+    chipOnText: Color(0xFFFFFFFF),
+  );
+
+  /// A lit card of an iOS theme is white with black text (like the Home app), also in the dark theme.
+  AppPalette get asIosOn => copyWith(
+    tile: Colors.white,
+    tileOn: Colors.white,
+    ink: Colors.black,
+    muted: const Color(0xFF6C6C70),
+    panel: const Color(0xFFF2F2F7),
+    line: const Color(0xFFE5E5EA),
+    iosOn: true,
+  );
 }
 
 /// The palette of a card with its own background (the "Background" of its style): a color, "outline" (only a border) or
@@ -491,6 +568,9 @@ class TileView extends StatelessWidget {
     }
     // An AC card lights up like a dimmer while it runs (any mode but off).
     final on = type == 'switch' || type == 'ac' ? sim['on'] == true : (type == 'dimmer' ? ((sim['val'] as num?) ?? 0) > 0 : false);
+    if (pal.ios && !pal.iosOn && on && (type == 'switch' || type == 'dimmer' || type == 'ac')) {
+      return TileView(w: w, pal: pal.asIosOn, gas: gas, sim: sim, selected: selected, flagged: flagged, act: act);
+    }
     final rgb = type == 'dimmer' ? hexColor(sim['rgb']) : null;
     // The orange stored in older cards as the default means "follow the theme".
     final styleOn = hexColor(style['colorOn']);
@@ -512,7 +592,7 @@ class TileView extends StatelessWidget {
     final raisedCard = pal.tile != Colors.transparent && pal.lift > 0.01;
     final cardBorder = alarm
         ? Border.all(color: pal.danger, width: max(1.5, pal.border))
-        : pal.border <= 0 || (noBorder && !lit)
+        : pal.border <= 0 || pal.ios || (noBorder && !lit)
         ? null
         : Border.all(
             color: lit ? colorOn.withValues(alpha: 0.85 * pal.edgeOpacity) : pal.edge,
@@ -564,7 +644,7 @@ class TileView extends StatelessWidget {
     (w['label'] ?? '').toString(),
     maxLines: w['type'] == 'shutter' || w['type'] == 'value' || w['type'] == 'ac' ? 1 : 2,
     overflow: TextOverflow.ellipsis,
-    style: evoLabelStyle(w, pal.ink),
+    style: pal.ios ? evoLabelStyle(w, pal.ink).copyWith(fontWeight: FontWeight.w600) : evoLabelStyle(w, pal.ink),
   );
 
   /// The small state line; [color] lights it up while the card is on.
@@ -585,7 +665,16 @@ class TileView extends StatelessWidget {
     ],
   );
 
-  Widget _led(bool on, Color c) => Container(
+  Widget _led(bool on, Color c) {
+    if (pal.ios) {
+      // iOS themes: the switch card shows an iOS switch, other cards show nothing here.
+      if (w['type'] != 'switch') return const SizedBox.shrink();
+      return IosSwitch(on: on, offTrack: pal.ink.withValues(alpha: 0.16), onTrack: const Color(0xFF34C759));
+    }
+    return _ledDot(on, c);
+  }
+
+  Widget _ledDot(bool on, Color c) => Container(
     width: 7,
     height: 7,
     decoration: BoxDecoration(
@@ -601,6 +690,7 @@ class TileView extends StatelessWidget {
   /// command sent on release).
   Widget _slider(double v, Color c, {bool invert = false, String? bubble, bool showBubble = false}) {
     if (act == null) return _bar(v, c);
+    if (pal.ios) return _iosSlider(v, c, invert: invert);
     final f = v.clamp(0.0, 1.0);
     return LayoutBuilder(
       builder: (context, bc) {
@@ -685,10 +775,44 @@ class TileView extends StatelessWidget {
   /// color over the card, on every theme.
   Color get _track => Color.alphaBlend(pal.ink.withValues(alpha: 0.24), pal.tile == Colors.transparent ? pal.screen : pal.tile);
 
-  Widget _bar(double v, Color c) => ClipRRect(
-    borderRadius: BorderRadius.circular(2),
-    child: LinearProgressIndicator(value: v.clamp(0, 1).toDouble(), minHeight: 4, backgroundColor: _track, color: c),
-  );
+  Color get _iosTrack => pal.ink.withValues(alpha: 0.14);
+
+  /// The iOS slider; dragging it works like the normal one.
+  Widget _iosSlider(double v, Color c, {bool invert = false}) {
+    final f = v.clamp(0.0, 1.0);
+    return LayoutBuilder(
+      builder: (context, bc) {
+        final width = bc.maxWidth;
+        void at(double dx) {
+          var n = (dx / width * 100).clamp(0.0, 100.0).round();
+          if (invert) n = 100 - n;
+          act!('preview', n);
+        }
+
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onHorizontalDragStart: (e) => at(e.localPosition.dx),
+          onHorizontalDragUpdate: (e) => at(e.localPosition.dx),
+          onHorizontalDragEnd: (_) => act!('commit'),
+          onTapUp: (e) {
+            at(e.localPosition.dx);
+            act!('commit');
+          },
+          child: MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: IosSliderBar(f: f, fill: c, track: _iosTrack),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _bar(double v, Color c) => pal.ios
+      ? IosSliderBar(f: v.clamp(0, 1).toDouble(), fill: c, track: _iosTrack)
+      : ClipRRect(
+          borderRadius: BorderRadius.circular(2),
+          child: LinearProgressIndicator(value: v.clamp(0, 1).toDouble(), minHeight: 4, backgroundColor: _track, color: c),
+        );
 
   Widget _liveDot() => Container(
     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),

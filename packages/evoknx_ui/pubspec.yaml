@@ -19,6 +19,7 @@ dependencies:
 flutter:
   assets:
     - assets/mdi/mdi_meta.json
+    - assets/color/color_icons.json
   fonts:
     # Inter by Rasmus Andersson (SIL Open Font License) – see assets/fonts/inter/OFL.txt
     # "Inter Medium" is the normal text weight of EvoKNX: weights 400 and 500 both

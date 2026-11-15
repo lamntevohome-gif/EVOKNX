@@ -247,6 +247,16 @@ bool isNoIcon(String? key) => key == kNoIcon;
 Widget iconWidget(String? key, double size, Color color) {
   if (isNoIcon(key)) return const SizedBox.shrink();
   key = mdiKeyOf(key);
+  if (key != null && key.startsWith('fe:')) {
+    // A color icon keeps its own colors (it is not tinted).
+    final e = ColorIcons.byName[key.substring(3)];
+    if (e == null) return iconWidget('mdi:help-circle-outline', size, color);
+    return SizedBox(
+      width: size,
+      height: size,
+      child: SvgPicture.string(e.svg, fit: BoxFit.contain),
+    );
+  }
   if (key != null && key.startsWith('mdi:')) {
     final m = Mdi.byName[key.substring(4)];
     // MDI code points are loaded from bundled metadata at runtime.
@@ -268,8 +278,45 @@ Widget iconWidget(String? key, double size, Color color) {
 String iconLabel(String? key) {
   if (isNoIcon(key)) return 'None';
   if (kLegacyToMdi.containsKey(key)) return iconName(key);
+  if (key != null && key.startsWith('fe:')) return ColorIcons.byName[key.substring(3)]?.label ?? key.substring(3);
   if (key != null && key.startsWith('mdi:')) return key.substring(4);
   return _custom[key]?.name ?? iconName(key);
+}
+
+// ------------------------------------------------------------ color icons
+
+/// One color icon: Fluent Emoji, Flat style (Microsoft, MIT). Its key is 'fe:<name>'.
+class ColorIcon {
+  ColorIcon(this.name, this.label, this.search, this.svg);
+  final String name, label, search, svg;
+  String get key => 'fe:$name';
+}
+
+/// The bundled selection of color icons (SVG, with names and words to search by, Vietnamese ones without accents).
+class ColorIcons {
+  static List<ColorIcon> all = const [];
+  static Map<String, ColorIcon> byName = const {};
+
+  static Future<void> load() async {
+    if (all.isNotEmpty) return;
+    try {
+      final j = jsonDecode(await rootBundle.loadString('packages/evoknx_ui/assets/color/color_icons.json')) as Map<String, dynamic>;
+      all = [for (final e in (j['icons'] as List).cast<List>()) ColorIcon(e[0] as String, e[1] as String, e[2] as String, e[3] as String)];
+      byName = {for (final i in all) i.name: i};
+    } catch (_) {
+      all = const [];
+    }
+  }
+
+  /// The icons whose name or words contain [q] (already folded: lower case, no accents). Empty = all.
+  static List<ColorIcon> search(String q) {
+    if (q.isEmpty) return all;
+    final terms = q.split(' ').where((t) => t.isNotEmpty).toList();
+    return [
+      for (final i in all)
+        if (terms.every(i.search.contains)) i,
+    ];
+  }
 }
 
 // ------------------------------------------------------------------ MDI library
