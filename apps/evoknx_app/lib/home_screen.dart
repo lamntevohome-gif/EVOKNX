@@ -903,22 +903,35 @@ class _HomeScreenState extends State<HomeScreen> {
       top: false,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
-        child: Container(
-          decoration: BoxDecoration(
-            color: Color.lerp(pal.screen, pal.ink, 0.10),
-            borderRadius: BorderRadius.circular(40),
-            border: Border.all(color: pal.tileEdge, width: 0.8),
-            boxShadow: const [BoxShadow(color: Color(0x40000000), blurRadius: 14, offset: Offset(0, 4))],
-          ),
-          child: Row(
-            children: [
-              item(0, Icons.home, Icons.home_outlined, 'Home'),
-              item(1, Icons.layers, Icons.layers_outlined, 'Area'),
-              item(2, Icons.shield, Icons.shield_outlined, 'Security'),
-              item(-1, Icons.person, Icons.person_outline, 'User', onTap: _openUser),
-            ],
-          ),
-        ),
+        child: pal.ios
+            ? GlassPanel(
+                radius: 40,
+                dark: pal.ink.computeLuminance() > 0.5,
+                child: Row(
+                  children: [
+                    item(0, Icons.home, Icons.home_outlined, 'Home'),
+                    item(1, Icons.layers, Icons.layers_outlined, 'Area'),
+                    item(2, Icons.shield, Icons.shield_outlined, 'Security'),
+                    item(-1, Icons.person, Icons.person_outline, 'User', onTap: _openUser),
+                  ],
+                ),
+              )
+            : Container(
+                decoration: BoxDecoration(
+                  color: Color.lerp(pal.screen, pal.ink, 0.10),
+                  borderRadius: BorderRadius.circular(40),
+                  border: Border.all(color: pal.tileEdge, width: 0.8),
+                  boxShadow: const [BoxShadow(color: Color(0x40000000), blurRadius: 14, offset: Offset(0, 4))],
+                ),
+                child: Row(
+                  children: [
+                    item(0, Icons.home, Icons.home_outlined, 'Home'),
+                    item(1, Icons.layers, Icons.layers_outlined, 'Area'),
+                    item(2, Icons.shield, Icons.shield_outlined, 'Security'),
+                    item(-1, Icons.person, Icons.person_outline, 'User', onTap: _openUser),
+                  ],
+                ),
+              ),
       ),
     );
   }
