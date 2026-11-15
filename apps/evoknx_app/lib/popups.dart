@@ -68,6 +68,16 @@ Future<void> showScenePopup(BuildContext context, Json w, AppPalette pal) {
 
 /// Brightness slider (and color temperature / RGB when the card has them).
 void showDimmerSheet(BuildContext context, CardEngine engine, Json w, AppPalette pal) {
+  if (pal.ios) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      enableDrag: false,
+      builder: (c) => _IosDimmerSheet(engine: engine, w: w, pal: pal),
+    );
+    return;
+  }
   showModalBottomSheet<void>(
     context: context,
     backgroundColor: pal.panel,
@@ -75,6 +85,365 @@ void showDimmerSheet(BuildContext context, CardEngine engine, Json w, AppPalette
     shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(22))),
     builder: (c) => _DimmerSheet(engine: engine, w: w, pal: pal),
   );
+}
+
+/// The dimmer popup of an iOS theme, like the Home app: a tall brightness bar and the colors; a second page picks any color.
+class _IosDimmerSheet extends StatefulWidget {
+  const _IosDimmerSheet({required this.engine, required this.w, required this.pal});
+  final CardEngine engine;
+  final Json w;
+  final AppPalette pal;
+  @override
+  State<_IosDimmerSheet> createState() => _IosDimmerSheetState();
+}
+
+class _IosDimmerSheetState extends State<_IosDimmerSheet> {
+  static const _swatches = ['#FFFFFF', '#FF3B30', '#FF9500', '#AF52DE', '#34C759', '#007AFF'];
+  bool _picker = false;
+  bool _temp = false;
+  double _h = 0, _sat = 1;
+  double? _ct;
+
+  AppPalette get pal => widget.pal;
+  Json get w => widget.w;
+  CardEngine get engine => widget.engine;
+  bool get _light => pal.iosLight;
+  Color get _bg => _light ? const Color(0xFFF2F2F7) : const Color(0xFF1C1C1E);
+  Color get _card => _light ? Colors.white : const Color(0xFF3A3A3C);
+  String _hex(Color c) => '#${(c.toARGB32() & 0xFFFFFF).toRadixString(16).padLeft(6, '0').toUpperCase()}';
+
+  Widget _close() => GestureDetector(
+    onTap: () => Navigator.of(context).maybePop(),
+    child: Container(
+      width: 34,
+      height: 34,
+      decoration: BoxDecoration(color: _card, shape: BoxShape.circle),
+      child: Icon(Icons.close, size: 18, color: pal.ink),
+    ),
+  );
+
+  Widget _wideButton(String text, VoidCallback onTap) => GestureDetector(
+    onTap: onTap,
+    child: Container(
+      height: 48,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(color: _card, borderRadius: BorderRadius.circular(24)),
+      child: Text(
+        text,
+        style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: Color(0xFF007AFF)),
+      ),
+    ),
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final f = jsonMap(w['features']);
+    final hasRgb = f['rgb'] == true, hasTw = f['tw'] == true;
+    final maxH = MediaQuery.of(context).size.height * 0.88;
+    return ListenableBuilder(
+      listenable: engine,
+      builder: (context, _) {
+        final s = engine.st(w['id'] as String);
+        final val = ((s['val'] as num?) ?? 0).toInt().clamp(0, 100);
+        final lit = hexColor(s['rgb']) ?? pal.led;
+        return Container(
+          constraints: BoxConstraints(maxHeight: maxH),
+          decoration: BoxDecoration(
+            color: _bg,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(34)),
+          ),
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(22, 18, 22, 16),
+              child: _picker ? _pickerPage(s, hasRgb, hasTw, lit) : _mainPage(s, val, lit, hasRgb, hasTw),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _mainPage(Json s, int val, Color lit, bool hasRgb, bool hasTw) {
+    final title = (w['label'] ?? '').toString();
+    // The bar is three times as tall as wide: 110 x 330 at most, smaller on a short screen so the popup still fits.
+    final room = MediaQuery.of(context).size.height * 0.88 - 150 - (hasRgb ? 58 : 0) - (hasRgb || hasTw ? 66 : 0);
+    final barH = room.clamp(180.0, 330.0);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700, color: pal.ink),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(val > 0 ? 'On · $val%' : 'Off', style: TextStyle(fontSize: 15, color: pal.muted)),
+                ],
+              ),
+            ),
+            _close(),
+          ],
+        ),
+        const SizedBox(height: 18),
+        Center(child: _bar(val, lit, barH / 3, barH)),
+        if (hasRgb) ...[
+          const SizedBox(height: 18),
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 14,
+            runSpacing: 12,
+            children: [
+              for (final hx in _swatches)
+                GestureDetector(
+                  onTap: () => engine.act(w, 'rgb', hx),
+                  child: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: hexColor(hx),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: s['rgb'] == hx ? const Color(0xFF007AFF) : (hx == '#FFFFFF' ? pal.line : Colors.transparent),
+                        width: s['rgb'] == hx ? 3 : 1,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ],
+        if (hasRgb || hasTw) ...[
+          const SizedBox(height: 18),
+          _wideButton('Edit color…', () {
+            final c = hexColor(s['rgb']) ?? Colors.white;
+            final hsv = HSVColor.fromColor(c);
+            setState(() {
+              _h = hsv.hue;
+              _sat = hsv.saturation;
+              _temp = !hasRgb && hasTw;
+              _picker = true;
+            });
+          }),
+        ],
+      ],
+    );
+  }
+
+  /// The tall brightness bar: drag up or down, the percentage shows in it.
+  Widget _bar(int val, Color lit, double w0, double h0) {
+    void at(double dy) => engine.act(w, 'preview', ((1 - dy / h0) * 100).clamp(0, 100).round());
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTapDown: (d) => at(d.localPosition.dy),
+      onTapUp: (_) => engine.act(w, 'commit'),
+      onVerticalDragStart: (d) => at(d.localPosition.dy),
+      onVerticalDragUpdate: (d) => at(d.localPosition.dy),
+      onVerticalDragEnd: (_) => engine.act(w, 'commit'),
+      onVerticalDragCancel: () => engine.act(w, 'commit'),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(28),
+        child: SizedBox(
+          width: w0,
+          height: h0,
+          child: Stack(
+            alignment: Alignment.bottomCenter,
+            children: [
+              Positioned.fill(child: ColoredBox(color: _card)),
+              AnimatedContainer(duration: const Duration(milliseconds: 80), height: h0 * val / 100, color: lit),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 14),
+                child: Text(
+                  '$val%',
+                  style: TextStyle(fontSize: 30, fontWeight: FontWeight.w700, color: val > 14 ? Colors.white : pal.ink),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _pickerPage(Json s, bool hasRgb, bool hasTw, Color lit) {
+    final tw = jsonMap(w['tw']);
+    final ctMin = ((tw['min'] as num?) ?? 2700).toDouble(), ctMax = ((tw['max'] as num?) ?? 6500).toDouble();
+    final ct = (_ct ?? ((s['ct'] as num?) ?? ctMin).toDouble()).clamp(ctMin, ctMax);
+    Widget tab(String text, bool on, VoidCallback tap) => Expanded(
+      child: GestureDetector(
+        onTap: tap,
+        child: Container(
+          height: 32,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(color: on ? _card : Colors.transparent, borderRadius: BorderRadius.circular(16)),
+          child: Text(
+            text,
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: pal.ink),
+          ),
+        ),
+      ),
+    );
+    const bw = 300.0, bh = 300.0;
+    final cur = HSVColor.fromAHSV(1, _h, _sat, 1).toColor();
+    void pick(Offset o) => setState(() {
+      _h = (o.dx / bw * 360).clamp(0.0, 359.9);
+      _sat = (1 - o.dy / bh).clamp(0.0, 1.0);
+    });
+    void setCt(double dx) => setState(() => _ct = (((dx / bw).clamp(0.0, 1.0) * (ctMax - ctMin) + ctMin) / 50).round() * 50.0);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Choose color',
+                    style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700, color: pal.ink),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(_temp ? 'Drag to pick a color temperature' : 'Drag on the board to pick a hue', style: TextStyle(fontSize: 15, color: pal.muted)),
+                ],
+              ),
+            ),
+            _close(),
+          ],
+        ),
+        const SizedBox(height: 16),
+        if (hasRgb && hasTw)
+          Container(
+            padding: const EdgeInsets.all(2),
+            decoration: BoxDecoration(color: _light ? const Color(0xFFE3E3E8) : const Color(0xFF2C2C2E), borderRadius: BorderRadius.circular(18)),
+            child: Row(children: [tab('Color', !_temp, () => setState(() => _temp = false)), tab('Temperature', _temp, () => setState(() => _temp = true))]),
+          ),
+        const SizedBox(height: 16),
+        Center(
+          child: _temp
+              ? Column(
+                  children: [
+                    Text(
+                      '${ct.round()} K',
+                      style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: pal.ink),
+                    ),
+                    const SizedBox(height: 14),
+                    GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTapDown: (d) => setCt(d.localPosition.dx),
+                      onHorizontalDragStart: (d) => setCt(d.localPosition.dx),
+                      onHorizontalDragUpdate: (d) => setCt(d.localPosition.dx),
+                      onHorizontalDragEnd: (_) => engine.act(w, 'ct', (_ct ?? ct).round()),
+                      onTapUp: (_) => engine.act(w, 'ct', (_ct ?? ct).round()),
+                      child: SizedBox(
+                        width: bw,
+                        height: 44,
+                        child: Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            Positioned.fill(
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(22),
+                                  gradient: const LinearGradient(colors: [Color(0xFFFFA64D), Color(0xFFFFE9C7), Color(0xFFFFFFFF), Color(0xFFB9D6FF)]),
+                                ),
+                              ),
+                            ),
+                            Positioned(
+                              left: (ct - ctMin) / (ctMax - ctMin) * (bw - 36),
+                              top: 4,
+                              child: Container(
+                                width: 36,
+                                height: 36,
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(color: const Color(0x33000000), width: 0.5),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                )
+              : GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTapDown: (d) => pick(d.localPosition),
+                  onPanStart: (d) => pick(d.localPosition),
+                  onPanUpdate: (d) => pick(d.localPosition),
+                  onPanEnd: (_) => engine.act(w, 'rgb', _hex(cur)),
+                  onTapUp: (_) => engine.act(w, 'rgb', _hex(cur)),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(26),
+                    child: SizedBox(
+                      width: bw,
+                      height: bh,
+                      child: Stack(
+                        children: [
+                          const Positioned.fill(
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    Color(0xFFFF0000),
+                                    Color(0xFFFFFF00),
+                                    Color(0xFF00FF00),
+                                    Color(0xFF00FFFF),
+                                    Color(0xFF0000FF),
+                                    Color(0xFFFF00FF),
+                                    Color(0xFFFF0000),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                          const Positioned.fill(
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: [Color(0x00FFFFFF), Color(0xFFFFFFFF)],
+                                ),
+                              ),
+                            ),
+                          ),
+                          Positioned(
+                            left: _h / 360 * bw - 17,
+                            top: (1 - _sat) * bh - 17,
+                            child: Container(
+                              width: 34,
+                              height: 34,
+                              decoration: BoxDecoration(
+                                color: cur,
+                                shape: BoxShape.circle,
+                                border: Border.all(color: Colors.white, width: 3),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+        ),
+        const SizedBox(height: 20),
+        _wideButton('Done', () => setState(() => _picker = false)),
+      ],
+    );
+  }
 }
 
 class _DimmerSheet extends StatelessWidget {
