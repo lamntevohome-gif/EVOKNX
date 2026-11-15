@@ -1208,13 +1208,14 @@ class TileView extends StatelessWidget {
         if (pal.ios) {
           // iOS: the name on top (the three dots at its right when the blind has a slider), the controls in the middle
           // and the state below; the slider-only blind shows its slider in the middle, like the dimmer.
-          final stateText = showPct && showSt ? (curtain ? 'Open ${100 - p}%' : 'Close $p%') : null;
+          final stateText = showPct && showSt ? 'Open ${100 - p}%' : null;
           final hasIcon = !isNoIcon(w['icon'] as String?);
           final dots = ctrl == 'both' ? _tuneBtn() : null;
-          final ib = fs(w, 'btnIcon') * 1.15;
+          // The usual size (16) gives a 22 px icon.
+          final ib = fs(w, 'btnIcon') * 1.375;
           Widget ibtn(Object i, String a) => _ibtn(a, i, ib);
           final controls = ctrl == 'slider'
-              ? _slider((curtain ? 100 - p : p) / 100, pal.accent, invert: curtain)
+              ? _slider((100 - p) / 100, pal.accent, invert: true)
               : Row(
                   children: [
                     ibtn(curtain ? 'mdi:arrow-expand-horizontal' : Icons.keyboard_arrow_up, 'up'),
@@ -1246,13 +1247,13 @@ class TileView extends StatelessWidget {
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (showPct && showSt) _state(curtain ? 'Open ${100 - p}%' : 'Close $p%'),
+                if (showPct && showSt) _state('Open ${100 - p}%'),
                 if (ctrl != 'buttons') ...[const SizedBox(width: 6), _ibtn('tune', 'mdi:tune-vertical', fs(w, 'iconSize') * 0.7, expand: false, circle: true)],
               ],
             ),
           ),
           if (ctrl == 'slider')
-            _slider((curtain ? 100 - p : p) / 100, pal.accent, invert: curtain)
+            _slider((100 - p) / 100, pal.accent, invert: true)
           else
             Row(
               children: [
