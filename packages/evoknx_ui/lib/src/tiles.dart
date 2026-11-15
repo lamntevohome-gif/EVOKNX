@@ -621,7 +621,7 @@ class TileView extends StatelessWidget {
     final cardBorder = alarm
         ? Border.all(color: pal.danger, width: max(1.5, pal.border))
         : pal.iosLight && !noBorder
-        ? Border.all(color: pal.line, width: 0.5)
+        ? null // the hairline of iOS Light is drawn over the card (below), so it takes no room: same inner size as Dark
         : pal.border <= 0 || pal.ios || (noBorder && !lit)
         ? null
         : Border.all(
@@ -646,7 +646,12 @@ class TileView extends StatelessWidget {
               borderRadius: BorderRadius.circular(pal.radius),
               border: Border.all(color: kEditorSelection, width: 1.5),
             )
-          : null,
+          : (pal.iosLight && !noBorder && !alarm
+                ? BoxDecoration(
+                    borderRadius: BorderRadius.circular(pal.radius),
+                    border: Border.all(color: pal.line, width: 0.5),
+                  )
+                : null),
       padding: imageBtn ? const EdgeInsets.all(8) : const EdgeInsets.fromLTRB(12, 10, 12, 10),
       // Clipped to the card's rounded shape (not to the padded content), so a
       // button's shadow may use the card's padding.
