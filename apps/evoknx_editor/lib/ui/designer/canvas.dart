@@ -414,7 +414,7 @@ class _Screen extends StatelessWidget {
                           barItem(0, Icons.home, Icons.home_outlined, 'Home', () => d.selectSpecial('home')),
                           barItem(1, Icons.layers, Icons.layers_outlined, areaName(theme), d.floorsGallery),
                           barItem(2, Icons.shield, Icons.shield_outlined, 'Security', () => d.selectSpecial('security')),
-                          barItem(3, Icons.person, Icons.person_outline, 'User', () => d.toggleAppSettings(true)),
+                          barItem(3, Icons.settings, Icons.settings_outlined, 'Settings', () => d.toggleAppSettings(true)),
                         ],
                       ),
                     )
@@ -433,7 +433,7 @@ class _Screen extends StatelessWidget {
                           barItem(0, Icons.home, Icons.home_outlined, 'Home', () => d.selectSpecial('home')),
                           barItem(1, Icons.layers, Icons.layers_outlined, areaName(theme), d.floorsGallery),
                           barItem(2, Icons.shield, Icons.shield_outlined, 'Security', () => d.selectSpecial('security')),
-                          barItem(3, Icons.person, Icons.person_outline, 'User', () => d.toggleAppSettings(true)),
+                          barItem(3, Icons.settings, Icons.settings_outlined, 'Settings', () => d.toggleAppSettings(true)),
                         ],
                       ),
                     ),
@@ -1461,13 +1461,13 @@ class _TuneDialogState extends State<_TuneDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(dim ? 'Brightness: ${val.round()}%' : (w['shStyle'] == 'curtain' ? 'Open ${100 - val.round()}%' : 'Close ${val.round()}%')),
+            Text(dim ? 'Brightness: ${val.round()}%' : 'Open ${100 - val.round()}%'),
             Slider(
-              value: val.clamp(0.0, 100.0),
+              value: (dim ? val : 100 - val).clamp(0.0, 100.0),
               max: 100,
               divisions: 100,
-              onChanged: (v) => setState(() => dim ? s['val'] = v.round() : s['pos'] = v.round()),
-              onChangeEnd: (v) => widget.d.act(w, 'set', v.round()),
+              onChanged: (v) => setState(() => dim ? s['val'] = v.round() : s['pos'] = 100 - v.round()),
+              onChangeEnd: (v) => widget.d.act(w, 'set', dim ? v.round() : 100 - v.round()),
             ),
             if (!dim)
               Wrap(
@@ -1476,8 +1476,8 @@ class _TuneDialogState extends State<_TuneDialog> {
                   for (final p in [0, 25, 50, 75, 100])
                     OutlinedButton(
                       onPressed: () {
-                        setState(() => s['pos'] = p);
-                        widget.d.act(w, 'set', p);
+                        setState(() => s['pos'] = 100 - p);
+                        widget.d.act(w, 'set', 100 - p);
                       },
                       child: Text('$p%'),
                     ),
@@ -1765,7 +1765,7 @@ class _AppSettingsSheet extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    'User',
+                    'Settings',
                     style: TextStyle(fontSize: 26, fontWeight: FontWeight.w700, color: embedded ? pal.sInk : pal.ink),
                   ),
                 ),

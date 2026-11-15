@@ -95,7 +95,7 @@ class _AccountPanelState extends State<AccountPanel> {
   Widget _banner() => Container(
     margin: const EdgeInsets.only(bottom: 14),
     padding: const EdgeInsets.all(12),
-    decoration: BoxDecoration(color: pal.tileOn ?? pal.panel, borderRadius: BorderRadius.circular(12)),
+    decoration: BoxDecoration(color: pal.panel, borderRadius: BorderRadius.circular(12)),
     child: Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

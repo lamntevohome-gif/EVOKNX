@@ -804,7 +804,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final Json? headFloor = _tab == 1 && _lvl == 0 ? <String, dynamic>{'title': areaName(theme)} : floor;
     final Widget content;
     if (_tab == 3) {
-      content = UserPanel(store: store);
+      content = SettingsScreen(store: store, knx: knx, ha: ha, embedded: true, onChanged: _settingsChanged);
     } else if (blockedAbove != null) {
       content = _lockedView(blockedAbove, pal);
     } else if (_tab == 1 && _lvl == 0) {
@@ -935,7 +935,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     item(0, Icons.home, Icons.home_outlined, 'Home'),
                     item(1, Icons.layers, Icons.layers_outlined, areaName(jsonMap(doc['theme']))),
                     item(2, Icons.shield, Icons.shield_outlined, 'Security'),
-                    item(3, Icons.person, Icons.person_outline, 'User'),
+                    item(3, Icons.settings, Icons.settings_outlined, 'Settings'),
                   ],
                 ),
               )
@@ -954,7 +954,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     item(0, Icons.home, Icons.home_outlined, 'Home'),
                     item(1, Icons.layers, Icons.layers_outlined, areaName(jsonMap(doc['theme']))),
                     item(2, Icons.shield, Icons.shield_outlined, 'Security'),
-                    item(3, Icons.person, Icons.person_outline, 'User'),
+                    item(3, Icons.settings, Icons.settings_outlined, 'Settings'),
                   ],
                 ),
               ),
@@ -991,25 +991,28 @@ class _HomeScreenState extends State<HomeScreen> {
 
   /// "Tầng 1 › Phòng 1" on one row (floor shown only when there are several),
   /// settings button on the right: as in the Editor preview.
-  /// The title of the User page, with the way to the settings of the App.
+  /// The title of the Settings page (the fourth tab); its tabs are under it.
   Widget _userHeader(AppPalette pal) => Padding(
     padding: const EdgeInsets.fromLTRB(20, 10, 12, 3),
     child: Row(
       children: [
         Expanded(
           child: Text(
-            tr('User'),
+            tr('Settings'),
             style: TextStyle(fontSize: tfs(doc, 'areaTitle'), fontWeight: FontWeight.w600, color: pal.sInk),
           ),
-        ),
-        IconButton(
-          tooltip: tr('Settings'),
-          icon: Icon(Icons.settings_outlined, color: pal.sInk),
-          onPressed: _openSettings,
         ),
       ],
     ),
   );
+
+  /// The profile or the connection was changed in the embedded settings: load the project again, like after the pushed screen.
+  void _settingsChanged() {
+    _applyWakelock();
+    engine.doc = store.view(_dev);
+    if (!knx.connected) _connect();
+    if (mounted) setState(() {});
+  }
 
   Widget _header(Json d, AppPalette pal, Json? floor, Json? r, bool multi, {VoidCallback? onBack, String sizeKey = 'titleSize'}) {
     final hide = jsonMap(d['theme'])['hideTitle'] == true && r != null && !_modernMode;
