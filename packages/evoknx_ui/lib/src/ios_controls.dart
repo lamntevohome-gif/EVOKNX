@@ -1,3 +1,5 @@
+import 'dart:ui' show ImageFilter;
+
 import 'package:flutter/material.dart';
 
 /// The switch of the iOS themes (iOS 26 look): a capsule track and a wide white capsule knob that slides.
@@ -30,14 +32,7 @@ class IosSwitch extends StatelessWidget {
           margin: EdgeInsets.symmetric(horizontal: 2 * scale),
           width: kw,
           height: kh,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(kh / 2),
-            boxShadow: const [
-              BoxShadow(color: Color(0x2E000000), blurRadius: 6, offset: Offset(0, 2)),
-              BoxShadow(color: Color(0x1F000000), blurRadius: 1),
-            ],
-          ),
+          decoration: glassDeco(radius: BorderRadius.circular(kh / 2)),
         ),
       ),
     );
@@ -87,14 +82,7 @@ class IosSliderBar extends StatelessWidget {
                 child: Container(
                   width: kw,
                   height: kh,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(kh / 2),
-                    boxShadow: const [
-                      BoxShadow(color: Color(0x33000000), blurRadius: 6, offset: Offset(0, 2)),
-                      BoxShadow(color: Color(0x1F000000), blurRadius: 1),
-                    ],
-                  ),
+                  decoration: glassDeco(radius: BorderRadius.circular(kh / 2)),
                 ),
               ),
             ],
@@ -103,4 +91,95 @@ class IosSliderBar extends StatelessWidget {
       },
     );
   }
+}
+
+/// The look of a small piece of glass (a knob, a round button): a soft light gradient and a bright rim.
+BoxDecoration glassDeco({bool dark = false, BorderRadius? radius, bool circle = false, double alpha = 1}) => BoxDecoration(
+  shape: circle ? BoxShape.circle : BoxShape.rectangle,
+  borderRadius: circle ? null : radius,
+  gradient: LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: dark
+        ? [Colors.white.withValues(alpha: 0.30 * alpha), Colors.white.withValues(alpha: 0.12 * alpha)]
+        : [Colors.white.withValues(alpha: 0.98 * alpha), const Color(0xFFEFF1F6).withValues(alpha: 0.92 * alpha)],
+  ),
+  border: Border.all(color: Colors.white.withValues(alpha: dark ? 0.35 : 0.9), width: 0.8),
+  boxShadow: const [BoxShadow(color: Color(0x2E000000), blurRadius: 6, offset: Offset(0, 2))],
+);
+
+/// A bar or panel of glass: it blurs what is behind it (a page background image shows through), with a light tint and a bright rim.
+class GlassPanel extends StatelessWidget {
+  const GlassPanel({super.key, required this.child, required this.radius, this.dark = false, this.blur = 22});
+
+  final Widget child;
+  final double radius;
+  final bool dark;
+  final double blur;
+
+  @override
+  Widget build(BuildContext context) {
+    final r = BorderRadius.circular(radius);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: r,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: dark ? 0.35 : 0.14),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: r,
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
+          child: CustomPaint(
+            foregroundPainter: _RimPainter(radius, dark),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: dark
+                      ? [Colors.white.withValues(alpha: 0.16), Colors.white.withValues(alpha: 0.06)]
+                      : [Colors.white.withValues(alpha: 0.62), Colors.white.withValues(alpha: 0.32)],
+                ),
+              ),
+              child: child,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RimPainter extends CustomPainter {
+  _RimPainter(this.radius, this.dark);
+  final double radius;
+  final bool dark;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rr = RRect.fromRectAndRadius(Offset.zero & size, Radius.circular(radius)).deflate(0.5);
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1
+      ..shader = LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          Colors.white.withValues(alpha: dark ? 0.55 : 0.95),
+          Colors.white.withValues(alpha: 0.05),
+          Colors.white.withValues(alpha: dark ? 0.25 : 0.6),
+        ],
+        stops: const [0, 0.55, 1],
+      ).createShader(Offset.zero & size);
+    canvas.drawRRect(rr, paint);
+  }
+
+  @override
+  bool shouldRepaint(_RimPainter o) => o.radius != radius || o.dark != dark;
 }

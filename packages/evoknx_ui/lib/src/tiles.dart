@@ -522,15 +522,17 @@ class TileView extends StatelessWidget {
       width: circle ? h : null,
       height: h,
       margin: expand ? const EdgeInsets.symmetric(horizontal: 2.5) : null,
-      decoration: raisedDecoration(
-        pal,
-        fill ?? pal.panel,
-        radius: BorderRadius.circular(s * 0.4 + 2),
-        circle: circle,
-        edge: edge,
-        glow: selected ? fill : null,
-        lift: pal.lift,
-      ),
+      decoration: pal.ios && fill == null
+          ? glassDeco(dark: pal.ink.computeLuminance() > 0.5, radius: BorderRadius.circular(s * 0.4 + 2), circle: circle, alpha: 0.9)
+          : raisedDecoration(
+              pal,
+              fill ?? pal.panel,
+              radius: BorderRadius.circular(s * 0.4 + 2),
+              circle: circle,
+              edge: edge,
+              glow: selected ? fill : null,
+              lift: pal.lift,
+            ),
       child: Center(
         child: icon is IconData ? Icon(icon, size: s, color: color) : iconWidget(icon as String, s, color),
       ),
@@ -665,11 +667,11 @@ class TileView extends StatelessWidget {
     ],
   );
 
-  Widget _led(bool on, Color c) {
+  Widget _led(bool on, Color c, {double scale = 1}) {
     if (pal.ios) {
       // iOS themes: the switch card shows an iOS switch, other cards show nothing here.
       if (w['type'] != 'switch') return const SizedBox.shrink();
-      return IosSwitch(on: on, offTrack: pal.ink.withValues(alpha: 0.16), onTrack: const Color(0xFF34C759));
+      return IosSwitch(on: on, offTrack: pal.ink.withValues(alpha: 0.16), onTrack: const Color(0xFF34C759), scale: scale);
     }
     return _ledDot(on, c);
   }
@@ -899,6 +901,26 @@ class TileView extends StatelessWidget {
     switch (type) {
       case 'switch':
         if (w['look'] == 'simple') return _simple(on ? colorOn : pal.muted);
+        if (pal.ios) {
+          // Like the Home app: icon and switch on top, the name (2 lines) and the state below. A low card keeps one row.
+          return LayoutBuilder(
+            builder: (context, bc) {
+              final stateLine = _state(on ? textOn : textOff, color: on ? colorOn : null);
+              final hasIcon = !isNoIcon(w['icon'] as String?);
+              if (bc.maxHeight < 84) {
+                return _col([_head(on ? colorOn : pal.muted, trailing: _led(on, colorOn, scale: 0.7)), stateLine]);
+              }
+              return _col([
+                Row(children: [if (hasIcon) _icon(on ? colorOn : pal.muted), const Spacer(), _led(on, colorOn)]),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [_label(), const SizedBox(height: 2), stateLine],
+                ),
+              ]);
+            },
+          );
+        }
         return _col([_head(on ? colorOn : pal.muted, trailing: _led(on, colorOn)), _state(on ? textOn : textOff, color: on ? colorOn : null)]);
       case 'dimmer':
         if (w['look'] == 'simple') {
