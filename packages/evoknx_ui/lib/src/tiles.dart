@@ -1211,8 +1211,7 @@ class TileView extends StatelessWidget {
           final stateText = showPct && showSt ? 'Open ${100 - p}%' : null;
           final hasIcon = !isNoIcon(w['icon'] as String?);
           final dots = ctrl == 'both' ? _tuneBtn() : null;
-          // The usual size (16) gives a 22 px icon.
-          final ib = fs(w, 'btnIcon') * 1.375;
+          final ib = fs(w, 'btnIcon') * 1.15;
           Widget ibtn(Object i, String a) => _ibtn(a, i, ib);
           final controls = ctrl == 'slider'
               ? _slider((100 - p) / 100, pal.accent, invert: true)

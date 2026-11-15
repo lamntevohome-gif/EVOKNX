@@ -64,7 +64,7 @@ const Map<String, WidgetTypeDef> kWidgetTypes = {
     SlotDef('status', 'Position status', [5], recommended: true),
   ]),
   'value': WidgetTypeDef('value', 'Value', 'thermo', 2, 2, [
-    SlotDef('status', 'Status address', [5, 6, 7, 8, 9, 12, 13, 14], required: true),
+    SlotDef('status', 'Status address', [1, 5, 6, 7, 8, 9, 12, 13, 14], required: true),
   ]),
   'button': WidgetTypeDef('button', 'Push button', 'button', 2, 2, [
     SlotDef('write', 'Write address', [1, 5, 17], required: true),
@@ -312,6 +312,8 @@ Json makeWidget(String type, int x, int y, [int? w, int? h]) {
   if (type == 'switch' || type == 'dimmer') {
     wd['style'] = <String, dynamic>{'colorOn': '#EE9B2A', 'colorOff': '#8A938F', 'textOn': 'On', 'textOff': 'Off'};
   }
+  // A new blind starts with the 22 control buttons that look right.
+  if (type == 'shutter') wd['text'] = <String, dynamic>{'btnIcon': 22};
   if (type == 'value') wd['format'] = <String, dynamic>{'unit': '', 'decimals': 1};
   if (type == 'button') wd['sendValue'] = '1';
   if (type == 'scene') wd['sendValue'] = '0';
