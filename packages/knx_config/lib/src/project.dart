@@ -17,6 +17,13 @@ String uid(String prefix) => '$prefix${List.generate(6, (_) => 'abcdefghijklmnop
 String gaId(String address) => 'ga_${address.replaceAll('/', '_')}';
 
 List<Json> jsonList(Object? v) => v is List ? v.whereType<Map>().map((e) => e.cast<String, dynamic>()).toList() : <Json>[];
+
+/// The name of the Area section (Modern layout): the one set in the theme, or "Area".
+String areaName(Json theme) {
+  final n = (theme['areaName'] ?? '').toString().trim();
+  return n.isEmpty ? 'Area' : n;
+}
+
 Json jsonMap(Object? v) => v is Map ? v.cast<String, dynamic>() : <String, dynamic>{};
 
 // ------------------------------------------------------------ widget types

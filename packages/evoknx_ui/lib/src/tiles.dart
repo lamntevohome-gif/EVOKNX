@@ -413,10 +413,10 @@ class AppPalette {
     shadow: 3,
     lift: 0,
     screen: Color(0xFFF2F2F7),
-    tile: Color(0xFFE3E3E8),
+    tile: Color(0xFFFFFFFF),
     tileEdge: Color(0x00000000),
     tileOn: Color(0xFFFFFFFF),
-    panel: Color(0xFFE5E5EA),
+    panel: Color(0xFFF2F2F7),
     ink: Color(0xFF000000),
     muted: Color(0xFF6C6C70),
     line: Color(0xFFD1D1D6),
@@ -426,7 +426,7 @@ class AppPalette {
     led: Color(0xFFFF8D28),
     ledSoft: Color(0xFFFFF1E0),
     danger: Color(0xFFFF383C),
-    chip: Color(0xFFE5E5EA),
+    chip: Color(0xFFE3E3E8),
     chipOn: Color(0xFF0088FF),
     chipOnText: Color(0xFFFFFFFF),
   );
@@ -456,15 +456,20 @@ class AppPalette {
   );
 
   /// A lit card of an iOS theme is white with black text (like the Home app), also in the dark theme.
-  AppPalette get asIosOn => copyWith(
-    tile: Colors.white,
-    tileOn: Colors.white,
-    ink: Colors.black,
-    muted: const Color(0xFF6C6C70),
-    panel: const Color(0xFFF2F2F7),
-    line: const Color(0xFFE5E5EA),
-    iosOn: true,
-  );
+  /// An iOS light theme: white cards with a hairline on the grey screen, plain (not glass) buttons.
+  bool get iosLight => ios && screen.computeLuminance() > 0.5;
+
+  AppPalette get asIosOn => iosLight
+      ? copyWith(iosOn: true)
+      : copyWith(
+          tile: Colors.white,
+          tileOn: Colors.white,
+          ink: Colors.black,
+          muted: const Color(0xFF6C6C70),
+          panel: const Color(0xFFF2F2F7),
+          line: const Color(0xFFE5E5EA),
+          iosOn: true,
+        );
 }
 
 /// The palette of a card with its own background (the "Background" of its style): a color, "outline" (only a border) or
@@ -522,7 +527,14 @@ class TileView extends StatelessWidget {
       width: circle ? h : null,
       height: h,
       margin: expand ? const EdgeInsets.symmetric(horizontal: 2.5) : null,
-      decoration: pal.ios && fill == null
+      decoration: pal.iosLight && fill == null
+          ? BoxDecoration(
+              color: pal.panel,
+              shape: circle ? BoxShape.circle : BoxShape.rectangle,
+              borderRadius: circle ? null : BorderRadius.circular(s * 0.4 + 2),
+              border: Border.all(color: pal.line, width: 0.5),
+            )
+          : pal.ios && fill == null
           ? glassDeco(dark: pal.ink.computeLuminance() > 0.5, radius: BorderRadius.circular(s * 0.4 + 2), circle: circle, alpha: 0.9)
           : raisedDecoration(
               pal,
@@ -539,6 +551,19 @@ class TileView extends StatelessWidget {
     );
     final t = _tap(action, inner, arg);
     return expand ? Expanded(child: t) : t;
+  }
+
+  /// A dimmer with RGB or color temperature has more to set than the brightness.
+  bool get _hasColorTune {
+    final f = jsonMap(w['features']);
+    return f['rgb'] == true || f['tw'] == true;
+  }
+
+  /// The button of the dimmer's controls: three dots, no background, no border (the touch area stays 32 px).
+  Widget _tuneBtn() {
+    var icon = (w['tuneIcon'] ?? '').toString();
+    if (icon.isEmpty || icon == 'mdi:tune-vertical') icon = 'mdi:dots-horizontal';
+    return _tap('tune', SizedBox(width: 32, height: 32, child: Center(child: iconWidget(icon, fs(w, 'iconSize') * 0.85, pal.muted))));
   }
 
   Widget _tap(String action, Widget child, [Object? arg]) => act == null
@@ -594,6 +619,8 @@ class TileView extends StatelessWidget {
     final raisedCard = pal.tile != Colors.transparent && pal.lift > 0.01;
     final cardBorder = alarm
         ? Border.all(color: pal.danger, width: max(1.5, pal.border))
+        : pal.iosLight && !noBorder
+        ? Border.all(color: pal.line, width: 0.5)
         : pal.border <= 0 || pal.ios || (noBorder && !lit)
         ? null
         : Border.all(
@@ -671,7 +698,12 @@ class TileView extends StatelessWidget {
     if (pal.ios) {
       // iOS themes: the switch card shows an iOS switch, other cards show nothing here.
       if (w['type'] != 'switch') return const SizedBox.shrink();
-      return IosSwitch(on: on, offTrack: pal.ink.withValues(alpha: 0.16), onTrack: const Color(0xFF34C759), scale: scale);
+      return IosSwitch(
+        on: on,
+        offTrack: pal.iosLight ? const Color(0xFFD9D9DE) : pal.ink.withValues(alpha: 0.16),
+        onTrack: const Color(0xFF34C759),
+        scale: scale,
+      );
     }
     return _ledDot(on, c);
   }
@@ -698,12 +730,13 @@ class TileView extends StatelessWidget {
       builder: (context, bc) {
         final width = bc.maxWidth;
         void at(double dx) {
-          var n = (dx / width * 100).clamp(0.0, 100.0).round();
+          var n = ((dx - 8) / (width - 16) * 100).clamp(0.0, 100.0).round();
           if (invert) n = 100 - n;
           act!('preview', n);
         }
 
         return GestureDetector(
+          dragStartBehavior: DragStartBehavior.down,
           behavior: HitTestBehavior.opaque,
           onHorizontalDragStart: (e) => at(e.localPosition.dx),
           onHorizontalDragUpdate: (e) => at(e.localPosition.dx),
@@ -777,7 +810,7 @@ class TileView extends StatelessWidget {
   /// color over the card, on every theme.
   Color get _track => Color.alphaBlend(pal.ink.withValues(alpha: 0.24), pal.tile == Colors.transparent ? pal.screen : pal.tile);
 
-  Color get _iosTrack => pal.ink.withValues(alpha: 0.14);
+  Color get _iosTrack => pal.iosLight ? const Color(0xFFD9D9DE) : pal.ink.withValues(alpha: 0.14);
 
   /// The iOS slider; dragging it works like the normal one.
   Widget _iosSlider(double v, Color c, {bool invert = false}) {
@@ -786,12 +819,13 @@ class TileView extends StatelessWidget {
       builder: (context, bc) {
         final width = bc.maxWidth;
         void at(double dx) {
-          var n = (dx / width * 100).clamp(0.0, 100.0).round();
+          var n = ((dx - kIosKnobW / 2) / (width - kIosKnobW) * 100).clamp(0.0, 100.0).round();
           if (invert) n = 100 - n;
           act!('preview', n);
         }
 
         return GestureDetector(
+          dragStartBehavior: DragStartBehavior.down,
           behavior: HitTestBehavior.opaque,
           onHorizontalDragStart: (e) => at(e.localPosition.dx),
           onHorizontalDragUpdate: (e) => at(e.localPosition.dx),
@@ -924,12 +958,7 @@ class TileView extends StatelessWidget {
         return _col([_head(on ? colorOn : pal.muted, trailing: _led(on, colorOn)), _state(on ? textOn : textOff, color: on ? colorOn : null)]);
       case 'dimmer':
         if (w['look'] == 'simple') {
-          return _simple(
-            on ? colorOn : pal.muted,
-            trailing: act == null && w['showTune'] == false
-                ? null
-                : _ibtn('tune', (w['tuneIcon'] ?? 'mdi:tune-vertical').toString(), fs(w, 'iconSize') * 0.7, expand: false, circle: true),
-          );
+          return _simple(on ? colorOn : pal.muted, trailing: act == null && w['showTune'] == false ? null : _tuneBtn());
         }
         final v = ((sim['val'] as num?) ?? 0).toInt();
         return _col([
@@ -938,7 +967,8 @@ class TileView extends StatelessWidget {
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (act != null) _ibtn('tune', (w['tuneIcon'] ?? 'mdi:tune-vertical').toString(), fs(w, 'iconSize') * 0.7, expand: false, circle: true),
+                // With a brightness slider only, the card already does it all: the button comes with RGB or color temperature.
+                if (act != null && _hasColorTune) _tuneBtn(),
                 const SizedBox(width: 4),
                 _led(on, colorOn),
               ],

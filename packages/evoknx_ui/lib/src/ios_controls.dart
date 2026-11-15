@@ -40,6 +40,9 @@ class IosSwitch extends StatelessWidget {
 }
 
 /// The slider of the iOS themes: a thick rounded track with a fill and a white capsule knob. [f] is 0…1.
+/// Width of the knob of the iOS slider (the value is measured from the centre of the knob).
+const double kIosKnobW = 36;
+
 class IosSliderBar extends StatelessWidget {
   const IosSliderBar({super.key, required this.f, required this.fill, required this.track});
 
@@ -51,7 +54,7 @@ class IosSliderBar extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, bc) {
         final width = bc.maxWidth.isFinite ? bc.maxWidth : 200.0;
-        const kw = 36.0, kh = 24.0, th = 8.0, h = 28.0;
+        const kw = kIosKnobW, kh = 24.0, th = 8.0, h = 28.0;
         final x = (width - kw) * f.clamp(0.0, 1.0);
         return SizedBox(
           height: h,
