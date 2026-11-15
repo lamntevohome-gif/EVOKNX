@@ -414,12 +414,12 @@ class AppPalette {
     shadow: 3,
     lift: 0,
     screen: Color(0xFFF2F2F7),
-    tile: Color(0xFFFFFFFF),
+    tile: Color(0xFFDCDCE1),
     tileEdge: Color(0x00000000),
     tileOn: Color(0xFFFFFFFF),
     panel: Color(0xFFF2F2F7),
-    ink: Color(0xFF000000),
-    muted: Color(0xFF6C6C70),
+    ink: Color(0xFF1C1C1E),
+    muted: Color(0xFF5A5A5E),
     line: Color(0xFFD1D1D6),
     lineStrong: Color(0xFFAEAEB2),
     accent: Color(0xFF0088FF),
@@ -438,20 +438,20 @@ class AppPalette {
     shadow: 3,
     lift: 0,
     screen: Color(0xFF000000),
-    tile: Color(0xFF1C1C1E),
+    tile: Color(0xFF3A3A3C),
     tileEdge: Color(0x00000000),
     tileOn: Color(0xFFFFFFFF),
-    panel: Color(0xFF2C2C2E),
+    panel: Color(0xFF48484A),
     ink: Color(0xFFFFFFFF),
-    muted: Color(0xFF8E8E93),
-    line: Color(0xFF38383A),
+    muted: Color(0xFFA1A1A6),
+    line: Color(0xFF545456),
     lineStrong: Color(0xFF48484A),
     accent: Color(0xFF0091FF),
     accentSoft: Color(0xFF1B2A40),
     led: Color(0xFFFF9230),
     ledSoft: Color(0xFF3A2A18),
     danger: Color(0xFFFF4245),
-    chip: Color(0xFF2C2C2E),
+    chip: Color(0xFF48484A),
     chipOn: Color(0xFF0091FF),
     chipOnText: Color(0xFFFFFFFF),
   );
@@ -461,11 +461,11 @@ class AppPalette {
   bool get iosLight => ios && screen.computeLuminance() > 0.5;
 
   AppPalette get asIosOn => iosLight
-      ? copyWith(iosOn: true)
+      ? copyWith(tile: Colors.white, iosOn: true)
       : copyWith(
           tile: Colors.white,
           tileOn: Colors.white,
-          ink: Colors.black,
+          ink: const Color(0xFF1C1C1E),
           muted: const Color(0xFF6C6C70),
           panel: const Color(0xFFF2F2F7),
           line: const Color(0xFFE5E5EA),
@@ -675,9 +675,9 @@ class TileView extends StatelessWidget {
     return rows.isEmpty ? null : rows.first;
   }
 
-  Widget _label() => Text(
+  Widget _label({int? maxLines}) => Text(
     (w['label'] ?? '').toString(),
-    maxLines: w['type'] == 'shutter' || w['type'] == 'value' || w['type'] == 'ac' ? 1 : 2,
+    maxLines: maxLines ?? (w['type'] == 'shutter' || w['type'] == 'value' || w['type'] == 'ac' ? 1 : 2),
     overflow: TextOverflow.ellipsis,
     style: pal.ios ? evoLabelStyle(w, pal.ink).copyWith(fontWeight: FontWeight.w600) : evoLabelStyle(w, pal.ink),
   );
@@ -706,7 +706,7 @@ class TileView extends StatelessWidget {
       if (w['type'] != 'switch') return const SizedBox.shrink();
       return IosSwitch(
         on: on,
-        offTrack: pal.iosLight ? const Color(0xFFD9D9DE) : pal.ink.withValues(alpha: 0.16),
+        offTrack: pal.iosLight ? const Color(0xFFBDBDC2) : pal.ink.withValues(alpha: 0.16),
         onTrack: const Color(0xFF34C759),
         scale: scale,
       );
@@ -808,7 +808,7 @@ class TileView extends StatelessWidget {
   /// color over the card, on every theme.
   Color get _track => Color.alphaBlend(pal.ink.withValues(alpha: 0.24), pal.tile == Colors.transparent ? pal.screen : pal.tile);
 
-  Color get _iosTrack => pal.iosLight ? const Color(0xFFD9D9DE) : pal.ink.withValues(alpha: 0.14);
+  Color get _iosTrack => pal.iosLight ? const Color(0xFFBDBDC2) : pal.ink.withValues(alpha: 0.14);
 
   /// The iOS slider; dragging it works like the normal one.
   /// The grip of a slider: it wins the gesture at the first touch (so a swipe between pages or a scroll cannot take it over),
@@ -938,6 +938,8 @@ class TileView extends StatelessWidget {
   Widget _content(String type, bool on, Color colorOn, Color colorOff) {
     final style = jsonMap(w['style']);
     final textOn = (style['textOn'] ?? 'On').toString(), textOff = (style['textOff'] ?? 'Off').toString();
+    // The state line of a switch or dimmer card can be hidden ("Show status" off).
+    final showSt = w['showState'] != false;
     switch (type) {
       case 'switch':
         if (w['look'] == 'simple') return _simple(on ? colorOn : pal.muted);
@@ -947,7 +949,7 @@ class TileView extends StatelessWidget {
             builder: (context, bc) {
               final stateLine = _state(on ? textOn : textOff, color: on ? colorOn : null);
               final hasIcon = !isNoIcon(w['icon'] as String?);
-              if (bc.maxHeight < 84) {
+              if (bc.maxHeight < 68) {
                 // Low card: icon, name with the state under it, and the switch, all centred on one row.
                 return Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
@@ -959,7 +961,7 @@ class TileView extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           _label(),
-                          if (bc.maxHeight >= 44) ...[const SizedBox(height: 1), stateLine],
+                          if (showSt && bc.maxHeight >= 44) ...[const SizedBox(height: 1), stateLine],
                         ],
                       ),
                     ),
@@ -972,12 +974,16 @@ class TileView extends StatelessWidget {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
-                  children: [_label(), const SizedBox(height: 2), stateLine],
+                  children: [
+                    bc.maxHeight < 84 ? _label(maxLines: 1) : _label(),
+                    if (showSt) ...[const SizedBox(height: 2), stateLine],
+                  ],
                 ),
               ]);
             },
           );
         }
+        if (!showSt) return Center(child: _head(on ? colorOn : pal.muted, trailing: _led(on, colorOn)));
         return _col([_head(on ? colorOn : pal.muted, trailing: _led(on, colorOn)), _state(on ? textOn : textOff, color: on ? colorOn : null)]);
       case 'dimmer':
         if (w['look'] == 'simple') {
@@ -1002,8 +1008,7 @@ class TileView extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               _slider(v / 100, colorOn),
-              const SizedBox(height: 6),
-              _state(on ? '$textOn $v%' : textOff, color: on ? colorOn : null),
+              if (showSt) ...[const SizedBox(height: 6), _state(on ? '$textOn $v%' : textOff, color: on ? colorOn : null)],
             ],
           ),
         ]);
