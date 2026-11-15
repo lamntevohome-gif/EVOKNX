@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:math';
 import 'dart:typed_data';
 
-import 'package:flutter/gestures.dart' show DragStartBehavior;
+import 'package:flutter/gestures.dart' show EagerGestureRecognizer;
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:knx_config/knx_config.dart';
@@ -736,16 +736,8 @@ class TileView extends StatelessWidget {
           act!('preview', n);
         }
 
-        return GestureDetector(
-          dragStartBehavior: DragStartBehavior.down,
-          behavior: HitTestBehavior.opaque,
-          onHorizontalDragStart: (e) => at(e.localPosition.dx),
-          onHorizontalDragUpdate: (e) => at(e.localPosition.dx),
-          onHorizontalDragEnd: (_) => act!('commit'),
-          onTapUp: (e) {
-            at(e.localPosition.dx);
-            act!('commit');
-          },
+        return _sliderGrip(
+          at: at,
           child: MouseRegion(
             cursor: SystemMouseCursors.click,
             child: SizedBox(
@@ -814,6 +806,22 @@ class TileView extends StatelessWidget {
   Color get _iosTrack => pal.iosLight ? const Color(0xFFD9D9DE) : pal.ink.withValues(alpha: 0.14);
 
   /// The iOS slider; dragging it works like the normal one.
+  /// The grip of a slider: it wins the gesture at the first touch (so a swipe between pages or a scroll cannot take it over),
+  /// and follows the pointer with raw events: the value is set on touch and on every move, and sent when the finger lifts.
+  Widget _sliderGrip({required void Function(double dx) at, required Widget child}) => RawGestureDetector(
+    behavior: HitTestBehavior.opaque,
+    gestures: <Type, GestureRecognizerFactory>{
+      EagerGestureRecognizer: GestureRecognizerFactoryWithHandlers<EagerGestureRecognizer>(() => EagerGestureRecognizer(), (_) {}),
+    },
+    child: Listener(
+      onPointerDown: (e) => at(e.localPosition.dx),
+      onPointerMove: (e) => at(e.localPosition.dx),
+      onPointerUp: (_) => act!('commit'),
+      onPointerCancel: (_) => act!('commit'),
+      child: child,
+    ),
+  );
+
   Widget _iosSlider(double v, Color c, {bool invert = false}) {
     final f = v.clamp(0.0, 1.0);
     return LayoutBuilder(
@@ -825,16 +833,8 @@ class TileView extends StatelessWidget {
           act!('preview', n);
         }
 
-        return GestureDetector(
-          dragStartBehavior: DragStartBehavior.down,
-          behavior: HitTestBehavior.opaque,
-          onHorizontalDragStart: (e) => at(e.localPosition.dx),
-          onHorizontalDragUpdate: (e) => at(e.localPosition.dx),
-          onHorizontalDragEnd: (_) => act!('commit'),
-          onTapUp: (e) {
-            at(e.localPosition.dx);
-            act!('commit');
-          },
+        return _sliderGrip(
+          at: at,
           child: MouseRegion(
             cursor: SystemMouseCursors.click,
             child: IosSliderBar(f: f, fill: c, track: _iosTrack),
