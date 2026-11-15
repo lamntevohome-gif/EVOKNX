@@ -1205,13 +1205,48 @@ class TileView extends StatelessWidget {
         final showPct = b['status'] != null || b['position'] != null;
         final bi = fs(w, 'btnIcon') * 1.55;
         Widget btn(Object i, String a) => _ibtn(a, i, bi);
+        if (pal.ios) {
+          // iOS: the name on top (the three dots at its right when the blind has a slider), the controls in the middle
+          // and the state below; the slider-only blind shows its slider in the middle, like the dimmer.
+          final stateText = showPct && showSt ? (curtain ? 'Open ${100 - p}%' : 'Close $p%') : null;
+          final hasIcon = !isNoIcon(w['icon'] as String?);
+          final dots = ctrl == 'both' ? _tuneBtn() : null;
+          final ib = fs(w, 'btnIcon') * 1.15;
+          Widget ibtn(Object i, String a) => _ibtn(a, i, ib);
+          final controls = ctrl == 'slider'
+              ? _slider((curtain ? 100 - p : p) / 100, pal.accent, invert: curtain)
+              : Row(
+                  children: [
+                    ibtn(curtain ? 'mdi:arrow-expand-horizontal' : Icons.keyboard_arrow_up, 'up'),
+                    if (w['showStop'] != false) ibtn(Icons.stop_outlined, 'stop'),
+                    ibtn(curtain ? 'mdi:arrow-collapse-horizontal' : Icons.keyboard_arrow_down, 'down'),
+                  ],
+                );
+          return LayoutBuilder(
+            builder: (context, bc) {
+              if (bc.maxHeight < 64) {
+                // Low card: the name and the controls on one row.
+                return Row(
+                  children: [
+                    if (hasIcon) ...[_icon(pal.muted), const SizedBox(width: 8)],
+                    Expanded(flex: 2, child: _label(maxLines: 1)),
+                    const SizedBox(width: 6),
+                    Expanded(flex: 3, child: controls),
+                    if (dots != null) dots,
+                  ],
+                );
+              }
+              return _col([_head(pal.muted, trailing: dots), controls, if (stateText != null && bc.maxHeight >= 88) _state(stateText)]);
+            },
+          );
+        }
         return _col([
           _head(
             pal.muted,
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (showPct) _state(curtain ? 'Open ${100 - p}%' : 'Close $p%'),
+                if (showPct && showSt) _state(curtain ? 'Open ${100 - p}%' : 'Close $p%'),
                 if (ctrl != 'buttons') ...[const SizedBox(width: 6), _ibtn('tune', 'mdi:tune-vertical', fs(w, 'iconSize') * 0.7, expand: false, circle: true)],
               ],
             ),
