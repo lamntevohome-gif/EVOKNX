@@ -32,7 +32,9 @@ class PropsPanel extends StatelessWidget {
       body = [_MultiProps(d: d)];
     } else if (w != null) {
       body = [_WidgetProps(key: ValueKey('wp-${w['id']}'), d: d, w: w)];
-    } else if (d.view == 'overview' || d.view == 'gallery' || d.view == 'floors') {
+    } else if (d.view == 'floors') {
+      body = [_AreaProps(d: d)];
+    } else if (d.view == 'overview' || d.view == 'gallery') {
       body = [_OverviewProps(d: d)];
     } else if (d.view == 'floor' && d.floor != null) {
       body = [_FloorProps(key: ValueKey('fp-${d.floor!['id']}'), d: d, f: d.floor!)];
@@ -1649,7 +1651,16 @@ class _FloorProps extends StatelessWidget {
       final x = byId(jsonList(doc['floors']), fid);
       if (x != null) fn(x);
     }, coalesce: coalesce);
-    return _Section('Floor', [
+    final theme = jsonMap(d.doc['theme']);
+    final bgField = f['special'] == 'home' ? 'bgHome' : (f['special'] == 'security' ? 'bgSecurity' : 'bgArea');
+    final bgTitle = f['special'] == 'home' ? 'Home background' : (f['special'] == 'security' ? 'Security background' : 'Area background');
+    void editTheme(void Function(Json t) fn, {String? coalesce}) => d.p.mutate((doc) {
+      final t = jsonMap(doc['theme']);
+      fn(t);
+      doc['theme'] = t;
+    }, coalesce: coalesce);
+    final bgSection = theme['layout'] == 'modern' ? _PageBgSettings(holder: theme, edit: editTheme, field: bgField, title: bgTitle) : null;
+    final section = _Section('Floor', [
       FieldLabel(
         'Floor name',
         SyncedField(
@@ -1658,11 +1669,6 @@ class _FloorProps extends StatelessWidget {
         ),
       ),
       _lockField(context, (f['lock'] ?? '').toString(), (v) => editFloor((x) => v.isEmpty ? x.remove('lock') : x['lock'] = v, coalesce: 'lock-${f['id']}')),
-      if (f['special'] == null)
-        FieldLabel(
-          'Floor cover image (16:9)',
-          _RoomCover(value: (f['cover'] ?? '').toString(), onChanged: (v) => editFloor((x) => v == null ? x.remove('cover') : x['cover'] = v)),
-        ),
       Wrap(
         spacing: 6,
         runSpacing: 6,
@@ -1679,6 +1685,25 @@ class _FloorProps extends StatelessWidget {
         ],
       ),
     ], trailing: EvoButton(label: 'Delete floor', icon: Icons.delete_outline, small: true, danger: true, onPressed: () => deleteTreeSelection(context, d)));
+    return bgSection == null ? section : Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [section, bgSection]);
+  }
+}
+
+/// The Area screen (list of floors): its own background (Modern layout).
+class _AreaProps extends StatelessWidget {
+  const _AreaProps({required this.d});
+  final Designer d;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = jsonMap(d.doc['theme']);
+    void editTheme(void Function(Json t) fn, {String? coalesce}) => d.p.mutate((doc) {
+      final t = jsonMap(doc['theme']);
+      fn(t);
+      doc['theme'] = t;
+    }, coalesce: coalesce);
+    if (theme['layout'] != 'modern') return const _Hint('The Area screen has no settings in the Basic layout.');
+    return _PageBgSettings(holder: theme, edit: editTheme, field: 'bgArea', title: 'Area background');
   }
 }
 
@@ -1849,9 +1874,6 @@ class _OverviewProps extends StatelessWidget {
             tfsRow('galleryTitle'),
             tfsRow('galleryIcon'),
           ]),
-          _PageBgSettings(holder: theme, edit: editTheme, field: 'bgArea', title: 'Area background'),
-          _PageBgSettings(holder: theme, edit: editTheme, field: 'bgHome', title: 'Home background'),
-          _PageBgSettings(holder: theme, edit: editTheme, field: 'bgSecurity', title: 'Security background'),
         ] else
           _Section('Basic layout', [
             tfsRow('roomBar'),

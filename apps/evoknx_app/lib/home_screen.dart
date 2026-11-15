@@ -58,10 +58,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   /// Home or Security with two rooms or more, before a room is chosen: its rooms are listed as a gallery, like the floors of
   /// Area.
-  bool get _specialList => _modernMode && _tab != 1 && _lvl != 2 && roomsOf(doc, floorId).length > 1;
+  bool get _specialList => _modernMode && _tab != 1 && _tab != 3 && _lvl != 2 && roomsOf(doc, floorId).length > 1;
 
   /// True when a room (and not a list of floors or rooms) is on the screen in the Modern layout.
-  bool get _onRoom => _tab == 1 ? _lvl == 2 : !_specialList;
+  bool get _onRoom => _tab == 3 ? false : (_tab == 1 ? _lvl == 2 : !_specialList);
 
   Json? _special(String kind) => floorsOf(doc).where((f) => f['special'] == kind).firstOrNull;
 
@@ -93,6 +93,11 @@ class _HomeScreenState extends State<HomeScreen> {
         _lvl = 0;
         _areaFloor = null;
       });
+      return;
+    }
+    if (t == 3) {
+      // The User page: a page of the bar, with the common background.
+      setState(() => _tab = 3);
       return;
     }
     setState(() => _tab = t);
@@ -618,12 +623,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Future<void> _openUser() => Navigator.of(context).push(
-    MaterialPageRoute(
-      builder: (_) => UserScreen(store: store, onSettings: _openSettings),
-    ),
-  );
-
   Future<void> _openSettings() async {
     await Navigator.of(context).push(
       MaterialPageRoute(
@@ -785,7 +784,11 @@ class _HomeScreenState extends State<HomeScreen> {
     // The Area screen, Home and Security can have a background of their own (a page's own one wins).
     final theme = jsonMap(d['theme']);
     final special = floorsOf(d).where((f) => f['id'] == floorId).firstOrNull?['special'];
-    final screenBg = !onPage ? theme['bgArea'] : (special == 'home' ? theme['bgHome'] : (special == 'security' ? theme['bgSecurity'] : null));
+    final screenBg = _tab == 3
+        ? null
+        : !onPage
+        ? theme['bgArea']
+        : (special == 'home' ? theme['bgHome'] : (special == 'security' ? theme['bgSecurity'] : null));
     final bg = pageBackground(s, pal0, fallback: screenBg is Map ? jsonMap(screenBg) : null);
     final pal = pal0.copyWith(onScreenInk: bg?.ink, onScreenMuted: bg?.muted);
     final r = room;
@@ -795,7 +798,9 @@ class _HomeScreenState extends State<HomeScreen> {
     final VoidCallback? onBack = _lvl == 2 && (_tab == 1 || roomsOf(d, floorId).length > 1) ? () => _modernBack() : null;
     final Json? headFloor = _tab == 1 && _lvl == 0 ? <String, dynamic>{'title': 'Area'} : floor;
     final Widget content;
-    if (blockedAbove != null) {
+    if (_tab == 3) {
+      content = UserPanel(store: store);
+    } else if (blockedAbove != null) {
       content = _lockedView(blockedAbove, pal);
     } else if (_tab == 1 && _lvl == 0) {
       content = AreaList(
@@ -857,7 +862,18 @@ class _HomeScreenState extends State<HomeScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     _banner(pal),
-                    _header(d, pal, headFloor, onPage ? r : null, _tab == 1 && normal.length > 1, onBack: onBack, sizeKey: onPage ? 'titleSize' : 'areaTitle'),
+                    if (_tab == 3)
+                      _userHeader(pal)
+                    else
+                      _header(
+                        d,
+                        pal,
+                        headFloor,
+                        onPage ? r : null,
+                        _tab == 1 && normal.length > 1,
+                        onBack: onBack,
+                        sizeKey: onPage ? 'titleSize' : 'areaTitle',
+                      ),
                     if (onPage && r != null && subs.length > 1 && _dev != 'mobile') _pageNav(subs, pal),
                     Expanded(child: _fade(ValueKey('m$_tab-$_lvl-$floorId-$roomId-${blockedAbove?['id']}'), content)),
                     _modernBar(pal),
@@ -888,7 +904,6 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(vertical: 6),
               margin: const EdgeInsets.symmetric(horizontal: 3, vertical: 4),
-              decoration: BoxDecoration(color: sel ? pal.ink.withAlpha(36) : Colors.transparent, borderRadius: BorderRadius.circular(30)),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [Icon(sel ? on : off, size: f * 2.0, color: pal.ink)],
@@ -907,12 +922,15 @@ class _HomeScreenState extends State<HomeScreen> {
             ? GlassPanel(
                 radius: 40,
                 dark: pal.ink.computeLuminance() > 0.5,
-                child: Row(
+                child: SlidingPillRow(
+                  count: 4,
+                  selected: _tab,
+                  color: pal.ink.withAlpha(36),
                   children: [
                     item(0, Icons.home, Icons.home_outlined, 'Home'),
                     item(1, Icons.layers, Icons.layers_outlined, 'Area'),
                     item(2, Icons.shield, Icons.shield_outlined, 'Security'),
-                    item(-1, Icons.person, Icons.person_outline, 'User', onTap: _openUser),
+                    item(3, Icons.person, Icons.person_outline, 'User'),
                   ],
                 ),
               )
@@ -923,12 +941,15 @@ class _HomeScreenState extends State<HomeScreen> {
                   border: Border.all(color: pal.tileEdge, width: 0.8),
                   boxShadow: const [BoxShadow(color: Color(0x40000000), blurRadius: 14, offset: Offset(0, 4))],
                 ),
-                child: Row(
+                child: SlidingPillRow(
+                  count: 4,
+                  selected: _tab,
+                  color: pal.ink.withAlpha(36),
                   children: [
                     item(0, Icons.home, Icons.home_outlined, 'Home'),
                     item(1, Icons.layers, Icons.layers_outlined, 'Area'),
                     item(2, Icons.shield, Icons.shield_outlined, 'Security'),
-                    item(-1, Icons.person, Icons.person_outline, 'User', onTap: _openUser),
+                    item(3, Icons.person, Icons.person_outline, 'User'),
                   ],
                 ),
               ),
@@ -965,6 +986,26 @@ class _HomeScreenState extends State<HomeScreen> {
 
   /// "Tầng 1 › Phòng 1" on one row (floor shown only when there are several),
   /// settings button on the right: as in the Editor preview.
+  /// The title of the User page, with the way to the settings of the App.
+  Widget _userHeader(AppPalette pal) => Padding(
+    padding: const EdgeInsets.fromLTRB(20, 10, 12, 3),
+    child: Row(
+      children: [
+        Expanded(
+          child: Text(
+            tr('User'),
+            style: TextStyle(fontSize: tfs(doc, 'areaTitle'), fontWeight: FontWeight.w600, color: pal.sInk),
+          ),
+        ),
+        IconButton(
+          tooltip: tr('Settings'),
+          icon: Icon(Icons.settings_outlined, color: pal.sInk),
+          onPressed: _openSettings,
+        ),
+      ],
+    ),
+  );
+
   Widget _header(Json d, AppPalette pal, Json? floor, Json? r, bool multi, {VoidCallback? onBack, String sizeKey = 'titleSize'}) {
     final hide = jsonMap(d['theme'])['hideTitle'] == true && r != null && !_modernMode;
     return Padding(

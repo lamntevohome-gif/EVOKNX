@@ -174,6 +174,7 @@ class Designer extends ChangeNotifier {
   }
 
   String view = 'room'; // overview | floor | room
+  String lastView = 'room'; // the view that was open before the Overview
   String? floorId, roomId, subId, widgetId;
   ({String? g, int x, int y})? cell;
 
@@ -354,6 +355,7 @@ class Designer extends ChangeNotifier {
   /// Shows the floor gallery of the Modern layout in the preview.
   void floorsGallery() {
     treeSel.clear();
+    appSettingsOpen = false;
     view = 'floors';
     widgetId = null;
     cell = null;
@@ -376,6 +378,7 @@ class Designer extends ChangeNotifier {
   /// Shows the room gallery in the preview.
   void gallery() {
     treeSel.clear();
+    appSettingsOpen = false;
     view = 'gallery';
     widgetId = null;
     cell = null;
@@ -393,6 +396,8 @@ class Designer extends ChangeNotifier {
 
   void overview() {
     treeSel.clear();
+    if (view != 'overview') lastView = view;
+    appSettingsOpen = false;
     view = 'overview';
     widgetId = null;
     cell = null;
@@ -406,6 +411,7 @@ class Designer extends ChangeNotifier {
     _navSeq++;
     areaSeq++;
     treeSel.clear();
+    appSettingsOpen = false;
     view = 'floor';
     floorId = id;
     final rs = roomsOf(doc, id);
@@ -424,6 +430,7 @@ class Designer extends ChangeNotifier {
     _navSeq++;
     treeSel.clear();
     roomFocus = true;
+    appSettingsOpen = false;
     view = 'room';
     roomId = id;
     floorId = byId(jsonList(doc['pages']), id)?['floorId'] as String?;
@@ -444,6 +451,7 @@ class Designer extends ChangeNotifier {
       lastDir = 0;
     }
     treeSel.clear();
+    appSettingsOpen = false;
     view = 'room';
     roomFocus = false;
     roomId = roomId_;
@@ -488,6 +496,7 @@ class Designer extends ChangeNotifier {
     widgetId = ids.isEmpty ? null : (adding ? id : (ids.contains(cur) ? cur : ids.last));
     if (ids.length <= 1) multi.clear();
     cell = null;
+    appSettingsOpen = false;
     view = 'room';
     _n();
   }
@@ -503,6 +512,7 @@ class Designer extends ChangeNotifier {
   void selectCell(String? g, int x, int y) {
     cell = (g: g, x: x, y: y);
     widgetId = null;
+    appSettingsOpen = false;
     view = 'room';
     _n();
   }

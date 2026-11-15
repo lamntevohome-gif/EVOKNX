@@ -40,10 +40,17 @@ class DesignCanvas extends StatelessWidget {
     final modernBg = th['layout'] == 'modern' && dev != 'tabletL';
     final special = d.floor?['special'];
     ScreenBg? pageBg;
-    if (d.view == 'room') {
+    // Back on the Overview, the page that was open last keeps its background so it can be tuned.
+    final ov = d.view == 'overview';
+    final lastRoom = ov && d.lastView == 'room' && byId(jsonList(doc['pages']), d.roomId) != null;
+    if (d.view == 'room' || lastRoom) {
       final fb = !modernBg ? null : (special == 'home' ? th['bgHome'] : (special == 'security' ? th['bgSecurity'] : null));
       pageBg = pageBackground(d.sub, bg, th, fallback: fb is Map ? jsonMap(fb) : null, keyId: '$special');
-    } else if (modernBg && (d.view == 'floors' || (d.view == 'floor' && special == null)) && th['bgArea'] is Map) {
+    } else if (modernBg &&
+        (d.view == 'floors' ||
+            (d.view == 'floor' && special == null) ||
+            (ov && !lastRoom && special == null && d.floorId != null && (d.lastView == 'floor' || d.lastView == 'floors'))) &&
+        th['bgArea'] is Map) {
       pageBg = pageBackground(null, bg, th, fallback: jsonMap(th['bgArea']), keyId: 'area');
     }
     final pal = base.copyWith(
@@ -130,7 +137,7 @@ class DesignCanvas extends StatelessWidget {
                               Positioned.fill(
                                 child: _ScenePopup(d: d, w: d.popupFor!, pal: pal),
                               ),
-                            if (d.appSettingsOpen)
+                            if (d.appSettingsOpen && !(modernBg && dev != 'tabletL'))
                               Positioned.fill(
                                 child: _AppSettingsSheet(d: d, pal: pal),
                               ),
@@ -316,7 +323,11 @@ class _Screen extends StatelessWidget {
           ],
         ),
       );
-      final tab = !inFloors && special == 'home' ? 0 : (!inFloors && special == 'security' ? 2 : 1);
+      final tab = d.appSettingsOpen
+          ? 3
+          : !inFloors && special == 'home'
+          ? 0
+          : (!inFloors && special == 'security' ? 2 : 1);
       final nf = tfs(doc, 'navBar');
       // As the new bar of YouTube: a rounded bar that floats, icons only, the selected one in a lighter pill.
       Widget barItem(int t, IconData on, IconData off, String label, VoidCallback onTap) {
@@ -325,11 +336,13 @@ class _Screen extends StatelessWidget {
           child: Tooltip(
             message: label,
             child: PressFade(
-              onTap: onTap,
+              onTap: () {
+                if (t < 3) d.toggleAppSettings(false);
+                onTap();
+              },
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 6),
                 margin: const EdgeInsets.symmetric(horizontal: 3, vertical: 4),
-                decoration: BoxDecoration(color: sel ? pal.ink.withAlpha(36) : Colors.transparent, borderRadius: BorderRadius.circular(30)),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [Icon(sel ? on : off, size: nf * 2.0, color: pal.ink)],
@@ -347,7 +360,11 @@ class _Screen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             statusBar,
-            if (inSpecialList) ...[
+            if (d.appSettingsOpen)
+              Expanded(
+                child: _AppSettingsSheet(d: d, pal: pal, embedded: true),
+              )
+            else if (inSpecialList) ...[
               title((floor?['title'] ?? '').toString()),
               Expanded(
                 child: RoomGallery(doc: doc, rooms: specialRooms, pal: pal, onOpen: d.selectRoom),
@@ -385,7 +402,10 @@ class _Screen extends StatelessWidget {
                   ? GlassPanel(
                       radius: 40,
                       dark: pal.ink.computeLuminance() > 0.5,
-                      child: Row(
+                      child: SlidingPillRow(
+                        count: 4,
+                        selected: tab,
+                        color: pal.ink.withAlpha(36),
                         children: [
                           barItem(0, Icons.home, Icons.home_outlined, 'Home', () => d.selectSpecial('home')),
                           barItem(1, Icons.layers, Icons.layers_outlined, 'Area', d.floorsGallery),
@@ -401,7 +421,10 @@ class _Screen extends StatelessWidget {
                         border: Border.all(color: pal.tileEdge, width: 0.8),
                         boxShadow: const [BoxShadow(color: Color(0x40000000), blurRadius: 14, offset: Offset(0, 4))],
                       ),
-                      child: Row(
+                      child: SlidingPillRow(
+                        count: 4,
+                        selected: tab,
+                        color: pal.ink.withAlpha(36),
                         children: [
                           barItem(0, Icons.home, Icons.home_outlined, 'Home', () => d.selectSpecial('home')),
                           barItem(1, Icons.layers, Icons.layers_outlined, 'Area', d.floorsGallery),
@@ -1663,9 +1686,13 @@ ScreenBg screenBackground(Json doc, AppPalette base) {
 
 /// The App's settings screen, opened from the gear button in the preview.
 class _AppSettingsSheet extends StatelessWidget {
-  const _AppSettingsSheet({required this.d, required this.pal});
+  const _AppSettingsSheet({required this.d, required this.pal, this.embedded = false});
   final Designer d;
   final AppPalette pal;
+
+  /// In the Modern layout the User page is one of the four pages of the bar: it fills the content area, no slide, no close
+  /// button, and the common background shows through.
+  final bool embedded;
 
   @override
   Widget build(BuildContext context) {
@@ -1722,27 +1749,23 @@ class _AppSettingsSheet extends StatelessWidget {
         ),
       ),
     );
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 1, end: 0),
-      duration: const Duration(milliseconds: 260),
-      curve: Curves.easeOutCubic,
-      builder: (context, t, child) => FractionalTranslation(translation: Offset(0, t), child: child),
-      child: Container(
-        color: pal.screen,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const SizedBox(height: 38),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 4, 12, 12),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'User',
-                      style: TextStyle(fontSize: 26, fontWeight: FontWeight.w700, color: pal.ink),
-                    ),
+    final page = Container(
+      color: embedded ? null : pal.screen,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SizedBox(height: embedded ? 0 : 38),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 4, 12, 12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'User',
+                    style: TextStyle(fontSize: 26, fontWeight: FontWeight.w700, color: embedded ? pal.sInk : pal.ink),
                   ),
+                ),
+                if (!embedded)
                   InkWell(
                     customBorder: const CircleBorder(),
                     onTap: () => d.toggleAppSettings(false),
@@ -1757,72 +1780,79 @@ class _AppSettingsSheet extends StatelessWidget {
                       child: Icon(Icons.close, size: 18, color: pal.ink),
                     ),
                   ),
-                ],
-              ),
+              ],
             ),
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-                children: [
-                  card('Account', [
-                    row(
-                      CircleAvatar(
-                        radius: 18,
-                        backgroundColor: pal.accentSoft,
-                        child: Icon(Icons.person_outline, color: pal.accent, size: 20),
-                      ),
-                      'Not signed in',
-                      sub: 'Accounts and user permissions will come in a later version',
+          ),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+              children: [
+                card('Account', [
+                  row(
+                    CircleAvatar(
+                      radius: 18,
+                      backgroundColor: pal.accentSoft,
+                      child: Icon(Icons.person_outline, color: pal.accent, size: 20),
                     ),
-                  ]),
-                  card('Appearance', [
-                    for (final (group, items) in kAppThemeGroups) ...[
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                        child: Text(
-                          group.toUpperCase(),
-                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 0.5, color: pal.muted),
-                        ),
-                      ),
-                      for (final (k, n) in items)
-                        row(
-                          ThemeSwatch(AppPalette.of(k), size: 26),
-                          n,
-                          sub: k == projMode ? 'Project default' : null,
-                          trailing: k == cur ? Icon(Icons.check, color: pal.accent, size: 20) : null,
-                          onTap: () => d.setPreviewTheme(k == projMode ? null : k),
-                        ),
-                    ],
-                  ]),
-                  card('KNX connection', [
-                    for (final c in jsonList(doc['connections']))
-                      row(
-                        Icon(Icons.router_outlined, color: pal.muted, size: 22),
-                        (c['name'] ?? 'Connections').toString(),
-                        sub: '${c['host'] ?? ''}:${c['port'] ?? 3671}${c['natMode'] == true ? ' · NAT' : ''}',
-                        trailing: Text(online ? 'Connected' : 'Simulator', style: TextStyle(fontSize: 12.5, color: online ? pal.accent : pal.muted)),
-                      ),
-                  ]),
-                  card('About', [
-                    row(Icon(Icons.info_outline, color: pal.muted, size: 22), 'EvoKNX', sub: 'Version 1.0 · © ${DateTime.now().year} Evohome'),
-                    row(Icon(Icons.palette_outlined, color: pal.muted, size: 22), 'Icon', sub: 'Material Design Icons · Pictogrammers (Apache 2.0)'),
-                    row(
-                      Icon(Icons.home_work_outlined, color: pal.muted, size: 22),
-                      (jsonMap(doc['project'])['name'] ?? '').toString(),
-                      sub: 'Configuration version ${jsonMap(doc['project'])['revision'] ?? 0}',
-                    ),
-                  ]),
-                  Text(
-                    'This is a preview. The theme choice here is only for trying: it does not change the project\'s setting; in the App each user picks their own theme.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 12, color: pal.muted),
+                    'Not signed in',
+                    sub: 'Accounts and user permissions will come in a later version',
                   ),
-                ],
-              ),
+                ]),
+                card('Appearance', [
+                  for (final (group, items) in kAppThemeGroups) ...[
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                      child: Text(
+                        group.toUpperCase(),
+                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 0.5, color: pal.muted),
+                      ),
+                    ),
+                    for (final (k, n) in items)
+                      row(
+                        ThemeSwatch(AppPalette.of(k), size: 26),
+                        n,
+                        sub: k == projMode ? 'Project default' : null,
+                        trailing: k == cur ? Icon(Icons.check, color: pal.accent, size: 20) : null,
+                        onTap: () => d.setPreviewTheme(k == projMode ? null : k),
+                      ),
+                  ],
+                ]),
+                card('KNX connection', [
+                  for (final c in jsonList(doc['connections']))
+                    row(
+                      Icon(Icons.router_outlined, color: pal.muted, size: 22),
+                      (c['name'] ?? 'Connections').toString(),
+                      sub: '${c['host'] ?? ''}:${c['port'] ?? 3671}${c['natMode'] == true ? ' · NAT' : ''}',
+                      trailing: Text(online ? 'Connected' : 'Simulator', style: TextStyle(fontSize: 12.5, color: online ? pal.accent : pal.muted)),
+                    ),
+                ]),
+                card('About', [
+                  row(Icon(Icons.info_outline, color: pal.muted, size: 22), 'EvoKNX', sub: 'Version 1.0 · © ${DateTime.now().year} Evohome'),
+                  row(Icon(Icons.palette_outlined, color: pal.muted, size: 22), 'Icon', sub: 'Material Design Icons · Pictogrammers (Apache 2.0)'),
+                  row(
+                    Icon(Icons.home_work_outlined, color: pal.muted, size: 22),
+                    (jsonMap(doc['project'])['name'] ?? '').toString(),
+                    sub: 'Configuration version ${jsonMap(doc['project'])['revision'] ?? 0}',
+                  ),
+                ]),
+                Text(
+                  'This is a preview. The theme choice here is only for trying: it does not change the project\'s setting; in the App each user picks their own theme.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 12, color: pal.muted),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
+    );
+    if (embedded) return page;
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 1, end: 0),
+      duration: const Duration(milliseconds: 260),
+      curve: Curves.easeOutCubic,
+      builder: (context, t, child) => FractionalTranslation(translation: Offset(0, t), child: child),
+      child: page,
     );
   }
 }
