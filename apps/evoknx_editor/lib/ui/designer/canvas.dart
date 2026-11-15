@@ -370,7 +370,7 @@ class _Screen extends StatelessWidget {
                 child: RoomGallery(doc: doc, rooms: specialRooms, pal: pal, onOpen: d.selectRoom),
               ),
             ] else if (inFloors || inRooms) ...[
-              title('Area'),
+              title(areaName(theme)),
               Expanded(
                 child: AreaList(
                   doc: doc,
@@ -408,7 +408,7 @@ class _Screen extends StatelessWidget {
                         color: pal.ink.withAlpha(36),
                         children: [
                           barItem(0, Icons.home, Icons.home_outlined, 'Home', () => d.selectSpecial('home')),
-                          barItem(1, Icons.layers, Icons.layers_outlined, 'Area', d.floorsGallery),
+                          barItem(1, Icons.layers, Icons.layers_outlined, areaName(theme), d.floorsGallery),
                           barItem(2, Icons.shield, Icons.shield_outlined, 'Security', () => d.selectSpecial('security')),
                           barItem(3, Icons.person, Icons.person_outline, 'User', () => d.toggleAppSettings(true)),
                         ],
@@ -427,7 +427,7 @@ class _Screen extends StatelessWidget {
                         color: pal.ink.withAlpha(36),
                         children: [
                           barItem(0, Icons.home, Icons.home_outlined, 'Home', () => d.selectSpecial('home')),
-                          barItem(1, Icons.layers, Icons.layers_outlined, 'Area', d.floorsGallery),
+                          barItem(1, Icons.layers, Icons.layers_outlined, areaName(theme), d.floorsGallery),
                           barItem(2, Icons.shield, Icons.shield_outlined, 'Security', () => d.selectSpecial('security')),
                           barItem(3, Icons.person, Icons.person_outline, 'User', () => d.toggleAppSettings(true)),
                         ],

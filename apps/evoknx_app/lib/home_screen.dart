@@ -397,7 +397,11 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isOpen(Json? item) => item == null || _lockOf(item).isEmpty || store.unlocked.contains(item['id']);
 
   /// The floor or the room that is shown now and is still locked (the page is checked apart).
+  /// The Area as something that can be locked (Modern layout): the code is in the theme.
+  Json get _areaItem => <String, dynamic>{'id': 'area', 'title': areaName(jsonMap(doc['theme'])), 'lock': jsonMap(doc['theme'])['areaLock']};
+
   Json? _closedAbove() {
+    if (_modernMode && _tab == 1 && !_isOpen(_areaItem)) return _areaItem;
     final f = floorsOf(doc).where((x) => x['id'] == floorId).firstOrNull;
     final listsFloors = _modernMode && (_tab == 1 ? _lvl == 0 : _specialList);
     if (!listsFloors && !_isOpen(f)) return f;
@@ -796,7 +800,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final floor = floorsOf(d).where((f) => f['id'] == floorId).firstOrNull;
     final normal = normalFloorsOf(d);
     final VoidCallback? onBack = _lvl == 2 && (_tab == 1 || roomsOf(d, floorId).length > 1) ? () => _modernBack() : null;
-    final Json? headFloor = _tab == 1 && _lvl == 0 ? <String, dynamic>{'title': 'Area'} : floor;
+    final Json? headFloor = _tab == 1 && _lvl == 0 ? <String, dynamic>{'title': areaName(theme)} : floor;
     final Widget content;
     if (_tab == 3) {
       content = UserPanel(store: store);
@@ -928,7 +932,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   color: pal.ink.withAlpha(36),
                   children: [
                     item(0, Icons.home, Icons.home_outlined, 'Home'),
-                    item(1, Icons.layers, Icons.layers_outlined, 'Area'),
+                    item(1, Icons.layers, Icons.layers_outlined, areaName(jsonMap(doc['theme']))),
                     item(2, Icons.shield, Icons.shield_outlined, 'Security'),
                     item(3, Icons.person, Icons.person_outline, 'User'),
                   ],
@@ -947,7 +951,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   color: pal.ink.withAlpha(36),
                   children: [
                     item(0, Icons.home, Icons.home_outlined, 'Home'),
-                    item(1, Icons.layers, Icons.layers_outlined, 'Area'),
+                    item(1, Icons.layers, Icons.layers_outlined, areaName(jsonMap(doc['theme']))),
                     item(2, Icons.shield, Icons.shield_outlined, 'Security'),
                     item(3, Icons.person, Icons.person_outline, 'User'),
                   ],

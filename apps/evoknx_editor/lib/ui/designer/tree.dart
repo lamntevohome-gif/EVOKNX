@@ -394,12 +394,12 @@ class StructureTree extends StatelessWidget {
         if (home != null) ...floorBlock(home, 0),
         row(
           leading: Icon(Icons.layers_outlined, size: 16, color: c.muted),
-          text: 'Area',
+          text: areaName(jsonMap(doc['theme'])),
           open: areaOpen,
           onToggle: () => d.toggleTreeOpen('area', true),
           bold: true,
-          on: false,
-          onTap: () => d.toggleTreeOpen('area', true),
+          on: d.view == 'floors',
+          onTap: d.floorsGallery,
           onMenu: (at) => _menu(context, at, [
             (Icons.add, 'Add floor', () async => d.addFloor()),
             (Icons.file_download_outlined, 'Import floor', () => importPart(context, d, only: 'floor')),

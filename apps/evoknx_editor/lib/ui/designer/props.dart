@@ -562,7 +562,12 @@ class _WidgetPropsState extends State<_WidgetProps> {
             if (simple && w['type'] == 'dimmer')
               FieldLabel(
                 'Icon that opens the panel',
-                IconField(d: d, value: (w['tuneIcon'] ?? 'mdi:tune-vertical').toString(), scope: IconScope.widget, onChanged: (v) => set('tuneIcon', v)),
+                IconField(
+                  d: d,
+                  value: (w['tuneIcon'] == null || w['tuneIcon'] == 'mdi:tune-vertical' ? 'mdi:dots-horizontal' : w['tuneIcon']).toString(),
+                  scope: IconScope.widget,
+                  onChanged: (v) => set('tuneIcon', v),
+                ),
               ),
           ]),
           _Section('Color and status', [
@@ -1703,7 +1708,40 @@ class _AreaProps extends StatelessWidget {
       doc['theme'] = t;
     }, coalesce: coalesce);
     if (theme['layout'] != 'modern') return const _Hint('The Area screen has no settings in the Basic layout.');
-    return _PageBgSettings(holder: theme, edit: editTheme, field: 'bgArea', title: 'Area background');
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _Section('Area', [
+          FieldLabel(
+            'Area name',
+            SyncedField(
+              value: (theme['areaName'] ?? '').toString(),
+              hint: 'Area',
+              onChanged: (v) => editTheme((x) => v.trim().isEmpty ? x.remove('areaName') : x['areaName'] = v, coalesce: 'areaname'),
+            ),
+          ),
+          _lockField(
+            context,
+            (theme['areaLock'] ?? '').toString(),
+            (v) => editTheme((x) => v.isEmpty ? x.remove('areaLock') : x['areaLock'] = v, coalesce: 'arealock'),
+          ),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              EvoButton(label: 'Add floor', icon: Icons.add, small: true, onPressed: d.addFloor),
+              EvoButton(
+                label: 'Import floor',
+                icon: Icons.file_download_outlined,
+                small: true,
+                onPressed: () => importPart(context, d, only: 'floor'),
+              ),
+            ],
+          ),
+        ]),
+        _PageBgSettings(holder: theme, edit: editTheme, field: 'bgArea', title: 'Area background'),
+      ],
+    );
   }
 }
 
@@ -1722,6 +1760,9 @@ class _OverviewProps extends StatelessWidget {
       doc['theme'] = t;
     }, coalesce: coalesce);
     final modern = theme['layout'] == 'modern';
+    // The iOS theme fixes the corners, border, shadow and lift: those rows are dimmed and cannot be changed.
+    final iosTheme = AppPalette.of(d.previewTheme ?? themeKey(theme['mode'])).ios;
+    Widget fixedIos(Widget row) => iosTheme ? Opacity(opacity: 0.4, child: IgnorePointer(child: row)) : row;
     // A text size of the App (the Overview shows only the ones that the chosen layout uses).
     Widget tfsRow(String key) {
       final t = kTfs.firstWhere((x) => x.key == key);
@@ -1794,19 +1835,24 @@ class _OverviewProps extends StatelessWidget {
         ]),
         _SplashSettings(d: d),
         _Section('Card style (all cards)', [
-          StepRow(
-            label: 'Corner radius',
-            value: ((theme['cardRadius'] as num?) ?? 12).toInt(),
-            min: 0,
-            max: 32,
-            onChanged: (v) => editTheme((x) => x['cardRadius'] = v, coalesce: 'crad'),
+          if (iosTheme) const Hint('The iOS theme sets the corners, border, shadow and lift itself, so those rows are dimmed.'),
+          fixedIos(
+            StepRow(
+              label: 'Corner radius',
+              value: ((theme['cardRadius'] as num?) ?? 12).toInt(),
+              min: 0,
+              max: 32,
+              onChanged: (v) => editTheme((x) => x['cardRadius'] = v, coalesce: 'crad'),
+            ),
           ),
-          StepRow(
-            label: 'Border thickness',
-            value: ((theme['cardBorder'] as num?) ?? 1).toInt(),
-            min: 0,
-            max: 4,
-            onChanged: (v) => editTheme((x) => x['cardBorder'] = v, coalesce: 'cbor'),
+          fixedIos(
+            StepRow(
+              label: 'Border thickness',
+              value: ((theme['cardBorder'] as num?) ?? 1).toInt(),
+              min: 0,
+              max: 4,
+              onChanged: (v) => editTheme((x) => x['cardBorder'] = v, coalesce: 'cbor'),
+            ),
           ),
           StepRow(
             label: 'Background opacity',
@@ -1817,32 +1863,38 @@ class _OverviewProps extends StatelessWidget {
             max: 100,
             onChanged: (v) => editTheme((x) => x['cardOpacity'] = v, coalesce: 'cop'),
           ),
-          StepRow(
-            label: 'Border opacity',
-            unit: '%',
-            step: 5,
-            value: ((theme['cardEdge'] as num?) ?? 100).toInt(),
-            min: 0,
-            max: 100,
-            onChanged: (v) => editTheme((x) => x['cardEdge'] = v, coalesce: 'cedge'),
+          fixedIos(
+            StepRow(
+              label: 'Border opacity',
+              unit: '%',
+              step: 5,
+              value: ((theme['cardEdge'] as num?) ?? 100).toInt(),
+              min: 0,
+              max: 100,
+              onChanged: (v) => editTheme((x) => x['cardEdge'] = v, coalesce: 'cedge'),
+            ),
           ),
-          StepRow(
-            label: 'Shadow',
-            unit: '',
-            value: ((theme['cardShadow'] as num?) ?? 0).toInt(),
-            min: 0,
-            max: 20,
-            onChanged: (v) => editTheme((x) => x['cardShadow'] = v, coalesce: 'cshd'),
+          fixedIos(
+            StepRow(
+              label: 'Shadow',
+              unit: '',
+              value: ((theme['cardShadow'] as num?) ?? 0).toInt(),
+              min: 0,
+              max: 20,
+              onChanged: (v) => editTheme((x) => x['cardShadow'] = v, coalesce: 'cshd'),
+            ),
           ),
           Hint('Default: corner 12, border 1, background and border 100% opaque, no shadow. Applies to all cards and grid frames.'),
-          StepRow(
-            label: 'Lift',
-            unit: '%',
-            step: 10,
-            value: ((theme['btnRaise'] as num?) ?? 60).toInt(),
-            min: 0,
-            max: 100,
-            onChanged: (v) => editTheme((x) => x['btnRaise'] = v, coalesce: 'braise'),
+          fixedIos(
+            StepRow(
+              label: 'Lift',
+              unit: '%',
+              step: 10,
+              value: ((theme['btnRaise'] as num?) ?? 60).toInt(),
+              min: 0,
+              max: 100,
+              onChanged: (v) => editTheme((x) => x['btnRaise'] = v, coalesce: 'braise'),
+            ),
           ),
           Hint(
             'Lift of all cards, grid frames and control buttons (with a small drop shadow underneath). 0% is flat, default 60%. "Shadow" above is an extra, larger shadow layer.',
