@@ -58,6 +58,9 @@ class AppStore extends ChangeNotifier {
   /// Last address typed when receiving from the Editor (e.g. 192.168.1.20:47800).
   String? editorAddress;
 
+  /// "Receive from computer" switches itself off after a successful transfer (otherwise it stays on until the App is closed).
+  bool receiveOffAfter = true;
+
   final Map<String, Json> _views = {};
 
   /// One profile per house: the name is the project's name. A person can
@@ -90,6 +93,7 @@ class AppStore extends ChangeNotifier {
       textScale = ((p['textScale'] as num?) ?? 1).toDouble().clamp(0.8, 1.5).toDouble();
       autoScale = p['autoScale'] != false;
       editorAddress = p['editor'] as String?;
+      receiveOffAfter = p['receiveOffAfter'] != false;
       for (final e in (p['profiles'] as List? ?? const [])) {
         if (e is Map && e['id'] is String) profiles.add(Profile(e['id'] as String, (e['name'] ?? 'EvoKNX').toString(), projectId: e['pid'] as String?));
       }
@@ -177,6 +181,12 @@ class AppStore extends ChangeNotifier {
     await f.writeAsString(jsonEncode(doc));
   }
 
+  void setReceiveOffAfter(bool v) {
+    receiveOffAfter = v;
+    notifyListeners();
+    savePrefs();
+  }
+
   Future<void> savePrefs() async {
     try {
       final id = activeId;
@@ -190,6 +200,7 @@ class AppStore extends ChangeNotifier {
           'introSeen': introSeen,
           'autoScale': autoScale,
           'editor': editorAddress,
+          'receiveOffAfter': receiveOffAfter,
           'profiles': [
             for (final x in profiles) {'id': x.id, 'name': x.name, 'pid': x.projectId},
           ],

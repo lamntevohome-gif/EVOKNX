@@ -16,6 +16,7 @@ import 'app_store.dart';
 import 'knx_link.dart';
 import 'pin_dialog.dart';
 import 'popups.dart';
+import 'reminders.dart';
 import 'room_pages.dart';
 import 'settings_screen.dart';
 import 'user_screen.dart';
@@ -223,7 +224,16 @@ class _HomeScreenState extends State<HomeScreen> {
 
   bool _wasConnected = false;
   void _onKnx() {
-    if (knx.connected && !_wasConnected) _readPage();
+    if (knx.connected && !_wasConnected) {
+      _readPage();
+      // The cards that remind are read too, wherever they are (what the page read already is not asked twice).
+      final s = sub;
+      final done = s == null ? <Object?>{} : {for (final g in engine.readsFor(s)) g['id']};
+      knx.readAll([
+        for (final g in engine.readsForReminders())
+          if (!done.contains(g['id'])) g,
+      ]);
+    }
     _wasConnected = knx.connected;
     _rebuild();
   }
@@ -877,7 +887,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         onPage ? r : null,
                         _tab == 1 && normal.length > 1,
                         onBack: onBack,
-                        sizeKey: onPage ? 'titleSize' : 'areaTitle',
+                        // Home or Security with a single room: its title is the big one (like Area), not a room title.
+                        sizeKey: onPage && !((_tab == 0 || _tab == 2) && roomsOf(d, floorId).length <= 1) ? 'titleSize' : 'areaTitle',
                       ),
                     if (onPage && r != null && subs.length > 1 && _dev != 'mobile') _pageNav(subs, pal),
                     Expanded(child: _fade(ValueKey('m$_tab-$_lvl-$floorId-$roomId-${blockedAbove?['id']}'), content)),
@@ -993,7 +1004,7 @@ class _HomeScreenState extends State<HomeScreen> {
   /// settings button on the right: as in the Editor preview.
   /// The title of the Settings page (the fourth tab); its tabs are under it.
   Widget _userHeader(AppPalette pal) => Padding(
-    padding: const EdgeInsets.fromLTRB(20, 10, 12, 3),
+    padding: const EdgeInsets.fromLTRB(16, 0, 12, 3),
     child: Row(
       children: [
         Expanded(
@@ -1016,158 +1027,104 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _header(Json d, AppPalette pal, Json? floor, Json? r, bool multi, {VoidCallback? onBack, String sizeKey = 'titleSize'}) {
     final hide = jsonMap(d['theme'])['hideTitle'] == true && r != null && !_modernMode;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 10, 12, 3),
-      child: Row(
-        children: [
-          if (onBack != null || (_galleryMode && !_gallery)) ...[
-            _iconBtn(
-              pal,
-              onBack != null ? Icons.chevron_left : Icons.grid_view,
-              onBack ?? () => setState(() => _gallery = true),
-              onBack != null ? 'Back' : 'Room gallery',
-              size: onBack != null ? 34 : 22,
-            ),
-            const SizedBox(width: 2),
-          ],
-          Expanded(
-            child: hide
-                ? Text(
-                    multi ? (floor?['title'] ?? '').toString() : '',
-                    style: TextStyle(fontSize: tfs(d, 'crumb') * 1.15, color: pal.sMuted, fontWeight: FontWeight.w500),
-                  )
-                : Row(
-                    crossAxisAlignment: CrossAxisAlignment.baseline,
-                    textBaseline: TextBaseline.alphabetic,
-                    children: [
-                      if (multi && r != null)
-                        Text(
-                          '${floor?['title'] ?? ''} ›  ',
-                          style: TextStyle(fontSize: tfs(d, 'crumb'), color: pal.sMuted, fontWeight: FontWeight.w500),
-                        ),
-                      Flexible(
-                        child: Text(
-                          // No room on this floor: the floor name is the title.
-                          (r?['title'] ?? floor?['title'] ?? '').toString(),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontSize: tfs(d, sizeKey), fontWeight: FontWeight.w600, color: pal.sInk),
-                        ),
-                      ),
-                      // A phone shows the page after the room name: "Living room (1/3)".
-                      if (_dev == 'mobile' && r != null && subsOf(r).length > 1)
-                        Text(
-                          '  (${page + 1}/${subsOf(r).length})',
-                          style: TextStyle(fontSize: tfs(d, 'pageTitle'), color: pal.sMuted, fontWeight: FontWeight.w500),
-                        ),
-                    ],
-                  ),
-          ),
-          _knxDot(),
-          _haDot(),
-          if (store.profiles.length > 1) _iconBtn(pal, Icons.home_work_outlined, () => _openProfiles(pal), 'Switch profile'),
-          // The Modern layout opens Settings from the User page.
-          if (!_modernMode) _iconBtn(pal, Icons.settings_outlined, _openSettings, 'Settings'),
-        ],
-      ),
-    );
-  }
-
-  /// The light of the KNX link: green when connected, orange while connecting, red when the bus is not reachable.
-  /// Not shown when the project does not use KNX. A tap tells the state (and tries again when it is red).
-  /// The light of Home Assistant: green when connected, orange while connecting (or when an entity is missing), red when
-  /// it cannot connect. Not shown when the project does not use Home Assistant. A tap tells the state (and tries again
-  /// when it is red).
-  Widget _haDot() {
-    final b = ha;
-    if (b == null) return const SizedBox.shrink();
-    final Color c;
-    final String tip;
-    if (b.connected && b.missingEntities.isNotEmpty) {
-      c = const Color(0xFFFF9F0A);
-      tip = 'Home Assistant has no entity: ${(b.missingEntities.toList()..sort()).take(3).join(', ')}';
-    } else if (b.connected) {
-      c = const Color(0xFF30D158);
-      tip = 'Home Assistant connected';
-    } else if (b.state == HaConnection.failed) {
-      c = const Color(0xFFFF453A);
-      tip = '${b.error ?? 'Home Assistant is not connected.'} Tap to try again.';
-    } else {
-      c = const Color(0xFFFF9F0A);
-      tip = 'Home Assistant connecting…';
-    }
-    return Tooltip(
-      message: tip,
-      child: PressFade(
-        onTap: () {
-          if (b.state == HaConnection.failed) b.start();
-          _toast(tip);
-        },
-        child: SizedBox(
-          width: 34,
-          height: 44,
-          child: Center(
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(color: c, shape: BoxShape.circle),
-                ),
-                const SizedBox(width: 3),
-                Text(
-                  'HA',
-                  style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: store.palette.sMuted),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _knxDot() {
-    if (!_usesKnx) return const SizedBox.shrink();
-    final connecting = knx.state == KnxConnectionState.connecting || knx.state == KnxConnectionState.reconnecting || !_graceOver;
-    final Color c;
-    final String tip;
-    if (knx.connected) {
-      c = const Color(0xFF30D158);
-      tip = 'KNX connected';
-    } else if (connecting) {
-      c = const Color(0xFFFF9F0A);
-      tip = 'KNX connecting…';
-    } else {
-      c = const Color(0xFFFF453A);
-      tip = 'KNX not connected · tap to retry';
-    }
-    return Tooltip(
-      message: tip,
-      child: PressFade(
-        onTap: () {
-          if (!knx.connected && !connecting) _connect();
-          _toast(tip);
-        },
-        child: SizedBox(
-          width: 30,
-          height: 44,
-          child: Center(
-            child: Container(
-              width: 10,
-              height: 10,
-              decoration: BoxDecoration(
-                color: c,
-                shape: BoxShape.circle,
-                boxShadow: [BoxShadow(color: c.withValues(alpha: 0.55), blurRadius: 6)],
+    final head = Padding(
+      // With the back arrow the group (arrow and title) goes to the left margin, in line with the cards.
+      padding: EdgeInsets.fromLTRB(onBack != null ? 0 : 16, 0, 12, 3),
+      // The header is always as high as its buttons (44), with or without them: going from the Area screen into a room (which has the back
+      // arrow) does not push the content down.
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 44),
+        child: Row(
+          children: [
+            if (onBack != null || (_galleryMode && !_gallery)) ...[
+              _iconBtn(
+                pal,
+                onBack != null ? Icons.chevron_left : Icons.grid_view,
+                onBack ?? () => setState(() => _gallery = true),
+                onBack != null ? 'Back' : 'Room gallery',
+                size: onBack != null ? 34 : 22,
               ),
+              const SizedBox(width: 2),
+            ],
+            Expanded(
+              child: hide
+                  ? Text(
+                      multi ? (floor?['title'] ?? '').toString() : '',
+                      style: TextStyle(fontSize: tfs(d, 'crumb') * 1.15, color: pal.sMuted, fontWeight: FontWeight.w500),
+                    )
+                  : Row(
+                      crossAxisAlignment: CrossAxisAlignment.baseline,
+                      textBaseline: TextBaseline.alphabetic,
+                      children: [
+                        if (multi && r != null)
+                          Text(
+                            '${floor?['title'] ?? ''} ›  ',
+                            style: TextStyle(fontSize: tfs(d, 'crumb'), color: pal.sMuted, fontWeight: FontWeight.w500),
+                          ),
+                        Flexible(
+                          child: Text(
+                            // No room on this floor: the floor name is the title.
+                            (r?['title'] ?? floor?['title'] ?? '').toString(),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(fontSize: tfs(d, sizeKey), fontWeight: FontWeight.w600, color: pal.sInk),
+                          ),
+                        ),
+                        // A phone shows the page after the room name: "Living room (1/3)".
+                        if (_dev == 'mobile' && r != null && subsOf(r).length > 1)
+                          Text(
+                            '  (${page + 1}/${subsOf(r).length})',
+                            style: TextStyle(fontSize: tfs(d, 'pageTitle'), color: pal.sMuted, fontWeight: FontWeight.w500),
+                          ),
+                      ],
+                    ),
+            ),
+            if (store.profiles.length > 1) _iconBtn(pal, Icons.home_work_outlined, () => _openProfiles(pal), 'Switch profile'),
+            // The Modern layout opens Settings from the User page.
+            if (!_modernMode) _iconBtn(pal, Icons.settings_outlined, _openSettings, 'Settings'),
+          ],
+        ),
+      ),
+    );
+    // The bell floats over the header, left of the buttons: it takes no room, so the header and the title do not change size when it
+    // appears.
+    if (engine.reminders().isEmpty) return head;
+    final right = 12.0 + (store.profiles.length > 1 ? 44 : 0) + (!_modernMode ? 44 : 0);
+    return Stack(
+      children: [
+        head,
+        Positioned(
+          right: right,
+          top: 0,
+          bottom: 0,
+          width: 44,
+          child: OverflowBox(minHeight: 44, maxHeight: 44, child: _bell(pal)),
+        ),
+      ],
+    );
+  }
+
+  /// The bell of the reminders, with how many there are.
+  Widget _bell(AppPalette pal) => Stack(
+    clipBehavior: Clip.none,
+    children: [
+      _iconBtn(pal, Icons.notifications_none, () => showReminders(context, engine, pal, (sub) => _goTarget('page', sub['id'] as String)), 'Reminders'),
+      Positioned(
+        right: 4,
+        top: 4,
+        child: IgnorePointer(
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+            decoration: BoxDecoration(color: pal.danger, borderRadius: BorderRadius.circular(9)),
+            child: Text(
+              '${engine.reminders().length}',
+              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white),
             ),
           ),
         ),
       ),
-    );
-  }
+    ],
+  );
 
   /// An icon button without a frame (iOS style): a large touch area and only the icon is drawn.
   Widget _iconBtn(AppPalette pal, IconData icon, VoidCallback onTap, String tip, {double size = 24}) => Tooltip(

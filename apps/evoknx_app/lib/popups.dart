@@ -472,14 +472,14 @@ class _IosDimmerSheetState extends State<_IosDimmerSheet> {
                               ),
                             ),
                             Positioned(
-                              top: (1 - (ct - ctMin) / (ctMax - ctMin)) * (bh - 36),
+                              left: 0,
+                              right: 0,
+                              top: (1 - (ct - ctMin) / (ctMax - ctMin)) * (bh - 8),
                               child: Container(
-                                width: 36,
-                                height: 36,
+                                height: 8,
                                 decoration: BoxDecoration(
                                   color: Colors.white,
-                                  shape: BoxShape.circle,
-                                  border: Border.all(color: const Color(0x33000000), width: 0.5),
+                                  border: Border.symmetric(horizontal: BorderSide(color: const Color(0x33000000), width: 0.5)),
                                 ),
                               ),
                             ),

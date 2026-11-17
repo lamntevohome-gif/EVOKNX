@@ -15,6 +15,8 @@ import 'editor_settings_dialog.dart';
 import 'import_dialog.dart';
 import 'new_project_dialog.dart';
 import 'send_to_app_dialog.dart';
+import 'transfer_to_app_dialog.dart';
+import 'schedulers_page.dart';
 import 'scripts_page.dart';
 import 'structure_page.dart';
 import 'test_page.dart';
@@ -141,6 +143,7 @@ class _ShellState extends State<Shell> {
                       ConnectionsPage(project: p, link: widget.ha),
                       TestPage(project: p, bus: widget.bus),
                       ScriptsPage(project: p, bus: widget.bus, link: widget.ha),
+                      SchedulersPage(project: p),
                     ],
                   ),
                 ),
@@ -207,6 +210,7 @@ class _ShellState extends State<Shell> {
             tab(1, 'Connections'),
             tab(2, 'Monitor'),
             tab(3, 'Scripts'),
+            tab(4, 'Schedulers'),
           ];
           final right = <Widget>[
             Tooltip(
@@ -283,6 +287,11 @@ class _ShellState extends State<Shell> {
           leadingIcon: const Icon(Icons.upload_outlined),
           onPressed: () => runEtsImport(context, p),
           child: const Text('Import group addresses from ETS…'),
+        ),
+        MenuItemButton(
+          leadingIcon: const Icon(Icons.send_to_mobile_outlined),
+          onPressed: () => showTransferToAppDialog(context, p),
+          child: const Text('Transfer to App…'),
         ),
         MenuItemButton(
           leadingIcon: const Icon(Icons.wifi_tethering),

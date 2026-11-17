@@ -342,6 +342,62 @@ class _WidgetPropsState extends State<_WidgetProps> {
           if (inGroup) Hint('Inside the grid frame “${box['label'] ?? ''}”: the position is counted on the frame\'s grid.'),
         ]),
         ..._typeSpecific(context, type),
+        if (type == 'value')
+          _Section('Reminder', [
+            () {
+              final rm = jsonMap(w['remind']);
+              final op = ['>', '<', '=', '!='].contains(rm['op']) ? rm['op'] as String : '>';
+              void setRemind(String o, num? v) => set('remind', {'op': o, if (v != null) 'v': v});
+              final has = rm['v'] is num;
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  FieldLabel(
+                    'Remind me when the value is',
+                    Seg<String>(items: const [('>', '>'), ('<', '<'), ('=', '='), ('!=', '≠')], value: op, onChanged: (v) => setRemind(v, rm['v'] as num?)),
+                  ),
+                  FieldLabel(
+                    'Number',
+                    SyncedField(
+                      value: has ? '${rm['v']}' : '',
+                      hint: 'Empty = never',
+                      onChanged: (t) {
+                        final n = num.tryParse(t.trim().replaceAll(',', '.'));
+                        if (t.trim().isEmpty) {
+                          setRemind(op, null);
+                        } else if (n != null) {
+                          setRemind(op, n);
+                        }
+                      },
+                    ),
+                  ),
+                  Hint(
+                    has
+                        ? 'When the value of this card is ${op == '!=' ? 'different from' : (op == '>' ? 'greater than' : (op == '<' ? 'less than' : 'equal to'))} ${rm['v']}, it appears in the Reminders list (bell icon) of the App, with a button to go to its page.'
+                        : 'Enter a number to show this card in the Reminders list of the App when its value meets the condition. For a 1-bit address 0 is off and 1 is on.',
+                  ),
+                ],
+              );
+            }(),
+          ]),
+        if (type == 'switch' || type == 'dimmer' || type == 'ac')
+          _Section('Reminder', [
+            FieldLabel(
+              'Remind me',
+              Seg<String>(
+                items: const [('none', 'Never'), ('on', 'When on'), ('off', 'When off')],
+                value: w['remind'] == 'off' ? 'off' : (w['remind'] == true || w['remind'] == 'on' ? 'on' : 'none'),
+                onChanged: (v) => set('remind', v == 'none' ? null : v),
+              ),
+            ),
+            Hint(
+              w['remind'] == 'off'
+                  ? 'While this is off, it appears in the Reminders list (bell icon) of the App, with buttons to go to its page or turn it on.'
+                  : (w['remind'] == true || w['remind'] == 'on')
+                  ? 'While this is on, it appears in the Reminders list (bell icon) of the App, with buttons to go to its page or turn it off.'
+                  : 'Shows this card in the Reminders list of the App when it is left on, or when it is left off.',
+            ),
+          ]),
         if (slotsFor(w).isNotEmpty)
           _Section('', [
             if (canEntity) _SourceSwitch(d: d, w: w),
@@ -362,15 +418,20 @@ class _WidgetPropsState extends State<_WidgetProps> {
                         (g['id'].toString(), '${g['address']}   ${g['name']}'),
                       if (bind[sl.key] != null && byId(gas, bind[sl.key] as String) == null) (bind[sl.key].toString(), 'The address was deleted'),
                     ],
-                    onChanged: (v) => d.editWidget(id, (o) {
-                      final b = jsonMap(o['bind']);
-                      if (v.isEmpty) {
-                        b.remove(sl.key);
-                      } else {
-                        b[sl.key] = v;
-                      }
-                      o['bind'] = b;
-                    }),
+                    onChanged: (v) {
+                      d.editWidget(id, (o) {
+                        final b = jsonMap(o['bind']);
+                        if (v.isEmpty) {
+                          b.remove(sl.key);
+                        } else {
+                          b[sl.key] = v;
+                        }
+                        o['bind'] = b;
+                        if (type == 'value' && sl.key == 'status') _dropTemplateRows(d, o);
+                      });
+                      // A Value card shows what its address returned: ask for the current value of the new address.
+                      if (type == 'value' && v.isNotEmpty) d.readValues();
+                    },
                   ),
                 ),
           ]),
@@ -421,8 +482,8 @@ class _WidgetPropsState extends State<_WidgetProps> {
                 StepRow(
                   label: kFs[k]!.name,
                   value: fs(w, k).toInt(),
-                  min: kFs[k]!.min,
-                  max: kFs[k]!.max,
+                  min: fsDef(w, k).min,
+                  max: fsDef(w, k).max,
                   onChanged: (v) => d.editWidget(id, (o) {
                     final t = jsonMap(o['text']);
                     t[k] = v;
@@ -1201,6 +1262,8 @@ class _WidgetPropsState extends State<_WidgetProps> {
       case 'value':
         final f = jsonMap(w['format']);
         final stateStyle = isStateValue(w);
+        // A 1-bit status address only switches 0 / 1: it has no unit or decimals, it gets a status table instead.
+        final oneBit = (byId(jsonList(d.doc['groupAddresses']), jsonMap(w['bind'])['status'] as String?)?['dpt'] ?? '').toString().split('.').first == '1';
         return [
           _Section('Show value', [
             FieldLabel(
@@ -1211,9 +1274,10 @@ class _WidgetPropsState extends State<_WidgetProps> {
                 onChanged: (v) => d.editWidget(id, (x) {
                   if (v == 'state') {
                     x['valueStyle'] = 'state';
-                    if (jsonList(x['states']).isEmpty) x['states'] = _stateTemplate('onoff');
+                    if (oneBit && jsonList(x['states']).isEmpty) x['states'] = _stateTemplate('onoff');
                   } else {
                     x.remove('valueStyle');
+                    _dropTemplateRows(d, x);
                   }
                 }),
               ),
@@ -1221,7 +1285,7 @@ class _WidgetPropsState extends State<_WidgetProps> {
             Hint(
               stateStyle
                   ? 'Each value received from the bus shows its own text, icon and color (for example 0 = Closed, 1 = Open). In the Simulator, click the card to step through each state.'
-                  : 'Shows a number with its unit, such as temperature, humidity, power.',
+                  : 'Shows the value as received, of any address type (number, 1 bit, text, date…), with the unit of its type (°C, %, W…). Add a status below to give a value its own text, icon and color.',
             ),
             if (!stateStyle)
               FieldLabel(
@@ -1233,20 +1297,42 @@ class _WidgetPropsState extends State<_WidgetProps> {
                 ),
               ),
             if (!stateStyle && w['look'] == 'simple') Hint('One row: icon and name on the left, value on the right. Suits a card 1 cell high.'),
-            if (!stateStyle)
+            if (!oneBit)
               Row(
                 children: [
                   Expanded(
                     child: FieldLabel(
                       'Unit',
-                      SyncedField(
-                        value: (f['unit'] ?? '').toString(),
-                        hint: '°C',
-                        onChanged: (v) => d.editWidget(id, (o) {
-                          final ff = jsonMap(o['format']);
-                          ff['unit'] = v;
-                          o['format'] = ff;
-                        }, coalesce: 'unit-$id'),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: SyncedField(
+                              value: (f['unit'] ?? '').toString(),
+                              hint: 'Auto',
+                              onChanged: (v) => d.editWidget(id, (o) {
+                                final ff = jsonMap(o['format']);
+                                ff['unit'] = v;
+                                o['format'] = ff;
+                              }, coalesce: 'unit-$id'),
+                            ),
+                          ),
+                          PopupMenuButton<String>(
+                            tooltip: tr('Choose a unit'),
+                            icon: const Icon(Icons.arrow_drop_down, size: 20),
+                            padding: EdgeInsets.zero,
+                            // A small list (about 7 rows): scroll for the rest.
+                            constraints: const BoxConstraints(maxHeight: 260, minWidth: 90),
+                            onSelected: (v) => d.editWidget(id, (o) {
+                              final ff = jsonMap(o['format']);
+                              ff['unit'] = v;
+                              o['format'] = ff;
+                            }),
+                            itemBuilder: (_) => [
+                              PopupMenuItem(value: '', height: 36, child: Text('Auto')),
+                              for (final u in _unitPresets) PopupMenuItem(value: u, height: 36, child: Text(u)),
+                            ],
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -1255,8 +1341,8 @@ class _WidgetPropsState extends State<_WidgetProps> {
                     child: FieldLabel(
                       'Decimals',
                       EvoDropdown<int>(
-                        value: ((f['decimals'] as num?) ?? 1).toInt(),
-                        items: const [(0, '0'), (1, '1'), (2, '2')],
+                        value: ((f['decimals'] as num?) ?? -1).toInt(),
+                        items: const [(-1, 'Auto'), (0, '0'), (1, '1'), (2, '2'), (3, '3')],
                         onChanged: (v) => d.editWidget(id, (o) {
                           final ff = jsonMap(o['format']);
                           ff['decimals'] = v;
@@ -1268,7 +1354,9 @@ class _WidgetPropsState extends State<_WidgetProps> {
                 ],
               ),
           ]),
-          if (stateStyle) _StatesEditor(d: d, w: w),
+          // The Simple look starts with no status: they are only added here (the templates are for the Full look).
+          // Templates are two-state (0 / 1) tables: in the Simple look only for a 1-bit status address.
+          _StatesEditor(d: d, w: w, templates: oneBit),
         ];
       case 'group':
         final l = jsonMap(w['layout']);
@@ -1815,9 +1903,6 @@ class _OverviewPropsState extends State<_OverviewProps> {
       doc['theme'] = t;
     }, coalesce: coalesce);
     final modern = theme['layout'] == 'modern';
-    // The iOS theme sets the corners, border, shadow and lift itself: those rows are not shown.
-    final iosTheme = AppPalette.of(d.previewTheme ?? themeKey(theme['mode'])).ios;
-    Widget fixedIos(Widget row) => row;
     // A text size of the App (the Overview shows only the ones that the chosen layout uses).
     Widget tfsRow(String key) {
       final t = kTfs.firstWhere((x) => x.key == key);
@@ -1919,89 +2004,18 @@ class _OverviewPropsState extends State<_OverviewProps> {
               EvoDropdown<String>(value: themeKey(theme['mode']), items: kAppThemes, onChanged: (v) => editTheme((x) => x['mode'] = v)),
             ),
           ]),
-          if (iosTheme)
-            _Section('Card style', [
-              const Hint('The iOS theme sets the corners, border, shadow and lift itself: rounded corners, no border, a soft shadow, flat.'),
-              StepRow(
-                label: 'Background opacity',
-                unit: '%',
-                step: 5,
-                value: ((theme['cardOpacity'] as num?) ?? 100).toInt(),
-                min: 0,
-                max: 100,
-                onChanged: (v) => editTheme((x) => x['cardOpacity'] = v, coalesce: 'cop'),
-              ),
-            ])
-          else ...[
-            _Section('Card shape', [
-              fixedIos(
-                StepRow(
-                  label: 'Corner radius',
-                  value: ((theme['cardRadius'] as num?) ?? 12).toInt(),
-                  min: 0,
-                  max: 32,
-                  onChanged: (v) => editTheme((x) => x['cardRadius'] = v, coalesce: 'crad'),
-                ),
-              ),
-              fixedIos(
-                StepRow(
-                  label: 'Border thickness',
-                  value: ((theme['cardBorder'] as num?) ?? 1).toInt(),
-                  min: 0,
-                  max: 4,
-                  onChanged: (v) => editTheme((x) => x['cardBorder'] = v, coalesce: 'cbor'),
-                ),
-              ),
-              fixedIos(
-                StepRow(
-                  label: 'Border opacity',
-                  unit: '%',
-                  step: 5,
-                  value: ((theme['cardEdge'] as num?) ?? 100).toInt(),
-                  min: 0,
-                  max: 100,
-                  onChanged: (v) => editTheme((x) => x['cardEdge'] = v, coalesce: 'cedge'),
-                ),
-              ),
-              Hint('Default: corner 12, border 1, border 100% opaque. Applies to all cards and grid frames.'),
-            ]),
-            _Section('Card surface', [
-              StepRow(
-                label: 'Background opacity',
-                unit: '%',
-                step: 5,
-                value: ((theme['cardOpacity'] as num?) ?? 100).toInt(),
-                min: 0,
-                max: 100,
-                onChanged: (v) => editTheme((x) => x['cardOpacity'] = v, coalesce: 'cop'),
-              ),
-              fixedIos(
-                StepRow(
-                  label: 'Shadow',
-                  unit: '',
-                  value: ((theme['cardShadow'] as num?) ?? 0).toInt(),
-                  min: 0,
-                  max: 20,
-                  onChanged: (v) => editTheme((x) => x['cardShadow'] = v, coalesce: 'cshd'),
-                ),
-              ),
-              fixedIos(
-                StepRow(
-                  label: 'Lift',
-                  unit: '%',
-                  step: 10,
-                  value: ((theme['btnRaise'] as num?) ?? 60).toInt(),
-                  min: 0,
-                  max: 100,
-                  onChanged: (v) => editTheme((x) => x['btnRaise'] = v, coalesce: 'braise'),
-                ),
-              ),
-              Hint(
-                'Default: background 100% opaque, no shadow, lift 60%. Lift is the bevel and small drop shadow of the cards, grid frames and control buttons (0% is flat); Shadow is an extra, larger layer.',
-              ),
-            ]),
-            const Hint('Users who choose an iOS theme in the App get the iOS card style (rounded corners, no border, flat), whatever is set here.'),
-          ],
+          _Section('Card style', [
+            const Hint('The theme sets the corners, border, shadow and lift itself: rounded corners, no border, a soft shadow, flat.'),
+            StepRow(
+              label: 'Background opacity',
+              unit: '%',
+              step: 5,
+              value: ((theme['cardOpacity'] as num?) ?? 100).toInt(),
+              min: 0,
+              max: 100,
+              onChanged: (v) => editTheme((x) => x['cardOpacity'] = v, coalesce: 'cop'),
+            ),
+          ]),
           _Section('Text sizes', [
             tfsRow('titleSize'),
             tfsRow('pageTitle'),
@@ -2764,6 +2778,23 @@ const _stateTemplates = {
   'smoke': 'Smoke (alarm)',
 };
 
+/// Keeps the status table of a Value card in step with its address: a 1-bit address with an empty table gets the 0 / 1 rows;
+/// any other address drops the untouched 0 / 1 template rows (rows the user edited or added stay).
+void _dropTemplateRows(Designer d, Json w) {
+  final ga = byId(jsonList(d.doc['groupAddresses']), jsonMap(w['bind'])['status'] as String?);
+  if ((ga?['dpt'] ?? '').toString().split('.').first == '1') {
+    // A 1-bit address starts with the 0 / 1 rows (name, icon, color) to edit.
+    if (jsonList(w['states']).isEmpty) w['states'] = _stateTemplate('onoff');
+    return;
+  }
+  final tpl = [for (final k in _stateTemplates.keys) ..._stateTemplate(k)];
+  final rows = jsonList(w['states']);
+  bool same(Json t, Json r) =>
+      t['v'] == r['v'] && t['text'] == r['text'] && t['icon'] == r['icon'] && t['color'] == r['color'] && (t['alarm'] == true) == (r['alarm'] == true);
+  rows.removeWhere((r) => tpl.any((t) => same(t, r)));
+  w['states'] = rows;
+}
+
 List<Map<String, dynamic>> _stateTemplate(String k) => switch (k) {
   'door' => [
     {'v': '0', 'text': 'Close', 'icon': 'mdi:door-closed', 'color': '#8A938F'},
@@ -2793,9 +2824,12 @@ List<Map<String, dynamic>> _stateTemplate(String k) => switch (k) {
 
 /// Table of states of a value card: value → text, icon, color, alarm.
 class _StatesEditor extends StatelessWidget {
-  const _StatesEditor({required this.d, required this.w});
+  const _StatesEditor({required this.d, required this.w, this.templates = true});
   final Designer d;
   final Json w;
+
+  /// Shows the "Use template…" list (the Full look); the Simple look only adds statuses one by one.
+  final bool templates;
 
   String get id => w['id'] as String;
 
@@ -2913,21 +2947,22 @@ class _StatesEditor extends StatelessWidget {
       Row(
         children: [
           EvoButton(label: 'Add status', icon: Icons.add, small: true, onPressed: () => _edit((r) => r.add(<String, dynamic>{'v': '${r.length}', 'text': ''}))),
-          const SizedBox(width: 8),
-          Expanded(
-            child: EvoDropdown<String>(
-              value: '',
-              items: [('', 'Use template…'), for (final e in _stateTemplates.entries) (e.key, e.value)],
-              onChanged: (k) {
-                if (k.isEmpty) return;
-                d.editWidget(id, (x) => x['states'] = _stateTemplate(k));
-              },
+          if (templates) const SizedBox(width: 8),
+          if (templates)
+            Expanded(
+              child: EvoDropdown<String>(
+                value: '',
+                items: [('', 'Use template…'), for (final e in _stateTemplates.entries) (e.key, e.value)],
+                onChanged: (k) {
+                  if (k.isEmpty) return;
+                  d.editWidget(id, (x) => x['states'] = _stateTemplate(k));
+                },
+              ),
             ),
-          ),
         ],
       ),
       Hint(
-        'The value is the number received from the status address (1 bit: 0 / 1; 1 byte: 0–255…). A value that is not in the table is shown as the raw number.',
+        'The value is what the status address sends: a number (1 bit: 0 / 1; 1 byte: 0–255…) or a word (text address). A value that is not in the table is shown as received, with the unit of its type.',
       ),
     ]);
   }
@@ -3119,6 +3154,34 @@ class _NavSection extends StatelessWidget {
     ]);
   }
 }
+
+/// Units offered in the Value card's Unit menu (free text is still allowed).
+const _unitPresets = [
+  '°C',
+  '°F',
+  'K',
+  '%',
+  'W',
+  'kW',
+  'Wh',
+  'kWh',
+  'V',
+  'A',
+  'Hz',
+  'lx',
+  'ppm',
+  'Pa',
+  'hPa',
+  'm/s',
+  'km/h',
+  'L/h',
+  'm³/h',
+  's',
+  'min',
+  'h',
+  'mm',
+  'm',
+];
 
 /// Under "Value sent": when the card writes to a text address (DPT 16) it shows what is really sent.
 class _TextSendInfo extends StatelessWidget {

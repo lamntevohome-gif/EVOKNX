@@ -8,6 +8,7 @@ import 'app_store.dart';
 import 'camera_live.dart';
 import 'home_screen.dart';
 import 'intro_screen.dart';
+import 'receive_mode.dart';
 import 'share_intake.dart';
 import 'splash_gate.dart';
 import 'welcome_screen.dart';
@@ -20,10 +21,12 @@ Future<void> main() async {
   MediaKit.ensureInitialized();
   // Camera cards play real video in the App (the Editor only shows the address).
   EvoHooks.camera = (context, cam) => LiveCamera(key: ValueKey(cameraUrl(cam)), cam: cam);
+  EvoHooks.samples = false;
   await Mdi.load();
   await ColorIcons.load();
   final store = AppStore();
   await store.load();
+  receiveMode = ReceiveMode(store, navigatorKey);
   SystemChrome.setPreferredOrientations(DeviceOrientation.values);
   runApp(EvoknxApp(store: store));
   ShareIntake(store, navigatorKey).start();

@@ -7,6 +7,7 @@ import 'package:knx_core/knx_core.dart';
 import '../app/theme.dart';
 import '../state/ha_link.dart';
 import '../state/project_controller.dart';
+import 'box_connection.dart';
 import 'common.dart';
 import 'ha_connection.dart';
 import 'import_dialog.dart';
@@ -87,6 +88,11 @@ class _ConnectionList extends StatelessWidget {
                   items: [
                     const PopupMenuItem(value: 'knx', child: Text('KNX connection')),
                     PopupMenuItem(value: 'ha', enabled: !added, child: Text(added ? 'Home Assistant (already added)' : 'Home Assistant')),
+                    PopupMenuItem(
+                      value: 'box',
+                      enabled: !boxAdded(project.doc),
+                      child: Text(boxAdded(project.doc) ? 'EvoKNX Box (already added)' : 'EvoKNX Box'),
+                    ),
                   ],
                 );
                 if (v == 'knx') {
@@ -100,6 +106,8 @@ class _ConnectionList extends StatelessWidget {
                       'natMode': true,
                     }),
                   );
+                } else if (v == 'box') {
+                  project.mutate((d) => d['box'] = {...boxOf(d), 'added': true});
                 } else if (v == 'ha') {
                   project.mutate((d) => d['ha'] = {...haSettings(d), 'added': true, 'enabled': true});
                 }
@@ -209,6 +217,7 @@ class _ConnectionList extends StatelessWidget {
             ),
           ),
         if (haAdded(project.doc)) HaConnectionCard(project: project, link: link),
+        if (boxAdded(project.doc)) BoxConnectionCard(project: project),
       ],
     );
   }

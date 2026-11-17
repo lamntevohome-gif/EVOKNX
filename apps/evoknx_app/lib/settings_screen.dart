@@ -6,6 +6,8 @@ import 'package:knx_config/knx_config.dart';
 import 'app_store.dart';
 import 'knx_link.dart';
 import 'receive_dialog.dart';
+import 'receive_mode.dart';
+import 'schedulers_tab.dart';
 import 'user_screen.dart';
 
 /// Settings: theme, KNX connection, another configuration, about.
@@ -110,6 +112,7 @@ class SettingsScreen extends StatelessWidget {
             ),
           ),
         );
+        final hasBox = boxDeclared(store.config ?? const <String, dynamic>{});
         final conns = store.connections;
         final cur = store.connection;
         TabBar tabBar() => TabBar(
@@ -126,6 +129,7 @@ class SettingsScreen extends StatelessWidget {
             Tab(text: tr('Profile')),
             Tab(text: tr('Appearance')),
             Tab(text: tr('Connections')),
+            if (hasBox) Tab(text: tr('Schedulers')),
             Tab(text: tr('About')),
           ],
         );
@@ -196,6 +200,31 @@ class SettingsScreen extends StatelessWidget {
                             if (context.mounted) _leave(context);
                           },
                   ),
+                ListenableBuilder(
+                  listenable: receiveMode,
+                  builder: (context, _) => Column(
+                    children: [
+                      row(
+                        Icon(Icons.download_for_offline_outlined, color: receiveMode.on ? pal.accent : pal.muted),
+                        'Receive from computer',
+                        sub:
+                            receiveMode.error ??
+                            (receiveMode.on
+                                ? 'Waiting as “${receiveMode.phoneName}”. In the Editor: EvoKNX menu → Transfer to App.'
+                                : 'Turn on, then send from the Editor (EvoKNX menu → Transfer to App).'),
+                        trailing: Switch(value: receiveMode.on, activeColor: pal.accent, onChanged: (v) => receiveMode.setOn(v)),
+                        onTap: () => receiveMode.setOn(!receiveMode.on),
+                      ),
+                      row(
+                        Icon(Icons.power_settings_new, color: pal.muted),
+                        'Turn off after receiving',
+                        sub: store.receiveOffAfter ? 'Switches off after a successful transfer.' : 'Stays on until you close the App.',
+                        trailing: Switch(value: store.receiveOffAfter, activeColor: pal.accent, onChanged: store.setReceiveOffAfter),
+                        onTap: () => store.setReceiveOffAfter(!store.receiveOffAfter),
+                      ),
+                    ],
+                  ),
+                ),
                 row(
                   Icon(Icons.wifi_tethering, color: pal.muted),
                   'Add a profile from the computer (Wi-Fi)',
@@ -383,6 +412,7 @@ class SettingsScreen extends StatelessWidget {
                   }, sub: ha!.url),
                 ]),
             ]),
+            if (hasBox) SchedulersTab(store: store, pal: pal),
             tab([
               card('About', [
                 row(Icon(Icons.info_outline, color: pal.muted), 'EvoKNX', sub: 'Version 0.1.0 · © ${DateTime.now().year} Evohome'),
@@ -400,7 +430,7 @@ class SettingsScreen extends StatelessWidget {
             colorSchemeSeed: pal.accent,
           ),
           child: DefaultTabController(
-            length: embedded ? 5 : 4,
+            length: (embedded ? 5 : 4) + (hasBox ? 1 : 0),
             child: embedded
                 ? Material(
                     color: Colors.transparent,

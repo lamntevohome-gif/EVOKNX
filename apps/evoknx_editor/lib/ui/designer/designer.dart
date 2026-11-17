@@ -36,7 +36,9 @@ class LogEntry {
 class Designer extends ChangeNotifier {
   Designer(this.p, [this.bus, this.link]) {
     bus?.valueListeners.add(_onBusValue);
+    bus?.addListener(_onBusState);
     p.addListener(_forgetCardEnt);
+    _onBusState();
   }
   final ProjectController p;
   final BusController? bus;
@@ -1226,13 +1228,15 @@ class Designer extends ChangeNotifier {
     final label = (w['label'] ?? '').toString();
     switch (w['type']) {
       case 'value':
-        // Test mode: tapping a state-style value card steps through its
-        // states so each text, icon, color and alarm can be previewed.
+        // Test mode: tapping a value card steps through its statuses so each
+        // text, icon, color and alarm can be previewed (numbers and words).
         final rows = jsonList(w['states']);
-        if (!isStateValue(w) || rows.isEmpty) break;
-        num? numOf(Object? v) => num.tryParse((v ?? '').toString().replaceAll(',', '.'));
-        final i = rows.indexWhere((r) => numOf(r['v']) == s['val']);
-        s['val'] = numOf(rows[(i + 1) % rows.length]['v']) ?? 0;
+        if (rows.isEmpty) break;
+        final cur = valueState(w, s['val'] ?? s['raw']);
+        final i = cur == null ? -1 : rows.indexOf(cur);
+        final v = rows[(i + 1) % rows.length]['v'];
+        s['val'] = num.tryParse((v ?? '').toString().replaceAll(',', '.'));
+        s['raw'] = v;
         break;
       case 'switch':
         final on = !(s['on'] == true);
@@ -1403,6 +1407,45 @@ class Designer extends ChangeNotifier {
     _n();
   }
 
+  bool _wasConnected = false;
+  bool _reading = false;
+
+  /// While the Editor is connected to KNX a Value card shows only what its address returned (no sample); when the connection comes up the
+  /// current values are read, so a value that never changes is shown too.
+  void _onBusState() {
+    final on = bus?.connected == true;
+    EvoHooks.samples = !on;
+    if (on == _wasConnected) return;
+    _wasConnected = on;
+    _n();
+    if (on) readValues();
+  }
+
+  /// Asks the bus for the current value of the status address of every Value card (the answers come back as telegrams, like in the App).
+  Future<void> readValues() async {
+    final b = bus;
+    if (b == null || !b.connected || _reading) return;
+    _reading = true;
+    try {
+      final seen = <String>{};
+      for (final r in jsonList(doc['pages'])) {
+        for (final sb in subsOf(r)) {
+          for (final box in jsonList(sb['widgets'])) {
+            for (final w in [box, if (box['type'] == 'group') ...jsonList(box['widgets'])]) {
+              if (w['type'] != 'value') continue;
+              final g = byId(gasAll, jsonMap(bound(w)['bind'])['status'] as String?);
+              if (g == null || !seen.add(g['id'].toString())) continue;
+              await b.read(g);
+              if (!b.connected) return;
+            }
+          }
+        }
+      }
+    } finally {
+      _reading = false;
+    }
+  }
+
   /// Applies a value seen on the bus to every widget bound to that address.
   void _onBusValue(String address, Object? value) {
     if (value == null) return;
@@ -1442,6 +1485,8 @@ class Designer extends ChangeNotifier {
                 break;
               case 'value':
                 s['val'] = n;
+                // The value as received (text too): a card in the number look shows it when it is not a number.
+                s['raw'] = value;
                 break;
               case 'shutter':
                 if (k == 'status' || k == 'position') s['pos'] = n;
@@ -1491,6 +1536,7 @@ class Designer extends ChangeNotifier {
     _popupTimer?.cancel();
     _ha?.stop();
     bus?.valueListeners.remove(_onBusValue);
+    bus?.removeListener(_onBusState);
     p.removeListener(_forgetCardEnt);
     super.dispose();
   }

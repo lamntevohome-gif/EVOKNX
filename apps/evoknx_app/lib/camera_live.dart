@@ -67,15 +67,17 @@ class _LiveCameraState extends State<LiveCamera> with WidgetsBindingObserver {
         Positioned(
           right: 6,
           top: 6,
-          child: Material(
-            color: Colors.black45,
-            shape: const CircleBorder(),
-            child: InkWell(
-              customBorder: const CircleBorder(),
-              onTap: _openFullscreen,
-              child: const Padding(
-                padding: EdgeInsets.all(6),
-                child: Icon(Icons.fullscreen, size: 20, color: Colors.white),
+          // No background shape: just the icon, with a soft shadow so it stays readable on a bright picture.
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: _openFullscreen,
+            child: const Padding(
+              padding: EdgeInsets.all(6),
+              child: Icon(
+                Icons.fullscreen,
+                size: 22,
+                color: Colors.white,
+                shadows: [Shadow(color: Color(0x99000000), blurRadius: 4)],
               ),
             ),
           ),
