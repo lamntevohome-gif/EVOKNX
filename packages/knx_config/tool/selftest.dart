@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:knx_config/knx_config.dart';
+import 'package:knx_core/knx_core.dart';
 
 int _p = 0, _f = 0;
 void check(bool ok, String n) {
@@ -187,6 +188,42 @@ void main() {
   rset('values', {'down': '77'});
   check(remoteKnxSend(rm, 'down')!.value == '77', 'remote: own value');
   check(widgetEntity(rm).isEmpty && remoteProblem(rm) == null, 'remote: KNX has no entity and no problem');
+  // Value card: any value, its unit, status rows for numbers and words.
+  final vw = <String, dynamic>{
+    'type': 'value',
+    'format': {'unit': '', 'decimals': -1},
+    'states': [
+      {'v': '0', 'text': 'Off', 'color': '#888888'},
+      {'v': 'heat', 'text': 'Heating', 'alarm': true},
+    ],
+  };
+  check(valueView(vw, 24.5, dpt: '9.001').text == '24,5' && valueView(vw, 24.5, dpt: '9.001').unit == '°C', 'value: number with the unit of its type');
+  check(valueView(vw, 8420, dpt: '13.010').text == '8420' && valueView(vw, 8420, dpt: '13.010').unit == 'Wh', 'value: auto decimals');
+  check(valueView(vw, 62, dpt: '9.007').unit == '%' && valueView(vw, 5, dpt: '5.010').unit == '' && valueView(vw, 5).unit == '', 'value: unit by type');
+  check(valueView(vw, 0, dpt: '1.001').text == 'Off' && valueView(vw, 0, dpt: '1.001').unit == '', 'value: status text for 0');
+  check(valueView(vw, false, dpt: '1.001').row?['color'] == '#888888', 'value: false matches 0, row kept');
+  check(valueView(vw, 'HEAT').text == 'Heating' && valueView(vw, 'HEAT').row?['alarm'] == true, 'value: status for a word');
+  check(valueView(vw, true, dpt: '1.001').text == '1' && valueView(vw, 'cool').text == 'cool', 'value: other values as received');
+  check(valueView(vw, '007', dpt: '16.000').text == '007' && valueView(vw, '10:20:30', dpt: '10.001').text == '10:20:30', 'value: text types stay text');
+  check(valueView(vw, null).text == '–', 'value: no value');
+  (vw['format'] as Map)
+    ..['decimals'] = 1
+    ..['unit'] = 'V';
+  check(valueView(vw, 230, dpt: '9.001').text == '230,0' && valueView(vw, 230, dpt: '9.001').unit == 'V', 'value: own unit and decimals');
+  check(valueState(vw, 'heat') != null && valueState(vw, 1) == null, 'value: valueState for words');
+  check(kValueDpts.contains(16) && kValueDpts.contains(19) && kValueDpts.contains(2) && kValueDpts.contains(4), 'value: every type can be chosen');
+  check(dptSample('1.001') == 1 && dptSample('16.000') == 'Text' && dptSample('9.001') == 24.5 && dptSample('') == null, 'value: samples for every type');
+  check(
+    valueView(vw, dptSample('1.001'), dpt: '1.001').text != '–' && valueView(vw, dptSample('10.001'), dpt: '10.001').text == '14:30:00',
+    'value: a sample shows',
+  );
+  // Decoding of more types.
+  check(Dpt.decode('4.001', [0x41]) == 'A', 'dpt 4: character');
+  check(Dpt.decode('10.001', [0x2E, 30, 5]) == 'Mon 14:30:05', 'dpt 10: time of day');
+  check(Dpt.decode('11.001', [24, 12, 26]) == '24/12/2026', 'dpt 11: date');
+  check(Dpt.decode('19.001', [126, 11, 16, 0x36, 45, 10, 0, 0]) == '16/11/2026 22:45:10', 'dpt 19: date and time');
+  check(Dpt.decode('22.101', [0x01, 0x02]) == 258, 'dpt 22: 16 bit');
+  check(dptUnit('9.001') == '°C' && dptUnit('9') == '' && dptUnit(null) == '', 'dpt: units');
   stdout.writeln('knx_config selftest: $_p passed, $_f failed');
   exit(_f == 0 ? 0 : 1);
 }

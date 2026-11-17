@@ -5,6 +5,7 @@ import 'dart:math';
 
 import 'package:knx_core/knx_core.dart';
 
+import 'box.dart';
 import 'ets_import.dart';
 import 'remote_keys.dart';
 
@@ -27,6 +28,9 @@ String areaName(Json theme) {
 Json jsonMap(Object? v) => v is Map ? v.cast<String, dynamic>() : <String, dynamic>{};
 
 // ------------------------------------------------------------ widget types
+
+/// The datapoint types a Value card can show: every size, text, date and time, scene, mode and color.
+const List<int> kValueDpts = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 232, 251];
 
 class SlotDef {
   final String key;
@@ -63,9 +67,7 @@ const Map<String, WidgetTypeDef> kWidgetTypes = {
     SlotDef('position', 'Position', [5]),
     SlotDef('status', 'Position status', [5], recommended: true),
   ]),
-  'value': WidgetTypeDef('value', 'Value', 'thermo', 2, 2, [
-    SlotDef('status', 'Status address', [1, 5, 6, 7, 8, 9, 12, 13, 14], required: true),
-  ]),
+  'value': WidgetTypeDef('value', 'Value', 'thermo', 2, 2, [SlotDef('status', 'Status address', kValueDpts, required: true)]),
   'button': WidgetTypeDef('button', 'Push button', 'button', 2, 2, [
     SlotDef('write', 'Write address', [1, 5, 17], required: true),
   ]),
@@ -132,18 +134,81 @@ String cameraUrl(Json cam, {bool hidePass = false}) {
 /// keep showing a number.
 bool isStateValue(Json w) => w['type'] == 'value' && w['valueStyle'] == 'state';
 
-/// The state row matching [value] (a number; true/false count as 1/0).
+/// The status row ({v, text, icon, color, alarm}) of a Value card that matches [value]: a number (true/false count as 1/0) or a
+/// word (text addresses, Home Assistant states), the case does not matter.
 Json? valueState(Json w, Object? value) {
-  num? n;
-  if (value is bool) n = value ? 1 : 0;
-  if (value is num) n = value;
-  if (value is String) n = num.tryParse(value.replaceAll(',', '.'));
-  if (n == null) return null;
+  if (value == null) return null;
   for (final r in jsonList(w['states'])) {
-    final v = num.tryParse((r['v'] ?? '').toString().replaceAll(',', '.'));
-    if (v != null && v == n) return r;
+    if (_valueIs(r['v'], value)) return r;
   }
   return null;
+}
+
+/// What a Value card shows for [value] (anything an address sends: a number, true/false, text, a date…): the text of the matching status
+/// row, else the value as it is, with the unit of its type ([dpt]) unless the Unit of the card says otherwise. [row] is the matching
+/// status (its icon, color and alarm are for the card).
+({String text, String unit, Json? row}) valueView(Json w, Object? value, {String dpt = ''}) {
+  if (value == null) return (text: '–', unit: '', row: null);
+  final row = valueState(w, value);
+  final rowText = (row?['text'] ?? '').toString();
+  if (rowText.isNotEmpty) return (text: rowText, unit: '', row: row);
+  final f = jsonMap(w['format']);
+  // These types are text, even when the text looks like a number.
+  final textual = value is String && const {4, 10, 11, 16, 19, 232, 251}.contains(dptMain(dpt));
+  final n = textual ? null : _numOf(value);
+  if (n == null) return (text: value.toString().trim(), unit: '', row: row);
+  final own = (f['unit'] ?? '').toString();
+  return (text: _fmtValue(n, (f['decimals'] as num?)?.toInt() ?? -1), unit: own.isNotEmpty ? own : dptUnit(dpt), row: row);
+}
+
+/// A sample value of a datapoint type, shown on a Value card while it is designed (no value has arrived yet). Null when the type is unknown.
+Object? dptSample(String dpt) {
+  const exact = {'9.001': 24.5, '9.004': 320, '9.007': 62, '14.056': 1250, '13.010': 8420, '5.001': 45};
+  if (exact.containsKey(dpt)) return exact[dpt];
+  String two(int v) => v.toString().padLeft(2, '0');
+  final now = DateTime.now();
+  final date = '${two(now.day)}/${two(now.month)}/${now.year}';
+  return switch (dptMain(dpt)) {
+    1 || 2 || 3 || 17 || 18 || 20 || 21 => 1,
+    4 => 'A',
+    5 => 128,
+    6 => 25,
+    7 => 1250,
+    8 => 120,
+    9 || 14 => 24.5,
+    10 => '14:30:00',
+    11 => date,
+    12 => 12500,
+    13 => 8420,
+    16 => 'Text',
+    19 => '$date 14:30:00',
+    22 => 258,
+    232 || 251 => '#FF8800',
+    _ => null,
+  };
+}
+
+num? _numOf(Object? v) {
+  if (v is bool) return v ? 1 : 0;
+  if (v is num) return v;
+  if (v is String) return num.tryParse(v.trim().replaceAll(',', '.'));
+  return null;
+}
+
+bool _valueIs(Object? row, Object value) {
+  final t = (row ?? '').toString().trim();
+  if (t.isEmpty) return false;
+  final a = _numOf(t), b = _numOf(value);
+  if (a != null && b != null) return a == b;
+  return t.toLowerCase() == value.toString().trim().toLowerCase();
+}
+
+/// A number with [dec] decimals, with a comma; [dec] < 0 writes the value as it is (up to 4 decimals, no trailing zeros).
+String _fmtValue(num n, int dec) {
+  var s = n.toStringAsFixed(dec >= 0 ? dec : 4);
+  if (dec < 0 && s.contains('.')) s = s.replaceFirst(RegExp(r'0+$'), '').replaceFirst(RegExp(r'\.$'), '');
+  if (s == '-0') s = '0';
+  return s.replaceAll('.', ',');
 }
 
 /// Value a scene card sends. Older projects stored a scene number (1–64)
@@ -279,19 +344,19 @@ bool slotAccepts(SlotDef slot, Json ga) {
 // ------------------------------------------------------------ factories
 
 Json makeSub(String title, {int cols = 4, int rows = 12}) => {
-  'id': uid('sub_'),
-  'title': title,
-  'layout': {'type': 'grid', 'columns': cols, 'rows': rows},
-  'widgets': <Json>[],
-};
+      'id': uid('sub_'),
+      'title': title,
+      'layout': {'type': 'grid', 'columns': cols, 'rows': rows},
+      'widgets': <Json>[],
+    };
 
 Json makeRoom(String title, {String icon = 'sofa', String? floorId}) => {
-  'id': uid('page_'),
-  'title': title,
-  'icon': icon,
-  'floorId': floorId,
-  'subpages': [makeSub('Page 1')],
-};
+      'id': uid('page_'),
+      'title': title,
+      'icon': icon,
+      'floorId': floorId,
+      'subpages': [makeSub('Page 1')],
+    };
 
 Json makeFloor(String title, {String icon = 'none'}) => {'id': uid('fl_'), 'title': title, 'icon': icon, 'rows': 12, 'cols': 4};
 
@@ -314,7 +379,7 @@ Json makeWidget(String type, int x, int y, [int? w, int? h]) {
   }
   // A new blind starts with the 22 control buttons that look right.
   if (type == 'shutter') wd['text'] = <String, dynamic>{'btnIcon': 22};
-  if (type == 'value') wd['format'] = <String, dynamic>{'unit': '', 'decimals': 1};
+  if (type == 'value') wd['format'] = <String, dynamic>{'unit': '', 'decimals': -1};
   if (type == 'button') wd['sendValue'] = '1';
   if (type == 'scene') wd['sendValue'] = '0';
   if (type == 'text') {
@@ -374,7 +439,7 @@ Json newProject(String name) {
       {'id': 'main', 'name': 'Connection 1', 'type': 'tunneling', 'host': '192.168.1.50', 'port': 3671, 'natMode': false},
     ],
     'groupAddresses': <Json>[],
-    'theme': {'mode': 'light', 'accent': '#1E7F57', 'colorOn': '#EE9B2A', 'colorOff': '#8A938F'},
+    'theme': {'mode': 'i1', 'accent': '#1E7F57', 'colorOn': '#EE9B2A', 'colorOff': '#8A938F'},
     'menu': {'style': 'grid', 'items': <String>[]},
     'floors': [f],
     'pages': <Json>[],
@@ -611,6 +676,13 @@ Json exportProject(Json doc) {
     }
   }
   out['activeDev'] = 'mobile';
+  // The phone needs where the box is and its key (never the Editor-only settings).
+  final forApp = boxForApp(doc);
+  if (forApp.isEmpty) {
+    out.remove('box');
+  } else {
+    out['box'] = forApp;
+  }
   return out;
 }
 

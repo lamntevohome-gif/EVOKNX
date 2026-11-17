@@ -168,10 +168,10 @@ class FsDef {
 }
 
 const kFs = {
-  'labelSize': FsDef('labelSize', 'Display name', 15, 11, 26),
+  'labelSize': FsDef('labelSize', 'Display name', 14, 11, 26),
   'iconSize': FsDef('iconSize', 'Icon', 24, 16, 48),
-  'stateSize': FsDef('stateSize', 'Status', 12, 9, 20),
-  'valueSize': FsDef('valueSize', 'Value', 28, 16, 44),
+  'stateSize': FsDef('stateSize', 'Status', 14, 9, 20),
+  'valueSize': FsDef('valueSize', 'Value', 20, 16, 22),
   'btnIcon': FsDef('btnIcon', 'Button icon', 16, 12, 30),
   'acBtn': FsDef('acBtn', '+ / − buttons', 20, 14, 36),
   'acMode': FsDef('acMode', 'Mode buttons', 16, 12, 28),
@@ -188,8 +188,14 @@ class EvoScale {
   static const double phoneDesignWidth = 393;
 }
 
-double fs(Json w, String key) {
+/// The size range of a text of card [w]: a Value card's name goes up to 22 only.
+FsDef fsDef(Json w, String key) {
   final d = kFs[key]!;
+  return w['type'] == 'value' && key == 'labelSize' ? FsDef(d.key, d.name, d.def, d.min, 22) : d;
+}
+
+double fs(Json w, String key) {
+  final d = fsDef(w, key);
   final v = (jsonMap(w['text'])[key] as num?)?.toInt();
   return (v != null && v >= d.min && v <= d.max ? v : d.def).toDouble() * EvoScale.k;
 }
@@ -197,7 +203,7 @@ double fs(Json w, String key) {
 List<String> fsKeysFor(String type) => switch (type) {
   'group' => const ['labelSize'],
   'text' => const <String>[],
-  'value' => const ['labelSize', 'iconSize', 'valueSize', 'stateSize'],
+  'value' => const ['labelSize', 'iconSize', 'valueSize'],
   'webview' => const ['labelSize', 'iconSize'],
   'camera' => const ['labelSize', 'iconSize'],
   'media' => const ['labelSize'],

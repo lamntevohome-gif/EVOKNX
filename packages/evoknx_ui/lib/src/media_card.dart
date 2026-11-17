@@ -186,7 +186,8 @@ class _MediaCardState extends State<MediaCard> {
         pal.fill(pal.tile),
         radius: BorderRadius.circular(pal.radius),
         lift: pal.cardLift,
-        border: pal.border <= 0 || noBorder ? Border.fromBorderSide(BorderSide.none) : Border.all(color: pal.edge, width: pal.border),
+        border:
+            iosOutlineBorder(w, pal) ?? (pal.border <= 0 || noBorder ? Border.fromBorderSide(BorderSide.none) : Border.all(color: pal.edge, width: pal.border)),
         shadow: false,
       ),
       child: media == null
@@ -355,6 +356,8 @@ class _MediaCardState extends State<MediaCard> {
     // A card that is lower than its rows need gets lower rows, little by little (never in a jump): first the space around
     // the volume row, then the picture, then the buttons. The width is not touched.
     final hasCtl = showControls;
+    // A little room is kept free: the rows are estimated, and a real line may be a tenth of a pixel taller than its estimate.
+    final room = bc.maxHeight - 1.0;
     if (bc.maxHeight.isFinite) {
       final textsH = (showTitle ? titleSize * 1.35 : 0) + (knx ? titleSize : songSize) * 1.35 + (showArtist ? detailSize * 1.35 : 0);
       double need(double g, double p, double k) {
@@ -366,11 +369,11 @@ class _MediaCardState extends State<MediaCard> {
 
       // The largest t in [lo, hi] for which the card still fits, found by halving (the need grows with t).
       double fit(double lo, double hi, double Function(double) f) {
-        if (f(hi) <= bc.maxHeight) return hi;
-        if (f(lo) > bc.maxHeight) return lo;
+        if (f(hi) <= room) return hi;
+        if (f(lo) > room) return lo;
         for (var i = 0; i < 24; i++) {
           final mid = (lo + hi) / 2;
-          if (f(mid) <= bc.maxHeight) {
+          if (f(mid) <= room) {
             lo = mid;
           } else {
             hi = mid;
@@ -381,8 +384,8 @@ class _MediaCardState extends State<MediaCard> {
 
       final g = fit(0, gap, (t) => need(t, pic, 1));
       var p = pic, k = 1.0;
-      if (need(g, p, k) > bc.maxHeight && showCover) p = fit(24, pic, (t) => need(g, t, 1));
-      if (need(g, p, k) > bc.maxHeight) k = fit(_kMinK, 1, (t) => need(g, p, t));
+      if (need(g, p, k) > room && showCover) p = fit(24, pic, (t) => need(g, t, 1));
+      if (need(g, p, k) > room) k = fit(_kMinK, 1, (t) => need(g, p, t));
       gap = g;
       pic = p;
       btnSize *= k;

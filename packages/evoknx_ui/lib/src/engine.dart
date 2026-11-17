@@ -265,6 +265,8 @@ class CardEngine extends ChangeNotifier {
             break;
           case 'value':
             s['val'] = n;
+            // The value as received (text too): a card in the number look shows it when it is not a number.
+            s['raw'] = value;
             break;
           case 'shutter':
             if (k == 'status' || k == 'position') s['pos'] = n;
@@ -304,6 +306,155 @@ class CardEngine extends ChangeNotifier {
     if (hit) notifyListeners();
   }
 
+  // ------------------------------------------------------------ reminders
+
+  /// Cards that can be on or off and so can remind the person that they were left on.
+  static bool canRemind(Json w) => w['type'] == 'switch' || w['type'] == 'dimmer' || w['type'] == 'ac' || w['type'] == 'value';
+
+  /// When a card reminds: 'on' (it is on: remind to turn it off), 'off' (it is off: remind to turn it on) or null.
+  /// An older project has remind: true, which means 'on'.
+  static String? remindMode(Json w) {
+    if (!canRemind(w)) return null;
+    final v = w['remind'];
+    if (w['type'] == 'value') {
+      // A Value card reminds when its number meets a condition: {op: '>' | '<' | '=' | '!=', v: number}.
+      if (v is! Map) return null;
+      final op = v['op'];
+      return (op == '>' || op == '<' || op == '=' || op == '!=') && v['v'] is num ? 'value' : null;
+    }
+    if (v == true || v == 'on') return 'on';
+    if (v == 'off') return 'off';
+    return null;
+  }
+
+  /// True when the card is on, false when it is off, null while its state is not known yet.
+  bool? onState(Json w) {
+    final s = st(w['id'] as String);
+    switch (w['type']) {
+      case 'switch' || 'ac':
+        final v = s['on'];
+        return v is bool ? v : null;
+      case 'dimmer':
+        final v = s['val'];
+        return v is num ? v > 0 : null;
+    }
+    return null;
+  }
+
+  /// True when the card is on (a card whose state is not known yet is not).
+  bool isOn(Json w) => onState(w) == true;
+
+  /// Cards that remind now: the ones set to "When on" that are on, and the ones set to "When off" that are off (a card whose state is
+  /// not known yet never reminds), except those dismissed until the App is opened again.
+  final Set<String> dismissed = {};
+  List<Json> reminders() {
+    final out = <Json>[];
+    for (final w in allCards()) {
+      final mode = remindMode(w);
+      if (mode == null) continue;
+      final id = w['id'] as String;
+      final due = _due(w, mode);
+      if (due == true) {
+        if (!dismissed.contains(id)) out.add(w);
+      } else if (due == false) {
+        // The state changed back: if it comes again, it reminds again.
+        dismissed.remove(id);
+      }
+    }
+    return out;
+  }
+
+  /// Whether the card's reminder is due now; null while its state or value is not known yet.
+  bool? _due(Json w, String mode) {
+    if (mode == 'value') {
+      final n = st(w['id'] as String)['val'];
+      if (n is! num) return null;
+      final r = jsonMap(w['remind']);
+      final x = n.toDouble(), t = (r['v'] as num).toDouble();
+      return switch (r['op']) {
+        '>' => x > t,
+        '<' => x < t,
+        '=' => (x - t).abs() < 1e-6,
+        _ => (x - t).abs() >= 1e-6,
+      };
+    }
+    final on = onState(w);
+    if (on == null) return null;
+    return mode == 'on' ? on : !on;
+  }
+
+  void dismissReminder(Json w) {
+    dismissed.add(w['id'] as String);
+    notifyListeners();
+  }
+
+  /// Turns a card off (the quick action of a reminder).
+  void turnOff(Json w) {
+    final s = st(w['id'] as String);
+    switch (w['type']) {
+      case 'switch':
+        if (s['on'] == true) {
+          s['on'] = false;
+          send(w, 'write', false);
+        }
+        break;
+      case 'dimmer':
+        if (((s['val'] as num?) ?? 0) > 0) {
+          s['val'] = 0;
+          if (jsonMap(w['bind'])['write'] != null) {
+            send(w, 'write', false);
+          } else {
+            send(w, 'value', 0);
+          }
+        }
+        break;
+      case 'ac':
+        act(w, 'off');
+        return;
+    }
+    notifyListeners();
+  }
+
+  /// Turns a card on (the quick action of a reminder to switch something on).
+  void turnOn(Json w) {
+    final s = st(w['id'] as String);
+    switch (w['type']) {
+      case 'switch':
+        if (s['on'] != true) {
+          s['on'] = true;
+          send(w, 'write', true);
+        }
+        break;
+      case 'dimmer':
+        if (((s['val'] as num?) ?? 0) <= 0) {
+          s['val'] = 100;
+          if (jsonMap(w['bind'])['write'] != null) {
+            send(w, 'write', true);
+          } else {
+            send(w, 'value', 100);
+          }
+        }
+        break;
+      case 'ac':
+        if (s['on'] != true) act(w, 'power');
+        return;
+    }
+    notifyListeners();
+  }
+
+  /// Where a card is: its room and its page, or null.
+  ({Json room, Json sub})? locate(String cardId) {
+    for (final r in roomsOf(doc)) {
+      for (final sb in subsOf(r)) {
+        if (cardsOf(sb).any((w) => w['id'] == cardId)) return (room: r, sub: sb);
+      }
+    }
+    return null;
+  }
+
+  /// Addresses to read when the App opens, for the cards that remind (wherever they are).
+  List<Json> readsForReminders() => _readsOf(allCards().where((w) => remindMode(w) != null));
+
   /// Every card of the configuration, cards inside grid frames included.
   Iterable<Json> allCards() sync* {
     for (final r in jsonList(doc['pages'])) {
@@ -323,6 +474,10 @@ class CardEngine extends ChangeNotifier {
   /// Addresses to read when a page opens: the status address of each card,
   /// or its main address when it has no status address.
   List<Json> readsFor(Json sub) {
+    return _readsOf(cardsOf(sub));
+  }
+
+  List<Json> _readsOf(Iterable<Json> cards) {
     const status = {
       'status',
       'ctStatus',
@@ -341,7 +496,7 @@ class CardEngine extends ChangeNotifier {
     const main = {'write', 'value', 'position', 'setpoint', 'power', 'mode', 'fan', 'play', 'mute', 'volume', 'shuffle', 'repeat'};
     final out = <Json>[];
     final seen = <String>{};
-    for (final w in cardsOf(sub)) {
+    for (final w in cards) {
       if (w['type'] == 'button' || w['type'] == 'scene') continue;
       final b = jsonMap(w['bind']);
       final keys = b.keys.where((k) => status.contains(k) || k.startsWith('modeSt_')).toList();

@@ -6,8 +6,14 @@ class KnxPayload {
   final bool short;
   final int shortValue;
   final Uint8List bytes;
-  KnxPayload.short(int value) : short = true, shortValue = value & 0x3F, bytes = Uint8List(0);
-  KnxPayload.bytes(List<int> data) : short = false, shortValue = 0, bytes = Uint8List.fromList(data);
+  KnxPayload.short(int value)
+      : short = true,
+        shortValue = value & 0x3F,
+        bytes = Uint8List(0);
+  KnxPayload.bytes(List<int> data)
+      : short = false,
+        shortValue = 0,
+        bytes = Uint8List.fromList(data);
 
   /// Raw data as it appears on the bus (short values as a single byte).
   List<int> get raw => short ? [shortValue] : bytes;
@@ -47,6 +53,80 @@ const List<DptInfo> kCommonDpts = [
   DptInfo('232.600', 'RGB color'),
   DptInfo('251.600', 'RGBW color'),
 ];
+
+/// The unit of the usual datapoint types (by exact sub-type), shown after the value of a Value card.
+const Map<String, String> kDptUnits = {
+  '5.001': '%',
+  '5.003': '°',
+  '5.004': '%',
+  '6.001': '%',
+  '7.002': 'ms',
+  '7.005': 's',
+  '7.006': 'min',
+  '7.007': 'h',
+  '7.011': 'mm',
+  '7.012': 'mA',
+  '7.013': 'lx',
+  '7.600': 'K',
+  '8.002': 'ms',
+  '8.005': 's',
+  '8.006': 'min',
+  '8.007': 'h',
+  '8.010': '%',
+  '8.011': '°',
+  '8.012': 'm',
+  '9.001': '°C',
+  '9.002': 'K',
+  '9.003': 'K/h',
+  '9.004': 'lx',
+  '9.005': 'm/s',
+  '9.006': 'Pa',
+  '9.007': '%',
+  '9.008': 'ppm',
+  '9.009': 'm³/h',
+  '9.010': 's',
+  '9.011': 'ms',
+  '9.020': 'mV',
+  '9.021': 'mA',
+  '9.022': 'W/m²',
+  '9.023': 'K/%',
+  '9.024': 'kW',
+  '9.025': 'L/h',
+  '9.026': 'L/m²',
+  '9.027': '°F',
+  '9.028': 'km/h',
+  '9.029': 'g/m³',
+  '9.030': 'µg/m³',
+  '12.100': 's',
+  '12.101': 'min',
+  '12.102': 'h',
+  '13.002': 'm³/h',
+  '13.010': 'Wh',
+  '13.011': 'VAh',
+  '13.012': 'VARh',
+  '13.013': 'kWh',
+  '13.014': 'kVAh',
+  '13.015': 'kVARh',
+  '13.016': 'MWh',
+  '14.007': '°',
+  '14.019': 'A',
+  '14.027': 'V',
+  '14.028': 'V',
+  '14.031': 'J',
+  '14.033': 'Hz',
+  '14.039': 'm',
+  '14.051': 'kg',
+  '14.056': 'W',
+  '14.058': 'Pa',
+  '14.065': 'm/s',
+  '14.068': '°C',
+  '14.074': 's',
+  '14.076': 'm³',
+  '14.077': 'm³/s',
+};
+
+/// The unit of a datapoint type ('' when it has none or only the size is known).
+String dptUnit(String? dpt) => dpt == null ? '' : (kDptUnits[dpt] ?? '');
 
 /// Datapoint types grouped by size, as in the ETS type list
 /// ("1 Bit - (DPT 1.*) Boolean" …). [id] is the type assigned when the group
@@ -195,6 +275,8 @@ class Dpt {
       case 2:
       case 3:
         return data.last & 0x0F;
+      case 4:
+        return String.fromCharCode(data[0]);
       case 5:
         if (dpt == '5.001') return (data[0] * 100 / 255).round();
         if (dpt == '5.003') return (data[0] * 360 / 255).round();
@@ -219,8 +301,24 @@ class Dpt {
         return data[0] & 0x3F;
       case 18:
         return data[0] & 0xBF;
+      case 10:
+        // Time of day: day of week (3 bits) + hour, minute, second.
+        if (data.length < 3) return null;
+        const days = ['', 'Mon ', 'Tue ', 'Wed ', 'Thu ', 'Fri ', 'Sat ', 'Sun '];
+        return '${days[(data[0] >> 5) & 0x07]}${_two(data[0] & 0x1F)}:${_two(data[1] & 0x3F)}:${_two(data[2] & 0x3F)}';
+      case 11:
+        // Date: day, month, year (0–89 = 2000–2089, 90–99 = 1990–1999).
+        if (data.length < 3) return null;
+        final y = data[2] & 0x7F;
+        return '${_two(data[0] & 0x1F)}/${_two(data[1] & 0x0F)}/${y >= 90 ? 1900 + y : 2000 + y}';
+      case 19:
+        // Date and time: year since 1900, month, day, hour, minute, second (flags are ignored).
+        if (data.length < 6) return null;
+        return '${_two(data[2] & 0x1F)}/${_two(data[1] & 0x0F)}/${1900 + data[0]} ${_two(data[3] & 0x1F)}:${_two(data[4] & 0x3F)}:${_two(data[5] & 0x3F)}';
       case 20:
         return data[0];
+      case 22:
+        return data.length >= 2 ? bd.getUint16(0) : data[0];
       case 232:
       case 251:
         if (data.length < 3) return null;
@@ -229,6 +327,8 @@ class Dpt {
         return data.length == 1 ? data[0] : data.map((b) => b.toRadixString(16).padLeft(2, '0')).join(' ');
     }
   }
+
+  static String _two(int v) => v.toString().padLeft(2, '0');
 
   /// Human readable text for a decoded value, in Vietnamese.
   static String format(String dpt, Object? v) {

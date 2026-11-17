@@ -11,37 +11,21 @@ import 'icons.dart';
 import 'ios_controls.dart';
 import 'look.dart';
 import 'model.dart';
+import 'press.dart';
 
-/// Colors of the simulated app screen (light/dark like the real app).
-/// The App themes, in three sets of three (colors from the design table):
-/// Sáng (L1–L3), Trung tính (G1–G3) and Tối (D1–D3).
+/// The App themes: iOS style, Light and Dark.
 const List<(String, List<(String, String)>)> kAppThemeGroups = [
-  ('Light', [('l1', 'Glacier Blue'), ('l2', 'Fresh Green'), ('l3', 'Sand Beige')]),
-  ('Neutral', [('g1', 'Slate Gray'), ('g2', 'Graphite Gray'), ('g3', 'Neutral Gray')]),
-  ('Dark', [('d1', 'Deep Blue'), ('d2', 'Forest Green'), ('d3', 'Warm Amber')]),
-  ('iOS', [('i1', 'iOS Light'), ('i2', 'iOS Dark')]),
+  ('Theme', [('i1', 'Light'), ('i2', 'Dark')]),
 ];
 
-/// Flat list for drop-downs: (key, "Sáng · Glacier Blue").
-const List<(String, String)> kAppThemes = [
-  ('l1', 'Light · Glacier Blue'),
-  ('l2', 'Light · Fresh Green'),
-  ('l3', 'Light · Sand Beige'),
-  ('g1', 'Neutral · Slate Gray'),
-  ('g2', 'Neutral · Graphite Gray'),
-  ('g3', 'Neutral · Neutral Gray'),
-  ('d1', 'Dark · Deep Blue'),
-  ('d2', 'Dark · Forest Green'),
-  ('d3', 'Dark · Warm Amber'),
-  ('i1', 'iOS · Light'),
-  ('i2', 'iOS · Dark'),
-];
+/// Flat list for drop-downs: (key, name).
+const List<(String, String)> kAppThemes = [('i1', 'Light'), ('i2', 'Dark')];
 
-/// A valid theme key. The five older themes become the nearest new one.
+/// A valid theme key. Any older theme key becomes the nearest of the two: the dark ones Dark, every other one Light.
 String themeKey(Object? mode) {
-  const legacy = {'light': 'l1', 'sand': 'l3', 'gray': 'g3', 'graphite': 'g2', 'dark': 'd1', 'ocean': 'd1'};
-  final m = legacy[mode] ?? mode;
-  return kAppThemes.any((t) => t.$1 == m) ? m as String : 'l1';
+  const dark = {'dark', 'ocean', 'graphite', 'gray', 'd1', 'd2', 'd3', 'g1', 'g2', 'g3'};
+  if (dark.contains(mode)) return 'i2';
+  return kAppThemes.any((t) => t.$1 == mode) ? mode as String : 'i1';
 }
 
 /// The color a lit card (switch, dimmer, AC that is on) glows in, or null.
@@ -229,182 +213,10 @@ class AppPalette {
     );
   }
 
-  static AppPalette of(String? mode) => switch (themeKey(mode)) {
-    'l2' => l2,
-    'l3' => l3,
-    'g1' => g1,
-    'g2' => g2,
-    'g3' => g3,
-    'd1' => d1,
-    'd2' => d2,
-    'd3' => d3,
-    'i1' => i1,
-    'i2' => i2,
-    _ => l1,
-  };
+  static AppPalette of(String? mode) => themeKey(mode) == 'i2' ? i2 : i1;
 
   /// The default light theme (also used by the welcome screen).
-  static AppPalette get light => l1;
-
-  static double _contrast(Color a, Color b) {
-    final x = a.computeLuminance() + 0.05, y = b.computeLuminance() + 0.05;
-    return x > y ? x / y : y / x;
-  }
-
-  /// Builds a theme from the seven colors of the design table:
-  /// Nền chung, Card OFF, Card ON, Nút t/p OFF, Nút t/p Selected, Chữ chính,
-  /// Chữ phụ. [on] is the color of an "on" light, icon and slider.
-  static AppPalette _theme({
-    required bool dark,
-    bool gray = false,
-    required int screen,
-    required int tile,
-    required int tileOn,
-    required int chip,
-    required int chipOn,
-    required int ink,
-    required int muted,
-    int? on,
-    int? onText,
-  }) {
-    Color c(int v) => Color(0xFF000000 | v);
-    Color mix(Color a, Color b, double t) => Color.lerp(a, b, t)!;
-    final s = c(screen), ch = c(chip), sel = c(chipOn), i = c(ink), m = c(muted);
-    // Cards stand out from the screen: darker than a light screen, a little
-    // lighter than a dark one.
-    final t = dark ? mix(c(tile), Colors.white, 0.07) : mix(s, i, 0.12);
-    // The card while on is clearly different from the idle one: a strong tint
-    // of the theme color (grey themes: a lighter grey).
-    final o = gray ? mix(c(tileOn), i, 0.25) : (dark ? mix(c(tileOn), sel, 0.35) : mix(s, sel, 0.50));
-    // The accent stays readable on the screen color.
-    final accent = _contrast(sel, s) >= 3 ? sel : mix(sel, i, 0.55);
-    final lit = on != null ? c(on) : sel;
-    return AppPalette(
-      screen: s,
-      tile: t,
-      tileOn: o,
-      chip: ch,
-      chipOn: sel,
-      chipOnText: onText != null ? c(onText) : Colors.white,
-      tileEdge: mix(t, i, dark ? 0.16 : 0.10),
-      panel: ch,
-      ink: i,
-      muted: m,
-      line: mix(s, i, 0.12),
-      lineStrong: mix(s, i, 0.28),
-      accent: accent,
-      accentSoft: o,
-      led: lit,
-      ledSoft: o,
-      danger: dark ? const Color(0xFFFF8F7A) : const Color(0xFFD9432F),
-    );
-  }
-
-  // ---- Sáng
-  static final AppPalette l1 = _theme(
-    dark: false,
-    screen: 0xF2F6FF,
-    tile: 0xFFFFFF,
-    tileOn: 0xE6F0FF,
-    chip: 0xE4EAF4,
-    chipOn: 0x3B82F6,
-    ink: 0x172B46,
-    muted: 0x64748B,
-  );
-  static final AppPalette l2 = _theme(
-    dark: false,
-    screen: 0xF5F9F5,
-    tile: 0xFFFFFF,
-    tileOn: 0xE8F6ED,
-    chip: 0xE3EEE6,
-    chipOn: 0x22C55E,
-    ink: 0x1F2937,
-    muted: 0x6B7280,
-  );
-  static final AppPalette l3 = _theme(
-    dark: false,
-    screen: 0xFAF7F2,
-    tile: 0xFFFFFF,
-    tileOn: 0xF4E9DA,
-    chip: 0xEEE4D8,
-    chipOn: 0xC38B5C,
-    ink: 0x2E2A26,
-    muted: 0x7A6F64,
-  );
-
-  // ---- Trung tính (grey)
-  static final AppPalette g1 = _theme(
-    dark: true,
-    gray: true,
-    screen: 0x2C3139,
-    tile: 0x3A4048,
-    tileOn: 0x4C5560,
-    chip: 0x3F4650,
-    chipOn: 0x67707B,
-    ink: 0xF1F3F5,
-    muted: 0x9AA3AD,
-    on: 0xF1F3F5,
-  );
-  static final AppPalette g2 = _theme(
-    dark: true,
-    gray: true,
-    screen: 0x1F242B,
-    tile: 0x2B3138,
-    tileOn: 0x3A4149,
-    chip: 0x323941,
-    chipOn: 0x4F5964,
-    ink: 0xECEFF3,
-    muted: 0x9AA4AE,
-    on: 0xECEFF3,
-  );
-  static final AppPalette g3 = _theme(
-    dark: true,
-    gray: true,
-    screen: 0x2E343C,
-    tile: 0x39424A,
-    tileOn: 0x4A535C,
-    chip: 0x3E4851,
-    chipOn: 0x59646F,
-    ink: 0xF1F4F7,
-    muted: 0xA6AFB8,
-    on: 0xF1F4F7,
-  );
-
-  // ---- Tối
-  static final AppPalette d1 = _theme(
-    dark: true,
-    screen: 0x0E1624,
-    tile: 0x172132,
-    tileOn: 0x1E3A6E,
-    chip: 0x233042,
-    chipOn: 0x2563EB,
-    ink: 0xE5E7EB,
-    muted: 0x94A3B8,
-    on: 0x7AA2F7,
-  );
-  static final AppPalette d2 = _theme(
-    dark: true,
-    screen: 0x0F1C17,
-    tile: 0x1B2A23,
-    tileOn: 0x1F4D3B,
-    chip: 0x254034,
-    chipOn: 0x10B981,
-    ink: 0xE6F2EC,
-    muted: 0x9DB2A8,
-    on: 0x5EDBB0,
-  );
-  static final AppPalette d3 = _theme(
-    dark: true,
-    screen: 0x1A140E,
-    tile: 0x2A221A,
-    tileOn: 0x4B3218,
-    chip: 0x3B3025,
-    chipOn: 0xD39B55,
-    ink: 0xF3EDE6,
-    muted: 0xB8A99A,
-    on: 0xF2B65C,
-    onText: 0x2A1B08,
-  );
+  static AppPalette get light => i1;
 
   // ---- iOS (Apple system colors, iOS 26)
   static const AppPalette i1 = AppPalette(
@@ -486,6 +298,11 @@ class AppPalette {
   return (pal, false);
 }
 
+/// The edge of a "Border only" card in the iOS themes (they have no border of their own, so the card would be invisible): a clear
+/// line, or null for any other card.
+Border? iosOutlineBorder(Json w, AppPalette pal) =>
+    pal.ios && jsonMap(w['style'])['bg'] == 'outline' ? Border.all(color: pal.iosLight ? pal.lineStrong : pal.line, width: 1.0) : null;
+
 Color? hexColor(Object? s) {
   final t = (s ?? '').toString().replaceAll('#', '');
   if (t.length != 6) return null;
@@ -519,21 +336,45 @@ class TileView extends StatelessWidget {
   /// Icon button used by every card (the curtain card's look): the button is
   /// the icon size plus 12, so the icon fills about two thirds of it. The
   /// same proportions everywhere keep buttons and icons in step.
-  Widget _ibtn(String action, Object icon, double s, {Object? arg, bool expand = true, bool circle = false, Color? fill, Color? edge, Color? fg}) {
-    final h = s + 12;
-    final color = fg ?? pal.muted;
+  Widget _ibtn(
+    String action,
+    Object icon,
+    double s, {
+    Object? arg,
+    bool expand = true,
+    bool circle = false,
+    Color? fill,
+    Color? edge,
+    Color? fg,
+    double pad = 12,
+    bool tint = false,
+  }) {
+    final h = s + pad;
+    // [tint]: a clearer button (the blind card's): see-through fill, the icon in the text color, and the accent color while pressed.
+    final color = fg ?? (tint ? pal.ink : pal.muted);
     // A selected button (filled with a strong color) also glows a little.
     final selected = fill != null && fill != pal.panel;
-    final inner = Container(
+    final radius = BorderRadius.circular(s * 0.4 + 2);
+    Widget face(bool down) => Container(
       width: circle ? h : null,
       height: h,
       margin: expand ? const EdgeInsets.symmetric(horizontal: 2.5) : null,
-      decoration: pal.iosLight && fill == null
+      decoration: down
+          ? BoxDecoration(color: pal.accent, shape: circle ? BoxShape.circle : BoxShape.rectangle, borderRadius: circle ? null : radius)
+          : pal.iosLight && fill == null
           ? BoxDecoration(
-              color: pal.panel,
+              color: tint ? pal.panel.withValues(alpha: 0.6) : pal.panel,
               shape: circle ? BoxShape.circle : BoxShape.rectangle,
               borderRadius: circle ? null : BorderRadius.circular(s * 0.4 + 2),
               border: Border.all(color: pal.line, width: 0.5),
+            )
+          : pal.ios && fill == null && tint
+          // The blind card's buttons in Dark: a light, flat see-through fill and a thin rim, no shadow (the glass look is too heavy there).
+          ? BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.12),
+              shape: circle ? BoxShape.circle : BoxShape.rectangle,
+              borderRadius: circle ? null : BorderRadius.circular(s * 0.4 + 2),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.22), width: 0.5),
             )
           : pal.ios && fill == null
           ? glassDeco(dark: pal.ink.computeLuminance() > 0.5, radius: BorderRadius.circular(s * 0.4 + 2), circle: circle, alpha: 0.9)
@@ -547,9 +388,10 @@ class TileView extends StatelessWidget {
               lift: pal.lift,
             ),
       child: Center(
-        child: icon is IconData ? Icon(icon, size: s, color: color) : iconWidget(icon as String, s, color),
+        child: icon is IconData ? Icon(icon, size: s, color: down ? Colors.white : color) : iconWidget(icon as String, s, down ? Colors.white : color),
       ),
     );
+    final inner = tint ? PressTint(builder: face) : face(false);
     final t = _tap(action, inner, arg);
     return expand ? Expanded(child: t) : t;
   }
@@ -619,7 +461,7 @@ class TileView extends StatelessWidget {
     // Every card with a body is lifted (bevel + the shadow layer of the grid).
     final raisedCard = pal.tile != Colors.transparent && pal.lift > 0.01;
     final cardBorder = alarm
-        ? Border.all(color: pal.danger, width: max(1.5, pal.border))
+        ? null // the alarm edge is drawn over the card (below), so it takes no room: the content does not move
         : pal.iosLight && !noBorder
         ? null // the hairline of iOS Light is drawn over the card (below), so it takes no room: same inner size as Dark
         : pal.border <= 0 || pal.ios || (noBorder && !lit)
@@ -628,6 +470,7 @@ class TileView extends StatelessWidget {
             color: lit ? colorOn.withValues(alpha: 0.85 * pal.edgeOpacity) : pal.edge,
             width: lit ? max(1.5, pal.border) : pal.border,
           );
+    final fullCamera = type == 'camera' && noBorder && jsonMap(w['cam'])['view'] != 'button';
     return AnimatedContainer(
       duration: const Duration(milliseconds: 220),
       curve: Curves.easeOutCubic,
@@ -646,13 +489,25 @@ class TileView extends StatelessWidget {
               borderRadius: BorderRadius.circular(pal.radius),
               border: Border.all(color: kEditorSelection, width: 1.5),
             )
-          : (pal.iosLight && !noBorder && !alarm
+          : (pal.ios && style['bg'] == 'outline' && !alarm
+                ? BoxDecoration(
+                    // "Border only": the card has no fill, so its edge is drawn in a clear line (drawn over the card, it takes no room).
+                    borderRadius: BorderRadius.circular(pal.radius),
+                    border: Border.all(color: pal.iosLight ? pal.lineStrong : pal.line, width: 1.0),
+                  )
+                : pal.iosLight && !noBorder && !alarm
                 ? BoxDecoration(
                     borderRadius: BorderRadius.circular(pal.radius),
                     border: Border.all(color: pal.line, width: 0.5),
                   )
+                : alarm
+                ? BoxDecoration(
+                    borderRadius: BorderRadius.circular(pal.radius),
+                    border: Border.all(color: pal.danger, width: max(1.5, pal.border)),
+                  )
                 : null),
-      padding: imageBtn ? const EdgeInsets.all(8) : const EdgeInsets.fromLTRB(12, 10, 12, 10),
+      // A camera on a transparent card: the picture fills the whole card, edge to edge.
+      padding: fullCamera ? EdgeInsets.zero : (imageBtn ? const EdgeInsets.all(8) : const EdgeInsets.fromLTRB(12, 10, 12, 10)),
       // Clipped to the card's rounded shape (not to the padded content), so a
       // button's shadow may use the card's padding.
       clipBehavior: Clip.antiAlias,
@@ -665,12 +520,14 @@ class TileView extends StatelessWidget {
     );
   }
 
-  /// The state row shown by a state-style value card (the first row as a
+  /// The status row shown by a value card (in the Full look the first row as a
   /// sample while designing, when no value is known yet).
   Json? _stateRow() {
-    if (!isStateValue(w)) return null;
-    final r = valueState(w, sim['val']);
-    if (r != null || sim['val'] != null || act != null) return r;
+    if (w['type'] != 'value') return null;
+    // The Simple look has its own status table too: only the row that matches the value counts (no sample row).
+    if (!isStateValue(w)) return valueState(w, sim['val'] ?? sim['raw']);
+    final r = valueState(w, sim['val'] ?? sim['raw']);
+    if (r != null || sim['val'] != null || sim['raw'] != null || act != null) return r;
     final rows = jsonList(w['states']);
     return rows.isEmpty ? null : rows.first;
   }
@@ -856,15 +713,6 @@ class TileView extends StatelessWidget {
           child: LinearProgressIndicator(value: v.clamp(0, 1).toDouble(), minHeight: 4, backgroundColor: _track, color: c),
         );
 
-  Widget _liveDot() => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-    decoration: BoxDecoration(color: const Color(0xFFE5484D), borderRadius: BorderRadius.circular(6)),
-    child: Text(
-      'LIVE',
-      style: TextStyle(fontSize: 9.5 * EvoScale.k, fontWeight: FontWeight.w700, color: Colors.white, letterSpacing: 0.5),
-    ),
-  );
-
   /// Simple look: icon (and optional control) on top, name below, no state
   /// text; on/off is shown by the card color.
   Widget _simple(Color iconColor, {Widget? trailing}) => Row(
@@ -1015,10 +863,17 @@ class TileView extends StatelessWidget {
         ]);
       case 'value':
         final g = _ga('status');
+        final dpt = (g?['dpt'] ?? '').toString();
+        // The value as received: a number, true/false or text (a date, a word…). While designing, a card in the Simple look shows a
+        // sample of its type until it has a value.
+        final raw = sim['val'] ?? sim['raw'] ?? (isStateValue(w) || !EvoHooks.samples ? null : dptSample(dpt));
+        final vv = valueView(w, raw, dpt: dpt);
+        final row = _stateRow();
+        // The value with its unit, for a value that has no text of its own.
+        final shown = vv.unit.isEmpty ? vv.text : '${vv.text} ${vv.unit}';
         if (isStateValue(w)) {
-          final row = _stateRow();
-          final raw = sim['val'];
-          final text = row != null ? (row['text'] ?? '').toString() : (raw is num ? fmtNum(raw, 0) : (jsonList(w['states']).isEmpty ? 'No state set' : '–'));
+          final rowText = (row?['text'] ?? '').toString();
+          final text = rowText.isNotEmpty ? rowText : (raw != null ? shown : (jsonList(w['states']).isEmpty ? 'No state set' : '–'));
           return _col([
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1039,7 +894,7 @@ class TileView extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: fs(w, 'stateSize') * 1.15,
+                    fontSize: fs(w, 'valueSize'),
                     fontWeight: FontWeight.w600,
                     color: row == null ? pal.muted : (hexColor(row['color']) ?? pal.ink),
                   ),
@@ -1048,51 +903,81 @@ class TileView extends StatelessWidget {
             ),
           ]);
         }
+        // Simple look: the value with its unit. A status that matches the value gives its own text, icon and color.
+        final iconKey = (vv.row?['icon'] ?? w['icon'])?.toString();
+        final rowColor = hexColor(vv.row?['color']);
+        final iconColor = rowColor ?? pal.muted;
+        final valueColor = rowColor ?? pal.ink;
         if (w['look'] == 'simple') {
-          const samples0 = {'9.001': 24.5, '9.004': 320, '9.007': 62, '14.056': 1250, '13.010': 8420, '5.001': 45};
-          final raw0 = sim['val'] ?? samples0[(g?['dpt'] ?? '').toString()];
-          final f0 = jsonMap(w['format']);
-          final dec0 = (f0['decimals'] as num?)?.toInt() ?? 0;
-          return Row(
-            children: [
-              _icon(pal.muted),
-              const SizedBox(width: 8),
-              Expanded(child: _label()),
-              const SizedBox(width: 8),
-              Text(
-                raw0 is num ? fmtNum(raw0, dec0) : '–',
-                style: TextStyle(fontSize: fs(w, 'valueSize') * 0.75, color: pal.ink, fontWeight: FontWeight.w500),
-              ),
-              if ((f0['unit'] ?? '').toString().isNotEmpty) ...[
-                const SizedBox(width: 3),
-                Text(
-                  (f0['unit'] ?? '').toString(),
-                  style: TextStyle(fontSize: fs(w, 'valueSize') * 0.42, color: pal.muted),
+          return LayoutBuilder(
+            builder: (context, bc) => Row(
+              children: [
+                iconWidget(iconKey, fs(w, 'iconSize'), iconColor),
+                const SizedBox(width: 8),
+                // The name and the value share one text baseline (the icon stays centred), so the two texts line up.
+                Expanded(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.baseline,
+                    textBaseline: TextBaseline.alphabetic,
+                    children: [
+                      Expanded(child: _label()),
+                      const SizedBox(width: 8),
+                      // A long text never pushes the name out: the value takes at most a little over half of the row.
+                      ConstrainedBox(
+                        constraints: BoxConstraints(maxWidth: bc.maxWidth * 0.55),
+                        child: Text.rich(
+                          // The line is as high as the name's: a bigger value grows over it and the name stays where it is.
+                          strutStyle: StrutStyle(fontFamily: 'packages/evoknx_ui/Inter', fontSize: fs(w, 'labelSize'), height: 1.2, forceStrutHeight: true),
+                          TextSpan(
+                            text: vv.text,
+                            style: TextStyle(fontSize: fs(w, 'valueSize'), color: valueColor, fontWeight: FontWeight.w500),
+                            children: [
+                              if (vv.unit.isNotEmpty)
+                                TextSpan(
+                                  text: ' ${vv.unit}',
+                                  // Same size, color and weight as the value.
+                                  style: TextStyle(fontSize: fs(w, 'valueSize'), color: valueColor, fontWeight: FontWeight.w500),
+                                ),
+                            ],
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
-            ],
+            ),
           );
         }
-        final dpt = (g?['dpt'] ?? '').toString();
-        const samples = {'9.001': 24.5, '9.004': 320, '9.007': 62, '14.056': 1250, '13.010': 8420, '5.001': 45};
-        final raw = sim['val'] ?? samples[dpt];
-        final f = jsonMap(w['format']);
-        final dec = (f['decimals'] as num?)?.toInt() ?? 0;
         return _col([
-          _head(pal.muted),
+          Row(
+            children: [
+              if (!isNoIcon(iconKey)) ...[iconWidget(iconKey, fs(w, 'iconSize'), iconColor), const SizedBox(width: 8)],
+              Expanded(child: _label()),
+              if (vv.row?['alarm'] == true) ...[const SizedBox(width: 6), Icon(Icons.warning_amber, size: fs(w, 'iconSize') * 0.8, color: pal.danger)],
+            ],
+          ),
           Row(
             crossAxisAlignment: CrossAxisAlignment.baseline,
             textBaseline: TextBaseline.alphabetic,
             children: [
-              Text(
-                raw is num ? fmtNum(raw, dec) : '–',
-                style: TextStyle(fontSize: fs(w, 'valueSize'), color: pal.ink, height: 1),
+              Flexible(
+                child: Text(
+                  vv.text,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: fs(w, 'valueSize'), color: valueColor, height: 1),
+                ),
               ),
-              const SizedBox(width: 3),
-              Text(
-                (f['unit'] ?? '').toString(),
-                style: TextStyle(fontSize: fs(w, 'valueSize') * 0.5, color: pal.muted),
-              ),
+              if (vv.unit.isNotEmpty) ...[
+                const SizedBox(width: 4),
+                Text(
+                  vv.unit,
+                  style: TextStyle(fontSize: fs(w, 'valueSize'), color: valueColor, height: 1),
+                ),
+              ],
             ],
           ),
         ]);
@@ -1104,11 +989,54 @@ class TileView extends StatelessWidget {
         return _col([_head(pal.muted), _state('Tap to activate scene')]);
       case 'camera':
         final cam = jsonMap(w['cam']);
-        if (cam['view'] == 'button') return _simple(pal.muted, trailing: _liveDot());
+        if (cam['view'] == 'button') return _simple(pal.muted);
+        if (w['style'] is Map && jsonMap(w['style'])['bg'] == 'transparent') {
+          // Transparent card: the picture fills the card; the name sits on it, at the top, over a soft shade.
+          final white = Colors.white;
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              CameraView(cam: cam, live: act != null, radius: 0),
+              if (w['showHeader'] != false)
+                // The shade and the name must not catch touches: the full screen button of the picture sits at the top right.
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  top: 0,
+                  child: IgnorePointer(
+                    child: Container(
+                      padding: const EdgeInsets.fromLTRB(12, 10, 40, 18),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [Colors.black.withValues(alpha: 0.5), Colors.black.withValues(alpha: 0)],
+                        ),
+                      ),
+                      // The right side stays free for the full screen button of the picture.
+                      child: Row(
+                        children: [
+                          if (!isNoIcon(w['icon'] as String?)) ...[iconWidget(w['icon'] as String?, fs(w, 'iconSize'), white), const SizedBox(width: 8)],
+                          Flexible(
+                            child: Text(
+                              (w['label'] ?? '').toString(),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: evoLabelStyle(w, white).copyWith(fontWeight: pal.ios ? FontWeight.w600 : FontWeight.w400),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          );
+        }
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            if (w['showHeader'] != false) ...[_head(pal.muted, trailing: _liveDot()), const SizedBox(height: 8)],
+            if (w['showHeader'] != false) ...[_head(pal.muted), const SizedBox(height: 8)],
             Expanded(
               child: CameraView(cam: cam, live: act != null),
             ),
@@ -1212,7 +1140,7 @@ class TileView extends StatelessWidget {
           final hasIcon = !isNoIcon(w['icon'] as String?);
           final dots = ctrl == 'both' ? _tuneBtn() : null;
           final ib = fs(w, 'btnIcon') * 1.15;
-          Widget ibtn(Object i, String a) => _ibtn(a, i, ib);
+          Widget ibtn(Object i, String a) => _ibtn(a, i, ib, pad: 6, tint: true);
           final controls = ctrl == 'slider'
               ? _slider((100 - p) / 100, pal.accent, invert: true)
               : Row(
@@ -1236,7 +1164,29 @@ class TileView extends StatelessWidget {
                   ],
                 );
               }
-              return _col([_head(pal.muted, trailing: dots), controls, if (stateText != null && bc.maxHeight >= 88) _state(stateText)]);
+              // The rows follow each other (the controls right under the name) and the state sits at the bottom; it is shown
+              // only when the card is tall enough, so nothing is ever cut.
+              final need = 22 + 6 + (ib + 6) + fs(w, 'stateSize') * 1.4 + 3;
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  SizedBox(height: 22, child: _head(pal.muted, trailing: dots)),
+                  if (stateText != null && bc.maxHeight >= need) ...[
+                    // Enough room: the controls sit in the middle, the same gap above and below them.
+                    const SizedBox(height: 6),
+                    const Spacer(),
+                    controls,
+                    const Spacer(),
+                    _state(stateText),
+                  ] else ...[
+                    // No state line: the controls sit in the middle of what is left below the name.
+                    const SizedBox(height: 6),
+                    const Spacer(),
+                    Transform.translate(offset: const Offset(0, 4), child: controls),
+                    const Spacer(),
+                  ],
+                ],
+              );
             },
           );
         }
@@ -1532,12 +1482,17 @@ class _PressEffectState extends State<PressEffect> {
 /// cannot, so there it stays null and the card shows the address instead.
 class EvoHooks {
   static Widget Function(BuildContext context, Json cam)? camera;
+
+  /// A Value card with no value yet shows a sample of its type (design only). The App never does, and the Editor stops while it is
+  /// connected to KNX: a card then shows only what the address returned ("–" until it has answered).
+  static bool samples = true;
 }
 
 class CameraView extends StatelessWidget {
-  const CameraView({super.key, required this.cam, this.live = false});
+  const CameraView({super.key, required this.cam, this.live = false, this.radius = 10});
   final Json cam;
   final bool live;
+  final double radius;
 
   @override
   Widget build(BuildContext context) {
@@ -1579,7 +1534,7 @@ class CameraView extends StatelessWidget {
       body = placeholder('$url\nLive video plays in the App');
     }
     return ClipRRect(
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(radius),
       child: ColoredBox(
         color: const Color(0xFF15191B),
         child: SizedBox.expand(child: body),

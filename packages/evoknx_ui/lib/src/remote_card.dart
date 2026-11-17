@@ -273,7 +273,9 @@ class _RemoteCardState extends State<RemoteCard> {
         pal.fill(pal.tile),
         radius: BorderRadius.circular(pal.radius),
         lift: pal.cardLift,
-        border: pal.border <= 0 || _noBorder ? Border.fromBorderSide(BorderSide.none) : Border.all(color: pal.edge, width: pal.border),
+        border:
+            iosOutlineBorder(w, pal) ??
+            (pal.border <= 0 || _noBorder ? Border.fromBorderSide(BorderSide.none) : Border.all(color: pal.edge, width: pal.border)),
         shadow: false,
       ),
       child: note != null

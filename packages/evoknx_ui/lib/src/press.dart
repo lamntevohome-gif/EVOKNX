@@ -35,3 +35,26 @@ class _PressFadeState extends State<PressFade> {
     );
   }
 }
+
+/// Tells its child whether a finger is down on it (a Listener, so it never steals taps or drags). Used to light a button with
+/// the accent color while it is pressed.
+class PressTint extends StatefulWidget {
+  const PressTint({super.key, required this.builder});
+  final Widget Function(bool down) builder;
+
+  @override
+  State<PressTint> createState() => _PressTintState();
+}
+
+class _PressTintState extends State<PressTint> {
+  bool _down = false;
+
+  void _set(bool v) {
+    if (mounted && _down != v) setState(() => _down = v);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Listener(onPointerDown: (_) => _set(true), onPointerUp: (_) => _set(false), onPointerCancel: (_) => _set(false), child: widget.builder(_down));
+  }
+}
